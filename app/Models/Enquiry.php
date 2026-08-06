@@ -67,6 +67,23 @@ class Enquiry extends Model
         'slip_generated_at',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'reg_date'              => 'datetime',
+            'assignment_date'       => 'datetime',
+            'submitted_at'          => 'datetime',
+            'approved_at'           => 'datetime',
+            'notice_date'           => 'date:Y-m-d',
+            'notice_served_at'      => 'datetime',
+            'notice_served'         => 'boolean',
+            'has_unserved_notice'   => 'boolean',
+            'slip_generated'        => 'boolean',
+            'slip_generated_at'     => 'datetime',
+            'notice_count'          => 'integer',
+        ];
+    }
+
     public function complaint(): BelongsTo
     {
         return $this->belongsTo(Complaint::class);

@@ -76,6 +76,8 @@ class Complaint extends Model
             'report_date' => 'date:Y-m-d',
             'occurrence_date' => 'date:Y-m-d',
             'entry_time' => 'datetime',
+            'slip_generated_at' => 'datetime',
+            'slip_generated' => 'boolean',
         ];
     }
 
