@@ -233,9 +233,19 @@ class DashboardController extends Controller
         $user = request()->user();
         $role = $user?->roles?->first()?->name ?? $user?->role ?? 'operator';
         $year = request('year', now()->year);
+        $dateFrom = request('date_from');
+        $dateTo = request('date_to');
+        $accountFilter = request('account');
 
         // ─── Role-based base queries (data isolation via Complaint::visibleTo) ──
         $cmpQuery = Complaint::visibleTo($user);
+
+        if ($dateFrom) {
+            $cmpQuery = $cmpQuery->whereDate('created_at', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $cmpQuery = $cmpQuery->whereDate('created_at', '<=', $dateTo);
+        }
 
         $verQuery = Verification::whereIn('complaint_id', (clone $cmpQuery)->pluck('id'));
         $enqQuery = Enquiry::whereIn('complaint_id', (clone $cmpQuery)->pluck('id'));
