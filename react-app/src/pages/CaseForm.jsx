@@ -129,9 +129,9 @@ export default function CaseForm() {
         }
       });
       if (id) {
-        await api.put(`/cases/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.put(`/cases/${id}`, fd);
       } else {
-        await api.post('/cases', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.post('/cases', fd);
       }
       navigate('/cases');
     } catch (err) {

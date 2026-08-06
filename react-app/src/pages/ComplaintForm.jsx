@@ -164,11 +164,10 @@ export default function ComplaintForm() {
       if (attachmentFile) {
         fd.append('attachment', attachmentFile);
       }
-      const headers = { 'Content-Type': 'multipart/form-data' };
       if (id) {
-        await api.put(`/complaints/${id}`, fd, { headers });
+        await api.put(`/complaints/${id}`, fd);
       } else {
-        await api.post('/complaints', fd, { headers });
+        await api.post('/complaints', fd);
       }
       navigate('/complaints');
     } catch (err) {

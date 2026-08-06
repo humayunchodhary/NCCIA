@@ -251,9 +251,9 @@ export default function EnquiryForm() {
       if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
 
       if (id) {
-        await api.put(`/enquiries/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.put(`/enquiries/${id}`, fd);
       } else {
-        await api.post('/enquiries', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.post('/enquiries', fd);
       }
       navigate('/enquiries');
     } catch (err) {
