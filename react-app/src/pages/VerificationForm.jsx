@@ -1,0 +1,244 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import api from '../api';
+import SearchableSelect from '../components/SearchableSelect';
+
+const RECOMMENDATION_OPTIONS = [
+  { value: 'enquiry_registration', name: 'Enquiry Registration' },
+  { value: 'closure', name: 'Closure' },
+  { value: 'merge', name: 'Merge with Another Complaint' },
+  { value: 'transfer', name: 'Transfer to Other Circle/Dept' },
+];
+
+const CLOSURE_REASONS = [
+  { value: 'non_pursuance', name: 'Non-Pursuance by Complainant' },
+  { value: 'irrelevant', name: 'Irrelevant' },
+  { value: 'invalid', name: 'Invalid' },
+  { value: 'lack_of_evidence', name: 'Lack of Evidence' },
+];
+
+export default function VerificationForm() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '' });
+  const [officers, setOfficers] = useState([]);
+  const [complaints, setComplaints] = useState([]);
+  const [allComplaints, setAllComplaints] = useState([]);
+  const [circles, setCircles] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+  const isEdit = !!id;
+
+  useEffect(() => {
+    api.get('/lookup/verification-officers').then(r => {
+      const all = r.data.data || r.data;
+      setOfficers(Array.isArray(all) ? all : []);
+    }).catch(() => {});
+    api.get('/lookup/circles').then(r => setCircles(r.data || [])).catch(() => {});
+    api.get('/complaints').then(r => {
+      const all = r.data.data || r.data;
+      setComplaints(all.filter(c => c.tracking_no));
+      setAllComplaints(all);
+    }).catch(() => {});
+    if (isEdit) {
+      api.get(`/verifications/${id}`).then(r => {
+        const d = r.data.data || r.data;
+        setForm({ complaint_id: d.complaint_id || '', verification_officer_id: d.verification_officer_id || '', priority_type: d.priority_type || 'normal', status: d.status || 'assigned', report_text: d.report_text || '', recommendation: d.recommendation || '', closure_reason: d.closure_reason || '', merge_complaint_id: d.merge_complaint_id || '', transfer_department: d.transfer_department || '', transfer_circle_id: d.transfer_circle_id || '' });
+      }).catch(() => navigate('/verifications'));
+    }
+  }, [id]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setErrors({});
+    try {
+      if (isEdit) {
+        await api.put(`/verifications/${id}`, form);
+      } else {
+        await api.post('/verifications', form);
+      }
+      navigate('/verifications');
+    } catch (err) {
+      if (err.response?.status === 422) setErrors(err.response.data.errors || {});
+      else setErrors({ _general: err.response?.data?.message || 'Failed to save' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setF = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
+
+  const rec = form.recommendation;
+
+  return (
+    <div className="page-content" style={{maxWidth:'800px',margin:'0 auto'}}>
+      <div className="page-header">
+        <div className="page-title-group">
+          <div className="page-label">Verifications</div>
+          <h1 className="page-title">{isEdit ? 'Edit Verification' : 'Assign New Verification'}</h1>
+          <p className="page-subtitle">{isEdit ? 'Update verification details & recommendation' : 'Assign a complaint for verification'}</p>
+          <div className="title-underline"></div>
+        </div>
+      </div>
+
+      {errors._general && <div className="cf-alert cf-alert-error">{errors._general}</div>}
+
+      <form onSubmit={handleSubmit}>
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon" style={{background:'#015C94'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div><div className="cf-section-title">Assignment Details</div><div className="cf-section-sub">Complaint + Officer + Priority</div></div>
+            <div className="cf-section-badge">Step 1</div>
+          </div>
+          <div className="cf-body">
+            <div className="cf-row-2">
+              <div className="cf-field">
+                <label className="cf-label required">Complaint</label>
+                <div className="cf-input-wrap">
+                  <SearchableSelect
+                    value={form.complaint_id}
+                    onChange={v => setForm(f => ({ ...f, complaint_id: v }))}
+                    options={complaints}
+                    placeholder="Select Complaint"
+                    valueKey="id"
+                    formatLabel={o => o.tracking_no + ' — ' + o.complainant_name}
+                  />
+                </div>
+                {errors.complaint_id && <span className="cf-error">{errors.complaint_id[0]}</span>}
+              </div>
+              <div className="cf-field">
+                <label className="cf-label required">Verification Officer</label>
+                <div className="cf-input-wrap">
+                  <SearchableSelect
+                    value={form.verification_officer_id}
+                    onChange={v => setForm(f => ({ ...f, verification_officer_id: v }))}
+                    options={officers}
+                    placeholder="Select Officer"
+                    valueKey="id"
+                    formatLabel={o => o.name + (o.designation ? ' (' + o.designation + ')' : '')}
+                  />
+                </div>
+                {errors.verification_officer_id && <span className="cf-error">{errors.verification_officer_id[0]}</span>}
+              </div>
+            </div>
+            <div className="cf-row-2">
+              <div className="cf-field">
+                <label className="cf-label required">Priority</label>
+                <div className="cf-input-wrap">
+                  <select className="cf-input" value={form.priority_type} onChange={setF('priority_type')} required>
+                    <option value="">— Select Priority —</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+              <div className="cf-field">
+                <label className="cf-label">Status</label>
+                <div className="cf-input-wrap">
+                  <select className="cf-input" value={form.status} onChange={setF('status')}>
+                    <option value="assigned">Assigned</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="submitted">Submitted</option>
+                    <option value="sent_back">Sent Back</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon" style={{background:'#2B2B2B'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <div><div className="cf-section-title">Recommendation</div><div className="cf-section-sub">Verification officer's recommendation</div></div>
+            <div className="cf-section-badge">Step 2</div>
+          </div>
+          <div className="cf-body">
+            <div className="cf-row-2">
+              <div className="cf-field">
+                <label className="cf-label required">Outcome</label>
+                <select className="cf-input" value={form.recommendation} onChange={setF('recommendation')} required>
+                  <option value="">— Select Outcome —</option>
+                  {RECOMMENDATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                </select>
+                {errors.recommendation && <span className="cf-error">{errors.recommendation[0]}</span>}
+              </div>
+
+              {rec === 'closure' && (
+                <div className="cf-field">
+                  <label className="cf-label required">Closure Reason</label>
+                  <select className="cf-input" value={form.closure_reason} onChange={setF('closure_reason')} required>
+                    <option value="">— Select Reason —</option>
+                    {CLOSURE_REASONS.map(r => <option key={r.value} value={r.value}>{r.name}</option>)}
+                  </select>
+                  {errors.closure_reason && <span className="cf-error">{errors.closure_reason[0]}</span>}
+                </div>
+              )}
+            </div>
+
+            {rec === 'merge' && (
+              <div className="cf-field">
+                <label className="cf-label required">Merge With Complaint</label>
+                <SearchableSelect
+                  value={form.merge_complaint_id}
+                  onChange={v => setForm(f => ({ ...f, merge_complaint_id: v }))}
+                  options={allComplaints.filter(c => c.tracking_no && c.id !== parseInt(form.complaint_id))}
+                  placeholder="Select Complaint"
+                  valueKey="id"
+                  formatLabel={o => o.tracking_no + ' — ' + o.complainant_name}
+                />
+              </div>
+            )}
+
+            {rec === 'transfer' && (
+              <div className="cf-row-2">
+                <div className="cf-field">
+                  <label className="cf-label">Transfer Department</label>
+                  <input type="text" className="cf-input" value={form.transfer_department} onChange={setF('transfer_department')} placeholder="e.g. FIA, Police" />
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label">Transfer Circle</label>
+                  <SearchableSelect
+                    value={form.transfer_circle_id}
+                    onChange={v => setForm(f => ({ ...f, transfer_circle_id: v }))}
+                    options={circles}
+                    placeholder="Select Circle"
+                    valueKey="id"
+                    formatLabel={o => o.name + (o.code ? ' (' + o.code + ')' : '')}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon" style={{background:'#264078'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            </div>
+            <div><div className="cf-section-title">Report / Remarks</div><div className="cf-section-sub">Detailed findings</div></div>
+            <div className="cf-section-badge">Step 3</div>
+          </div>
+          <div className="cf-body">
+            <div className="cf-field">
+              <label className="cf-label">Report / Remarks</label>
+              <textarea className="cf-input cf-textarea" rows={4} value={form.report_text} onChange={setF('report_text')} placeholder="Enter detailed report or remarks…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:20}}>
+          <button type="submit" className="btn btn-primary" disabled={saving} style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:600,borderRadius:'8px',border:'none'}}>{saving ? 'Saving...' : (isEdit ? 'Update Verification' : 'Assign Verification')}</button>
+          <button type="button" className="btn btn-outline" onClick={() => navigate('/verifications')}>Cancel</button>
+        </div>
+      </form>
+    </div>
+  );
+}

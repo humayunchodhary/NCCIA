@@ -1,0 +1,16 @@
+/node_modules
+/vendor
+.env
+.env.*
+!.env.example
+cookies.txt
+/public/build
+/public/storage
+/storage/app/public
+/storage/framework
+/storage/logs
+.DS_Store
+react-build.zip
+package-lock.json
+yarn.lock
+node_modules

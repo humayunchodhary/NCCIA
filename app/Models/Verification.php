@@ -1,0 +1,106 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+
+class Verification extends Model
+{
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll()
+            ->logOnlyDirty();
+    }
+
+    protected $fillable = [
+        'complaint_id',
+        'verification_officer_id',
+        'assigned_by',
+        'status',
+        'recommendation',
+        'report_text',
+        'closure_reason',
+        'merge_complaint_id',
+        'transfer_department',
+        'transfer_circle_id',
+        'priority_type',
+        'assigned_at',
+        'submitted_at',
+        'approved_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'assigned_at'  => 'datetime',
+            'submitted_at' => 'datetime',
+            'approved_at'  => 'datetime',
+        ];
+    }
+
+    public function complaint(): BelongsTo
+    {
+        return $this->belongsTo(Complaint::class);
+    }
+
+    public function officer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verification_officer_id');
+    }
+
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function transferCircle(): BelongsTo
+    {
+        return $this->belongsTo(Circle::class, 'transfer_circle_id');
+    }
+
+    public function mergeComplaint(): BelongsTo
+    {
+        return $this->belongsTo(Complaint::class, 'merge_complaint_id');
+    }
+
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(VerificationApproval::class);
+    }
+
+    /**
+     * Data isolation: users only see verifications they are assigned to
+     * (or that belong to complaints they can see). Supervisory roles see all.
+     */
+    public function scopeVisibleTo($query, ?User $user)
+    {
+        $user = $user ?? auth()->user();
+
+        if (!$user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->seesAllData()) {
+            return $query;
+        }
+
+        if ($user->hasRole('verification_officer')) {
+            return $query->where('verification_officer_id', $user->id);
+        }
+
+        $complaintIds = Complaint::visibleTo($user)->pluck('id');
+
+        if ($complaintIds->isEmpty()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('complaint_id', $complaintIds);
+    }
+}

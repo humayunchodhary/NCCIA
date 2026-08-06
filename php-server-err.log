@@ -1,0 +1,133 @@
+[Wed Aug  5 11:36:22 2026] PHP 8.2.27 Development Server (http://127.0.0.1:8125) started
+[Wed Aug  5 11:37:10 2026] 127.0.0.1:50677 Accepted
+[Wed Aug  5 11:37:10 2026] 127.0.0.1:50677 [401]: GET /api/dashboard
+[Wed Aug  5 11:37:10 2026] 127.0.0.1:50677 Closing
+[Wed Aug  5 11:38:16 2026] 127.0.0.1:50685 Accepted
+[Wed Aug  5 11:38:16 2026] 127.0.0.1:50685 [204]: GET /sanctum/csrf-cookie
+[Wed Aug  5 11:38:16 2026] 127.0.0.1:50685 Closing
+[Wed Aug  5 11:38:16 2026] 127.0.0.1:50686 Accepted
+[Wed Aug  5 11:38:16 2026] 127.0.0.1:50686 [200]: GET /api/user
+[Wed Aug  5 11:38:16 2026] 127.0.0.1:50686 Closing
+[Wed Aug  5 11:38:17 2026] 127.0.0.1:50687 Accepted
+[Wed Aug  5 11:38:17 2026] 127.0.0.1:50688 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50687 [200]: GET /
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50687 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50688 [419]: POST /api/logout
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50688 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50689 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50690 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50689 [200]: GET /css/style.css
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50691 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50690 [200]: GET /css/form.css
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50692 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50691 [200]: GET /css/Responsive.css
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50693 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50692 [200]: GET /react/assets/index-BQdw44Sh.css
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50689 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50693 [200]: GET /react/assets/index-BxlU4QEr.js
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50690 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50691 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50692 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50693 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50694 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50694 [204]: GET /sanctum/csrf-cookie
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50694 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50695 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50695 [200]: GET /api/user
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50695 Closing
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50696 Accepted
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50696 [200]: GET /images/images.jpg
+[Wed Aug  5 11:38:18 2026] 127.0.0.1:50696 Closing
+[Wed Aug  5 11:38:19 2026] 127.0.0.1:50697 Accepted
+[Wed Aug  5 11:38:19 2026] 127.0.0.1:50698 Accepted
+[Wed Aug  5 11:38:19 2026] 127.0.0.1:50697 [200]: GET /api/dashboard
+[Wed Aug  5 11:38:19 2026] 127.0.0.1:50697 Closing
+[Wed Aug  5 11:38:20 2026] 127.0.0.1:50698 [200]: GET /api/sidebar-counts
+[Wed Aug  5 11:38:20 2026] 127.0.0.1:50698 Closing
+[Wed Aug  5 11:38:33 2026] 127.0.0.1:50701 Accepted
+[Wed Aug  5 11:38:33 2026] 127.0.0.1:50701 [419]: POST /api/logout
+[Wed Aug  5 11:38:33 2026] 127.0.0.1:50701 Closing
+[Wed Aug  5 11:41:09 2026] 127.0.0.1:50725 Accepted
+[Wed Aug  5 11:41:10 2026] 127.0.0.1:50725 [204]: GET /sanctum/csrf-cookie
+[Wed Aug  5 11:41:10 2026] 127.0.0.1:50725 Closing
+[Wed Aug  5 11:41:10 2026] 127.0.0.1:50727 Accepted
+[Wed Aug  5 11:41:10 2026] 127.0.0.1:50727 [200]: GET /api/user
+[Wed Aug  5 11:41:10 2026] 127.0.0.1:50727 Closing
+[Wed Aug  5 11:41:12 2026] 127.0.0.1:50729 Accepted
+[Wed Aug  5 11:41:13 2026] 127.0.0.1:50729 [419]: POST /api/logout
+[Wed Aug  5 11:41:13 2026] 127.0.0.1:50729 Closing
+[Wed Aug  5 11:42:51 2026] 127.0.0.1:50763 Accepted
+[Wed Aug  5 11:42:51 2026] 127.0.0.1:50763 [204]: GET /sanctum/csrf-cookie
+[Wed Aug  5 11:42:51 2026] 127.0.0.1:50763 Closing
+[Wed Aug  5 11:42:51 2026] 127.0.0.1:50764 Accepted
+[Wed Aug  5 11:42:51 2026] 127.0.0.1:50764 [200]: GET /api/user
+[Wed Aug  5 11:42:51 2026] 127.0.0.1:50764 Closing
+[Wed Aug  5 11:42:53 2026] 127.0.0.1:50767 Accepted
+[Wed Aug  5 11:42:53 2026] 127.0.0.1:50767 [419]: POST /api/logout
+[Wed Aug  5 11:42:53 2026] 127.0.0.1:50767 Closing
+[Wed Aug  5 11:42:58 2026] 127.0.0.1:50769 Accepted
+[Wed Aug  5 11:42:58 2026] 127.0.0.1:50769 [204]: GET /sanctum/csrf-cookie
+[Wed Aug  5 11:42:58 2026] 127.0.0.1:50769 Closing
+[Wed Aug  5 11:42:58 2026] 127.0.0.1:50770 Accepted
+[Wed Aug  5 11:42:58 2026] 127.0.0.1:50770 [200]: GET /api/user
+[Wed Aug  5 11:42:58 2026] 127.0.0.1:50770 Closing
+[Wed Aug  5 11:42:59 2026] 127.0.0.1:50771 Accepted
+[Wed Aug  5 11:42:59 2026] 127.0.0.1:50772 Accepted
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50771 [200]: GET /
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50771 Closing
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50773 Accepted
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50772 [419]: POST /api/logout
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50772 Closing
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50774 Accepted
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50773 [200]: GET /css/style.css
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50775 Accepted
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50774 [200]: GET /css/form.css
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50776 Accepted
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50775 [200]: GET /css/Responsive.css
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50777 Accepted
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50776 [200]: GET /react/assets/index-BxlU4QEr.js
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50773 Closing
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50777 [200]: GET /react/assets/index-BQdw44Sh.css
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50774 Closing
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50775 Closing
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50777 Closing
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50776 Closing
+[Wed Aug  5 11:43:00 2026] 127.0.0.1:50779 Accepted
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50779 [204]: GET /sanctum/csrf-cookie
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50779 Closing
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50780 Accepted
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50780 [200]: GET /api/user
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50780 Closing
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50781 Accepted
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50781 [200]: GET /images/images.jpg
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50781 Closing
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50782 Accepted
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50783 Accepted
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50782 [200]: GET /api/dashboard
+[Wed Aug  5 11:43:01 2026] 127.0.0.1:50782 Closing
+[Wed Aug  5 11:43:02 2026] 127.0.0.1:50783 [200]: GET /api/sidebar-counts
+[Wed Aug  5 11:43:02 2026] 127.0.0.1:50783 Closing
+[Wed Aug  5 11:43:08 2026] 127.0.0.1:50784 Accepted
+[Wed Aug  5 11:43:09 2026] 127.0.0.1:50784 [200]: GET /api/complaints
+[Wed Aug  5 11:43:09 2026] 127.0.0.1:50784 Closing
+[Wed Aug  5 11:43:10 2026] 127.0.0.1:50786 Accepted
+[Wed Aug  5 11:43:10 2026] 127.0.0.1:50787 Accepted
+[Wed Aug  5 11:43:10 2026] 127.0.0.1:50786 [200]: GET /api/verifications
+[Wed Aug  5 11:43:10 2026] 127.0.0.1:50786 Closing
+[Wed Aug  5 11:43:11 2026] 127.0.0.1:50787 [200]: GET /api/verifications/stats
+[Wed Aug  5 11:43:11 2026] 127.0.0.1:50787 Closing
+[Wed Aug  5 11:43:12 2026] 127.0.0.1:50789 Accepted
+[Wed Aug  5 11:43:12 2026] 127.0.0.1:50789 [200]: GET /api/verifications/reports-list
+[Wed Aug  5 11:43:12 2026] 127.0.0.1:50789 Closing
+[Wed Aug  5 11:43:13 2026] 127.0.0.1:50790 Accepted
+[Wed Aug  5 11:43:13 2026] 127.0.0.1:50791 Accepted
+[Wed Aug  5 11:43:13 2026] 127.0.0.1:50790 [200]: GET /api/enquiries?page=1
+[Wed Aug  5 11:43:13 2026] 127.0.0.1:50790 Closing
+[Wed Aug  5 11:43:13 2026] 127.0.0.1:50791 [404]: GET /api/enquiries/stats
+[Wed Aug  5 11:43:13 2026] 127.0.0.1:50791 Closing
+[Wed Aug  5 11:43:14 2026] 127.0.0.1:50792 Accepted
+[Wed Aug  5 11:43:14 2026] 127.0.0.1:50792 [200]: GET /api/investigation-officers?page=1
+[Wed Aug  5 11:43:14 2026] 127.0.0.1:50792 Closing
+[Wed Aug  5 11:43:16 2026] 127.0.0.1:50793 Accepted
+[Wed Aug  5 11:43:16 2026] 127.0.0.1:50793 [419]: POST /api/logout
+[Wed Aug  5 11:43:16 2026] 127.0.0.1:50793 Closing

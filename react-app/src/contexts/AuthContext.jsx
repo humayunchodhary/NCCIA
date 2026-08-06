@@ -1,0 +1,81 @@
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import api from '../api';
+
+export const csrf = () => axios.get('/sanctum/csrf-cookie', { withCredentials: true });
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [remaining, setRemaining] = useState(null);
+  const [retryAfter, setRetryAfter] = useState(null);
+
+  const checkAuth = useCallback(() => {
+    const forced = sessionStorage.getItem('force_logout');
+    if (forced) {
+      sessionStorage.removeItem('force_logout');
+      setLoading(false);
+      return;
+    }
+    csrf().finally(() => {
+      api.get('/user').then(r => setUser(r.data)).catch(() => setUser(null)).finally(() => setLoading(false));
+    });
+  }, []);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        navigator.sendBeacon?.('/api/logout');
+      } else if (document.visibilityState === 'visible') {
+        checkAuth();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [checkAuth]);
+
+  const login = async (email, password) => {
+    setError(null);
+    setRemaining(null);
+    setRetryAfter(null);
+    try {
+      await csrf();
+      const r = await api.post('/login', { email, password });
+      setUser(r.data.user);
+      return r.data;
+    } catch (err) {
+      const data = err.response?.data || {};
+      const msg = data.message || 'Login failed';
+      if (err.response?.status === 429) {
+        setRetryAfter(data.retry_after || 60);
+        setError(msg);
+      } else {
+        setRemaining(data.remaining);
+        setError(data.remaining !== undefined ? `${msg} (${data.remaining} attempt${data.remaining === 1 ? '' : 's'} left)` : msg);
+      }
+      throw err;
+    }
+  };
+
+  const clearError = () => { setError(null); setRemaining(null); setRetryAfter(null); };
+
+  const logout = async () => {
+    // Always navigate to force-logout which destroys session regardless of API state
+    window.location.href = '/force-logout';
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, error, remaining, retryAfter, login, logout, clearError }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
