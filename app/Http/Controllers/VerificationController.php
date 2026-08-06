@@ -181,6 +181,112 @@ class VerificationController extends Controller
             ->with('success', 'Verification report saved successfully');
     }
 
+    public function showReport(VerificationReport $report)
+    {
+        abort_unless(
+            VerificationReport::visibleTo(request()->user())->whereKey($report->id)->exists(),
+            404
+        );
+
+        return response()->json($report->load('creator', 'complaint'));
+    }
+
+    public function updateReport(Request $request, VerificationReport $report)
+    {
+        abort_unless(
+            VerificationReport::visibleTo(request()->user())->whereKey($report->id)->exists(),
+            404
+        );
+
+        $data = $request->validate([
+            'complaint_id'        => 'nullable|exists:complaints,id',
+            'tracking_no'         => 'required|string|max:255',
+            'assignment_date'     => 'nullable|date',
+            'verification_date'   => 'nullable|date',
+
+            'victim_name'         => 'required|string|max:255',
+            'victim_father_name'  => 'nullable|string|max:255',
+            'victim_occupation'   => 'nullable|string|max:255',
+            'victim_gender'       => 'nullable|in:male,female,other',
+            'victim_cnic'         => ['required', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
+            'victim_country_code' => 'nullable|string|max:8',
+            'victim_phone'        => 'required|string|max:20',
+
+            'crime_category'      => 'required|string|max:255',
+            'crime_description'   => 'nullable|string|max:5000',
+            'city'                => 'required|string|max:255',
+
+            'accused_known'       => 'required|boolean',
+            'accused'             => 'nullable|array',
+            'accused.*.name'      => 'nullable|string|max:255',
+            'accused.*.father_name' => 'nullable|string|max:255',
+            'accused.*.phone'     => 'nullable|string|max:20',
+            'accused.*.cnic'      => ['nullable', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
+            'accused.*.address'   => 'nullable|string|max:1000',
+            'accused.*.post_address' => 'nullable|string|max:1000',
+            'accused.*.nationality' => 'nullable|string|max:50',
+            'accused.*.passport_no' => 'nullable|string|max:50|required_if:accused.*.nationality,Dual Nationality Holder|required_if:accused.*.nationality,Foreigner',
+            'accused.*.photo'     => 'nullable|string',
+
+            'recommendation_short' => 'nullable|string|max:2000',
+            'recommendation_full'  => 'nullable|string|max:10000',
+            'recommendation'       => 'nullable|string|in:enquiry_registration,closure,merge,transfer',
+            'closure_reason'       => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
+
+            'inquiry_no'          => 'nullable|string|max:255',
+            'case_no'             => 'nullable|string|max:255',
+            'evidence_file'       => 'nullable|array',
+            'evidence_file.*'     => 'file|mimes:jpg,jpeg,png,pdf|max:2048',
+        ]);
+
+        // Existing evidence (kept from previous state), then newly uploaded files
+        $evidence = [];
+        foreach ($request->input('existing_evidence', []) as $ev) {
+            if (is_array($ev) && !empty($ev['file_path'])) {
+                $evidence[] = [
+                    'file'          => $ev['file_path'],
+                    'original_name' => $ev['original_name'] ?? null,
+                    'description'   => $ev['description'] ?? null,
+                ];
+            }
+        }
+
+        $evidenceFiles = $request->file('evidence_file', []);
+        $evidenceDesc  = $request->input('evidence_desc', []);
+        foreach ($evidenceFiles as $index => $file) {
+            $path = $file->store('verification-reports/evidence', 'public');
+            $evidence[] = [
+                'file'          => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'description'   => $evidenceDesc[$index] ?? null,
+            ];
+        }
+        $data['evidence'] = $evidence ?: null;
+
+        // Accused photo uploads (new photos replace the value sent in accused[*][photo])
+        $accusedPhotos = $request->file('accused_photo', []);
+        $accusedData = $data['accused'] ?? [];
+        foreach ($accusedPhotos as $index => $photo) {
+            if (isset($accusedData[$index])) {
+                $path = $photo->store('verification-reports/accused-photos', 'public');
+                $accusedData[$index]['photo'] = $path;
+            }
+        }
+        $data['accused'] = !empty($accusedData) ? $accusedData : null;
+
+        $report->update($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Verification report updated successfully',
+                'data' => $report->fresh(),
+            ]);
+        }
+
+        return redirect()->route('verifications.reports')
+            ->with('success', 'Verification report updated successfully');
+    }
+
     public function show(Verification $verification)
     {
         abort_unless(

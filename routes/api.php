@@ -36,6 +36,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/verifications', [VerificationController::class, 'store'])->name('api.verifications.store');
     Route::get('/verifications/stats', [VerificationController::class, 'stats']);
     Route::get('/verifications/reports-list', [VerificationController::class, 'listReports']);
+    Route::get('/verifications/reports/{report}', [VerificationController::class, 'showReport']);
+    Route::put('/verifications/reports/{report}', [VerificationController::class, 'updateReport']);
     Route::post('/verifications/reports', [VerificationController::class, 'storeReport']);
     Route::get('/verifications/{verification}', [VerificationController::class, 'show'])->name('api.verifications.show');
     Route::put('/verifications/{verification}', [VerificationController::class, 'update'])->name('api.verifications.update');

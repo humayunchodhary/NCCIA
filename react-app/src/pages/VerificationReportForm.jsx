@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
 import { countryCodes } from '../data/countries';
 
@@ -106,6 +106,7 @@ const majorCities = [
 
 export default function VerificationReportForm() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [complaints, setComplaints] = useState([]);
   const [crimeCategories, setCrimeCategories] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -160,7 +161,50 @@ const [form, setForm] = useState({    tracking_no: '',
   useEffect(() => {
     api.get('/lookup/offence-types').then(r => setCrimeCategories(r.data.data || r.data)).catch(() => {});
     api.get('/complaints').then(r => setComplaints(r.data.data || r.data)).catch(() => {});
-  }, []);
+    if (id) {
+      api.get(`/verifications/reports/${id}`).then(r => {
+        const d = r.data.data || r.data;
+        const evidence = (d.evidence || []).map(ev => ({
+          file: ev.file || null,
+          file_path: ev.file || '',
+          original_name: ev.original_name || '',
+          desc: ev.description || '',
+        }));
+        const accused = (d.accused || []).map(a => ({
+          name: a.name || '', father_name: a.father_name || '', phone: a.phone || '',
+          country_code: '+92', cnic: a.cnic || '', address: a.address || '',
+          post_address: a.post_address || '', nationality: a.nationality || 'Pakistani',
+          passport_no: a.passport_no || '', photo: a.photo || null,
+        }));
+        setForm(f => ({
+          ...f,
+          complaint_id: d.complaint_id || '',
+          tracking_no: d.tracking_no || '',
+          assignment_date: d.assignment_date ? String(d.assignment_date).slice(0, 10) : '',
+          verification_date: d.verification_date ? String(d.verification_date).slice(0, 10) : '',
+          victim_name: d.victim_name || '',
+          victim_father_name: d.victim_father_name || '',
+          victim_occupation: d.victim_occupation || '',
+          victim_gender: d.victim_gender || '',
+          victim_cnic: d.victim_cnic || '',
+          victim_country_code: d.victim_country_code || '+92',
+          victim_phone: d.victim_phone || '',
+          crime_category: d.crime_category || '',
+          city: d.city || '',
+          crime_description: d.crime_description || '',
+          accused_known: d.accused_known ? '1' : '0',
+          accused,
+          recommendation: d.recommendation || '',
+          closure_reason: d.closure_reason || '',
+          recommendation_short: d.recommendation_short || '',
+          recommendation_full: d.recommendation_full || '',
+          evidence,
+          inquiry_no: d.inquiry_no || '',
+          case_no: d.case_no || '',
+        }));
+      }).catch(() => navigate('/verifications/reports'));
+    }
+  }, [id, navigate]);
 
   const handleTrackingChange = (e) => {
     const tracking = e.target.value;
@@ -189,12 +233,32 @@ const [form, setForm] = useState({    tracking_no: '',
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => {
       if (v === null || v === undefined || v === '') return;
-      if (k === 'evidence') { v.forEach((ev, i) => { if (ev.file instanceof File) fd.append(`evidence_file[${i}]`, ev.file); fd.append(`evidence_desc[${i}]`, ev.desc || ''); }); return; }
+      if (k === 'evidence') {
+        let existingCount = 0, newIdx = 0;
+        v.forEach((ev, i) => {
+          if (ev.file instanceof File) {
+            fd.append(`evidence_file[${newIdx}]`, ev.file);
+            fd.append(`evidence_desc[${newIdx}]`, ev.desc || '');
+            newIdx++;
+          } else if (ev.file_path) {
+            fd.append(`existing_evidence[${existingCount}][file_path]`, ev.file_path);
+            fd.append(`existing_evidence[${existingCount}][original_name]`, ev.original_name || '');
+            fd.append(`existing_evidence[${existingCount}][description]`, ev.desc || '');
+            existingCount++;
+          }
+        });
+        return;
+      }
       if (k === 'accused') { v.forEach((a, i) => { Object.entries(a).forEach(([ak, av]) => { if (ak === 'photo' && av instanceof File) fd.append(`accused_photo[${i}]`, av); else fd.append(`accused[${i}][${ak}]`, av ?? ''); }); }); return; }
       fd.append(k, v);
     });
     try {
-      await api.post('/verifications/reports', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const url = id ? `/verifications/reports/${id}` : '/verifications/reports';
+      if (id) {
+        await api.put(url, fd);
+      } else {
+        await api.post(url, fd);
+      }
       navigate('/verifications/reports');
     } catch (err) {
       const res = err.response?.data;
@@ -226,8 +290,8 @@ const [form, setForm] = useState({    tracking_no: '',
         <div className="page-header">
           <div className="page-title-group">
             <div className="page-label">Verifications</div>
-            <h1 className="page-title">Victim Verification Report</h1>
-            <p className="page-subtitle">Record victim appearance & verification findings</p>
+            <h1 className="page-title">{id ? 'Edit Verification Report' : 'Victim Verification Report'}</h1>
+            <p className="page-subtitle">{id ? 'Update verification report details' : 'Record victim appearance & verification findings'}</p>
             <div className="title-underline"></div>
           </div>
           <div className="page-actions">
@@ -454,7 +518,9 @@ const [form, setForm] = useState({    tracking_no: '',
                       <div className="cf-field">
                         <label className="cf-label">Photo <span style={{fontSize:11,color:'#6c757d',fontWeight:400}}>(victim can provide accused's picture)</span></label>
                         <input type="file" className="cf-input" accept="image/*" onChange={e => updateAccusedFile(i, 'photo', e.target.files[0])} />
-                        {a.photo && <span style={{fontSize:12,color:'#38a169',marginTop:4,display:'block'}}>Photo selected: {a.photo.name}</span>}
+                        {a.photo instanceof File
+                          ? <span style={{fontSize:12,color:'#38a169',marginTop:4,display:'block'}}>Photo selected: {a.photo.name}</span>
+                          : (a.photo ? <span style={{fontSize:12,marginTop:4,display:'block'}}>Current photo: <a href={'/storage/' + a.photo} target="_blank" rel="noreferrer" style={{color:'#015C94'}}>View ↗</a></span> : null)}
                       </div>
                     </div>
                   ))}
@@ -536,7 +602,9 @@ const [form, setForm] = useState({    tracking_no: '',
               <div id="evidenceList">
                 {form.evidence.map((e, i) => (
                   <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:'12px',marginBottom:'12px',padding:'12px',background:'#f8f8f8',borderRadius:'8px',border:'1px solid #e0e0e0'}}>
-                    <div className="cf-field"><label className="cf-label">Evidence File</label><input type="file" className="cf-input" accept="image/*,application/pdf" onChange={e => updateEvidence(i, 'file', e.target.files[0])} /></div>
+                    <div className="cf-field"><label className="cf-label">Evidence File</label><input type="file" className="cf-input" accept="image/*,application/pdf" onChange={e => updateEvidence(i, 'file', e.target.files[0])} />
+                    {!((e.file) instanceof File) && e.file_path ? <span style={{fontSize:12,marginTop:4,display:'block'}}>Current file: <a href={'/storage/' + e.file_path} target="_blank" rel="noreferrer" style={{color:'#015C94'}}>Open ↗</a></span> : null}
+                  </div>
                     <div className="cf-field"><label className="cf-label">Description</label><input type="text" className="cf-input" value={e.desc} onChange={e => updateEvidence(i, 'desc', e.target.value)} placeholder="Brief description" /></div>
                     <button type="button" className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',alignSelf:'end'}} onClick={() => removeEvidence(i)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                   </div>
@@ -586,7 +654,7 @@ const [form, setForm] = useState({    tracking_no: '',
           <Link to="/verifications/reports" className="btn btn-outline">Reset</Link>
           <button type="submit" className="btn cf-submit-btn" disabled={saving} style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:600,fontSize:'14px',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',border:'none',cursor:saving?'not-allowed':'pointer',opacity:saving?0.7:1}}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            {saving ? 'Saving...' : 'Save Verification Report'}
+            {saving ? 'Saving...' : (id ? 'Update Report' : 'Save Verification Report')}
           </button>
         </div>
       </form>

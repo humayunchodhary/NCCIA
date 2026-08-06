@@ -54,6 +54,7 @@ function AppRoutes() {
         <Route path="verifications/:id/edit" element={<VerificationForm />} />
         <Route path="verifications/reports" element={<VerificationReports />} />
         <Route path="verifications/reports/create" element={<VerificationReportForm />} />
+        <Route path="verifications/reports/:id/edit" element={<VerificationReportForm />} />
         <Route path="enquiries" element={<Enquiries />} />
         <Route path="enquiries/create" element={<EnquiryForm />} />
         <Route path="enquiries/:id/edit" element={<EnquiryForm />} />
