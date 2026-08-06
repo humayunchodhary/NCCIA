@@ -90,6 +90,8 @@ export default function ComplaintForm() {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
+  const [attachmentFile, setAttachmentFile] = useState(null);
+  const [existingAttachment, setExistingAttachment] = useState(null);
 
   const { user } = useAuth();
 
@@ -130,6 +132,7 @@ export default function ComplaintForm() {
         if (d.contact_no) d.contact_no = d.contact_no.replace(/\D/g, '').replace(/^0+/, '');
         if (!d.contact_country_code) d.contact_country_code = '+92';
         setForm({ ...initialForm, ...d, laws: d.laws || [], evidence: d.evidence || [] });
+        if (d.attachment_url) setExistingAttachment(d.attachment_url);
       }).catch(() => navigate('/complaints'));
     }
   }, [id, navigate]);
@@ -140,14 +143,32 @@ export default function ComplaintForm() {
     setErrors({});
     setServerError('');
     try {
+      const fd = new FormData();
       const payload = { ...form };
       if (!payload.entry_time) {
         payload.entry_time = new Date().toISOString().slice(0, 16);
       }
+      Object.entries(payload).forEach(([k, v]) => {
+        if (k === 'laws' && Array.isArray(v)) {
+          v.forEach(item => fd.append('laws[]', item));
+          return;
+        }
+        if (k === 'evidence' && Array.isArray(v)) {
+          v.forEach(item => fd.append('evidence[]', item));
+          return;
+        }
+        if (v !== null && v !== undefined && v !== '') {
+          fd.append(k, v);
+        }
+      });
+      if (attachmentFile) {
+        fd.append('attachment', attachmentFile);
+      }
+      const headers = { 'Content-Type': 'multipart/form-data' };
       if (id) {
-        await api.put(`/complaints/${id}`, payload);
+        await api.put(`/complaints/${id}`, fd, { headers });
       } else {
-        await api.post('/complaints', payload);
+        await api.post('/complaints', fd, { headers });
       }
       navigate('/complaints');
     } catch (err) {
@@ -304,6 +325,30 @@ export default function ComplaintForm() {
             </div>
             {renderField('Scrutiny Result', 'scrutiny_result', { required: true, options: SCRUTINY_OPTIONS })}
             {renderField('Operator Remarks', 'operator_remarks', { rows: 2 })}
+
+            <div className="cf-section" style={{ marginTop: 16 }}>
+              <div className="cf-section-header">
+                <div className="cf-section-icon" style={{ background: '#805ad5' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                </div>
+                <div><div className="cf-section-title">Attachment</div><div className="cf-section-sub">Any supporting document (PDF, image, Word, Excel)</div></div>
+                <div className="cf-section-badge">Optional</div>
+              </div>
+              <div className="cf-body">
+                {existingAttachment && (
+                  <div style={{ marginBottom: 10, fontSize: 13 }}>
+                    Current file: <a href={existingAttachment} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open attachment ↗</a>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  className="cf-input"
+                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={e => setAttachmentFile(e.target.files[0] || null)}
+                />
+                <span className="cf-hint">Upload a new file to replace any existing attachment.</span>
+              </div>
+            </div>
           </div>
         </div>
 

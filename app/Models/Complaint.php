@@ -61,6 +61,10 @@ class Complaint extends Model
         'user_id',
         'operator_id',
         'circle_id',
+        'attachment',
+        'slip_generated',
+        'slip_generated_at',
+        'slip_number',
     ];
 
     protected function casts(): array

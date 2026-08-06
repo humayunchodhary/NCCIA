@@ -35,6 +35,36 @@ class Enquiry extends Model
         'submitted_at',
         'approved_at',
         'case_file_id',
+        // Witness fields
+        'witness_name',
+        'witness_cnic',
+        'witness_nationality',
+        'witness_passport',
+        'witness_address',
+        'witness_attachment',
+        // Notice fields
+        'notice_number',
+        'notice_type',
+        'notice_receiver_name',
+        'notice_date',
+        'notice_via',
+        'notice_person_type',
+        'notice_description',
+        'notice_address',
+        'notice_phone',
+        'notice_served',
+        'notice_served_at',
+        'notice_count',
+        // Technical & Forensic Reports
+        'technical_report',
+        'forensic_report',
+        'technical_report_attachment',
+        'forensic_report_attachment',
+        // Notice flags
+        'has_unserved_notice',
+        // Slip generation
+        'slip_generated',
+        'slip_generated_at',
     ];
 
     public function complaint(): BelongsTo
@@ -60,6 +90,49 @@ class Enquiry extends Model
     public function approvals(): HasMany
     {
         return $this->hasMany(EnquiryApproval::class);
+    }
+
+    public function witnesses(): HasMany
+    {
+        return $this->hasMany(EnquiryWitness::class);
+    }
+
+    public function notices(): HasMany
+    {
+        return $this->hasMany(EnquiryNotice::class);
+    }
+
+    /**
+     * Number of notices on this enquiry where the person failed to appear.
+     */
+    public function nonAppearanceCount(): int
+    {
+        return $this->notices()->where('status', 'non_appearance')->count();
+    }
+
+    /**
+     * Number of notices currently unserved / pending appearance.
+     */
+    public function unservedNoticeCount(): int
+    {
+        return $this->notices()->whereIn('status', ['issued', 'unserved'])->count();
+    }
+
+    /**
+     * True when a person failed to appear (gold star shown on the enquiry).
+     */
+    public function hasNonAppearance(): bool
+    {
+        return (bool) $this->nonAppearanceCount();
+    }
+
+    /**
+     * After three non-appearance notices the matter is referred to court
+     * and a case file is registered against the person.
+     */
+    public function shouldReferToCourt(): bool
+    {
+        return $this->nonAppearanceCount() >= 3;
     }
 
     /**

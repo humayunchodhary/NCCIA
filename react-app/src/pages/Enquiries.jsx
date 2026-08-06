@@ -13,6 +13,21 @@ const STATUS_COLORS = {
   cfr_submitted: 'badge-pending',
   approved: 'badge-finalized',
   closed: 'badge-urgent',
+  transferred: 'badge-warning',
+  converted_to_case: 'badge-finalized',
+  referred_court: 'badge-urgent',
+};
+
+const STATUS_LABELS = {
+  registered: 'Registered',
+  assigned: 'Assigned',
+  in_progress: 'In Progress',
+  cfr_submitted: 'CFR Submitted',
+  approved: 'Approved',
+  closed: 'Closed',
+  transferred: 'Transferred',
+  converted_to_case: 'Converted to Case',
+  referred_court: 'Referred to Court',
 };
 
 export default function Enquiries() {
@@ -176,7 +191,7 @@ export default function Enquiries() {
         <input type="text" className="filter-select" placeholder="Search by complaint name or ID..." style={{height:34,padding:'0 12px',width:260,border:'1.5px solid #264078',borderRadius:8,fontSize:13}} value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         <select className="filter-select" style={{height:34,padding:'0 12px',border:'1.5px solid #264078',borderRadius:8,fontSize:13,background:'#fff',minWidth:160}} value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
           <option value="">All Statuses</option>
-          {['registered','assigned','in_progress','cfr_submitted','approved','closed'].map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+          {Object.keys(STATUS_LABELS).map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
       </div>
 
@@ -193,7 +208,17 @@ export default function Enquiries() {
                     <tr key={e.id}>
                       <td><span className="table-id">#{e.enquiry_number || e.id}</span></td>
                       <td><span style={{fontSize:13,fontWeight:500}}>{e.complaint?.complainant_name || e.complaint_id}</span></td>
-                      <td><span className={`badge ${STATUS_COLORS[e.status] || 'badge-pending'}`}>{e.status?.replace('_', ' ')}</span></td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className={`badge ${STATUS_COLORS[e.status] || 'badge-pending'}`}>{STATUS_LABELS[e.status] || e.status?.replace('_', ' ')}</span>
+                          {(e.has_unserved_notice || e.status === 'referred_court') && (
+                            <span title="Notice non-appearance / unserved" style={{ fontSize: 16, lineHeight: 1 }}>⭐</span>
+                          )}
+                          {e.notice_count > 0 && (
+                            <span className="badge badge-info" style={{ fontSize: 11 }}>{e.notice_count} notice{e.notice_count > 1 ? 's' : ''}</span>
+                          )}
+                        </div>
+                      </td>
                       <td>{e.officer?.name || '-'}</td>
                       <td><span style={{fontSize:12,color:'#6c757d'}}>{new Date(e.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span></td>
                       <td style={{textAlign:'center'}}>

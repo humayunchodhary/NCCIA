@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\VerificationController;
 
 Route::get('/', function () {
@@ -67,6 +68,9 @@ Route::get('/force-logout', function (Illuminate\Http\Request $r) {
         ->withCookie(cookie($sessionCookie, null, -2628000, '/', $domain, $secure, true, false, $sameSite))
         ->withCookie(cookie('XSRF-TOKEN', null, -2628000, '/', $domain, $secure, false, false, $sameSite));
 });
+
+// Public notice verification (scanned via QR code)
+Route::get('/verify/notice/{token}', [EnquiryController::class, 'verifyNotice'])->name('notice.verify');
 
 // React SPA - serve React app for all frontend routes
 Route::get('/{any?}', function () {

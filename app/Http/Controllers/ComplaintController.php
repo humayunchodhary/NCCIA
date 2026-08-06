@@ -7,17 +7,39 @@ use App\Models\OffenceType;
 use App\Http\Requests\StoreComplaintRequest;
 use App\Http\Requests\UpdateComplaintRequest;
 use App\Http\Resources\ComplaintResource;
+use App\Services\PrintService;
 use App\Services\TrackingNumberGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ComplaintController extends Controller
 {
+    /**
+     * Move an uploaded complaint attachment into public/uploads.
+     */
+    protected function uploadAttachment(Request $request, ?Complaint $complaint = null): ?string
+    {
+        if (!$request->hasFile('attachment')) {
+            return $complaint?->attachment;
+        }
+
+        $file = $request->file('attachment');
+        $name = 'complaints/' . Str::random(24) . '.' . $file->getClientOriginalExtension() ?: 'file';
+        $file->move(public_path('uploads'), $name);
+
+        if ($complaint && $complaint->attachment && is_file(public_path($complaint->attachment))) {
+            @unlink(public_path($complaint->attachment));
+        }
+
+        return 'uploads/' . $name;
+    }
+
     public function index()
     {
         $complaints = Complaint::visibleTo(request()->user())
-            ->with(['enquiry', 'verification', 'caseFiles'])
+            ->with(['enquiry', 'verification', 'caseFiles', 'circle'])
             ->latest()
             ->paginate(15);
 
@@ -40,6 +62,7 @@ class ComplaintController extends Controller
         $data['laws'] = $request->has('laws') ? $request->laws : null;
         $data['evidence'] = $request->has('evidence') ? $request->evidence : null;
         $data['user_id'] = Auth::id();
+        $data['attachment'] = $this->uploadAttachment($request);
 
         $scrutinyResult = $data['scrutiny_result'] ?? null;
         if ($scrutinyResult === 'complete') {
@@ -85,7 +108,7 @@ class ComplaintController extends Controller
             404
         );
 
-        return new ComplaintResource($complaint->load(['enquiry', 'verification', 'caseFiles']));
+        return new ComplaintResource($complaint->load(['enquiry', 'verification', 'caseFiles', 'circle']));
     }
 
     public function edit(Complaint $complaint)
@@ -99,6 +122,7 @@ class ComplaintController extends Controller
         $data = $request->validated();
         $data['laws']     = $request->has('laws') ? $request->laws : $complaint->laws;
         $data['evidence'] = $request->has('evidence') ? $request->evidence : $complaint->evidence;
+        $data['attachment'] = $request->hasFile('attachment') ? $this->uploadAttachment($request, $complaint) : ($request->has('attachment') ? $request->input('attachment') : $complaint->attachment);
 
         $scrutinyResult = $data['scrutiny_result'] ?? $complaint->scrutiny_result;
 
@@ -132,6 +156,29 @@ class ComplaintController extends Controller
 
         return redirect()->route('dashboard')
             ->with('success', 'Complaint #' . $complaint->tracking_no . ' updated successfully');
+    }
+
+    /**
+     * Generate & return the printable 80mm complaint slip HTML.
+     */
+    public function slip(Complaint $complaint, PrintService $print)
+    {
+        abort_unless(
+            Complaint::visibleTo(request()->user())->whereKey($complaint->id)->exists(),
+            404
+        );
+
+        if (!$complaint->slip_generated) {
+            $complaint->update([
+                'slip_generated'    => true,
+                'slip_generated_at' => now(),
+                'slip_number'       => $complaint->slip_number ?: ($complaint->tracking_no ?: ('SLP-' . $complaint->id)),
+            ]);
+        }
+
+        return response()->json([
+            'html' => $print->slipPrintDocument($complaint),
+        ]);
     }
 
     public function destroy(Complaint $complaint)

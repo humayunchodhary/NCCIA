@@ -54,6 +54,7 @@ class StoreComplaintRequest extends FormRequest
             'circle_id'  => 'nullable|integer|exists:circles,id',
             'operator_id' => 'nullable|integer|exists:users,id',
             'scrutiny_result' => 'nullable|string|in:complete,incomplete,invalid,irrelevant',
+            'attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx|max:10240',
         ];
     }
 

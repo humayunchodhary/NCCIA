@@ -27,6 +27,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::get('/complaints/{complaint}', [ComplaintController::class, 'show'])->name('api.complaints.show');
     Route::put('/complaints/{complaint}', [ComplaintController::class, 'update'])->name('api.complaints.update');
     Route::delete('/complaints/{complaint}', [ComplaintController::class, 'destroy'])->name('api.complaints.destroy');
+    Route::get('/complaints/{complaint}/slip', [ComplaintController::class, 'slip'])->name('api.complaints.slip');
     Route::post('/complaints/{complaint}/scrutiny', [ComplaintController::class, 'scrutiny'])
         ->middleware('role:admin,circle_incharge');
 
@@ -50,6 +51,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::get('/enquiries/{enquiry}', [EnquiryController::class, 'show'])->name('api.enquiries.show');
     Route::put('/enquiries/{enquiry}', [EnquiryController::class, 'update'])->name('api.enquiries.update');
     Route::delete('/enquiries/{enquiry}', [EnquiryController::class, 'destroy'])->name('api.enquiries.destroy');
+    Route::get('/enquiries/{enquiry}/notice-print', [EnquiryController::class, 'noticePrint'])->name('api.enquiries.notice-print');
     Route::get('/enquiries/stats', [EnquiryController::class, 'stats']);
     Route::post('/enquiries/{enquiry}/assign', [EnquiryController::class, 'assign'])
         ->middleware('role:admin,circle_incharge');

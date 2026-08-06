@@ -16,6 +16,7 @@ const ENQUIRY_STATUS = [
   { value: 'closed', name: 'Closed' },
   { value: 'transferred', name: 'Transferred' },
   { value: 'converted_to_case', name: 'Converted to Case' },
+  { value: 'referred_court', name: 'Referred to Court' },
 ];
 
 const LEGAL_ROLES = ['dd_legal', 'ad_legal', 'additional_director'];
@@ -47,6 +48,37 @@ const CLOSURE_REASONS = [
   { value: 'compromise', name: 'Compromise (Parties Settled)' },
 ];
 
+const NOTICE_VIA_OPTIONS = [
+  { value: 'whatsapp', name: 'WhatsApp' },
+  { value: 'sms', name: 'SMS' },
+  { value: 'email', name: 'Email' },
+  { value: 'phone', name: 'Phone' },
+  { value: 'fax', name: 'Fax' },
+  { value: 'postal', name: 'Postal' },
+  { value: 'call', name: 'Call' },
+];
+
+const PERSON_TYPE_OPTIONS = [
+  { value: 'complainant', name: 'Complainant' },
+  { value: 'accused', name: 'Accused' },
+  { value: 'witness', name: 'Witness' },
+];
+
+const NOTICE_STATUS_OPTIONS = [
+  { value: 'issued', name: 'Issued' },
+  { value: 'served', name: 'Served / Appeared' },
+  { value: 'unserved', name: 'Unserved' },
+  { value: 'non_appearance', name: 'Non-Appearance' },
+];
+
+const NOTICE_TYPE_OPTIONS = [
+  { value: 'Summon', name: 'Summon' },
+  { value: 'Warning', name: 'Warning' },
+  { value: 'Final Notice', name: 'Final Notice' },
+  { value: 'Show Cause', name: 'Show Cause' },
+  { value: 'Other', name: 'Other' },
+];
+
 const initialForm = {
   complaint_id: '',
   tracking_no: '',
@@ -61,6 +93,10 @@ const initialForm = {
   activities: [],
   legal_opinions: [],
   approvals: [],
+  witnesses: [],
+  notices: [],
+  technical_report: '',
+  forensic_report: '',
 };
 
 export default function EnquiryForm() {
@@ -77,6 +113,10 @@ export default function EnquiryForm() {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [activeTab, setActiveTab] = useState('details');
+  const [technicalFile, setTechnicalFile] = useState(null);
+  const [forensicFile, setForensicFile] = useState(null);
+  const [technicalReportUrl, setTechnicalReportUrl] = useState('');
+  const [forensicReportUrl, setForensicReportUrl] = useState('');
 
   useEffect(() => {
     api.get('/complaints?status=complete').then(r => setComplaints(r.data.data || r.data)).catch(() => {});
@@ -93,6 +133,8 @@ export default function EnquiryForm() {
         if (d.complaint) {
           d.tracking_no = d.complaint.tracking_no;
         }
+        if (d.technical_report_attachment) setTechnicalReportUrl(d.technical_report_attachment);
+        if (d.forensic_report_attachment) setForensicReportUrl(d.forensic_report_attachment);
         setForm(f => ({ ...f, ...d }));
       }).catch(() => navigate('/enquiries'));
     }
@@ -133,6 +175,32 @@ export default function EnquiryForm() {
   const removeApproval = (i) => setForm(f => ({ ...f, approvals: f.approvals.filter((_, idx) => idx !== i) }));
   const updateApproval = (i, field, value) => setForm(f => ({ ...f, approvals: f.approvals.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
+  // Witnesses
+  const addWitness = () => setForm(f => ({ ...f, witnesses: [...f.witnesses, { name: '', cnic: '', nationality: '', passport: '', address: '', attachment: null }] }));
+  const removeWitness = (i) => setForm(f => ({ ...f, witnesses: f.witnesses.filter((_, idx) => idx !== i) }));
+  const updateWitness = (i, field, value) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const updateWitnessFile = (i, file) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
+
+  // Notices
+  const addNotice = () => setForm(f => ({ ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', person_type: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], address: '', phone: '', description: '', status: 'issued' }] }));
+  const removeNotice = (i) => setForm(f => ({ ...f, notices: f.notices.filter((_, idx) => idx !== i) }));
+  const updateNotice = (i, field, value) => setForm(f => ({ ...f, notices: f.notices.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+
+  const printNotice = async (n) => {
+    if (!id) { alert('Save the enquiry first, then you can print notices.'); return; }
+    if (!n.id) { alert('Save the enquiry first, then you can print notices.'); return; }
+    try {
+      const r = await api.get(`/enquiries/${id}/notice-print`, { params: { notice_id: n.id } });
+      const { openPrintWindow } = await import('../utils/print');
+      openPrintWindow(r.data.html);
+    } catch (e) {
+      alert(e.response?.data?.message || 'Could not print notice.');
+    }
+  };
+
+  const nonAppearanceCount = form.notices.filter(n => n.status === 'non_appearance').length;
+  const referredToCourt = nonAppearanceCount >= 3;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -140,15 +208,48 @@ export default function EnquiryForm() {
     setServerError('');
     try {
       const fd = new FormData();
+
+      const serializeArr = (items, plainKey, fileFieldName) => {
+        const clean = items.map(it => {
+          const o = { ...it };
+          if (o.attachment instanceof File) {
+            fd.append(fileFieldName + '[]', o.attachment);
+            delete o.attachment;
+          } else if (o.attachment && typeof o.attachment === 'string') {
+            o.attachment_path = o.attachment_path || o.attachment;
+            delete o.attachment;
+          }
+          return o;
+        });
+        return JSON.stringify(clean);
+      };
+
       Object.entries(form).forEach(([k, v]) => {
-        if (['activities', 'legal_opinions', 'approvals'].includes(k)) {
+        if (k === 'activities') {
+          if (Array.isArray(v)) fd.append('activities', serializeArr(v, 'activities', 'activity_attachments'));
+          return;
+        }
+        if (k === 'witnesses') {
+          if (Array.isArray(v)) fd.append('witnesses', serializeArr(v, 'witnesses', 'witness_attachments'));
+          return;
+        }
+        if (['legal_opinions', 'approvals'].includes(k)) {
           if (Array.isArray(v) && v.length > 0) fd.append(k, JSON.stringify(v));
           return;
         }
+        if (k === 'notices') {
+          if (Array.isArray(v)) fd.append('notices', JSON.stringify(v));
+          return;
+        }
+        if (k === 'technical_report_attachment' || k === 'forensic_report_attachment') return;
         if (v !== null && v !== undefined && v !== '') {
           fd.append(k, v);
         }
       });
+
+      if (technicalFile) fd.append('technical_report_attachment', technicalFile);
+      if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
+
       if (id) {
         await api.put(`/enquiries/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       } else {
@@ -206,9 +307,12 @@ export default function EnquiryForm() {
         </div>
 
         <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px' }}>
-          {['details', 'activities', 'legal', 'approvals', 'outcome'].map(tab => (
-            <button type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 20px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+          {['details', 'witnesses', 'notices', 'reports', 'activities', 'legal', 'approvals', 'outcome'].map(tab => (
+            <button key={tab} type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 16px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
               {tab === 'details' && '📋 Details'}
+              {tab === 'witnesses' && `🧑‍⚖️ Witnesses${form.witnesses?.length ? ` (${form.witnesses.length})` : ''}`}
+              {tab === 'notices' && `🔔 Notices${nonAppearanceCount ? ` ⭐` : ''}${form.notices?.length ? ` (${form.notices.length})` : ''}`}
+              {tab === 'reports' && '🧪 Reports'}
               {tab === 'activities' && '📝 Activities'}
               {tab === 'legal' && '⚖️ Legal Opinions'}
               {tab === 'approvals' && '✅ Approvals'}
@@ -248,7 +352,7 @@ export default function EnquiryForm() {
                     <input type="hidden" name="complaint_id" value={form.complaint_id} />
                     <span className="cf-hint">Auto-fills from complaint record</span>
                   </div>
-                  {renderField('Enquiry Number', 'enquiry_number', { placeholder: 'Auto-generated or manual' })}
+                  {renderField('Enquiry Number', 'enquiry_number', { placeholder: 'Manual entry (optional)' })}
                   {renderField('Status', 'status', { options: ENQUIRY_STATUS, required: true })}
                 </div>
               </div>
@@ -276,6 +380,178 @@ export default function EnquiryForm() {
               </div>
             </div>
           </>
+        )}
+
+        {/* WITNESSES TAB */}
+        {activeTab === 'witnesses' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#264078' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div><div className="cf-section-title">Witnesses</div><div className="cf-section-sub">Name, CNIC, nationality, passport, address &amp; attachment</div></div>
+              <div className="cf-section-badge">STEP 3</div>
+            </div>
+            <div className="cf-body">
+              <button type="button" className="btn btn-outline btn-sm" onClick={addWitness} style={{ marginBottom: 16 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Witness
+              </button>
+              {form.witnesses.map((w, i) => (
+                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Witness Name</label>
+                      <input type="text" className="cf-input" value={w.name} onChange={e => updateWitness(i, 'name', e.target.value)} placeholder="Full name" />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">CNIC</label>
+                      <input type="text" className="cf-input" value={w.cnic} onChange={e => updateWitness(i, 'cnic', e.target.value)} placeholder="XXXXX-XXXXXXX-X" />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Nationality</label>
+                      <input type="text" className="cf-input" value={w.nationality} onChange={e => updateWitness(i, 'nationality', e.target.value)} placeholder="e.g. Pakistani" />
+                    </div>
+                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeWitness(i)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Passport No</label>
+                      <input type="text" className="cf-input" value={w.passport} onChange={e => updateWitness(i, 'passport', e.target.value)} placeholder="Passport (if foreigner)" />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Attachment</label>
+                      <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateWitnessFile(i, e.target.files[0])} />
+                    </div>
+                    <div className="cf-field" style={{ alignSelf: 'end' }}>
+                      {w.attachment && typeof w.attachment === 'string' && (
+                        <a href={w.attachment} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600 }}>Existing file ↗</a>
+                      )}
+                    </div>
+                  </div>
+                  <div className="cf-field"><label className="cf-label">Address</label>
+                    <textarea className="cf-input" rows={2} value={w.address} onChange={e => updateWitness(i, 'address', e.target.value)} placeholder="Witness address" style={{ width: '100%' }}></textarea>
+                  </div>
+                </div>
+              ))}
+              {form.witnesses.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No witnesses added yet. Click "Add Witness" to start.</p>}
+            </div>
+          </div>
+        )}
+
+        {/* NOTICES TAB */}
+        {activeTab === 'notices' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#B7791F' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
+              <div><div className="cf-section-title">Notices</div><div className="cf-section-sub">Issue notices — after 3 non-appearances the matter is referred to court</div></div>
+              <div className="cf-section-badge">STEP 3</div>
+            </div>
+            <div className="cf-body">
+              {nonAppearanceCount > 0 && (
+                <div style={{ padding: '12px 16px', marginBottom: 16, background: 'rgba(255,193,7,0.14)', border: '1px solid #d69e2e', borderRadius: 8, fontSize: 13, color: '#7a5b00', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>⭐</span>
+                  <div>
+                    <strong>Non-Appearance recorded ({nonAppearanceCount} of 3).</strong>
+                    {referredToCourt
+                      ? ' This enquiry has been referred to court as per procedure.'
+                      : ' After 3 non-appearances the file will be referred to court.'}
+                  </div>
+                </div>
+              )}
+              {referredToCourt && (
+                <div style={{ padding: '12px 16px', marginBottom: 16, background: 'rgba(229,62,62,0.1)', border: '1px solid #e53e3e', borderRadius: 8, fontSize: 13, color: '#b42318', fontWeight: 600 }}>
+                  ⚠ This enquiry has been referred to court (3 non-appearances).
+                </div>
+              )}
+              <button type="button" className="btn btn-outline btn-sm" onClick={addNotice} style={{ marginBottom: 16 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Notice
+              </button>
+              {form.notices.map((n, i) => (
+                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Notice No</label>
+                      <input type="text" className="cf-input" value={n.notice_number} onChange={e => updateNotice(i, 'notice_number', e.target.value)} placeholder="e.g. NCCIA/N/25" />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Notice Type</label>
+                      <select className="cf-input" value={n.notice_type} onChange={e => updateNotice(i, 'notice_type', e.target.value)}>
+                        <option value="">— Select —</option>
+                        {NOTICE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Receiver Name</label>
+                      <input type="text" className="cf-input" value={n.receiver_name} onChange={e => updateNotice(i, 'receiver_name', e.target.value)} placeholder="Recipient name" />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Notice Date</label>
+                      <input type="date" className="cf-input" value={n.notice_date} onChange={e => updateNotice(i, 'notice_date', e.target.value)} />
+                    </div>
+                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeNotice(i)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Notice Via</label>
+                      <select className="cf-input" value={n.notice_via} onChange={e => updateNotice(i, 'notice_via', e.target.value)}>
+                        <option value="">— Select —</option>
+                        {NOTICE_VIA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Person Type</label>
+                      <select className="cf-input" value={n.person_type} onChange={e => updateNotice(i, 'person_type', e.target.value)}>
+                        <option value="">— Select —</option>
+                        {PERSON_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Phone</label>
+                      <input type="text" className="cf-input" value={n.phone} onChange={e => updateNotice(i, 'phone', e.target.value)} placeholder="Phone number" />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Status</label>
+                      <select className="cf-input" value={n.status} onChange={e => updateNotice(i, 'status', e.target.value)}>
+                        {NOTICE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Address</label>
+                    <textarea className="cf-input" rows={2} value={n.address} onChange={e => updateNotice(i, 'address', e.target.value)} placeholder="Delivery / contact address" style={{ width: '100%' }}></textarea>
+                  </div>
+                  <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Description</label>
+                    <textarea className="cf-input" rows={2} value={n.description} onChange={e => updateNotice(i, 'description', e.target.value)} placeholder="Brief description / instructions on the notice" style={{ width: '100%' }}></textarea>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => printNotice(n)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Notice
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {form.notices.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No notices added yet. Click "Add Notice" to start.</p>}
+            </div>
+          </div>
+        )}
+
+        {/* REPORTS TAB */}
+        {activeTab === 'reports' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#015C94' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+              </div>
+              <div><div className="cf-section-title">Technical &amp; Forensic Reports</div><div className="cf-section-sub">Required reports for this enquiry</div></div>
+              <div className="cf-section-badge">STEP 3</div>
+            </div>
+            <div className="cf-body">
+              <div className="cf-field" style={{ marginBottom: 16 }}>
+                <label className="cf-label required">Technical Report</label>
+                <textarea className="cf-input" rows={4} required value={form.technical_report || ''} onChange={setF('technical_report')} placeholder="Technical analysis / report findings..." style={{ width: '100%' }}></textarea>
+                {technicalReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={technicalReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open ↗</a></div>}
+                <input type="file" className="cf-input" style={{ marginTop: 8 }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => setTechnicalFile(e.target.files[0] || null)} />
+              </div>
+              <div className="cf-field">
+                <label className="cf-label required">Forensic Report</label>
+                <textarea className="cf-input" rows={4} required value={form.forensic_report || ''} onChange={setF('forensic_report')} placeholder="Forensic analysis / report findings..." style={{ width: '100%' }}></textarea>
+                {forensicReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={forensicReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open ↗</a></div>}
+                <input type="file" className="cf-input" style={{ marginTop: 8 }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => setForensicFile(e.target.files[0] || null)} />
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ACTIVITIES TAB */}
