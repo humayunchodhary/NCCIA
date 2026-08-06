@@ -72,8 +72,11 @@ export default function Layout() {
   const notifRef = useRef(null);
 
   useEffect(() => {
-    api.get('/sidebar-counts').then(r => setCounts(r.data)).catch(() => {});
-  }, []);
+    const fetchCounts = () => api.get('/sidebar-counts').then(r => setCounts(r.data)).catch(() => {});
+    fetchCounts();
+    const timer = setInterval(fetchCounts, 30000);
+    return () => clearInterval(timer);
+  }, [location.pathname]);
 
   const fetchNotifications = () => {
     api.get('/notifications').then(r => setNotifications(r.data)).catch(() => {});

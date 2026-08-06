@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
@@ -30,20 +30,29 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [chartExpanded, setChartExpanded] = useState(false);
   const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', account: '' });
+  const filtersRef = useRef(filters);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
 
-  const fetchDashboard = (filterParams = {}) => {
-    setLoading(true);
-    setError(null);
+  const fetchDashboard = (filterParams = {}, silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     const params = new URLSearchParams();
     if (filterParams.dateFrom) params.set('date_from', filterParams.dateFrom);
     if (filterParams.dateTo) params.set('date_to', filterParams.dateTo);
     if (filterParams.account && filterParams.account !== 'User Level Account') params.set('account', filterParams.account);
     api.get(`/dashboard?${params.toString()}`).then(r => setData(r.data)).catch(e => {
-      setError(e.response?.data?.message || e.message || 'Failed to load dashboard');
-    }).finally(() => setLoading(false));
+      if (!silent) setError(e.response?.data?.message || e.message || 'Failed to load dashboard');
+    }).finally(() => { if (!silent) setLoading(false); });
   };
 
   useEffect(() => { fetchDashboard(); }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => fetchDashboard(filtersRef.current, true), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleApplyFilter = () => { fetchDashboard(filters); };
   const handleExport = () => {
