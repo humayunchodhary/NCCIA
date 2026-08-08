@@ -333,6 +333,9 @@ class EnquiryController extends Controller
 
         $this->decodeArrays($data);
 
+        $privileged = $request->user()->hasAnyRole(['admin', 'circle_incharge']);
+        $officerId = $privileged ? ($data['enquiry_officer_id'] ?? null) : null;
+
         $complaint = null;
         if (!empty($data['tracking_no'])) {
             $complaint = Complaint::where('tracking_no', $data['tracking_no'])->first();
@@ -344,7 +347,7 @@ class EnquiryController extends Controller
             $enquiry = Enquiry::create([
                 'complaint_id'    => $complaint?->id,
                 'enquiry_number'  => $data['enquiry_number'] ?? null,
-                'enquiry_officer_id' => $data['enquiry_officer_id'] ?? null,
+                'enquiry_officer_id' => $officerId,
                 'status'          => $data['status'] ?? 'registered',
                 'reg_date'        => $data['reg_date'] ?? now()->toDateString(),
                 'assignment_date' => $data['assignment_date'] ?? null,
@@ -368,8 +371,10 @@ class EnquiryController extends Controller
             $enquiry->save();
 
             $this->syncActivities($enquiry, $data['activities'] ?? [], $request->user()->id, $request);
-            $this->syncLegalOpinions($enquiry, $data['legal_opinions'] ?? [], $request->user()->id);
-            $this->syncApprovals($enquiry, $data['approvals'] ?? []);
+            if ($privileged) {
+                $this->syncLegalOpinions($enquiry, $data['legal_opinions'] ?? [], $request->user()->id);
+                $this->syncApprovals($enquiry, $data['approvals'] ?? []);
+            }
             $this->syncWitnesses($enquiry, $data['witnesses'] ?? [], $request);
             $this->syncNotices($enquiry, $data['notices'] ?? [], $request);
 
@@ -471,8 +476,9 @@ class EnquiryController extends Controller
 
         $this->decodeArrays($data);
 
+        $privileged = $request->user()->hasAnyRole(['admin', 'circle_incharge']);
+
         $updateData = [
-            'enquiry_officer_id' => $data['enquiry_officer_id'] ?? $enquiry->enquiry_officer_id,
             'status'             => $data['status'] ?? $enquiry->status,
             'recommendation'     => $data['recommendation'] ?? $enquiry->recommendation,
             'closure_reason'     => $data['closure_reason'] ?? $enquiry->closure_reason,
@@ -485,6 +491,10 @@ class EnquiryController extends Controller
             'forensic_report'    => $data['forensic_report'] ?? $enquiry->forensic_report,
         ];
 
+        if ($privileged) {
+            $updateData['enquiry_officer_id'] = $data['enquiry_officer_id'] ?? $enquiry->enquiry_officer_id;
+        }
+
         if (!empty($data['complaint_id'])) {
             $updateData['complaint_id'] = $data['complaint_id'];
         }
@@ -496,7 +506,7 @@ class EnquiryController extends Controller
             $updateData['merge_complaint_id'] = null;
         }
 
-        $officerChanged = !empty($data['enquiry_officer_id'])
+        $officerChanged = $privileged && !empty($data['enquiry_officer_id'])
             && (int) $data['enquiry_officer_id'] !== $enquiry->enquiry_officer_id;
 
         DB::transaction(function () use ($enquiry, $updateData, $data, $request) {
@@ -513,8 +523,10 @@ class EnquiryController extends Controller
             $enquiry->save();
 
             $this->syncActivities($enquiry, $data['activities'] ?? [], $request->user()->id, $request);
-            $this->syncLegalOpinions($enquiry, $data['legal_opinions'] ?? [], $request->user()->id);
-            $this->syncApprovals($enquiry, $data['approvals'] ?? []);
+            if ($privileged) {
+                $this->syncLegalOpinions($enquiry, $data['legal_opinions'] ?? [], $request->user()->id);
+                $this->syncApprovals($enquiry, $data['approvals'] ?? []);
+            }
             $this->syncWitnesses($enquiry, $data['witnesses'] ?? [], $request);
             $this->syncNotices($enquiry, $data['notices'] ?? [], $request);
         });

@@ -118,6 +118,14 @@ export default function EnquiryForm() {
   const [technicalReportUrl, setTechnicalReportUrl] = useState('');
   const [forensicReportUrl, setForensicReportUrl] = useState('');
 
+  const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
+  const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
+
+  const officerName = officers.find(o => String(o.value) === String(form.enquiry_officer_id))?.name || '';
+  const recName = RECOMMENDATIONS.find(o => o.value === form.recommendation)?.name || '';
+  const closureName = CLOSURE_REASONS.find(o => o.value === form.closure_reason)?.name || '';
+  const transferCircleName = circles.find(c => String(c.id) === String(form.transfer_circle) || c.name === form.transfer_circle)?.name || '';
+
   useEffect(() => {
     api.get('/complaints?status=complete').then(r => setComplaints(r.data.data || r.data)).catch(() => {});
     api.get('/lookup/enquiry-officers').then(r => { const d = r.data.data || r.data; setOfficers((Array.isArray(d) ? d : []).map(o => ({ value: o.id, name: o.name + (o.designation ? ' (' + o.designation + ')' : '') }))); }).catch(() => {});
@@ -367,16 +375,52 @@ export default function EnquiryForm() {
                 <div className="cf-section-badge">STEP 2</div>
               </div>
               <div className="cf-body">
-                <div className="cf-row-3">
-                  {renderField('Enquiry Officer', 'enquiry_officer_id', { required: true, options: officers })}
-                  {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS })}
-                  {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
-                </div>
-                <div className="cf-row-2">
-                  {renderField('Transfer Department', 'transfer_department')}
-                  {renderField('Transfer Circle', 'transfer_circle', { options: circles })}
-                </div>
-                {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
+                {!isPrivileged && (
+                  <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
+                    🔒 This section is read-only. Only Circle Incharge / Admin can assign or change the Enquiry Officer.
+                  </div>
+                )}
+                {isPrivileged ? (
+                  <>
+                    <div className="cf-row-3">
+                      {renderField('Enquiry Officer', 'enquiry_officer_id', { required: true, options: officers })}
+                      {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS })}
+                      {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
+                    </div>
+                    <div className="cf-row-2">
+                      {renderField('Transfer Department', 'transfer_department')}
+                      {renderField('Transfer Circle', 'transfer_circle', { options: circles.map(c => ({ value: c.name, name: c.name })) })}
+                    </div>
+                    {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
+                  </>
+                ) : (
+                  <div className="cf-row-3">
+                    <div className="cf-field">
+                      <label className="cf-label">Enquiry Officer</label>
+                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{officerName || 'Not assigned'}</div>
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Recommendation</label>
+                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{recName || '-'}</div>
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Closure Reason</label>
+                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{closureName || '-'}</div>
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Transfer Department</label>
+                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{form.transfer_department || '-'}</div>
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Transfer Circle</label>
+                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{transferCircleName || form.transfer_circle || '-'}</div>
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Merge Complaint ID</label>
+                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{form.merge_complaint_id || '-'}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -608,36 +652,45 @@ export default function EnquiryForm() {
               <div className="cf-section-badge">STEP 4</div>
             </div>
             <div className="cf-body">
-              <button type="button" className="btn btn-outline btn-sm" onClick={addLegalOpinion} style={{ marginBottom: 16 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Legal Opinion
-              </button>
+              {!isPrivileged && (
+                <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
+                  🔒 This section is read-only. Only Circle Incharge / Admin can add or modify legal opinions.
+                </div>
+              )}
+              {isPrivileged && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={addLegalOpinion} style={{ marginBottom: 16 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Legal Opinion
+                </button>
+              )}
               {form.legal_opinions.map((lo, i) => (
                 <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Role</label>
-                      <select className="cf-input" value={lo.role} onChange={e => updateLegalOpinion(i, 'role', e.target.value)}>
+                      <select className="cf-input" value={lo.role} onChange={e => updateLegalOpinion(i, 'role', e.target.value)} disabled={!isPrivileged}>
                         <option value="">— Select Role —</option>
                         {LEGAL_ROLES.map(r => <option key={r} value={r}>{r.toUpperCase().replace('_', ' ')}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Decision</label>
-                      <select className="cf-input" value={lo.decision} onChange={e => updateLegalOpinion(i, 'decision', e.target.value)}>
+                      <select className="cf-input" value={lo.decision} onChange={e => updateLegalOpinion(i, 'decision', e.target.value)} disabled={!isPrivileged}>
                         <option value="">— Select —</option>
                         {LEGAL_DECISIONS.map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Officer</label>
-                      <select className="cf-input" value={lo.created_by} onChange={e => updateLegalOpinion(i, 'created_by', e.target.value)}>
+                      <select className="cf-input" value={lo.created_by} onChange={e => updateLegalOpinion(i, 'created_by', e.target.value)} disabled={!isPrivileged}>
                         <option value="">— Select Officer —</option>
                         {legalOfficers.map(o => <option key={o.id} value={o.id}>{o.name} ({o.designation})</option>)}
                       </select>
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeLegalOpinion(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    {isPrivileged && (
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeLegalOpinion(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    )}
                   </div>
                   <div className="cf-field"><label className="cf-label">Opinion Text</label>
-                    <textarea className="cf-input" rows={3} value={lo.opinion_text} onChange={e => updateLegalOpinion(i, 'opinion_text', e.target.value)} placeholder="Enter legal opinion…" style={{ width: '100%' }}></textarea>
+                    <textarea className="cf-input" rows={3} value={lo.opinion_text} onChange={e => updateLegalOpinion(i, 'opinion_text', e.target.value)} disabled={!isPrivileged} placeholder="Enter legal opinion…" style={{ width: '100%' }}></textarea>
                   </div>
                 </div>
               ))}
@@ -657,31 +710,40 @@ export default function EnquiryForm() {
               <div className="cf-section-badge">STEP 5</div>
             </div>
             <div className="cf-body">
-              <button type="button" className="btn btn-outline btn-sm" onClick={addApproval} style={{ marginBottom: 16 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Approval
-              </button>
+              {!isPrivileged && (
+                <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
+                  🔒 This section is read-only. Only Circle Incharge / Admin can add or modify approvals.
+                </div>
+              )}
+              {isPrivileged && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={addApproval} style={{ marginBottom: 16 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Approval
+                </button>
+              )}
               {form.approvals.map((ap, i) => (
                 <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Circle Incharge</label>
-                      <select className="cf-input" value={ap.circle_incharge_id} onChange={e => updateApproval(i, 'circle_incharge_id', e.target.value)}>
+                      <select className="cf-input" value={ap.circle_incharge_id} onChange={e => updateApproval(i, 'circle_incharge_id', e.target.value)} disabled={!isPrivileged}>
                         <option value="">— Select —</option>
                         {circleIncharges.map(o => <option key={o.id} value={o.id}>{o.name}{o.designation ? ' (' + o.designation + ')' : ''}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Decision</label>
-                      <select className="cf-input" value={ap.decision} onChange={e => updateApproval(i, 'decision', e.target.value)}>
+                      <select className="cf-input" value={ap.decision} onChange={e => updateApproval(i, 'decision', e.target.value)} disabled={!isPrivileged}>
                         <option value="">— Select —</option>
                         <option value="agree">Agree</option>
                         <option value="review">Review</option>
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Remarks</label>
-                      <input type="text" className="cf-input" value={ap.remarks} onChange={e => updateApproval(i, 'remarks', e.target.value)} placeholder="Remarks" />
+                      <input type="text" className="cf-input" value={ap.remarks} onChange={e => updateApproval(i, 'remarks', e.target.value)} disabled={!isPrivileged} placeholder="Remarks" />
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeApproval(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    {isPrivileged && (
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeApproval(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -707,7 +769,7 @@ export default function EnquiryForm() {
               </div>
               <div className="cf-row-2">
                 {renderField('Transfer Department', 'transfer_department')}
-                {renderField('Transfer Circle', 'transfer_circle', { options: circles })}
+                {renderField('Transfer Circle', 'transfer_circle', { options: circles.map(c => ({ value: c.name, name: c.name })) })}
               </div>
               {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
             </div>
