@@ -16,6 +16,7 @@ use App\Http\Controllers\InvestigationOfficerController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReferenceController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\MessageController;
 
 Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
@@ -197,6 +198,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
             'verifications' => \App\Models\Verification::visibleTo($user)->count(),
             'reports' => \App\Models\VerificationReport::visibleTo($user)->count(),
             'enquiries' => \App\Models\Enquiry::visibleTo($user)->count(),
+            'messages' => \App\Models\Message::where('receiver_id', $user->id)->where('is_read', false)->count(),
         ]);
     });
 
@@ -205,4 +207,11 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::get('/notifications/pending-tasks', [NotificationController::class, 'pendingTasks']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+
+    // Internal messaging
+    Route::get('/messages/contacts', [MessageController::class, 'contacts']);
+    Route::get('/messages/conversations', [MessageController::class, 'conversations']);
+    Route::get('/messages/conversations/{user}', [MessageController::class, 'show']);
+    Route::post('/messages', [MessageController::class, 'store']);
+    Route::get('/messages/unread-count', [MessageController::class, 'unreadCount']);
 });
