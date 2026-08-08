@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Verification;
 use App\Models\VerificationReport;
 use App\Notifications\VerificationAssignedNotification;
+use App\Notifications\ComplainantMessageNotification;
 use App\Services\EnquiryNumberGenerator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -295,7 +296,7 @@ class VerificationController extends Controller
         );
 
         if (request()->expectsJson()) {
-            return response()->json($verification->load('complaint', 'officer'));
+            return response()->json($verification->load('complaint', 'officer', 'sentByUser'));
         }
         return redirect()->route('verifications.edit', $verification);
     }
@@ -330,7 +331,7 @@ class VerificationController extends Controller
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
 
         if ($request->expectsJson()) {
-            return response()->json(['message' => 'Verification assigned successfully', 'data' => $verification->load('officer')], 201);
+            return response()->json(['message' => 'Verification assigned successfully', 'data' => $verification->load('officer', 'complaint')], 201);
         }
 
         return redirect()->route('verifications.index')
@@ -358,12 +359,23 @@ class VerificationController extends Controller
             'transfer_department'     => 'nullable|string|max:255',
             'transfer_circle_id'      => 'nullable|exists:circles,id',
             'report_text'             => 'nullable|string|max:10000',
+            'complainant_message'     => 'nullable|string|max:2000',
+            'appeared_at'             => 'nullable|date',
         ];
 
         $data = $request->validate($rules);
 
         if (!empty($data['recommendation'])) {
             $data['submitted_at'] = now();
+        }
+
+        // Recording a complainant message / appear-date means the verification
+        // officer has contacted the complainant. Stamp who recorded it and ring
+        // the circle officer so they stay in the loop.
+        $justNotified = (empty($verification->complainant_message) && !empty($data['complainant_message']))
+                     || (empty($verification->appeared_at) && !empty($data['appeared_at']));
+        if ($justNotified) {
+            $data['sent_by'] = auth()->id();
         }
 
         $officerChanged = !empty($data['verification_officer_id'])
@@ -373,6 +385,10 @@ class VerificationController extends Controller
 
         if ($officerChanged) {
             $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        }
+
+        if ($justNotified) {
+            $this->notifyCircleInchargeAboutComplainantMessage($verification);
         }
 
         if ($request->expectsJson()) {
@@ -402,6 +418,24 @@ class VerificationController extends Controller
     }
 
     // ── Existing API methods ──
+
+    /**
+     * Notify the circle officer(s) that a verification officer recorded a
+     * complainant message (i.e. the complainant was contacted / appeared).
+     */
+    protected function notifyCircleInchargeAboutComplainantMessage(Verification $verification): void
+    {
+        $circle = $verification->complaint?->circle;
+
+        if (!$circle) {
+            return;
+        }
+
+        \App\Models\User::role('circle_incharge')
+            ->where('circle_id', $circle->id)
+            ->each
+            ->notify(new ComplainantMessageNotification($verification));
+    }
 
     public function assign(Request $request, Complaint $complaint)
     {

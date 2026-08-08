@@ -20,7 +20,7 @@ const CLOSURE_REASONS = [
 export default function VerificationForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '' });
+  const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', complainant_message: '', appeared_at: '' });
   const [officers, setOfficers] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [allComplaints, setAllComplaints] = useState([]);
@@ -43,7 +43,7 @@ export default function VerificationForm() {
     if (isEdit) {
       api.get(`/verifications/${id}`).then(r => {
         const d = r.data.data || r.data;
-        setForm({ complaint_id: d.complaint_id || '', verification_officer_id: d.verification_officer_id || '', priority_type: d.priority_type || 'normal', status: d.status || 'assigned', report_text: d.report_text || '', recommendation: d.recommendation || '', closure_reason: d.closure_reason || '', merge_complaint_id: d.merge_complaint_id || '', transfer_department: d.transfer_department || '', transfer_circle_id: d.transfer_circle_id || '' });
+         setForm({ complaint_id: d.complaint_id || '', verification_officer_id: d.verification_officer_id || '', priority_type: d.priority_type || 'normal', status: d.status || 'assigned', report_text: d.report_text || '', recommendation: d.recommendation || '', closure_reason: d.closure_reason || '', merge_complaint_id: d.merge_complaint_id || '', transfer_department: d.transfer_department || '', transfer_circle_id: d.transfer_circle_id || '', complainant_message: d.complainant_message || '', appeared_at: d.appeared_at ? d.appeared_at.slice(0, 16) : '', assigned_at: d.assigned_at || '', submitted_at: d.submitted_at || '', approved_at: d.approved_at || '', sent_by: d.sent_by || '', sent_by_name: d.sent_by_user?.name || '' });
       }).catch(() => navigate('/verifications'));
     }
   }, [id]);
@@ -230,9 +230,75 @@ export default function VerificationForm() {
             <div className="cf-field">
               <label className="cf-label">Report / Remarks</label>
               <textarea className="cf-input cf-textarea" rows={4} value={form.report_text} onChange={setF('report_text')} placeholder="Enter detailed report or remarks…"></textarea>
+              {errors.report_text && <span className="cf-error">{errors.report_text[0]}</span>}
             </div>
           </div>
         </div>
+
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon" style={{background:'#6C46A4'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><circle cx="12" cy="7" r="4"/><path d="M1.5 20.5a8.5 8.5 0 0 1 16.5-.5"/></svg>
+            </div>
+            <div><div className="cf-section-title">Complainant Message</div><div className="cf-section-sub">Message sent to the complainant + appearance date</div></div>
+            <div className="cf-section-badge">Step 4</div>
+          </div>
+          <div className="cf-body">
+            <div className="cf-field">
+              <label className="cf-label">Appear By</label>
+              <input
+                type="datetime-local"
+                className="cf-input"
+                value={form.appeared_at || ''}
+                onChange={setF('appeared_at')}
+              />
+              {errors.appeared_at && <span className="cf-error">{errors.appeared_at[0]}</span>}
+            </div>
+            <div className="cf-field">
+              <label className="cf-label">Message to Complainant</label>
+              <textarea
+                className="cf-input cf-textarea"
+                rows={3}
+                value={form.complainant_message || ''}
+                onChange={setF('complainant_message')}
+                placeholder="Record the message sent to the complainant (e.g. notice of appearance)…"
+              ></textarea>
+              {errors.complainant_message && <span className="cf-error">{errors.complainant_message[0]}</span>}
+            </div>
+            {isEdit && form.sent_by && (
+              <div className="cf-field">
+                <label className="cf-label">Recorded By</label>
+                <div className="cf-input-wrap" style={{color:'#555'}}>{form.sent_by_name || ('by user #' + form.sent_by)}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {isEdit && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{background:'#0E7C7B'}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><line x1="12" y1="6" x2="12" y2="20"/><polyline points="6 12 12 18 18 6"/></svg>
+              </div>
+              <div><div className="cf-section-title">Timeline</div><div className="cf-section-sub">Key verification milestones</div></div>
+            </div>
+            <div className="cf-body">
+              <div style={{display:'grid','gridTemplateColumns':'repeat(4,1fr)',gap:10,maxWidth:'880px'}}>
+                {[
+                  {label:'Assigned', value: form.assigned_at},
+                  {label:'Submitted', value: form.submitted_at},
+                  {label:'Approved', value: form.approved_at},
+                  {label:'Complainant Notified', value: form.appeared_at},
+                ].map(t => (
+                  <div key={t.label} className="cf-field" style={{marginBottom:0}}>
+                    <label className="cf-label">{t.label}</label>
+                    <div className="cf-input-wrap" style={{background:'#F7F8FA',padding:'8px 10px',borderRadius:6,fontSize:13,color:'#333'}}>{t.value ? new Date(t.value).toLocaleString() : '—'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:20}}>
           <button type="submit" className="btn btn-primary" disabled={saving} style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:600,borderRadius:'8px',border:'none'}}>{saving ? 'Saving...' : (isEdit ? 'Update Verification' : 'Assign Verification')}</button>

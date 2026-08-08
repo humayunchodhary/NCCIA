@@ -34,14 +34,18 @@ class Verification extends Model
         'assigned_at',
         'submitted_at',
         'approved_at',
+        'appeared_at',
+        'complainant_message',
+        'sent_by',
     ];
 
     protected function casts(): array
     {
         return [
-            'assigned_at'  => 'datetime',
-            'submitted_at' => 'datetime',
-            'approved_at'  => 'datetime',
+            'assigned_at'          => 'datetime',
+            'submitted_at'         => 'datetime',
+            'approved_at'          => 'datetime',
+            'appeared_at'          => 'datetime',
         ];
     }
 
@@ -58,6 +62,11 @@ class Verification extends Model
     public function assignedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function sentByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sent_by');
     }
 
     public function transferCircle(): BelongsTo
