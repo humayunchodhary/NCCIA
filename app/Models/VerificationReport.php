@@ -57,9 +57,10 @@ class VerificationReport extends Model
     }
 
     /**
-     * Data isolation: users only see reports they created.
-     * Supervisory roles see all.
-     */
+      * Data isolation: a user only sees reports they created, except a
+      * circle_incharge, who sees reports for complaints in their own circle.
+      * Supervisory roles see all.
+      */
     public function scopeVisibleTo($query, ?User $user)
     {
         $user = $user ?? auth()->user();
@@ -70,6 +71,18 @@ class VerificationReport extends Model
 
         if ($user->seesAllData()) {
             return $query;
+        }
+
+        // circle_incharge (and any circle-scoped supervisor) only sees verification
+        // reports for complaints that belong to their own circle.
+        if ($user->hasRole('circle_incharge')) {
+            return $query->whereHas('complaint', function ($q) use ($user) {
+                if ($user->circle_id) {
+                    $q->where('circle_id', $user->circle_id);
+                } else {
+                    $q->whereNull('circle_id');
+                }
+            });
         }
 
         return $query->where('created_by', $user->id);

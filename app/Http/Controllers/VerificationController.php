@@ -83,7 +83,7 @@ class VerificationController extends Controller
 
     public function reports()
     {
-        $complaints = Complaint::whereNotNull('tracking_no')
+        $complaints = Complaint::visibleTo(request()->user())->whereNotNull('tracking_no')
             ->orderBy('tracking_no')
             ->get(['id', 'tracking_no', 'complainant_name', 'cnic', 'contact_no']);
 

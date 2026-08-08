@@ -411,11 +411,13 @@ class EnquiryController extends Controller
 
         $enquiries = $query->latest()->paginate(15);
 
+        $q = Enquiry::visibleTo(request()->user());
+
         $stats = [
-            'total'    => Enquiry::count(),
-            'pending'  => Enquiry::where('status', 'registered')->count(),
-            'progress' => Enquiry::whereIn('status', ['assigned', 'in_progress'])->count(),
-            'approved' => Enquiry::where('status', 'approved')->count(),
+            'total'    => (clone $q)->count(),
+            'pending'  => (clone $q)->where('status', 'registered')->count(),
+            'progress' => (clone $q)->whereIn('status', ['assigned', 'in_progress'])->count(),
+            'approved' => (clone $q)->where('status', 'approved')->count(),
         ];
 
         if (request()->expectsJson()) {
@@ -427,11 +429,13 @@ class EnquiryController extends Controller
 
     public function stats()
     {
+        $q = Enquiry::visibleTo(request()->user());
+
         return response()->json([
-            'total'    => Enquiry::count(),
-            'pending'  => Enquiry::where('status', 'registered')->count(),
-            'progress' => Enquiry::whereIn('status', ['assigned', 'in_progress'])->count(),
-            'approved' => Enquiry::where('status', 'approved')->count(),
+            'total'    => (clone $q)->count(),
+            'pending'  => (clone $q)->where('status', 'registered')->count(),
+            'progress' => (clone $q)->whereIn('status', ['assigned', 'in_progress'])->count(),
+            'approved' => (clone $q)->where('status', 'approved')->count(),
         ]);
     }
 
