@@ -134,6 +134,7 @@ export default function Layout() {
         unread_count: 0,
         notifications: prev.notifications.map(x => ({ ...x, read_at: new Date().toISOString() })),
       }));
+      prevNotifIds.current = [];
     }).catch(() => {});
   };
 
@@ -425,8 +426,8 @@ export default function Layout() {
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 </svg>
-                {(notifications.unread_count + pendingTasks.count) > 0 && (
-                  <span className="notif-badge">{notifications.unread_count + pendingTasks.count}</span>
+                {(notifications.unread_count) > 0 && (
+                  <span className="notif-badge">{notifications.unread_count}</span>
                 )}
               </button>
               <div className={`notif-dropdown${notifOpen ? ' open' : ''}`}>

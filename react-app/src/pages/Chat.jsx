@@ -116,6 +116,18 @@ export default function Chat() {
 
   const activeContact = contacts.find(c => c.id === activeId) || conversations.find(c => c.user?.id === activeId)?.user || null;
 
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread || 0), 0);
+
+  const markAllRead = async () => {
+    try {
+      await api.post('/messages/read-all');
+      refreshConversations();
+      if (activeId) loadThread(activeId);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to mark messages as read');
+    }
+  };
+
   const filtered = contacts.filter(c => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -146,6 +158,27 @@ export default function Chat() {
         <div style={{ display: 'flex', height: 'calc(100vh - 240px)', minHeight: 480 }}>
           {/* Contact sidebar */}
           <div style={{ width: 320, minWidth: 260, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#f9fafb' }}>
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#374151' }}>
+                Conversations
+                {totalUnread > 0 && <span style={{ marginLeft: 8, background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, minWidth: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{totalUnread}</span>}
+              </span>
+              <button
+                type="button"
+                onClick={markAllRead}
+                disabled={totalUnread === 0}
+                title="Mark all conversations as read"
+                style={{
+                  background: totalUnread > 0 ? '#015C94' : '#e5e7eb',
+                  color: totalUnread > 0 ? '#fff' : '#9ca3af',
+                  border: 'none', borderRadius: 6, cursor: totalUnread > 0 ? 'pointer' : 'not-allowed',
+                  fontSize: 12, fontWeight: 600, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5,
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                Mark all read
+              </button>
+            </div>
             <div style={{ padding: 12, borderBottom: '1px solid #e5e7eb' }}>
               <input
                 type="search"
