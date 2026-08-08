@@ -243,7 +243,7 @@ export default function Chat() {
                     <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 30 }}>No messages yet. Say hello!</div>
                   )}
                   {!threadLoading && messages.map((m, i) => {
-                    const mine = m.sender_id === meId;
+                    const mine = Number(m.sender_id) === Number(meId);
                     const prev = messages[i - 1];
                     const showDay = !prev || formatDay(prev.created_at) !== formatDay(m.created_at);
                     return (
