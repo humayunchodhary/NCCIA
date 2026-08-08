@@ -31,6 +31,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::get('/complaints/{complaint}/slip', [ComplaintController::class, 'slip'])->name('api.complaints.slip');
     Route::post('/complaints/{complaint}/scrutiny', [ComplaintController::class, 'scrutiny'])
         ->middleware('role:admin,circle_incharge');
+    Route::post('/complaints/{complaint}/direct-assign', [ComplaintController::class, 'directAssign'])
+        ->middleware('role:operator,admin,circle_incharge');
 
     // Verifications — SPECIFIC routes FIRST, then wildcard {verification} routes
     Route::get('/verifications', [VerificationController::class, 'index'])->name('api.verifications.index');

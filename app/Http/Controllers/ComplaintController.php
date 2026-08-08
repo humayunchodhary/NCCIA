@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Complaint;
 use App\Models\OffenceType;
+use App\Models\User;
+use App\Models\Verification;
 use App\Http\Requests\StoreComplaintRequest;
 use App\Http\Requests\UpdateComplaintRequest;
 use App\Http\Resources\ComplaintResource;
+use App\Notifications\VerificationAssignedNotification;
 use App\Services\PrintService;
 use App\Services\TrackingNumberGenerator;
 use Illuminate\Http\Request;
@@ -222,5 +225,39 @@ class ComplaintController extends Controller
 
         return redirect()->route('all.complaints')
             ->with('success', 'Complaint status updated to ' . $request->status);
+    }
+
+    /**
+     * Operator / circle-incharge one-click "direct assign":
+     * create a verification and assign a verification officer to this complaint.
+     */
+    public function directAssign(Request $request, Complaint $complaint)
+    {
+        $data = $request->validate([
+            'verification_officer_id' => 'required|integer|exists:users,id',
+            'priority_type'           => 'required|in:normal,high,critical',
+        ]);
+
+        $verification = DB::transaction(function () use ($complaint, $data) {
+            return Verification::create([
+                'complaint_id'            => $complaint->id,
+                'verification_officer_id' => $data['verification_officer_id'],
+                'priority_type'           => $data['priority_type'],
+                'status'                  => 'assigned',
+                'assigned_by'             => Auth::id(),
+                'assigned_at'             => now(),
+            ]);
+        });
+
+        $verification->officer?->notify(new VerificationAssignedNotification($verification));
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Verification assigned to ' . ($verification->officer?->name ?? 'officer'),
+                'data'    => $verification->load('officer', 'complaint'),
+            ], 201);
+        }
+
+        return back()->with('success', 'Verification assigned to ' . ($verification->officer?->name ?? 'officer'));
     }
 }

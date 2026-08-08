@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ProgressBar from '../components/ProgressBar';
 import { openPrintWindow } from '../utils/print';
+import { useAuth } from '../contexts/AuthContext';
 
 const CLOSURE_REASON_LABELS = {
   non_pursuance: 'Non-Pursuance',
@@ -41,10 +42,18 @@ const ENQ_STATUS_COLORS = {
 };
 
 export default function Complaints() {
+  const { user } = useAuth();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [offenceMap, setOffenceMap] = useState({});
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [assignForm, setAssignForm] = useState({ verification_officer_id: '', priority_type: 'normal' });
+  const [hasOperatorRole, setHasOperatorRole] = useState(false);
+  const [officers, setOfficers] = useState([]);
+
+  const hasRole = (roleName) => user?.roles?.some(r => r.name === roleName);
+  const canAssign = hasRole('operator') || hasRole('circle_incharge') || hasRole('admin');
 
   useEffect(() => {
     api.get('/complaints').then(r => setList(r.data.data || r.data)).finally(() => setLoading(false));
@@ -53,6 +62,11 @@ export default function Complaints() {
       const arr = Array.isArray(d) ? d : (d.data || []);
       setOffenceMap(Object.fromEntries(arr.map(o => [o.value, o.name])));
     }).catch(() => {});
+    // Check operator role
+    if (user?.roles) {
+      const has = user.roles.some(r => r.name === 'operator' || r.name === 'circle_incharge' || r.name === 'admin');
+      setHasOperatorRole(has);
+    }
   }, []);
 
   const handleDelete = async () => {
@@ -68,6 +82,29 @@ export default function Complaints() {
       openPrintWindow(r.data.html);
     } catch (e) {
       alert(e.response?.data?.message || 'Could not generate slip.');
+    }
+  };
+
+  // ── Direct Assign ──
+  const openDirectAssign = (complaint) => {
+    setAssignTarget(complaint);
+    setAssignForm({ verification_officer_id: '', priority_type: 'normal' });
+    api.get('/lookup/verification-officers').then(r => {
+      const all = r.data.data || r.data;
+      setOfficers(Array.isArray(all) ? all : []);
+    }).catch(() => {});
+  };
+
+  const handleDirectAssign = async () => {
+    if (!assignTarget) return;
+    try {
+      await api.post(`/complaints/${assignTarget.id}/direct-assign`, assignForm);
+      setAssignTarget(null);
+      setAssignForm({ verification_officer_id: '', priority_type: 'normal' });
+      // Refresh list
+      api.get('/complaints').then(r => setList(r.data.data || r.data)).finally(() => setOfficers([]));
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to assign verification');
     }
   };
 
@@ -133,9 +170,15 @@ export default function Complaints() {
                       {!c.final_status && <span style={{color:'#999'}}>—</span>}
                     </td>
                     <td><span style={{fontSize:'12px',color:'#6c757d'}}>{new Date(c.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span></td>
-                    <td>
-                      <div style={{display:'flex',gap:'6px'}}>
-                        <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
+<td>
+                       <div style={{display:'flex',gap:'6px'}}>
+                         {canAssign && !c.verification && (
+                           <button onClick={() => openDirectAssign(c)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Assign Verification Officer">
+                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+                             Assign
+                           </button>
+                         )}
+                         <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </Link>
                         <button onClick={() => printSlip(c)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Print 80mm Slip">
@@ -164,6 +207,44 @@ export default function Complaints() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* ── Direct Assign Modal ── */}
+      {assignTarget && (
+        <div className="modal-overlay" onClick={() => setAssignTarget(null)}>
+          <div className="modal-container" style={{maxWidth:'480px'}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Direct Assign Verification Officer</h3>
+              <button className="modal-close" onClick={() => setAssignTarget(null)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p style={{marginBottom:'12px',fontSize:'13px',color:'#555'}}>
+                Assign a verification officer for complaint <strong>#{assignTarget.tracking_no || assignTarget.id}</strong>.
+              </p>
+              <div className="cf-group">
+                <label className="cf-label">Verification Officer <span className="required">*</span></label>
+                <select className="cf-input" value={assignForm.verification_officer_id} onChange={e => setAssignForm({...assignForm, verification_officer_id: e.target.value})} required>
+                  <option value="">Select Officer</option>
+                  {officers.map(o => (
+                    <option key={o.id} value={o.id}>{o.name}{o.designation ? ' (' + o.designation + ')' : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="cf-group">
+                <label className="cf-label">Priority <span className="required">*</span></label>
+                <select className="cf-input" value={assignForm.priority_type} onChange={e => setAssignForm({...assignForm, priority_type: e.target.value})} required>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setAssignTarget(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleDirectAssign} disabled={!assignForm.verification_officer_id}>Assign Officer</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
