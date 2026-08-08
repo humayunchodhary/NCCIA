@@ -1591,8 +1591,8 @@ body:not(.sidebar-collapsed) .main-content {
     justify-content: center;
     z-index: 2000;
     padding: 20px;
-    opacity: 0;
-    pointer-events: none;
+    opacity: 1;
+    pointer-events: all;
     transition: opacity 0.2s;
 }
 .modal-overlay.open {
@@ -1607,6 +1607,13 @@ body:not(.sidebar-collapsed) .main-content {
     max-width: 560px;
     transform: scale(0.96);
     transition: transform 0.2s;
+    overflow: hidden;
+}
+.modal-container {
+    background: #fff;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
     overflow: hidden;
 }
 .modal-overlay.open .modal {
