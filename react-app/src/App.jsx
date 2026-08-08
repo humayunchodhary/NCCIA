@@ -26,6 +26,7 @@ import Laws from './pages/Laws';
 import Rules from './pages/Rules';
 import SOP from './pages/SOP';
 import UserManual from './pages/UserManual';
+import Chat from './pages/Chat';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="enquiries" element={<Enquiries />} />
         <Route path="enquiries/create" element={<EnquiryForm />} />
         <Route path="enquiries/:id/edit" element={<EnquiryForm />} />
+        <Route path="messages" element={<Chat />} />
         <Route path="investigation-officers" element={<InvestigationOfficers />} />
         <Route path="investigation-officers/create" element={<OfficerForm />} />
         <Route path="investigation-officers/:id/edit" element={<OfficerForm />} />

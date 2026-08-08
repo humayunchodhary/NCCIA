@@ -10,6 +10,7 @@ function getBreadcrumb(pathname) {
     '/verifications': 'Verifications',
     '/verifications/reports': 'Verification Reports',
     '/enquiries': 'Enquiries',
+    '/messages': 'Messages',
     '/investigation-officers': 'IO Records',
     '/offence-types': 'Crime Categories',
     '/cases': 'DAC Cases',
@@ -65,7 +66,7 @@ export default function Layout() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [dacOpen, setDacOpen] = useState(false);
-  const [counts, setCounts] = useState({ verifications: 0, reports: 0, enquiries: 0 });
+  const [counts, setCounts] = useState({ verifications: 0, reports: 0, enquiries: 0, messages: 0 });
   const [notifications, setNotifications] = useState({ unread_count: 0, notifications: [] });
   const [pendingTasks, setPendingTasks] = useState({ tasks: [], count: 0 });
   const userMenuRef = useRef(null);
@@ -210,6 +211,13 @@ export default function Layout() {
               <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
               <span>Enquiries</span>
               <span className="nav-badge">{counts.enquiries}</span>
+            </NavLink>
+          </div>
+          <div className="nav-item">
+            <NavLink to="/messages" className="nav-link" data-page="messages">
+              <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+              <span>Messages</span>
+              {counts.messages > 0 && <span className="nav-badge urgent">{counts.messages}</span>}
             </NavLink>
           </div>
           {canView('io_records', user) && <div className="nav-item">
