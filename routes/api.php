@@ -47,6 +47,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/verifications/{verification}/approve', [VerificationController::class, 'approve']);
     Route::post('/verifications/{verification}/change-officer', [VerificationController::class, 'changeOfficer'])
         ->middleware('role:admin,circle_incharge');
+    Route::post('/verifications/bulk-close', [VerificationController::class, 'bulkClose'])
+        ->middleware('role:admin,circle_incharge');
 
     // Enquiries
     Route::get('/enquiries', [EnquiryController::class, 'index'])->name('api.enquiries.index');

@@ -23,7 +23,20 @@ class VerificationController extends Controller
     {
         $query = Verification::visibleTo(request()->user())->with(['complaint', 'officer', 'assignedBy']);
 
-        $verifications = $query->latest()->paginate(15);
+        if ($search = request('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('complaint', function ($cq) use ($search) {
+                    $cq->where('tracking_no', 'like', "%{$search}%")
+                       ->orWhere('complainant_name', 'like', "%{$search}%");
+                })->orWhere('id', $search);
+            });
+        }
+
+        if ($status = request('status')) {
+            $query->where('status', $status);
+        }
+
+        $verifications = $query->latest()->paginate(15)->withQueryString();
 
         $statsQuery = Verification::visibleTo(request()->user());
 
@@ -35,7 +48,7 @@ class VerificationController extends Controller
         ];
 
         if (request()->expectsJson()) {
-            return response()->json($verifications->items());
+            return response()->json($verifications);
         }
 
         return view('verifications.index', compact('verifications', 'stats'));
@@ -415,6 +428,46 @@ class VerificationController extends Controller
 
         return redirect()->route('verifications.index')
             ->with('success', 'Verification deleted successfully');
+    }
+
+    /**
+     * Bulk-close selected verifications (circle officers / admins only).
+     * A closed verification is finalized and removed from active workflow.
+     */
+    public function bulkClose(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['admin', 'circle_incharge']), 403);
+
+        $data = $request->validate([
+            'ids'            => 'required|array|min:1',
+            'ids.*'          => 'integer|exists:verifications,id',
+            'closure_reason' => 'nullable|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
+        ]);
+
+        // Only IDs the caller is allowed to see can be closed (prevents IDOR).
+        $count = Verification::visibleTo($user)
+            ->whereIn('id', $data['ids'])
+            ->whereNotIn('status', ['approved', 'closed'])
+            ->update([
+                'status'         => 'closed',
+                'closure_reason' => $data['closure_reason'] ?? null,
+                'completed_at'   => now(),
+            ]);
+
+        activity()->useLog('verifications')
+            ->causedBy($user)
+            ->withProperties(['ids' => $data['ids'], 'closure_reason' => $data['closure_reason'] ?? null])
+            ->log("Bulk closed {$count} verification(s)");
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => "Closed {$count} verification(s)",
+                'count'   => $count,
+            ]);
+        }
+
+        return back()->with('success', "Closed {$count} verification(s)");
     }
 
     // ── Existing API methods ──

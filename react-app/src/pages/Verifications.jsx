@@ -29,6 +29,13 @@ export default function Verifications() {
   const [statusFilter, setStatusFilter] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  // Bulk selection + bulk close
+  const [selected, setSelected] = useState([]);
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
+  const [closeReason, setCloseReason] = useState('');
+
+  const canBulk = hasRole('admin') || hasRole('circle_incharge');
+
   // Submit Report modal
   const [submitTarget, setSubmitTarget] = useState(null);
   const [submitForm, setSubmitForm] = useState({ report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '' });
@@ -49,7 +56,15 @@ export default function Verifications() {
   const hasRole = (roleName) => user?.roles?.some(r => r.name === roleName);
 
   const fetchData = () => {
-    api.get('/verifications').then(r => setList(r.data.data || r.data)).finally(() => setLoading(false));
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (statusFilter) params.set('status', statusFilter);
+    const qs = params.toString();
+    api.get('/verifications' + (qs ? `?${qs}` : '')).then(r => {
+      const page = r.data;
+      setList((page && page.data) ? page.data : []);
+      setSelected([]);
+    }).finally(() => setLoading(false));
     api.get('/verifications/stats').then(r => setStats(r.data)).catch(() => {});
   };
 
@@ -57,7 +72,7 @@ export default function Verifications() {
     fetchData();
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [search, statusFilter]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -65,6 +80,23 @@ export default function Verifications() {
     setList(list.filter(v => v.id !== deleteTarget.id));
     setDeleteTarget(null);
   };
+
+  // ── Bulk close ──
+  const handleBulkClose = async () => {
+    if (!selected.length) return;
+    try {
+      await api.post('/verifications/bulk-close', { ids: selected, closure_reason: closeReason || null });
+      fetchData();
+      setSelected([]);
+      setCloseModalOpen(false);
+      setCloseReason('');
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to close verifications');
+    }
+  };
+
+  const selectedAll = canBulk && list.length > 0 && list.every(v => selected.includes(v.id));
+  const selectedSome = canBulk && selected.length > 0 && selected.length < list.length;
 
   // ── Submit Report ──
   const openSubmitModal = (v) => {
@@ -164,6 +196,7 @@ export default function Verifications() {
     submitted: 'badge-pending',
     approved: 'badge-finalized',
     sent_back: 'badge-urgent',
+    closed: 'badge-closed',
   };
 
   const priorityDotCount = (type) => {
@@ -207,20 +240,29 @@ export default function Verifications() {
         <div className="mini-stat"><div className="mini-stat-value">{stats.approved}</div><div className="mini-stat-label">Completed</div></div>
       </div>
 
-      <div className="filters-bar" style={{display:'flex',gap:'12px',alignItems:'center',padding:'12px 16px',background:'#fff',borderRadius:'8px',marginBottom:'16px',flexWrap:'wrap',boxShadow:'0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(1,92,148,0.1)',border:'1px solid rgba(1,92,148,0.15)'}}>
-        <span className="filter-label" style={{fontSize:'12px',fontWeight:700,color:'#2b2b2b',textTransform:'uppercase',letterSpacing:'0.5px'}}>Filter</span>
-        <input type="text" id="searchInput" className="filter-select" placeholder="Search by Case ID or complainant name..." style={{height:'34px',padding:'0 12px',width:'260px',border:'1.5px solid #264078',borderRadius:'8px',fontSize:'13px'}} value={search} onChange={e => setSearch(e.target.value)} />
-        <select className="filter-select" id="statusFilter" style={{height:'34px',padding:'0 12px',border:'1.5px solid #264078',borderRadius:'8px',fontSize:'13px',background:'#fff',color:'#2b2b2b',minWidth:'180px'}} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option value="">All Statuses</option>
-          <option value="pending_assignment">Pending Assignment</option>
-          <option value="assigned">Assigned</option>
-          <option value="in_progress">In Progress</option>
-          <option value="submitted">Submitted</option>
-          <option value="approved">Approved</option>
-          <option value="sent_back">Sent Back</option>
-        </select>
-        <div className="filter-spacer" style={{flex:1}}></div>
-      </div>
+        <div className="filters-bar" style={{display:'flex',gap:'12px',alignItems:'center',padding:'12px 16px',background:'#fff',borderRadius:'8px',marginBottom:'16px',flexWrap:'wrap',boxShadow:'0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(1,92,148,0.1)',border:'1px solid rgba(1,92,148,0.15)'}}>
+          <span className="filter-label" style={{fontSize:'12px',fontWeight:700,color:'#2b2b2b',textTransform:'uppercase',letterSpacing:'0.5px'}}>Filter</span>
+          <input type="text" id="searchInput" className="filter-select" placeholder="Search by Case ID or complainant name..." style={{height:'34px',padding:'0 12px',width:'260px',border:'1.5px solid #264078',borderRadius:'8px',fontSize:'13px'}} value={search} onChange={e => setSearch(e.target.value)} />
+          <select className="filter-select" id="statusFilter" style={{height:'34px',padding:'0 12px',border:'1.5px solid #264078',borderRadius:'8px',fontSize:'13px',background:'#fff',color:'#2b2b2b',minWidth:'180px'}} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="">All Statuses</option>
+            <option value="pending_assignment">Pending Assignment</option>
+            <option value="assigned">Assigned</option>
+            <option value="in_progress">In Progress</option>
+            <option value="submitted">Submitted</option>
+            <option value="approved">Approved</option>
+            <option value="sent_back">Sent Back</option>
+            <option value="closed">Closed</option>
+          </select>
+          <div className="filter-spacer" style={{flex:1}}></div>
+        </div>
+
+        {canBulk && selected.length > 0 && (
+          <div className="bulk-action-bar" style={{display:'flex',alignItems:'center',gap:'12px',padding:'12px 16px',background:'#fff',border:'1px solid #e5e5e5',borderRadius:'8px',marginBottom:'12px',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
+            <span style={{fontSize:'13px',fontWeight:600,color:'#2b2b2b'}}>{selected.length} selected</span>
+            <button className="btn btn-sm" onClick={() => { setCloseReason(''); setCloseModalOpen(true); }} style={{background:'rgba(229,62,62,0.12)',color:'#e53e3e',border:'none',borderRadius:'6px',height:'32px',padding:'0 12px',cursor:'pointer',fontSize:'12px',fontWeight:600}}>Close</button>
+            <button className="btn btn-sm" onClick={() => setSelected([])} style={{background:'#f3f4f6',color:'#374151',border:'1px solid #d1d5db',borderRadius:'6px',height:'32px',padding:'0 12px',cursor:'pointer',fontSize:'12px',fontWeight:600}}>Clear</button>
+          </div>
+        )}
 
       <div className="card">
         <div className="card-header">
@@ -237,6 +279,7 @@ export default function Verifications() {
             <table className="data-table">
               <thead>
                 <tr>
+                  {canBulk && <th style={{width:40}}><input type="checkbox" className="cf-input" checked={selectedAll} ref={el => el && (el.indeterminate = selectedSome)} onChange={e => setSelected(e.target.checked ? list.map(v => v.id) : [])} /></th>}
                   <th>#</th>
                   <th>Case ID</th>
                   <th>Complainant</th>
@@ -250,6 +293,7 @@ export default function Verifications() {
               <tbody>
                 {filteredList.map((v, i) => (
                   <tr key={v.id}>
+                    {canBulk && <td><input type="checkbox" className="cf-input" checked={selected.includes(v.id)} onChange={e => { const s = new Set(selected); e.target.checked ? s.add(v.id) : s.delete(v.id); setSelected([...s]); }} /></td>}
                     <td>{i + 1}</td>
                     <td><span className="table-id">#{v.tracking_no || v.id}</span></td>
                     <td>
@@ -494,6 +538,36 @@ export default function Verifications() {
               <button className="btn btn-primary" onClick={handleReview} disabled={reviewSaving || !reviewForm.decision || !reviewForm.recommendation}>
                 {reviewSaving ? 'Processing...' : (reviewForm.decision === 'agree' ? 'Approve' : 'Send Back')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Close Modal ── */}
+      {closeModalOpen && (
+        <div className="modal-overlay" onClick={() => setCloseModalOpen(false)}>
+          <div className="modal-container" style={{maxWidth:'480px'}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Close Selected Verifications</h3>
+              <button className="modal-close" onClick={() => setCloseModalOpen(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p style={{marginBottom:'12px',fontSize:'13px',color:'#555'}}>
+                Close {selected.length} verification(s)? Mark the closure reason below.
+              </p>
+              <div className="cf-group">
+                <label className="cf-label">Closure Reason (optional)</label>
+                <select className="cf-input" value={closeReason} onChange={e => setCloseReason(e.target.value)}>
+                  <option value="">— No reason —</option>
+                  {CLOSURE_REASONS.map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setCloseModalOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleBulkClose} style={{background:'#e53e3e',color:'#fff'}}>Close Verifications</button>
             </div>
           </div>
         </div>
