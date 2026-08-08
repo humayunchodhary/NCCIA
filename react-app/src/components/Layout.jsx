@@ -86,7 +86,7 @@ export default function Layout() {
 
   useEffect(() => {
     fetchNotifications();
-    const timer = setInterval(fetchNotifications, 60000);
+    const timer = setInterval(fetchNotifications, 5000);
     return () => clearInterval(timer);
   }, []);
 
