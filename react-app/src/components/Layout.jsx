@@ -69,6 +69,9 @@ export default function Layout() {
   const [counts, setCounts] = useState({ verifications: 0, reports: 0, enquiries: 0, messages: 0 });
   const [notifications, setNotifications] = useState({ unread_count: 0, notifications: [] });
   const [pendingTasks, setPendingTasks] = useState({ tasks: [], count: 0 });
+  const [toast, setToast] = useState(null);
+  const prevNotifIds = useRef([]);
+  const toastTimer = useRef(null);
   const userMenuRef = useRef(null);
   const notifRef = useRef(null);
 
@@ -80,8 +83,31 @@ export default function Layout() {
   }, [location.pathname]);
 
   const fetchNotifications = () => {
-    api.get('/notifications').then(r => setNotifications(r.data)).catch(() => {});
+    api.get('/notifications').then(r => {
+      const data = r.data;
+      const unread = (data.notifications || []).filter(n => !n.read_at);
+      const unreadIds = new Set(unread.map(n => n.id));
+      const knownIds = new Set(prevNotifIds.current);
+
+      setNotifications(data);
+
+      // Only toast genuinely NEW unread notifications (skip the very first load)
+      if (prevNotifIds.current.length > 0) {
+        const brandNew = unread.filter(n => !knownIds.has(n.id));
+        if (brandNew.length > 0) {
+          const n = brandNew[0];
+          showToast(n.data?.message || n.type || 'New notification', n.data?.url);
+        }
+      }
+      prevNotifIds.current = Array.from(unreadIds);
+    }).catch(() => {});
     api.get('/notifications/pending-tasks').then(r => setPendingTasks(r.data)).catch(() => {});
+  };
+
+  const showToast = (message, url) => {
+    setToast({ message, url, id: Date.now() });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 5000);
   };
 
   useEffect(() => {
@@ -151,6 +177,43 @@ export default function Layout() {
 
   return (
     <div className="app-wrapper">
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 16, right: 16, zIndex: 9999,
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: '#ffffff', color: '#111827',
+          borderRadius: 12, padding: '12px 16px',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+          border: '1px solid #e5e7eb', borderLeft: '4px solid #015C94',
+          maxWidth: 360, animation: 'slideIn 0.3s ease',
+          cursor: toast.url ? 'pointer' : 'default',
+        }} onClick={() => {
+          if (toast.url) openNotification(toast.url);
+          setToast(null);
+        }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+            background: '#e8f1f8', color: '#015C94',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#374151' }}>New Notification</div>
+            <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+              {toast.message}
+            </div>
+          </div>
+          <button type="button" onClick={(e) => { e.stopPropagation(); setToast(null); }}
+            style={{ marginLeft: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4, display: 'flex' }}
+            aria-label="Dismiss">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      )}
       {mobileOpen && <div className="sidebar-overlay active" onClick={closeMobile}></div>}
       <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`} id="appSidebar" role="navigation" aria-label="Main Navigation">
         <div className="sidebar-logo-area">
