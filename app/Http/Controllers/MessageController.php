@@ -144,4 +144,16 @@ class MessageController extends Controller
                 ->count(),
         ]);
     }
+
+    /**
+     * Mark all incoming unread messages as read.
+     */
+    public function markAllRead(Request $request)
+    {
+        $count = Message::where('receiver_id', $request->user()->id)
+            ->where('is_read', false)
+            ->update(['is_read' => true, 'read_at' => now()]);
+
+        return response()->json(['message' => 'All messages marked as read', 'marked' => $count]);
+    }
 }

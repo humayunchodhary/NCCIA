@@ -214,4 +214,5 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::get('/messages/conversations/{user}', [MessageController::class, 'show']);
     Route::post('/messages', [MessageController::class, 'store']);
     Route::get('/messages/unread-count', [MessageController::class, 'unreadCount']);
+    Route::post('/messages/read-all', [MessageController::class, 'markAllRead']);
 });
