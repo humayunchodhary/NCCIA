@@ -3,17 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaseFile;
+use App\Models\Complaint;
 use App\Models\Enquiry;
-use App\Models\User;
+use App\Models\EnquiryLegalOpinion;
 use App\Models\Verification;
 use Illuminate\Http\Request;
-use Illuminate\Notifications\DatabaseNotification;
 
 class NotificationController extends Controller
 {
-    /**
-     * List the authenticated user's notifications with unread count.
-     */
     public function index(Request $request)
     {
         $user = $request->user();
@@ -33,14 +30,13 @@ class NotificationController extends Controller
             });
 
         return response()->json([
-            'unread_count' => $user->unreadNotifications()->count(),
+            'unread_count'  => $user->unreadNotifications()->count(),
             'notifications' => $notifications,
         ]);
     }
 
     /**
-     * Pending tasks assigned to the current officer
-     * (plus items awaiting action for supervisory roles).
+     * Pending tasks for the current user's role / stage (flowchart).
      */
     public function pendingTasks(Request $request)
     {
@@ -51,77 +47,193 @@ class NotificationController extends Controller
             return response()->json(['tasks' => [], 'count' => 0]);
         }
 
-        // Verifications assigned to me, still pending
+        // Personal assignments (any role)
         foreach (Verification::where('verification_officer_id', $user->id)
-            ->whereIn('status', ['assigned', 'in_progress'])
+            ->whereIn('status', ['assigned', 'in_progress', 'sent_back'])
             ->with('complaint:id,tracking_no')
             ->orderByDesc('assigned_at')
-            ->limit(10)
+            ->limit(15)
             ->get() as $v) {
             $tasks[] = [
                 'module' => 'verification',
-                'title'  => 'Verification for Complaint #' . ($v->complaint?->tracking_no ?? $v->complaint_id),
+                'title'  => 'Verification — Complaint #' . ($v->complaint?->tracking_no ?? $v->complaint_id),
                 'status' => $v->status,
-                'url'    => '/verifications',
+                'url'    => '/verifications/' . $v->id . '/edit',
             ];
         }
 
-        // Enquiries assigned to me, still pending
         foreach (Enquiry::where('enquiry_officer_id', $user->id)
             ->whereIn('status', ['assigned', 'in_progress'])
             ->with('complaint:id,tracking_no')
             ->orderByDesc('assignment_date')
-            ->limit(10)
+            ->limit(15)
             ->get() as $e) {
             $tasks[] = [
                 'module' => 'enquiry',
-                'title'  => 'Enquiry ' . ($e->enquiry_number ?? ('#' . $e->id)) . ' — Complaint #' . ($e->complaint?->tracking_no ?? 'N/A'),
+                'title'  => 'Enquiry ' . ($e->enquiry_number ?? ('#' . $e->id)),
                 'status' => $e->status,
-                'url'    => '/enquiries',
+                'url'    => '/enquiries/' . $e->id . '/edit',
             ];
         }
 
-        // DAC cases assigned to me, still pending
         foreach (CaseFile::where('investigation_officer_id', $user->id)
-            ->whereIn('status', ['assigned', 'in_progress'])
+            ->whereIn('status', ['assigned', 'in_progress', 'registered'])
             ->orderByDesc('updated_at')
-            ->limit(10)
+            ->limit(15)
             ->get() as $c) {
             $tasks[] = [
                 'module' => 'case',
-                'title'  => 'DAC Case (FIR #' . $c->fir_no . ')',
+                'title'  => 'DAC Case' . ($c->fir_no ? ' (FIR #' . $c->fir_no . ')' : ' #' . $c->id),
                 'status' => $c->status,
-                'url'    => '/cases',
+                'url'    => '/cases/' . $c->id . '/edit',
             ];
         }
 
-        // Supervisory roles: items awaiting their approval
-        if ($user->seesAllData()) {
-            foreach (Verification::whereIn('status', ['submitted'])
-                ->with('complaint:id,tracking_no')
-                ->orderByDesc('submitted_at')
-                ->limit(10)
-                ->get() as $v) {
+        // Operator — complaints needing VO assignment
+        if ($user->hasRole('operator')) {
+            foreach (Complaint::query()
+                ->where('status', 'complete')
+                ->whereNotNull('tracking_no')
+                ->whereDoesntHave('verification')
+                ->where(function ($qq) use ($user) {
+                    $qq->where('operator_id', $user->id)->orWhere('user_id', $user->id);
+                })
+                ->orderByDesc('id')
+                ->limit(15)
+                ->get() as $c) {
+                $tasks[] = [
+                    'module' => 'complaint_assign',
+                    'title'  => 'Assign VO — Complaint #' . $c->tracking_no,
+                    'status' => 'needs_assignment',
+                    'url'    => '/complaints',
+                ];
+            }
+        }
+
+        // Circle Incharge / Admin — approvals + unassigned
+        if ($user->hasAnyRole(['circle_incharge', 'admin', 'director_general'])) {
+            $circleOnly = $user->hasRole('circle_incharge')
+                && $user->circle_id
+                && !$user->hasAnyRole(['admin', 'director_general']);
+
+            $vQuery = Verification::where('status', 'submitted')->with('complaint:id,tracking_no,circle_id');
+            if ($circleOnly) {
+                $vQuery->whereHas('complaint', fn ($q) => $q->where('circle_id', $user->circle_id));
+            }
+            foreach ($vQuery->orderByDesc('submitted_at')->limit(10)->get() as $v) {
                 $tasks[] = [
                     'module' => 'verification_approval',
-                    'title'  => 'Verification report awaiting approval — Complaint #' . ($v->complaint?->tracking_no ?? $v->complaint_id),
+                    'title'  => 'Approve verification — #' . ($v->complaint?->tracking_no ?? $v->complaint_id),
                     'status' => $v->status,
                     'url'    => '/verifications',
                 ];
             }
 
-            foreach (Enquiry::whereIn('status', ['cfr_submitted'])
-                ->orderByDesc('submitted_at')
-                ->limit(10)
-                ->get() as $e) {
+            $eQuery = Enquiry::where('status', 'cfr_submitted')->with('complaint:id,tracking_no,circle_id');
+            if ($circleOnly) {
+                $eQuery->whereHas('complaint', fn ($q) => $q->where('circle_id', $user->circle_id));
+            }
+            foreach ($eQuery->orderByDesc('submitted_at')->limit(10)->get() as $e) {
                 $tasks[] = [
                     'module' => 'enquiry_approval',
-                    'title'  => 'CFR awaiting approval — Enquiry ' . ($e->enquiry_number ?? ('#' . $e->id)),
+                    'title'  => 'Approve CFR — Enquiry ' . ($e->enquiry_number ?? ('#' . $e->id)),
                     'status' => $e->status,
                     'url'    => '/enquiries',
                 ];
             }
+
+            $cQuery = Complaint::where('status', 'complete')
+                ->whereNotNull('tracking_no')
+                ->whereDoesntHave('verification');
+            if ($circleOnly) {
+                $cQuery->where('circle_id', $user->circle_id);
+            }
+            foreach ($cQuery->orderByDesc('id')->limit(8)->get() as $c) {
+                $tasks[] = [
+                    'module' => 'complaint_assign',
+                    'title'  => 'Assign VO — Complaint #' . $c->tracking_no,
+                    'status' => 'needs_assignment',
+                    'url'    => '/complaints',
+                ];
+            }
         }
+
+        // Reader Branch — missing enquiry numbers
+        if ($user->hasAnyRole(['reader_branch', 'admin', 'director_general'])) {
+            foreach (Enquiry::query()
+                ->where(function ($q) {
+                    $q->whereNull('enquiry_number')->orWhere('enquiry_number', '');
+                })
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get() as $e) {
+                $tasks[] = [
+                    'module' => 'enquiry_number',
+                    'title'  => 'Generate Enquiry Number — Enquiry #' . $e->id,
+                    'status' => 'registered',
+                    'url'    => '/enquiries/' . $e->id . '/edit',
+                ];
+            }
+        }
+
+        // Moharrar — missing FIR numbers
+        if ($user->hasAnyRole(['moharrar', 'admin', 'director_general'])) {
+            foreach (CaseFile::query()
+                ->where(function ($q) {
+                    $q->whereNull('fir_no')->orWhere('fir_no', '');
+                })
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get() as $c) {
+                $tasks[] = [
+                    'module' => 'fir_number',
+                    'title'  => 'Generate FIR Number — Case #' . $c->id,
+                    'status' => $c->status,
+                    'url'    => '/cases/' . $c->id . '/edit',
+                ];
+            }
+        }
+
+        // Legal — blank opinions
+        if ($user->hasAnyRole(['ad_legal', 'dd_legal', 'additional_director', 'admin', 'director_general'])) {
+            $roleKey = null;
+            if ($user->hasRole('ad_legal')) {
+                $roleKey = 'ad_legal';
+            } elseif ($user->hasRole('dd_legal')) {
+                $roleKey = 'dd_legal';
+            } elseif ($user->hasRole('additional_director')) {
+                $roleKey = 'additional_director';
+            }
+
+            $opinions = EnquiryLegalOpinion::query()
+                ->where(function ($q) {
+                    $q->whereNull('opinion_text')->orWhere('opinion_text', '');
+                })
+                ->when($roleKey, fn ($q) => $q->where('role', $roleKey))
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get();
+
+            foreach ($opinions as $op) {
+                $tasks[] = [
+                    'module' => 'legal_opinion',
+                    'title'  => 'Legal opinion pending — Enquiry #' . $op->enquiry_id,
+                    'status' => 'pending',
+                    'url'    => '/enquiries/' . $op->enquiry_id . '/edit',
+                ];
+            }
+        }
+
+        $seen = [];
+        $tasks = array_values(array_filter($tasks, function ($t) use (&$seen) {
+            $key = ($t['url'] ?? '') . '|' . ($t['title'] ?? '');
+            if (isset($seen[$key])) {
+                return false;
+            }
+            $seen[$key] = true;
+
+            return true;
+        }));
 
         return response()->json([
             'tasks' => $tasks,

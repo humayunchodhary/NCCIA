@@ -345,7 +345,7 @@ class EnquiryController extends Controller
             $complaint = Complaint::find($data['complaint_id']);
         }
 
-        $enquiry = DB::transaction(function () use ($data, $complaint, $request) {
+        $enquiry = DB::transaction(function () use ($data, $complaint, $request, $officerId, $privileged) {
             $enquiry = Enquiry::create([
                 'complaint_id'    => $complaint?->id,
                 'enquiry_number'  => $data['enquiry_number'] ?? null,
