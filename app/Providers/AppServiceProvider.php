@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Complaint;
+use App\Models\Enquiry;
 use App\Models\Verification;
 use App\Policies\ComplaintPolicy;
+use App\Policies\EnquiryPolicy;
 use App\Policies\VerificationPolicy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -21,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(Complaint::class, ComplaintPolicy::class);
         Gate::policy(Verification::class, VerificationPolicy::class);
+        Gate::policy(Enquiry::class, EnquiryPolicy::class);
 
         $this->registerSqliteCompatibilityFunctions();
     }

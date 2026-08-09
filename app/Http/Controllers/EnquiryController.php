@@ -298,6 +298,8 @@ class EnquiryController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Enquiry::class);
+
         $data = $request->validate([
             'tracking_no'             => 'nullable|string|max:255',
             'complaint_id'            => 'nullable|integer|exists:complaints,id',
@@ -395,6 +397,8 @@ class EnquiryController extends Controller
 
     public function index()
     {
+        $this->authorize('viewAny', Enquiry::class);
+
         $query = Enquiry::visibleTo(request()->user())->with('complaint', 'officer');
 
         if ($search = request('search')) {
@@ -429,6 +433,8 @@ class EnquiryController extends Controller
 
     public function stats()
     {
+        $this->authorize('viewAny', Enquiry::class);
+
         $q = Enquiry::visibleTo(request()->user());
 
         return response()->json([
@@ -441,10 +447,7 @@ class EnquiryController extends Controller
 
     public function show(Enquiry $enquiry)
     {
-        abort_unless(
-            Enquiry::visibleTo(request()->user())->whereKey($enquiry->id)->exists(),
-            404
-        );
+        $this->authorize('view', $enquiry);
 
         $enquiry->load('complaint', 'officer', 'activities.creator', 'legalOpinions.creator', 'approvals.circleIncharge', 'witnesses', 'notices');
         return response()->json($enquiry);
@@ -452,6 +455,8 @@ class EnquiryController extends Controller
 
     public function update(Request $request, Enquiry $enquiry)
     {
+        $this->authorize('update', $enquiry);
+
         $data = $request->validate([
             'tracking_no'             => 'nullable|string|max:255',
             'complaint_id'            => 'nullable|integer|exists:complaints,id',
@@ -571,6 +576,8 @@ class EnquiryController extends Controller
 
     public function destroy(Enquiry $enquiry)
     {
+        $this->authorize('delete', $enquiry);
+
         activity()->useLog('enquiries')
             ->performedOn($enquiry)
             ->causedBy(auth()->user())

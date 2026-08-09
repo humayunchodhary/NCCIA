@@ -65,17 +65,22 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/verifications/{verification}/change-officer', [VerificationController::class, 'changeOfficer'])
         ->middleware('role:admin,circle_incharge');
 
-    // Enquiries
+    // Enquiries — Verification Officer has no access (flowchart: separate Enquiry stage)
     Route::get('/enquiries', [EnquiryController::class, 'index'])->name('api.enquiries.index');
-    Route::post('/enquiries', [EnquiryController::class, 'store'])->name('api.enquiries.store');
+    Route::post('/enquiries', [EnquiryController::class, 'store'])
+        ->middleware('role:admin,circle_incharge,operator,reader_branch,moharrar')
+        ->name('api.enquiries.store');
     Route::get('/enquiries/{enquiry}', [EnquiryController::class, 'show'])->name('api.enquiries.show');
     Route::put('/enquiries/{enquiry}', [EnquiryController::class, 'update'])->name('api.enquiries.update');
-    Route::delete('/enquiries/{enquiry}', [EnquiryController::class, 'destroy'])->name('api.enquiries.destroy');
+    Route::delete('/enquiries/{enquiry}', [EnquiryController::class, 'destroy'])
+        ->middleware('role:admin')
+        ->name('api.enquiries.destroy');
     Route::get('/enquiries/{enquiry}/notice-print', [EnquiryController::class, 'noticePrint'])->name('api.enquiries.notice-print');
     Route::get('/enquiries/stats', [EnquiryController::class, 'stats']);
     Route::post('/enquiries/{enquiry}/assign', [EnquiryController::class, 'assign'])
         ->middleware('role:admin,circle_incharge');
-    Route::post('/enquiries/{enquiry}/submit-cfr', [EnquiryController::class, 'submitCfr']);
+    Route::post('/enquiries/{enquiry}/submit-cfr', [EnquiryController::class, 'submitCfr'])
+        ->middleware('role:admin,circle_incharge,enquiry_officer');
     Route::post('/enquiries/{enquiry}/approve', [EnquiryController::class, 'approve'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/enquiries/{enquiry}/change-officer', [EnquiryController::class, 'changeOfficer'])

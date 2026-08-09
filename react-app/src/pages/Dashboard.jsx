@@ -8,7 +8,7 @@ import ProgressBar from '../components/ProgressBar';
 const ROLE_PORTALS = {
   admin:               { icon: '🛠️', name: 'Admin Portal', desc: 'Full system administration — manage users, circles, offence types & all modules.' },
   circle_incharge:     { icon: '✅', name: 'Circle Incharge Portal', desc: 'Scrutiny complaints, review verifications, assign & approve enquiries, manage cases.' },
-  verification_officer:{ icon: '📋', name: 'Verification Officer Portal', desc: 'Conduct victim verifications, submit reports with recommendations.' },
+  verification_officer:{ icon: '📋', name: 'Verification Officer Portal', desc: 'Assigned verifications only — call complainant, verify, submit report & recommendations. No complaint/enquiry access.' },
   enquiry_officer:     { icon: '🔍', name: 'Enquiry Officer Portal', desc: 'Record activities, manage evidence, submit CFR for assigned enquiries.' },
   investigation_officer:{ icon: '🕵️', name: 'Investigation Officer Portal', desc: 'Conduct DAC investigations, record arrests, submit case reports.' },
   moharrar:            { icon: '📝', name: 'Moharrar Portal', desc: 'Register cases/FIRs, assign investigation officers, manage court cases.' },

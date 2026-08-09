@@ -168,6 +168,16 @@ class Enquiry extends Model
             return $query;
         }
 
+        // Flowchart: Verification Officer ends at Verification stage — no Enquiry access.
+        if ($user->hasRole('verification_officer')
+            && !$user->hasAnyRole([
+                'admin', 'circle_incharge', 'enquiry_officer', 'operator',
+                'moharrar', 'reader_branch', 'ad_legal', 'dd_legal',
+                'additional_director', 'director_general',
+            ])) {
+            return $query->whereRaw('1 = 0');
+        }
+
         if ($user->hasRole('enquiry_officer')) {
             return $query->where('enquiry_officer_id', $user->id);
         }
