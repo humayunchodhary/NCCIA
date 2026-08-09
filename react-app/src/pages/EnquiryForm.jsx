@@ -110,6 +110,7 @@ export default function EnquiryForm() {
   const [circles, setCircles] = useState([]);
   const [circleIncharges, setCircleIncharges] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [submittingCfr, setSubmittingCfr] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [activeTab, setActiveTab] = useState('details');
@@ -120,6 +121,9 @@ export default function EnquiryForm() {
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
+  const canSubmitCfr = !!id
+    && ['registered', 'assigned', 'in_progress'].includes(form.status)
+    && roleNames.some(r => ['admin', 'circle_incharge', 'enquiry_officer'].includes(r));
 
   const officerName = officers.find(o => String(o.value) === String(form.enquiry_officer_id))?.name || '';
   const recName = RECOMMENDATIONS.find(o => o.value === form.recommendation)?.name || '';
@@ -263,56 +267,60 @@ export default function EnquiryForm() {
   const nonAppearanceCount = form.notices.filter(n => n.status === 'non_appearance').length;
   const referredToCourt = nonAppearanceCount >= 3;
 
+  const saveEnquiry = async ({ navigateAway = true } = {}) => {
+    const fd = new FormData();
+
+    const serializeArr = (items, fileFieldName) => {
+      const clean = items.map(it => {
+        const o = { ...it };
+        if (o.attachment instanceof File) {
+          fd.append(fileFieldName + '[]', o.attachment);
+          delete o.attachment;
+        } else if (o.attachment && typeof o.attachment === 'string') {
+          o.attachment_path = o.attachment_path || o.attachment;
+          delete o.attachment;
+        }
+        return o;
+      });
+      return JSON.stringify(clean);
+    };
+
+    const scalarKeys = [
+      'complaint_id', 'tracking_no', 'enquiry_number', 'status', 'enquiry_officer_id',
+      'recommendation', 'closure_reason', 'transfer_department', 'transfer_circle',
+      'merge_complaint_id', 'cfr_summary', 'technical_report', 'forensic_report',
+    ];
+    scalarKeys.forEach((k) => {
+      const v = form[k];
+      if (v !== null && v !== undefined && v !== '') fd.append(k, v);
+    });
+
+    fd.append('activities', serializeArr(form.activities || [], 'activity_attachments'));
+    fd.append('witnesses', serializeArr(form.witnesses || [], 'witness_attachments'));
+    fd.append('notices', JSON.stringify(form.notices || []));
+    fd.append('legal_opinions', JSON.stringify(form.legal_opinions || []));
+    fd.append('approvals', JSON.stringify(form.approvals || []));
+
+    if (technicalFile) fd.append('technical_report_attachment', technicalFile);
+    if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
+
+    // PHP does not populate multipart on real PUT — use method spoofing
+    if (id) {
+      fd.append('_method', 'PUT');
+      await api.post(`/enquiries/${id}`, fd);
+    } else {
+      await api.post('/enquiries', fd);
+    }
+    if (navigateAway) navigate('/enquiries');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setErrors({});
     setServerError('');
     try {
-      const fd = new FormData();
-
-      const serializeArr = (items, fileFieldName) => {
-        const clean = items.map(it => {
-          const o = { ...it };
-          if (o.attachment instanceof File) {
-            fd.append(fileFieldName + '[]', o.attachment);
-            delete o.attachment;
-          } else if (o.attachment && typeof o.attachment === 'string') {
-            o.attachment_path = o.attachment_path || o.attachment;
-            delete o.attachment;
-          }
-          return o;
-        });
-        return JSON.stringify(clean);
-      };
-
-      const scalarKeys = [
-        'complaint_id', 'tracking_no', 'enquiry_number', 'status', 'enquiry_officer_id',
-        'recommendation', 'closure_reason', 'transfer_department', 'transfer_circle',
-        'merge_complaint_id', 'cfr_summary', 'technical_report', 'forensic_report',
-      ];
-      scalarKeys.forEach((k) => {
-        const v = form[k];
-        if (v !== null && v !== undefined && v !== '') fd.append(k, v);
-      });
-
-      fd.append('activities', serializeArr(form.activities || [], 'activity_attachments'));
-      fd.append('witnesses', serializeArr(form.witnesses || [], 'witness_attachments'));
-      fd.append('notices', JSON.stringify(form.notices || []));
-      fd.append('legal_opinions', JSON.stringify(form.legal_opinions || []));
-      fd.append('approvals', JSON.stringify(form.approvals || []));
-
-      if (technicalFile) fd.append('technical_report_attachment', technicalFile);
-      if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
-
-      // PHP does not populate multipart on real PUT — use method spoofing
-      if (id) {
-        fd.append('_method', 'PUT');
-        await api.post(`/enquiries/${id}`, fd);
-      } else {
-        await api.post('/enquiries', fd);
-      }
-      navigate('/enquiries');
+      await saveEnquiry({ navigateAway: true });
     } catch (err) {
       const res = err.response?.data;
       if (res?.errors) {
@@ -323,6 +331,42 @@ export default function EnquiryForm() {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSubmitCfr = async () => {
+    if (!id) return;
+    if (!form.recommendation || !['closure', 'transfer', 'convert_to_case'].includes(form.recommendation)) {
+      setActiveTab('outcome');
+      setServerError('Submit se pehle Outcome tab mein Recommendation select karein (Closure / Transfer / Convert to Case).');
+      return;
+    }
+    if (!form.cfr_summary?.trim()) {
+      setActiveTab('outcome');
+      setServerError('Submit se pehle Outcome tab mein CFR Summary likhein.');
+      return;
+    }
+
+    setSubmittingCfr(true);
+    setErrors({});
+    setServerError('');
+    try {
+      await saveEnquiry({ navigateAway: false });
+      await api.post(`/enquiries/${id}/submit-cfr`, {
+        cfr_summary: form.cfr_summary.trim(),
+        recommendation: form.recommendation,
+      });
+      navigate('/enquiries');
+    } catch (err) {
+      const res = err.response?.data;
+      if (res?.errors) {
+        setErrors(res.errors);
+        setServerError('Please fix the highlighted fields below.');
+      } else {
+        setServerError(res?.message || 'CFR submit failed. Please try again.');
+      }
+    } finally {
+      setSubmittingCfr(false);
     }
   };
 
@@ -816,6 +860,11 @@ export default function EnquiryForm() {
                 {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS, required: true })}
                 {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
               </div>
+              {renderField('CFR Summary', 'cfr_summary', {
+                rows: 4,
+                required: true,
+                placeholder: 'Final enquiry findings / CFR summary for Circle Incharge review',
+              })}
               <div className="cf-row-2">
                 {renderField('Transfer Department', 'transfer_department')}
                 {renderField('Transfer Circle', 'transfer_circle', { options: circles.map(c => ({ value: c.name, name: c.name })) })}
@@ -825,11 +874,33 @@ export default function EnquiryForm() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
+        {canSubmitCfr && (
+          <div style={{ marginTop: 16, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e3a5f' }}>
+            Outcome tab mein <strong>Recommendation</strong> + <strong>CFR Summary</strong> complete karke <strong>Submit CFR</strong> dabayein — Circle Incharge ko review ke liye chala jayega.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20, flexWrap: 'wrap' }}>
           <Link to="/enquiries" className="btn btn-outline">Cancel</Link>
-          <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: '#015C94', color: '#fff', padding: '12px 24px', fontWeight: 600, fontSize: '14px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', border: 'none' }}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={saving || submittingCfr}
+            style={{ background: '#64748b', color: '#fff', padding: '12px 24px', fontWeight: 600, fontSize: '14px', borderRadius: '8px', border: 'none' }}
+          >
             {saving ? 'Saving...' : (id ? 'Update Enquiry' : 'Register Enquiry')}
           </button>
+          {canSubmitCfr && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={saving || submittingCfr}
+              onClick={handleSubmitCfr}
+              style={{ background: '#015C94', color: '#fff', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(1,92,148,0.35)' }}
+            >
+              {submittingCfr ? 'Submitting...' : 'Submit CFR'}
+            </button>
+          )}
         </div>
       </form>
     </div>
