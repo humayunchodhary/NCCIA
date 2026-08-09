@@ -10,19 +10,22 @@ class EnquiryNumberGenerator
     public function generate(?string $circleCode = null): string
     {
         $year = now()->format('y');
-        $code = $circleCode ?? 'CCW';
+        $code = $circleCode ?: 'CCW';
 
-        $last = Enquiry::where('enquiry_number', 'like', "{$code}-E-%/{$year}")
-            ->lockForUpdate()
-            ->orderByRaw('CAST(SUBSTRING_INDEX(enquiry_number, "/", -1) AS UNSIGNED) DESC')
-            ->value('enquiry_number');
+        return DB::transaction(function () use ($code, $year) {
+            $query = Enquiry::where('enquiry_number', 'like', "{$code}-E-%/{$year}");
+            if (DB::transactionLevel() > 0) {
+                $query->lockForUpdate();
+            }
 
-        $seq = 1;
-        if ($last) {
-            $parts = explode('-', $last);
-            $seq = ((int) end($parts)) + 1;
-        }
+            $last = $query->orderByDesc('id')->value('enquiry_number');
 
-        return "{$code}-E-{$seq}/{$year}";
+            $seq = 1;
+            if ($last && preg_match('/-E-(\d+)\//', $last, $m)) {
+                $seq = ((int) $m[1]) + 1;
+            }
+
+            return "{$code}-E-{$seq}/{$year}";
+        });
     }
 }

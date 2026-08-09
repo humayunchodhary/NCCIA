@@ -793,20 +793,29 @@ class VerificationController extends Controller
                     break;
 
                 case 'enquiry_registration':
-                    DB::transaction(function () use ($complaint, $verification) {
-                        $circle = $complaint->circle;
-                        $gen = app(EnquiryNumberGenerator::class);
-                        $enquiry = Enquiry::create([
-                            'complaint_id'   => $complaint->id,
-                            'enquiry_number' => $gen->generate($circle?->code),
-                            'status'         => 'registered',
-                        ]);
-                        $complaint->update([
-                            'status'       => 'enquiry_registered',
-                            'final_status' => 'enquiry_registered',
-                            'enquiry_id'   => $enquiry->id,
-                        ]);
-                    });
+                    try {
+                        DB::transaction(function () use ($complaint) {
+                            $circle = $complaint->circle;
+                            $gen = app(EnquiryNumberGenerator::class);
+                            $enquiry = Enquiry::create([
+                                'complaint_id'   => $complaint->id,
+                                'enquiry_number' => $gen->generate($circle?->code),
+                                'status'         => 'registered',
+                                'reg_date'       => now(),
+                            ]);
+                            $complaint->update([
+                                'status'       => 'enquiry_registered',
+                                'final_status' => 'enquiry_registered',
+                                'enquiry_id'   => $enquiry->id,
+                            ]);
+                        });
+                    } catch (\Throwable $e) {
+                        report($e);
+
+                        return response()->json([
+                            'message' => 'Enquiry registration failed: ' . $e->getMessage(),
+                        ], 500);
+                    }
                     break;
             }
         } else {
