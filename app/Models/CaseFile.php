@@ -23,7 +23,6 @@ class CaseFile extends Model
 
     protected $fillable = [
         'enquiry_id',
-        'complaint_id',
         'fir_no',
         'investigation_officer_id',
         'status',

@@ -10,19 +10,24 @@ class FirNumberGenerator
     public function generate(?string $circleCode = null): string
     {
         $year = now()->format('y');
-        $code = $circleCode ?? 'CCW';
+        $code = $circleCode ?: 'CCW';
 
-        $last = CaseFile::where('fir_no', 'like', "{$code}-F-%/{$year}")
-            ->lockForUpdate()
-            ->orderByRaw('CAST(SUBSTRING_INDEX(fir_no, "-", -1) AS UNSIGNED) DESC')
-            ->value('fir_no');
+        return DB::transaction(function () use ($code, $year) {
+            $query = CaseFile::where('fir_no', 'like', "{$code}-F-%/{$year}");
+            if (DB::transactionLevel() > 0) {
+                $query->lockForUpdate();
+            }
 
-        $seq = 1;
-        if ($last) {
-            $parts = explode('-', $last);
-            $seq = ((int) end($parts)) + 1;
-        }
+            $last = $query
+                ->orderByDesc('id')
+                ->value('fir_no');
 
-        return "{$code}-F-{$seq}/{$year}";
+            $seq = 1;
+            if ($last && preg_match('/-F-(\d+)\//', $last, $m)) {
+                $seq = ((int) $m[1]) + 1;
+            }
+
+            return "{$code}-F-{$seq}/{$year}";
+        });
     }
 }

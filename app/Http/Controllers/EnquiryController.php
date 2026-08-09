@@ -681,8 +681,10 @@ class EnquiryController extends Controller
             'remarks'            => $data['remarks'] ?? null,
         ]);
 
+        $recommendation = $data['recommendation'] ?? $enquiry->recommendation;
+
         $updateData = [
-            'recommendation'     => $data['recommendation'] ?? $enquiry->recommendation,
+            'recommendation'     => $recommendation,
             'closure_reason'     => $data['closure_reason'] ?? null,
             'transfer_department'=> $data['transfer_department'] ?? null,
             'transfer_circle'    => $data['transfer_circle'] ?? null,
@@ -691,56 +693,66 @@ class EnquiryController extends Controller
 
         $complaint = $enquiry->complaint;
 
-        if ($data['decision'] === 'agree') {
-            $updateData['status']      = 'approved';
-            $updateData['approved_at'] = now();
+        try {
+            DB::transaction(function () use ($data, $enquiry, $complaint, $recommendation, &$updateData, $approval) {
+                if ($data['decision'] === 'agree') {
+                    $updateData['status'] = 'approved';
+                    $updateData['approved_at'] = now();
 
-            switch ($data['recommendation']) {
-                case 'closure':
-                    $complaint->update([
-                        'status'         => 'closed',
-                        'final_status'   => 'closed',
-                        'closure_reason' => $data['closure_reason'] ?? null,
-                    ]);
-                    break;
+                    switch ($recommendation) {
+                        case 'closure':
+                            $complaint->update([
+                                'status'         => 'closed',
+                                'final_status'   => 'closed',
+                                'closure_reason' => $data['closure_reason'] ?? null,
+                            ]);
+                            break;
 
-                case 'merge':
-                    $complaint->update([
-                        'status'         => 'merged',
-                        'final_status'   => 'merged',
-                        'merged_with_id' => $data['merge_complaint_id'] ?? null,
-                    ]);
-                    break;
+                        case 'merge':
+                            $complaint->update([
+                                'status'         => 'merged',
+                                'final_status'   => 'merged',
+                                'merged_with_id' => $data['merge_complaint_id'] ?? null,
+                            ]);
+                            break;
 
-                case 'transfer':
-                    $complaint->update([
-                        'status'                => 'transferred',
-                        'final_status'          => 'transferred',
-                        'transfer_to_department'=> $data['transfer_department'] ?? null,
-                        'transfer_to_circle_id' => null,
-                    ]);
-                    break;
+                        case 'transfer':
+                            $complaint->update([
+                                'status'                => 'transferred',
+                                'final_status'          => 'transferred',
+                                'transfer_to_department'=> $data['transfer_department'] ?? null,
+                                'transfer_to_circle_id' => null,
+                            ]);
+                            break;
 
-                case 'convert_to_case':
-                    $gen = app(FirNumberGenerator::class);
-                    $caseFile = CaseFile::create([
-                        'enquiry_id'   => $enquiry->id,
-                        'fir_no'       => $gen->generate(),
-                        'status'       => 'registered',
-                        'complaint_id' => $complaint->id,
-                    ]);
-                    $updateData['case_file_id'] = $caseFile->id;
-                    $complaint->update([
-                        'status'       => 'case_registered',
-                        'final_status' => 'case_registered',
-                    ]);
-                    break;
-            }
-        } else {
-            $updateData['status'] = 'in_progress';
+                        case 'convert_to_case':
+                            $circleCode = $complaint?->circle?->code;
+                            $gen = app(FirNumberGenerator::class);
+                            $caseFile = CaseFile::create([
+                                'enquiry_id'   => $enquiry->id,
+                                'fir_no'       => $gen->generate($circleCode),
+                                'status'       => 'registered',
+                            ]);
+                            $updateData['case_file_id'] = $caseFile->id;
+                            $complaint->update([
+                                'status'       => 'case_registered',
+                                'final_status' => 'case_registered',
+                            ]);
+                            break;
+                    }
+                } else {
+                    $updateData['status'] = 'in_progress';
+                }
+
+                $enquiry->update($updateData);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Enquiry approve failed: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $enquiry->update($updateData);
 
         return response()->json([
             'message' => 'Enquiry ' . ($data['decision'] === 'agree' ? 'approved' : 'sent for review'),
