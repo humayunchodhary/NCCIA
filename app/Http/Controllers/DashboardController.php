@@ -330,8 +330,19 @@ class DashboardController extends Controller
             else                          $workflowStages['registered']++;
         }
 
+        $completeCount = (clone $cmpQuery)->where('status', 'complete')->whereNotNull('tracking_no')->count();
+        $incompleteCount = (clone $cmpQuery)->where(function ($q) {
+            $q->where('status', 'incomplete')
+              ->orWhereNull('tracking_no')
+              ->orWhereIn('scrutiny_result', ['incomplete', 'invalid', 'irrelevant']);
+        })->count();
+        $withVoCount = (clone $verQuery)->count();
+
         $stats = [
             'total_complaints'      => $totalComplaints,
+            'complete_registrations'=> $completeCount,
+            'incomplete_registrations' => $incompleteCount,
+            'with_verification'     => $withVoCount,
             'total_verifications'   => $totalVerifications,
             'pending_verifications' => $pendingVerifications,
             'pending_review'        => $pendingReview,
@@ -398,7 +409,30 @@ class DashboardController extends Controller
             return $item;
         });
 
-        $recentComplaints = (clone $cmpQuery)->latest()->take(5)->get();
+        $recentLimit = ($role === 'operator') ? 20 : 5;
+        $recentComplaints = (clone $cmpQuery)
+            ->with(['verification.officer', 'enquiry', 'caseFiles'])
+            ->latest()
+            ->take($recentLimit)
+            ->get()
+            ->map(function (Complaint $c) {
+                return [
+                    'id'                  => $c->id,
+                    'tracking_no'         => $c->tracking_no,
+                    'diary_no'            => $c->diary_no,
+                    'complainant_name'    => $c->complainant_name,
+                    'offence_type'        => $c->offence_type,
+                    'priority_type'       => $c->priority_type,
+                    'operator_name'       => $c->operator_name,
+                    'status'              => $c->status,
+                    'scrutiny_result'     => $c->scrutiny_result,
+                    'created_at'          => $c->created_at?->toISOString(),
+                    'progress_percent'    => $c->progressPercent(),
+                    'progress_stage'      => $c->progressStage(),
+                    'verification_status' => $c->verification?->status,
+                    'officer_name'        => $c->verification?->officer?->name,
+                ];
+            });
 
         return response()->json(compact(
             'stats', 'monthlyTrends', 'categoryBreakdown', 'recentComplaints'

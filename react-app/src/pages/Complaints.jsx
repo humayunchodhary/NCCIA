@@ -112,14 +112,15 @@ export default function Complaints() {
     <div className="complaint-page">
       <div className="page-header">
         <div className="page-title-group">
-          <h1 className="page-title">Complaints</h1>
-          <p className="page-subtitle">All registered complaints</p>
+          <h1 className="page-title">{hasRole(user, 'operator') && !hasRole(user, 'admin') ? 'My Complaints' : 'Complaints'}</h1>
+          <p className="page-subtitle">{hasRole(user, 'operator') && !hasRole(user, 'admin') ? 'Aap ki registered complaints aur unki progress' : 'All registered complaints'}</p>
           <div className="title-underline"></div>
         </div>
         {canCreate && (
           <div className="page-actions">
             <Link to="/complaints/create" className="btn btn-primary btn-sm">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> New Complaint
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              {hasRole(user, 'operator') && !hasRole(user, 'admin') ? 'Complete Registration' : 'New Complaint'}
             </Link>
           </div>
         )}
