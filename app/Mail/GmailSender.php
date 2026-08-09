@@ -12,8 +12,8 @@ class GmailSender
 {
     public static function send(string $to, string $subject, string $body): bool
     {
-        $username = (string) env('MAIL_USERNAME', 'internsoftix407@gmail.com');
-        $password = preg_replace('/\s+/', '', (string) env('MAIL_PASSWORD', 'mtbf wqop ysgc iqur'));
+        $username = (string) env('MAIL_USERNAME', 'humayunchodhary@gmail.com');
+        $password = preg_replace('/\s+/', '', (string) env('MAIL_PASSWORD', 'cqyq tzaa jndp zajf'));
         $from = (string) env('MAIL_FROM_ADDRESS', $username);
         $fromName = (string) env('MAIL_FROM_NAME', 'NCCIA Portal');
 
