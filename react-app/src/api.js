@@ -6,6 +6,17 @@ const api = axios.create({
   withCredentials: true,
 });
 
+api.interceptors.request.use((config) => {
+  // Let the browser set multipart boundary for FormData (JSON content-type breaks uploads/updates)
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
+  }
+  return config;
+});
+
 let csrfReady = false;
 const ensureCsrf = async () => {
   if (csrfReady) return;

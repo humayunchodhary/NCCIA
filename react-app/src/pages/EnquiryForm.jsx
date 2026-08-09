@@ -138,12 +138,66 @@ export default function EnquiryForm() {
     if (id) {
       api.get(`/enquiries/${id}`).then(r => {
         const d = r.data.data || r.data;
-        if (d.complaint) {
-          d.tracking_no = d.complaint.tracking_no;
-        }
         if (d.technical_report_attachment) setTechnicalReportUrl(d.technical_report_attachment);
         if (d.forensic_report_attachment) setForensicReportUrl(d.forensic_report_attachment);
-        setForm(f => ({ ...f, ...d }));
+        const toDate = (v) => (v ? String(v).slice(0, 10) : '');
+        setForm(f => ({
+          ...f,
+          complaint_id: d.complaint_id || d.complaint?.id || '',
+          tracking_no: d.complaint?.tracking_no || d.tracking_no || '',
+          enquiry_number: d.enquiry_number || '',
+          status: d.status || 'registered',
+          enquiry_officer_id: d.enquiry_officer_id || '',
+          recommendation: d.recommendation || '',
+          closure_reason: d.closure_reason || '',
+          transfer_department: d.transfer_department || '',
+          transfer_circle: d.transfer_circle || '',
+          merge_complaint_id: d.merge_complaint?.tracking_no || d.merge_complaint_id || '',
+          cfr_summary: d.cfr_summary || '',
+          technical_report: d.technical_report || '',
+          forensic_report: d.forensic_report || '',
+          activities: (d.activities || []).map(a => ({
+            id: a.id,
+            type: a.type || '',
+            description: a.description || '',
+            activity_date: toDate(a.activity_date),
+            attachment_path: a.attachment_path || '',
+          })),
+          witnesses: (d.witnesses || []).map(w => ({
+            id: w.id,
+            name: w.name || '',
+            cnic: w.cnic || '',
+            nationality: w.nationality || '',
+            passport: w.passport || '',
+            address: w.address || '',
+            attachment: w.attachment || '',
+          })),
+          notices: (d.notices || []).map(n => ({
+            id: n.id,
+            notice_number: n.notice_number || '',
+            notice_type: n.notice_type || '',
+            receiver_name: n.receiver_name || '',
+            person_type: n.person_type || '',
+            notice_via: n.notice_via || '',
+            notice_date: toDate(n.notice_date),
+            address: n.address || '',
+            phone: n.phone || '',
+            description: n.description || '',
+            status: n.status || 'issued',
+          })),
+          legal_opinions: (d.legal_opinions || []).map(lo => ({
+            id: lo.id,
+            role: lo.role || '',
+            opinion_text: lo.opinion_text || '',
+            decision: lo.decision || '',
+          })),
+          approvals: (d.approvals || []).map(ap => ({
+            id: ap.id,
+            circle_incharge_id: ap.circle_incharge_id || '',
+            decision: ap.decision || 'agree',
+            remarks: ap.remarks || '',
+          })),
+        }));
       }).catch(() => navigate('/enquiries'));
     }
   }, [id, navigate]);
@@ -217,7 +271,7 @@ export default function EnquiryForm() {
     try {
       const fd = new FormData();
 
-      const serializeArr = (items, plainKey, fileFieldName) => {
+      const serializeArr = (items, fileFieldName) => {
         const clean = items.map(it => {
           const o = { ...it };
           if (o.attachment instanceof File) {
@@ -232,34 +286,29 @@ export default function EnquiryForm() {
         return JSON.stringify(clean);
       };
 
-      Object.entries(form).forEach(([k, v]) => {
-        if (k === 'activities') {
-          if (Array.isArray(v)) fd.append('activities', serializeArr(v, 'activities', 'activity_attachments'));
-          return;
-        }
-        if (k === 'witnesses') {
-          if (Array.isArray(v)) fd.append('witnesses', serializeArr(v, 'witnesses', 'witness_attachments'));
-          return;
-        }
-        if (['legal_opinions', 'approvals'].includes(k)) {
-          if (Array.isArray(v) && v.length > 0) fd.append(k, JSON.stringify(v));
-          return;
-        }
-        if (k === 'notices') {
-          if (Array.isArray(v)) fd.append('notices', JSON.stringify(v));
-          return;
-        }
-        if (k === 'technical_report_attachment' || k === 'forensic_report_attachment') return;
-        if (v !== null && v !== undefined && v !== '') {
-          fd.append(k, v);
-        }
+      const scalarKeys = [
+        'complaint_id', 'tracking_no', 'enquiry_number', 'status', 'enquiry_officer_id',
+        'recommendation', 'closure_reason', 'transfer_department', 'transfer_circle',
+        'merge_complaint_id', 'cfr_summary', 'technical_report', 'forensic_report',
+      ];
+      scalarKeys.forEach((k) => {
+        const v = form[k];
+        if (v !== null && v !== undefined && v !== '') fd.append(k, v);
       });
+
+      fd.append('activities', serializeArr(form.activities || [], 'activity_attachments'));
+      fd.append('witnesses', serializeArr(form.witnesses || [], 'witness_attachments'));
+      fd.append('notices', JSON.stringify(form.notices || []));
+      fd.append('legal_opinions', JSON.stringify(form.legal_opinions || []));
+      fd.append('approvals', JSON.stringify(form.approvals || []));
 
       if (technicalFile) fd.append('technical_report_attachment', technicalFile);
       if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
 
+      // PHP does not populate multipart on real PUT — use method spoofing
       if (id) {
-        await api.put(`/enquiries/${id}`, fd);
+        fd.append('_method', 'PUT');
+        await api.post(`/enquiries/${id}`, fd);
       } else {
         await api.post('/enquiries', fd);
       }

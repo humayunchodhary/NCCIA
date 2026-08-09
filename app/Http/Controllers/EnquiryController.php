@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
 
 class EnquiryController extends Controller
 {
-    private const ALLOWED_STATUSES = 'registered,assigned,in_progress,cfr_submitted,approved,closed,transferred,converted_to_case,referred_court';
+    private const ALLOWED_STATUSES = 'registered,assigned,in_progress,cfr_submitted,legal_review_dd,legal_review_ad,legal_review_dg,approved,closed,transferred,converted_to_case,referred_court';
 
     /**
      * Move an uploaded file to public/uploads/<dir>.
@@ -42,12 +42,27 @@ class EnquiryController extends Controller
     private function decodeArrays(array &$data): void
     {
         foreach (['activities', 'legal_opinions', 'approvals', 'witnesses', 'notices'] as $field) {
-            if (isset($data[$field]) && is_string($data[$field])) {
+            if (!array_key_exists($field, $data)) {
+                continue;
+            }
+            if (is_string($data[$field])) {
                 $decoded = json_decode($data[$field], true);
                 $data[$field] = is_array($decoded) ? $decoded : [];
-            } elseif (!isset($data[$field])) {
+            } elseif (!is_array($data[$field])) {
                 $data[$field] = [];
             }
+        }
+    }
+
+    private function normalizeDate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        try {
+            return \Carbon\Carbon::parse($value)->toDateString();
+        } catch (\Throwable) {
+            return null;
         }
     }
 
@@ -76,7 +91,9 @@ class EnquiryController extends Controller
             $attrs = [
                 'type'          => $type,
                 'description'   => (is_array($action) && !empty($action['description'])) ? $action['description'] : $label,
-                'activity_date' => (is_array($action) && !empty($action['activity_date'])) ? $action['activity_date'] : now(),
+                'activity_date' => $this->normalizeDate(
+                    (is_array($action) && !empty($action['activity_date'])) ? $action['activity_date'] : now()
+                ) ?? now()->toDateString(),
             ];
 
             $existing = null;
@@ -136,8 +153,12 @@ class EnquiryController extends Controller
             if (empty($ap['circle_incharge_id']) && empty($ap['decision'])) {
                 continue;
             }
+            $ciId = $ap['circle_incharge_id'] ?? null;
+            if (!$ciId) {
+                continue;
+            }
             $attrs = [
-                'circle_incharge_id' => $ap['circle_incharge_id'] ?? null,
+                'circle_incharge_id' => $ciId,
                 'decision'           => $ap['decision'] ?? 'agree',
                 'remarks'            => $ap['remarks'] ?? null,
             ];
@@ -204,15 +225,15 @@ class EnquiryController extends Controller
                 'notice_type'     => $n['notice_type'] ?? null,
                 'receiver_name'   => $n['receiver_name'] ?? null,
                 'person_type'     => $n['person_type'] ?? null,
-                'notice_via'      => $n['notice_via'] ?? null,
+                'notice_via'      => !empty($n['notice_via']) ? $n['notice_via'] : null,
                 'address'         => $n['address'] ?? null,
                 'phone'           => $n['phone'] ?? null,
-                'notice_date'     => $n['notice_date'] ?? null,
+                'notice_date'     => $this->normalizeDate($n['notice_date'] ?? null),
                 'description'     => $n['description'] ?? null,
                 'status'          => $n['status'] ?? 'issued',
             ];
 
-            if ($attrs['status'] === 'served' && empty($n['served_at'])) {
+            if (in_array($attrs['status'], ['served', 'non_appearance'], true) && empty($n['served_at'])) {
                 $attrs['served_at'] = now();
             }
 
@@ -455,101 +476,137 @@ class EnquiryController extends Controller
 
     public function update(Request $request, Enquiry $enquiry)
     {
-        $this->authorize('update', $enquiry);
+        try {
+            $this->authorize('update', $enquiry);
 
-        $data = $request->validate([
-            'tracking_no'             => 'nullable|string|max:255',
-            'complaint_id'            => 'nullable|integer|exists:complaints,id',
-            'enquiry_number'          => 'nullable|string|max:255',
-            'enquiry_officer_id'      => 'nullable|integer|exists:users,id',
-            'status'                  => 'nullable|in:' . self::ALLOWED_STATUSES,
-            'recommendation'          => 'nullable|string|max:30',
-            'closure_reason'          => 'nullable|string|max:30',
-            'transfer_department'     => 'nullable|string|max:255',
-            'transfer_circle'         => 'nullable|string|max:255',
-            'merge_complaint_id'      => 'nullable|string|max:255',
-            'reg_date'                => 'nullable|date',
-            'cfr_summary'             => 'nullable|string',
-            'technical_report'        => 'nullable|string',
-            'forensic_report'         => 'nullable|string',
+            $data = $request->validate([
+                'tracking_no'             => 'nullable|string|max:255',
+                'complaint_id'            => 'nullable|integer|exists:complaints,id',
+                'enquiry_number'          => 'nullable|string|max:255',
+                'enquiry_officer_id'      => 'nullable|integer|exists:users,id',
+                'status'                  => 'nullable|in:' . self::ALLOWED_STATUSES,
+                'recommendation'          => 'nullable|string|max:30',
+                'closure_reason'          => 'nullable|string|max:30',
+                'transfer_department'     => 'nullable|string|max:255',
+                'transfer_circle'         => 'nullable|string|max:255',
+                'merge_complaint_id'      => 'nullable|string|max:255',
+                'reg_date'                => 'nullable|date',
+                'cfr_summary'             => 'nullable|string',
+                'technical_report'        => 'nullable|string',
+                'forensic_report'         => 'nullable|string',
 
-            'activities'              => 'nullable|string',
-            'legal_opinions'          => 'nullable|string',
-            'approvals'               => 'nullable|string',
-            'witnesses'               => 'nullable|string',
-            'notices'                 => 'nullable|string',
+                'activities'              => 'nullable',
+                'legal_opinions'          => 'nullable',
+                'approvals'               => 'nullable',
+                'witnesses'               => 'nullable',
+                'notices'                 => 'nullable',
 
-            'technical_report_attachment' => 'nullable|file|max:20480',
-            'forensic_report_attachment'  => 'nullable|file|max:20480',
-        ]);
+                'technical_report_attachment' => 'nullable|file|max:20480',
+                'forensic_report_attachment'  => 'nullable|file|max:20480',
+            ]);
 
-        $this->decodeArrays($data);
+            $this->decodeArrays($data);
 
-        $privileged = $request->user()->hasAnyRole(['admin', 'circle_incharge']);
+            $privileged = $request->user()->hasAnyRole(['admin', 'circle_incharge']);
 
-        $updateData = [
-            'status'             => $data['status'] ?? $enquiry->status,
-            'recommendation'     => $data['recommendation'] ?? $enquiry->recommendation,
-            'closure_reason'     => $data['closure_reason'] ?? $enquiry->closure_reason,
-            'transfer_department'=> $data['transfer_department'] ?? $enquiry->transfer_department,
-            'transfer_circle'    => $data['transfer_circle'] ?? $enquiry->transfer_circle,
-            'enquiry_number'     => $data['enquiry_number'] ?? $enquiry->enquiry_number,
-            'reg_date'           => $data['reg_date'] ?? $enquiry->reg_date,
-            'cfr_summary'        => $data['cfr_summary'] ?? $enquiry->cfr_summary,
-            'technical_report'   => $data['technical_report'] ?? $enquiry->technical_report,
-            'forensic_report'    => $data['forensic_report'] ?? $enquiry->forensic_report,
-        ];
+            $updateData = array_filter([
+                'status'              => $data['status'] ?? null,
+                'recommendation'      => $data['recommendation'] ?? null,
+                'closure_reason'      => $data['closure_reason'] ?? null,
+                'transfer_department' => $data['transfer_department'] ?? null,
+                'transfer_circle'     => $data['transfer_circle'] ?? null,
+                'enquiry_number'      => $data['enquiry_number'] ?? null,
+                'reg_date'            => isset($data['reg_date']) ? $this->normalizeDate($data['reg_date']) : null,
+                'cfr_summary'         => $data['cfr_summary'] ?? null,
+                'technical_report'    => $data['technical_report'] ?? null,
+                'forensic_report'     => $data['forensic_report'] ?? null,
+            ], fn ($v) => $v !== null);
 
-        if ($privileged) {
-            $updateData['enquiry_officer_id'] = $data['enquiry_officer_id'] ?? $enquiry->enquiry_officer_id;
-        }
-
-        if (!empty($data['complaint_id'])) {
-            $updateData['complaint_id'] = $data['complaint_id'];
-        }
-
-        if (!empty($data['merge_complaint_id'])) {
-            $mergeComplaint = Complaint::where('tracking_no', $data['merge_complaint_id'])->first();
-            $updateData['merge_complaint_id'] = $mergeComplaint?->id ?: $data['merge_complaint_id'];
-        } elseif (array_key_exists('merge_complaint_id', $data) && $data['merge_complaint_id'] === '') {
-            $updateData['merge_complaint_id'] = null;
-        }
-
-        $officerChanged = $privileged && !empty($data['enquiry_officer_id'])
-            && (int) $data['enquiry_officer_id'] !== $enquiry->enquiry_officer_id;
-
-        DB::transaction(function () use ($enquiry, $updateData, $data, $request) {
-            $enquiry->update($updateData);
-
-            $technicalAttachment = $this->moveFile($request->file('technical_report_attachment'), 'reports');
-            if ($technicalAttachment) {
-                $enquiry->technical_report_attachment = $technicalAttachment;
+            if ($privileged && array_key_exists('enquiry_officer_id', $data)) {
+                $updateData['enquiry_officer_id'] = $data['enquiry_officer_id'] ?: null;
             }
-            $forensicAttachment = $this->moveFile($request->file('forensic_report_attachment'), 'reports');
-            if ($forensicAttachment) {
-                $enquiry->forensic_report_attachment = $forensicAttachment;
+
+            if (!empty($data['complaint_id'])) {
+                $updateData['complaint_id'] = $data['complaint_id'];
             }
-            $enquiry->save();
 
-            $this->syncActivities($enquiry, $data['activities'] ?? [], $request->user()->id, $request);
-            if ($privileged) {
-                $this->syncLegalOpinions($enquiry, $data['legal_opinions'] ?? [], $request->user()->id);
-                $this->syncApprovals($enquiry, $data['approvals'] ?? []);
+            if (!empty($data['merge_complaint_id'])) {
+                $mergeComplaint = Complaint::where('tracking_no', $data['merge_complaint_id'])->first();
+                $updateData['merge_complaint_id'] = $mergeComplaint?->id;
+            } elseif (array_key_exists('merge_complaint_id', $data) && $data['merge_complaint_id'] === '') {
+                $updateData['merge_complaint_id'] = null;
             }
-            $this->syncWitnesses($enquiry, $data['witnesses'] ?? [], $request);
-            $this->syncNotices($enquiry, $data['notices'] ?? [], $request);
-        });
 
-        if ($officerChanged) {
-            $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+            $officerChanged = $privileged && !empty($data['enquiry_officer_id'])
+                && (int) $data['enquiry_officer_id'] !== (int) $enquiry->enquiry_officer_id;
+
+            DB::transaction(function () use ($enquiry, $updateData, $data, $request, $privileged) {
+                if (!empty($updateData)) {
+                    $enquiry->update($updateData);
+                }
+
+                $technicalAttachment = $this->moveFile($request->file('technical_report_attachment'), 'reports');
+                if ($technicalAttachment) {
+                    $enquiry->technical_report_attachment = $technicalAttachment;
+                }
+                $forensicAttachment = $this->moveFile($request->file('forensic_report_attachment'), 'reports');
+                if ($forensicAttachment) {
+                    $enquiry->forensic_report_attachment = $forensicAttachment;
+                }
+                if ($technicalAttachment || $forensicAttachment) {
+                    $enquiry->save();
+                }
+
+                // Only sync relations when the client actually sent that key (avoid wiping on partial updates)
+                if (array_key_exists('activities', $data)) {
+                    $this->syncActivities($enquiry, $data['activities'] ?? [], $request->user()->id, $request);
+                }
+                if ($privileged && array_key_exists('legal_opinions', $data)) {
+                    $this->syncLegalOpinions($enquiry, $data['legal_opinions'] ?? [], $request->user()->id);
+                }
+                if ($privileged && array_key_exists('approvals', $data)) {
+                    $this->syncApprovals($enquiry, $data['approvals'] ?? []);
+                }
+                if (array_key_exists('witnesses', $data)) {
+                    $this->syncWitnesses($enquiry, $data['witnesses'] ?? [], $request);
+                }
+                if (array_key_exists('notices', $data)) {
+                    $this->syncNotices($enquiry, $data['notices'] ?? [], $request);
+                }
+            });
+
+            if ($officerChanged) {
+                $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Enquiry updated successfully',
+                    'data'    => $enquiry->fresh()->load(
+                        'complaint',
+                        'officer',
+                        'activities.creator',
+                        'legalOpinions.creator',
+                        'approvals.circleIncharge',
+                        'witnesses',
+                        'notices'
+                    ),
+                ]);
+            }
+
+            return redirect()->route('enquiries.index')
+                ->with('success', 'Enquiry updated successfully');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Enquiry update failed: ' . $e->getMessage(),
+            ], 500);
         }
-
-        if ($request->expectsJson()) {
-            return response()->json(['message' => 'Enquiry updated successfully', 'data' => $enquiry->fresh()->load('complaint', 'officer', 'activities.creator', 'legalOpinions.creator', 'approvals.circleIncharge', 'witnesses', 'notices')]);
-        }
-
-        return redirect()->route('enquiries.index')
-            ->with('success', 'Enquiry updated successfully');
     }
 
     /**
