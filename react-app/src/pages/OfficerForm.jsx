@@ -46,10 +46,12 @@ const SearchableSelect = ({ options, value, onChange, placeholder }) => {
 const initialForm = {
   name: '',
   badge_no: '',
+  designation: '',
+  circle: '',
+  zone: '',
   email: '',
   contact_no: '',
   contact_country_code: '+92',
-  email: '',
   address: '',
   date_of_joining: '',
   status: 'active',
@@ -70,18 +72,19 @@ export default function OfficerForm() {
 
   const setPhone = (e) => {
     let val = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
-    if (val.length > 10) val = val.slice(0,10);
+    if (val.length > 10) val = val.slice(0, 10);
     setForm(f => ({ ...f, contact_no: val }));
   };
 
   useEffect(() => {
-    api.get('/lookup/circles').then(r => setCircles(r.data || [])).catch(() => {});
-    api.get('/lookup/zones').then(r => setZones(r.data || [])).catch(() => {});
+    api.get('/lookup/circles').then(r => setCircles(Array.isArray(r.data) ? r.data : (r.data?.data || []))).catch(() => {});
+    api.get('/lookup/zones').then(r => setZones(Array.isArray(r.data) ? r.data : (r.data?.data || []))).catch(() => {});
     if (id) {
       api.get(`/investigation-officers/${id}`).then(r => {
         const d = r.data.data || r.data;
-        if (d.contact_no) d.contact_no = d.contact_no.replace(/\D/g, '').replace(/^0+/, '');
+        if (d.contact_no) d.contact_no = String(d.contact_no).replace(/\D/g, '').replace(/^0+/, '');
         if (!d.contact_country_code) d.contact_country_code = '+92';
+        if (d.date_of_joining) d.date_of_joining = String(d.date_of_joining).slice(0, 10);
         setForm({ ...initialForm, ...d });
       }).catch(() => navigate('/investigation-officers'));
     }
@@ -93,10 +96,20 @@ export default function OfficerForm() {
     setErrors({});
     setServerError('');
     try {
+      const payload = {
+        ...form,
+        designation: form.designation || null,
+        circle: form.circle || null,
+        zone: form.zone || null,
+        email: form.email || null,
+        address: form.address || null,
+        remarks: form.remarks || null,
+        date_of_joining: form.date_of_joining || null,
+      };
       if (id) {
-        await api.put(`/investigation-officers/${id}`, form);
+        await api.put(`/investigation-officers/${id}`, payload);
       } else {
-        await api.post('/investigation-officers', form);
+        await api.post('/investigation-officers', payload);
       }
       navigate('/investigation-officers');
     } catch (err) {
@@ -115,17 +128,18 @@ export default function OfficerForm() {
   const renderField = (label, field, opts = {}) => {
     const { type = 'text', required = false, options = null } = opts;
     const fieldErr = errors[field];
+    const errText = Array.isArray(fieldErr) ? fieldErr[0] : fieldErr;
     return (
       <div className="cf-field">
         <label className={`cf-label${required ? ' required' : ''}`}>{label}</label>
         {options ? (
-          <select className="cf-input" value={form[field]} onChange={setF(field)}>
+          <select className="cf-input" value={form[field] || ''} onChange={setF(field)}>
             {options.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
           </select>
         ) : (
-          <input type={type} className="cf-input" value={form[field]} onChange={setF(field)} required={required} />
+          <input type={type} className="cf-input" value={form[field] || ''} onChange={setF(field)} required={required} />
         )}
-        {fieldErr && <div className="cf-error">{fieldErr}</div>}
+        {errText && <div className="cf-error">{errText}</div>}
       </div>
     );
   };
@@ -140,7 +154,7 @@ export default function OfficerForm() {
         </div>
       </div>
 
-      <div className="cf-section" style={{maxWidth:700}}>
+      <div className="cf-section" style={{ maxWidth: 700 }}>
         <div className="cf-section-header">
           <div className="cf-section-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -161,31 +175,31 @@ export default function OfficerForm() {
               <div className="cf-field">
                 <label className="cf-label">Circle</label>
                 <SearchableSelect options={circles.map(c => ({ label: c.name, value: c.id }))} value={form.circle} onChange={v => setForm(f => ({ ...f, circle: v }))} placeholder="Select Circle" />
-                {errors.circle && <div className="cf-error">{errors.circle}</div>}
+                {errors.circle && <div className="cf-error">{Array.isArray(errors.circle) ? errors.circle[0] : errors.circle}</div>}
               </div>
               <div className="cf-field">
                 <label className="cf-label">Zone</label>
                 <SearchableSelect options={zones.map(z => ({ label: z.name, value: z.id }))} value={form.zone} onChange={v => setForm(f => ({ ...f, zone: v }))} placeholder="Select Zone" />
-                {errors.zone && <div className="cf-error">{errors.zone}</div>}
+                {errors.zone && <div className="cf-error">{Array.isArray(errors.zone) ? errors.zone[0] : errors.zone}</div>}
               </div>
             </div>
             <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label">Contact No</label>
-                <div style={{display:'flex',gap:'8px'}}>
-                  <select className="cf-input" value={form.contact_country_code} onChange={setF('contact_country_code')} style={{width:'190px'}}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select className="cf-input" value={form.contact_country_code || '+92'} onChange={setF('contact_country_code')} style={{ width: '190px' }}>
                     {countryCodes.map(c => <option key={c.code + c.name} value={c.code}>{c.code} — {c.name}</option>)}
                   </select>
-                  <input type="text" className="cf-input" value={form.contact_no} onChange={setPhone} placeholder="3XXXXXXXXX" maxLength={10} style={{flex:1}} />
+                  <input type="text" className="cf-input" value={form.contact_no || ''} onChange={setPhone} placeholder="3XXXXXXXXX" maxLength={10} style={{ flex: 1 }} />
                 </div>
-                {errors.contact_no && <div className="cf-error">{errors.contact_no}</div>}
+                {errors.contact_no && <div className="cf-error">{Array.isArray(errors.contact_no) ? errors.contact_no[0] : errors.contact_no}</div>}
               </div>
               {renderField('Email', 'email', { type: 'email' })}
             </div>
-            {renderField('Address', 'address', { required: false })}
+            {renderField('Address', 'address')}
             <div className="cf-field">
               <label className="cf-label">Remarks</label>
-              <textarea className="cf-input cf-textarea" name="remarks" rows="2" value={form.remarks} onChange={setF('remarks')}></textarea>
+              <textarea className="cf-input cf-textarea" name="remarks" rows="2" value={form.remarks || ''} onChange={setF('remarks')}></textarea>
             </div>
             <div className="cf-row-2">
               {renderField('Status', 'status', { options: [{ value: 'active', name: 'Active' }, { value: 'inactive', name: 'Inactive' }] })}
@@ -195,7 +209,7 @@ export default function OfficerForm() {
               <div className="cf-alert cf-alert-error">{serverError}</div>
             )}
 
-            <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:20}}>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
               <button type="button" className="btn btn-outline" onClick={() => navigate('/investigation-officers')}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving ? 'Saving...' : (id ? 'Update Officer' : 'Save Officer')}
