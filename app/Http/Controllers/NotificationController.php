@@ -114,9 +114,12 @@ class NotificationController extends Controller
                 && $user->circle_id
                 && !$user->hasAnyRole(['admin', 'director_general']);
 
-            $vQuery = Verification::where('status', 'submitted')->with('complaint:id,tracking_no,circle_id');
+            $vQuery = Verification::where('status', 'submitted')->with(['complaint:id,tracking_no,circle_id', 'officer:id,circle_id']);
             if ($circleOnly) {
-                $vQuery->whereHas('complaint', fn ($q) => $q->where('circle_id', $user->circle_id));
+                $vQuery->where(function ($q) use ($user) {
+                    $q->whereHas('complaint', fn ($qq) => $qq->where('circle_id', $user->circle_id))
+                      ->orWhereHas('officer', fn ($qq) => $qq->where('circle_id', $user->circle_id));
+                });
             }
             foreach ($vQuery->orderByDesc('submitted_at')->limit(10)->get() as $v) {
                 $tasks[] = [

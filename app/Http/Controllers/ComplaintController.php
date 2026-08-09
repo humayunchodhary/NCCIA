@@ -73,6 +73,10 @@ class ComplaintController extends Controller
         $data['evidence'] = $request->has('evidence') ? $request->evidence : null;
         $data['user_id'] = Auth::id();
         $data['operator_id'] = $data['operator_id'] ?? Auth::id();
+        // Bind complaint to operator's circle so same-circle CI (e.g. Lahore) receives work
+        if (empty($data['circle_id']) && Auth::user()?->circle_id) {
+            $data['circle_id'] = Auth::user()->circle_id;
+        }
         $data['attachment'] = $this->uploadAttachment($request);
 
         $scrutinyResult = $data['scrutiny_result'] ?? null;
@@ -332,6 +336,16 @@ class ComplaintController extends Controller
     protected function assignVerificationOfficer(Complaint $complaint, int $officerId, string $priority = 'normal'): Verification
     {
         $priority = in_array($priority, ['normal', 'high', 'critical'], true) ? $priority : 'normal';
+        $officer = User::find($officerId);
+
+        // Keep complaint in VO's circle so Circle Incharge of that circle gets the queue
+        if ($officer?->circle_id && (int) $complaint->circle_id !== (int) $officer->circle_id) {
+            if (!$complaint->circle_id) {
+                $complaint->update(['circle_id' => $officer->circle_id]);
+            }
+        } elseif (!$complaint->circle_id && Auth::user()?->circle_id) {
+            $complaint->update(['circle_id' => Auth::user()->circle_id]);
+        }
 
         $verification = DB::transaction(function () use ($complaint, $officerId, $priority) {
             if ($complaint->verification) {

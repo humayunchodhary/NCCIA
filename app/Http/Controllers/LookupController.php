@@ -57,11 +57,18 @@ class LookupController extends Controller
 
     public function verificationOfficers()
     {
+        $user = request()->user();
+        $query = \App\Models\User::role('verification_officer')
+            ->with('circle', 'zone')
+            ->orderBy('name');
+
+        // Same-circle officers for operator / circle_incharge (admin sees all)
+        if ($user && $user->circle_id && !$user->hasAnyRole(['admin', 'director_general'])) {
+            $query->where('circle_id', $user->circle_id);
+        }
+
         return response()->json(
-            \App\Models\User::role('verification_officer')
-                ->with('circle', 'zone')
-                ->orderBy('name')
-                ->get(['id', 'name', 'email', 'designation', 'circle_id', 'zone_id'])
+            $query->get(['id', 'name', 'email', 'designation', 'circle_id', 'zone_id'])
         );
     }
 

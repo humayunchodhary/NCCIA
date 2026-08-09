@@ -27,8 +27,12 @@ class VerificationPolicy
 
     public function update(User $user, Verification $verification): bool
     {
-        if ($user->hasRole('admin') || $user->hasRole('circle_incharge')) {
+        if ($user->hasRole('admin') || $user->seesAllData()) {
             return true;
+        }
+
+        if ($user->hasRole('circle_incharge')) {
+            return $this->sameCircle($user, $verification);
         }
 
         if ($user->hasAnyRole(['verification_officer', 'investigation_officer'])) {
@@ -45,7 +49,23 @@ class VerificationPolicy
 
     public function approve(User $user, Verification $verification): bool
     {
-        return $user->hasAnyRole(['admin', 'circle_incharge']);
+        if ($user->hasRole('admin') || $user->seesAllData()) {
+            return true;
+        }
+
+        return $user->hasRole('circle_incharge') && $this->sameCircle($user, $verification);
+    }
+
+    protected function sameCircle(User $user, Verification $verification): bool
+    {
+        if (!$user->circle_id) {
+            return false;
+        }
+
+        $complaintCircle = $verification->complaint?->circle_id
+            ?? $verification->officer?->circle_id;
+
+        return (int) $complaintCircle === (int) $user->circle_id;
     }
 
     public function submit(User $user, Verification $verification): bool

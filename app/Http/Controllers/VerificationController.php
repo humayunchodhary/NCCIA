@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Verification;
 use App\Models\VerificationReport;
 use App\Notifications\VerificationAssignedNotification;
+use App\Notifications\VerificationSubmittedNotification;
 use App\Notifications\ComplainantMessageNotification;
 use App\Services\ComplainantNotifyService;
 use App\Services\EnquiryNumberGenerator;
@@ -185,7 +186,26 @@ class VerificationController extends Controller
 
         $data['created_by'] = auth()->id();
 
+        // Ensure linked complaint belongs to VO's circle so same-circle CI can see it
+        if (!empty($data['complaint_id'])) {
+            $complaint = Complaint::find($data['complaint_id']);
+            if ($complaint && !$complaint->circle_id && $user?->circle_id) {
+                $complaint->update(['circle_id' => $user->circle_id]);
+            }
+        }
+
         $report = VerificationReport::create($data);
+
+        // Same-circle CI sees this report; also ping if linked verification exists
+        if ($report->complaint_id) {
+            $linked = Verification::with(['complaint', 'officer'])
+                ->where('complaint_id', $report->complaint_id)
+                ->latest('id')
+                ->first();
+            if ($linked) {
+                $this->notifyCircleInchargesForVerification($linked);
+            }
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -597,16 +617,35 @@ class VerificationController extends Controller
      */
     protected function notifyCircleInchargeAboutComplainantMessage(Verification $verification): void
     {
-        $circle = $verification->complaint?->circle;
+        $circleId = $verification->complaint?->circle_id
+            ?: $verification->officer?->circle_id;
 
-        if (!$circle) {
+        if (!$circleId) {
             return;
         }
 
-        \App\Models\User::role('circle_incharge')
-            ->where('circle_id', $circle->id)
+        User::role('circle_incharge')
+            ->where('circle_id', $circleId)
             ->each
             ->notify(new ComplainantMessageNotification($verification));
+    }
+
+    /**
+     * Ali (VO, Lahore Circle) submits → only Aslam (CI, Lahore Circle) is notified.
+     */
+    protected function notifyCircleInchargesForVerification(Verification $verification): void
+    {
+        $circleId = $verification->complaint?->circle_id
+            ?: $verification->officer?->circle_id;
+
+        if (!$circleId) {
+            return;
+        }
+
+        User::role('circle_incharge')
+            ->where('circle_id', $circleId)
+            ->get()
+            ->each(fn (User $cu) => $cu->notify(new VerificationSubmittedNotification($verification)));
     }
 
     public function assign(Request $request, Complaint $complaint)
@@ -620,6 +659,13 @@ class VerificationController extends Controller
         $data['complaint_id'] = $complaint->id;
         $data['status']       = 'assigned';
         $data['assigned_at']  ??= now();
+
+        $officer = User::find($data['verification_officer_id']);
+        if (!$complaint->circle_id && $officer?->circle_id) {
+            $complaint->update(['circle_id' => $officer->circle_id]);
+        } elseif (!$complaint->circle_id && $request->user()?->circle_id) {
+            $complaint->update(['circle_id' => $request->user()->circle_id]);
+        }
 
         $verification = Verification::create($data);
 
@@ -649,11 +695,22 @@ class VerificationController extends Controller
         $data['submitted_at'] = now();
         $data['completed_at'] ??= now();
 
+        // Sync circle from VO so Lahore VO → Lahore Circle Incharge
+        $complaint = $verification->complaint;
+        $vo = $request->user();
+        if ($complaint && !$complaint->circle_id && $vo?->circle_id) {
+            $complaint->update(['circle_id' => $vo->circle_id]);
+        }
+
         $verification->update($data);
+        $verification->load(['complaint', 'officer', 'approvals']);
+
+        // Only same-circle Circle Incharge(s) get this (e.g. aslam @ Lahore)
+        $this->notifyCircleInchargesForVerification($verification);
 
         return response()->json([
-            'message' => 'Verification report submitted',
-            'data'    => $verification->fresh()->load('complaint', 'officer', 'approvals'),
+            'message' => 'Verification report submitted to Circle Incharge',
+            'data'    => $verification,
         ]);
     }
 
