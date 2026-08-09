@@ -44,7 +44,7 @@ class ComplaintController extends Controller
         $this->authorize('viewAny', Complaint::class);
 
         $complaints = Complaint::visibleTo(request()->user())
-            ->with(['enquiry', 'verification', 'caseFiles', 'circle'])
+            ->with(['enquiry', 'verification.officer', 'caseFiles', 'circle'])
             ->latest()
             ->paginate(15);
 

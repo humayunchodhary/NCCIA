@@ -10,6 +10,7 @@ class VerificationReport extends Model
     protected $fillable = [
         'complaint_id',
         'tracking_no',
+        'registration_at',
         'assignment_date',
         'verification_date',
         'victim_name',
@@ -28,6 +29,7 @@ class VerificationReport extends Model
         'closure_reason',
         'recommendation_short',
         'recommendation_full',
+        'comments',
         'evidence',
         'signature',
         'inquiry_no',
@@ -38,11 +40,12 @@ class VerificationReport extends Model
     protected function casts(): array
     {
         return [
-            'assignment_date' => 'date',
-            'verification_date' => 'date',
-            'accused_known' => 'boolean',
-            'accused' => 'array',
-            'evidence' => 'array',
+            'registration_at'   => 'datetime',
+            'assignment_date'   => 'datetime',
+            'verification_date' => 'datetime',
+            'accused_known'     => 'boolean',
+            'accused'           => 'array',
+            'evidence'          => 'array',
         ];
     }
 

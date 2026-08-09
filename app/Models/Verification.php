@@ -37,6 +37,8 @@ class Verification extends Model
         'completed_at',
         'appeared_at',
         'complainant_message',
+        'message_via',
+        'whatsapp_sent_at',
         'sent_by',
     ];
 
@@ -48,6 +50,7 @@ class Verification extends Model
             'approved_at'          => 'datetime',
             'completed_at'         => 'datetime',
             'appeared_at'          => 'datetime',
+            'whatsapp_sent_at'     => 'datetime',
         ];
     }
 

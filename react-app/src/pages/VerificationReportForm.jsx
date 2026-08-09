@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
 import { countryCodes } from '../data/countries';
+import { toLocalInput } from '../utils/datetime';
 
 const SearchableSelect = ({ options, value, onChange, placeholder, name, required }) => {
   const [open, setOpen] = useState(false);
@@ -115,6 +116,7 @@ export default function VerificationReportForm() {
 
 const [form, setForm] = useState({    tracking_no: '',
     complaint_id: '',
+    registration_at: '',
     assignment_date: '',
     verification_date: '',
     victim_name: '',
@@ -133,6 +135,7 @@ const [form, setForm] = useState({    tracking_no: '',
     closure_reason: '',
     recommendation_short: '',
     recommendation_full: '',
+    comments: '',
     evidence: [],
     inquiry_no: '',
     case_no: '',
@@ -180,8 +183,9 @@ const [form, setForm] = useState({    tracking_no: '',
           ...f,
           complaint_id: d.complaint_id || '',
           tracking_no: d.tracking_no || '',
-          assignment_date: d.assignment_date ? String(d.assignment_date).slice(0, 10) : '',
-          verification_date: d.verification_date ? String(d.verification_date).slice(0, 10) : '',
+          registration_at: toLocalInput(d.registration_at || d.complaint?.created_at || d.complaint?.entry_time),
+          assignment_date: toLocalInput(d.assignment_date),
+          verification_date: toLocalInput(d.verification_date),
           victim_name: d.victim_name || '',
           victim_father_name: d.victim_father_name || '',
           victim_occupation: d.victim_occupation || '',
@@ -198,6 +202,7 @@ const [form, setForm] = useState({    tracking_no: '',
           closure_reason: d.closure_reason || '',
           recommendation_short: d.recommendation_short || '',
           recommendation_full: d.recommendation_full || '',
+          comments: d.comments || '',
           evidence,
           inquiry_no: d.inquiry_no || '',
           case_no: d.case_no || '',
@@ -212,9 +217,14 @@ const [form, setForm] = useState({    tracking_no: '',
     const comp = complaints.find(c => c.tracking_no === tracking);
     if (comp) {
       const phone = (comp.contact_no || '').replace(/\D/g, '').replace(/^0+/, '');
-      setForm(f => ({ 
-        ...f, 
-        complaint_id: comp.id, 
+      const v = comp.verification || {};
+      setForm(f => ({
+        ...f,
+        tracking_no: tracking,
+        complaint_id: comp.id,
+        registration_at: toLocalInput(comp.entry_time || comp.created_at),
+        assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
+        verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
         victim_name: comp.complainant_name || '',
         victim_father_name: '',
         victim_cnic: comp.cnic || '',
@@ -318,37 +328,46 @@ const [form, setForm] = useState({    tracking_no: '',
             <div className="cf-section-badge">STEP 01</div>
           </div>
           <div className="cf-body">
-            <div className="cf-row-3">
+            <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label required">Tracking No.</label>
                 <div className="cf-input-wrap">
                   <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                   <select name="tracking_no" className="cf-input cf-select" required value={form.tracking_no} onChange={handleTrackingChange}>
                     <option value="">— Select Tracking No. —</option>
-                    {complaints.map(c => <option key={c.id} value={c.tracking_no} data-complaint={c.id} data-cnic={c.cnic} data-phone={c.contact_no}>{c.tracking_no} — {c.complainant_name}</option>)}
+                    {complaints.map(c => <option key={c.id} value={c.tracking_no} data-complaint={c.id} data-cnic={c.cnic} data-phone={c.contact_no}>{c.tracking_no} — {c.complainant_name}{c.verification ? ` · V-${c.verification.id}` : ''}</option>)}
                   </select>
                 </div>
                 <input type="hidden" name="complaint_id" value={form.complaint_id} />
-                <span className="cf-hint">Auto-suggested from complaint record</span>
+                <span className="cf-hint">Auto-fills registration / assignment / verification date-time</span>
               </div>
-
               <div className="cf-field">
-                <label className="cf-label">Assignment Date</label>
+                <label className="cf-label">Registration Date &amp; Time</label>
                 <div className="cf-input-wrap">
-                  <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-                  <input type="date" className="cf-input" name="assignment_date" value={form.assignment_date} onChange={setF('assignment_date')} />
+                  <input type="datetime-local" className="cf-input" name="registration_at" value={form.registration_at} onChange={setF('registration_at')} />
                 </div>
-                <span className="cf-hint">Date victim submitted on online portal</span>
+                <span className="cf-hint">When complaint was registered</span>
               </div>
-
+            </div>
+            <div className="cf-row-2">
               <div className="cf-field">
-                <label className="cf-label">Verification Date</label>
+                <label className="cf-label">Assignment Date &amp; Time</label>
                 <div className="cf-input-wrap">
-                  <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-                  <input type="date" className="cf-input" name="verification_date" value={form.verification_date} onChange={setF('verification_date')} />
+                  <input type="datetime-local" className="cf-input" name="assignment_date" value={form.assignment_date} onChange={setF('assignment_date')} />
                 </div>
-                <span className="cf-hint">Date victim appeared for verification</span>
+                <span className="cf-hint">When assigned to verification officer</span>
               </div>
+              <div className="cf-field">
+                <label className="cf-label">Verification Date &amp; Time</label>
+                <div className="cf-input-wrap">
+                  <input type="datetime-local" className="cf-input" name="verification_date" value={form.verification_date} onChange={setF('verification_date')} />
+                </div>
+                <span className="cf-hint">When verification was completed / complainant appeared</span>
+              </div>
+            </div>
+            <div className="cf-field">
+              <label className="cf-label">Comments</label>
+              <textarea className="cf-input cf-textarea" name="comments" rows={3} placeholder="Officer comments / notes for this verification report…" value={form.comments} onChange={setF('comments')}></textarea>
             </div>
           </div>
         </div>

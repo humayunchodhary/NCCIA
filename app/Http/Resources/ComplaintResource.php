@@ -64,6 +64,25 @@ class ComplaintResource extends JsonResource
             'operator_id'          => $this->operator_id,
             'progress_percent'     => $this->progressPercent(),
             'progress_stage'       => $this->progressStage(),
+            'verification'         => $this->whenLoaded('verification', function () {
+                if (!$this->verification) {
+                    return null;
+                }
+
+                return [
+                    'id'                      => $this->verification->id,
+                    'status'                  => $this->verification->status,
+                    'verification_officer_id' => $this->verification->verification_officer_id,
+                    'assigned_at'             => $this->verification->assigned_at?->toISOString(),
+                    'submitted_at'            => $this->verification->submitted_at?->toISOString(),
+                    'approved_at'             => $this->verification->approved_at?->toISOString(),
+                    'completed_at'            => $this->verification->completed_at?->toISOString(),
+                    'appeared_at'             => $this->verification->appeared_at?->toISOString(),
+                    'officer_name'            => $this->verification->relationLoaded('officer')
+                        ? $this->verification->officer?->name
+                        : null,
+                ];
+            }),
             'created_at'           => $this->created_at?->toISOString(),
             'updated_at'           => $this->updated_at?->toISOString(),
         ];

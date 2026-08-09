@@ -17,10 +17,12 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReferenceController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\SearchController;
 
 Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
     Route::get('/analytics', [AnalyticsController::class, 'index']);
+    Route::get('/search', SearchController::class)->name('api.search');
 
     // Complaints
     Route::get('/complaints', [ComplaintController::class, 'index'])->name('api.complaints.index');
@@ -45,9 +47,13 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->name('api.verifications.store');
     Route::get('/verifications/stats', [VerificationController::class, 'stats']);
     Route::get('/verifications/reports-list', [VerificationController::class, 'listReports']);
+    Route::post('/verifications/reports/bulk-delete', [VerificationController::class, 'bulkDestroyReports']);
     Route::get('/verifications/reports/{report}', [VerificationController::class, 'showReport']);
     Route::put('/verifications/reports/{report}', [VerificationController::class, 'updateReport']);
+    Route::delete('/verifications/reports/{report}', [VerificationController::class, 'destroyReport']);
     Route::post('/verifications/reports', [VerificationController::class, 'storeReport']);
+    Route::post('/verifications/bulk-close', [VerificationController::class, 'bulkClose'])
+        ->middleware('role:admin,circle_incharge');
     Route::get('/verifications/{verification}', [VerificationController::class, 'show'])->name('api.verifications.show');
     Route::put('/verifications/{verification}', [VerificationController::class, 'update'])->name('api.verifications.update');
     Route::delete('/verifications/{verification}', [VerificationController::class, 'destroy'])
@@ -57,8 +63,6 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/verifications/{verification}/approve', [VerificationController::class, 'approve'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/verifications/{verification}/change-officer', [VerificationController::class, 'changeOfficer'])
-        ->middleware('role:admin,circle_incharge');
-    Route::post('/verifications/bulk-close', [VerificationController::class, 'bulkClose'])
         ->middleware('role:admin,circle_incharge');
 
     // Enquiries

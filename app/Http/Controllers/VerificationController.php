@@ -111,6 +111,7 @@ class VerificationController extends Controller
         $data = $request->validate([
             'complaint_id'        => 'nullable|exists:complaints,id',
             'tracking_no'         => 'required|string|max:255',
+            'registration_at'     => 'nullable|date',
             'assignment_date'     => 'nullable|date',
             'verification_date'   => 'nullable|date',
 
@@ -140,6 +141,7 @@ class VerificationController extends Controller
 
             'recommendation_short' => 'nullable|string|max:2000',
             'recommendation_full'  => 'nullable|string|max:10000',
+            'comments'             => 'nullable|string|max:5000',
             'recommendation'       => 'nullable|string|in:enquiry_registration,closure,merge,transfer',
             'closure_reason'       => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
 
@@ -205,6 +207,48 @@ class VerificationController extends Controller
         return response()->json($report->load('creator', 'complaint'));
     }
 
+    public function destroyReport(VerificationReport $report)
+    {
+        abort_unless(
+            VerificationReport::visibleTo(request()->user())->whereKey($report->id)->exists(),
+            404
+        );
+
+        $user = request()->user();
+        abort_unless(
+            $user->hasAnyRole(['admin', 'circle_incharge'])
+                || (int) $report->created_by === (int) $user->id,
+            403
+        );
+
+        $report->delete();
+
+        return response()->json(['message' => 'Verification report deleted successfully']);
+    }
+
+    public function bulkDestroyReports(Request $request)
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:verification_reports,id',
+        ]);
+
+        $query = VerificationReport::visibleTo($user)->whereIn('id', $data['ids']);
+
+        // Non-supervisors may only delete their own reports.
+        if (!$user->hasAnyRole(['admin', 'circle_incharge']) && !$user->seesAllData()) {
+            $query->where('created_by', $user->id);
+        }
+
+        $count = $query->delete();
+
+        return response()->json([
+            'message' => $count . ' verification report(s) deleted',
+            'deleted' => $count,
+        ]);
+    }
+
     public function updateReport(Request $request, VerificationReport $report)
     {
         abort_unless(
@@ -215,6 +259,7 @@ class VerificationController extends Controller
         $data = $request->validate([
             'complaint_id'        => 'nullable|exists:complaints,id',
             'tracking_no'         => 'required|string|max:255',
+            'registration_at'     => 'nullable|date',
             'assignment_date'     => 'nullable|date',
             'verification_date'   => 'nullable|date',
 
@@ -244,6 +289,7 @@ class VerificationController extends Controller
 
             'recommendation_short' => 'nullable|string|max:2000',
             'recommendation_full'  => 'nullable|string|max:10000',
+            'comments'             => 'nullable|string|max:5000',
             'recommendation'       => 'nullable|string|in:enquiry_registration,closure,merge,transfer',
             'closure_reason'       => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
 
@@ -378,6 +424,8 @@ class VerificationController extends Controller
             'report_text'             => 'nullable|string|max:10000',
             'complainant_message'     => 'nullable|string|max:2000',
             'appeared_at'             => 'nullable|date',
+            'message_via'             => 'nullable|string|in:whatsapp,sms,phone,in_app,email',
+            'whatsapp_sent_at'        => 'nullable|date',
         ];
 
         $data = $request->validate($rules);
@@ -400,6 +448,10 @@ class VerificationController extends Controller
                      || (empty($verification->appeared_at) && !empty($data['appeared_at']));
         if ($justNotified) {
             $data['sent_by'] = auth()->id();
+        }
+
+        if (!empty($data['message_via']) && $data['message_via'] === 'whatsapp' && empty($verification->whatsapp_sent_at)) {
+            $data['whatsapp_sent_at'] = $data['whatsapp_sent_at'] ?? now();
         }
 
         $officerChanged = !empty($data['verification_officer_id'])

@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
+import { useAuth } from '../contexts/AuthContext';
+import { formatDisplayDateTime, toLocalInput } from '../utils/datetime';
 
 const RECOMMENDATION_OPTIONS = [
   { value: 'enquiry_registration', name: 'Enquiry Registration' },
@@ -17,16 +19,25 @@ const CLOSURE_REASONS = [
   { value: 'lack_of_evidence', name: 'Lack of Evidence' },
 ];
 
+function buildAppearanceMessage({ trackingNo, officerName, appearAt }) {
+  const when = appearAt ? formatDisplayDateTime(appearAt) : '[date/time]';
+  const officer = officerName || '[Verification Officer]';
+  const tracking = trackingNo || '[tracking no]';
+  return `Assalam-o-Alaikum. Aap ki complaint number ${tracking} ke mutaliq verification ke liye aap ko ${officer} ke samnay ${when} par pesh hona hai. Baraye meherbani waqt par hazir hon. — NCCIA / CCRC`;
+}
+
 export default function VerificationForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', complainant_message: '', appeared_at: '' });
+  const { user } = useAuth();
+  const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', complainant_message: '', appeared_at: '', message_via: '' });
   const [officers, setOfficers] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [allComplaints, setAllComplaints] = useState([]);
   const [circles, setCircles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [complaintDetail, setComplaintDetail] = useState(null);
   const isEdit = !!id;
 
   useEffect(() => {
@@ -43,10 +54,64 @@ export default function VerificationForm() {
     if (isEdit) {
       api.get(`/verifications/${id}`).then(r => {
         const d = r.data.data || r.data;
-         setForm({ complaint_id: d.complaint_id || '', verification_officer_id: d.verification_officer_id || '', priority_type: d.priority_type || 'normal', status: d.status || 'assigned', report_text: d.report_text || '', recommendation: d.recommendation || '', closure_reason: d.closure_reason || '', merge_complaint_id: d.merge_complaint_id || '', transfer_department: d.transfer_department || '', transfer_circle_id: d.transfer_circle_id || '', complainant_message: d.complainant_message || '', appeared_at: d.appeared_at ? d.appeared_at.slice(0, 16) : '', assigned_at: d.assigned_at || '', submitted_at: d.submitted_at || '', approved_at: d.approved_at || '', sent_by: d.sent_by || '', sent_by_name: d.sent_by_user?.name || '' });
+         setForm({ complaint_id: d.complaint_id || '', verification_officer_id: d.verification_officer_id || '', priority_type: d.priority_type || 'normal', status: d.status || 'assigned', report_text: d.report_text || '', recommendation: d.recommendation || '', closure_reason: d.closure_reason || '', merge_complaint_id: d.merge_complaint_id || '', transfer_department: d.transfer_department || '', transfer_circle_id: d.transfer_circle_id || '', complainant_message: d.complainant_message || '', appeared_at: toLocalInput(d.appeared_at), message_via: d.message_via || '', assigned_at: d.assigned_at || '', submitted_at: d.submitted_at || '', approved_at: d.approved_at || '', sent_by: d.sent_by || '', sent_by_name: d.sent_by_user?.name || '', whatsapp_sent_at: d.whatsapp_sent_at || '' });
+         if (d.complaint) setComplaintDetail(d.complaint);
+         else if (d.complaint_id) {
+           api.get(`/complaints/${d.complaint_id}`).then(cr => setComplaintDetail(cr.data.data || cr.data)).catch(() => {});
+         }
       }).catch(() => navigate('/verifications'));
     }
   }, [id]);
+
+  const selectedComplaint = useMemo(() => {
+    if (complaintDetail) return complaintDetail;
+    return allComplaints.find(c => String(c.id) === String(form.complaint_id)) || null;
+  }, [complaintDetail, allComplaints, form.complaint_id]);
+
+  const officerName = useMemo(() => {
+    const fromList = officers.find(o => String(o.id) === String(form.verification_officer_id))?.name;
+    return fromList || user?.name || '';
+  }, [officers, form.verification_officer_id, user]);
+
+  const fillAppearanceMessage = () => {
+    const msg = buildAppearanceMessage({
+      trackingNo: selectedComplaint?.tracking_no,
+      officerName,
+      appearAt: form.appeared_at,
+    });
+    setForm(f => ({ ...f, complainant_message: msg }));
+  };
+
+  const openWhatsApp = async () => {
+    const phoneRaw = `${selectedComplaint?.contact_country_code || '+92'}${selectedComplaint?.contact_no || ''}`.replace(/\D/g, '');
+    if (!phoneRaw) {
+      alert('Complainant phone number not found on complaint.');
+      return;
+    }
+    let message = form.complainant_message;
+    if (!message?.trim()) {
+      message = buildAppearanceMessage({
+        trackingNo: selectedComplaint?.tracking_no,
+        officerName,
+        appearAt: form.appeared_at,
+      });
+      setForm(f => ({ ...f, complainant_message: message, message_via: 'whatsapp' }));
+    }
+    if (isEdit) {
+      try {
+        await api.put(`/verifications/${id}`, {
+          ...form,
+          complainant_message: message,
+          message_via: 'whatsapp',
+          whatsapp_sent_at: new Date().toISOString(),
+        });
+        setForm(f => ({ ...f, complainant_message: message, message_via: 'whatsapp', whatsapp_sent_at: new Date().toISOString() }));
+      } catch (_) { /* still open WhatsApp */ }
+    } else {
+      setForm(f => ({ ...f, message_via: 'whatsapp' }));
+    }
+    window.open(`https://wa.me/${phoneRaw}?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -245,7 +310,7 @@ export default function VerificationForm() {
           </div>
           <div className="cf-body">
             <div className="cf-field">
-              <label className="cf-label">Appear By</label>
+              <label className="cf-label">Appear By (Date &amp; Time)</label>
               <input
                 type="datetime-local"
                 className="cf-input"
@@ -258,17 +323,47 @@ export default function VerificationForm() {
               <label className="cf-label">Message to Complainant</label>
               <textarea
                 className="cf-input cf-textarea"
-                rows={3}
+                rows={4}
                 value={form.complainant_message || ''}
                 onChange={setF('complainant_message')}
-                placeholder="Record the message sent to the complainant (e.g. notice of appearance)…"
+                placeholder="Aap ki complaint number … ke mutaliq … officer ke samnay … par pesh hona hai"
               ></textarea>
               {errors.complainant_message && <span className="cf-error">{errors.complainant_message[0]}</span>}
+            </div>
+            <div style={{display:'flex', gap:8, flexWrap:'wrap', marginBottom:12}}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={fillAppearanceMessage}>
+                Auto-fill Appearance Message
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{background:'#25D366', color:'#fff', border:'none', borderRadius:8, height:36, padding:'0 12px', fontWeight:600, cursor:'pointer'}}
+                onClick={openWhatsApp}
+              >
+                Send via WhatsApp
+              </button>
+            </div>
+            <div className="cf-field">
+              <label className="cf-label">Message Channel</label>
+              <select className="cf-input" value={form.message_via || ''} onChange={setF('message_via')}>
+                <option value="">— Select —</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="sms">SMS</option>
+                <option value="phone">Phone Call</option>
+                <option value="in_app">In-App / Record Only</option>
+                <option value="email">Email</option>
+              </select>
             </div>
             {isEdit && form.sent_by && (
               <div className="cf-field">
                 <label className="cf-label">Recorded By</label>
                 <div className="cf-input-wrap" style={{color:'#555'}}>{form.sent_by_name || ('by user #' + form.sent_by)}</div>
+              </div>
+            )}
+            {form.whatsapp_sent_at && (
+              <div className="cf-field">
+                <label className="cf-label">WhatsApp Sent</label>
+                <div className="cf-input-wrap" style={{color:'#555'}}>{formatDisplayDateTime(form.whatsapp_sent_at)}</div>
               </div>
             )}
           </div>

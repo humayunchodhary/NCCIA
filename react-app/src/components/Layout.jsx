@@ -46,10 +46,17 @@ export default function Layout() {
   const [notifications, setNotifications] = useState({ unread_count: 0, notifications: [] });
   const [pendingTasks, setPendingTasks] = useState({ tasks: [], count: 0 });
   const [toast, setToast] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const prevNotifIds = useRef([]);
   const toastTimer = useRef(null);
   const userMenuRef = useRef(null);
   const notifRef = useRef(null);
+  const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const searchTimer = useRef(null);
 
   useEffect(() => {
     const fetchCounts = () => api.get('/sidebar-counts').then(r => setCounts(r.data)).catch(() => {});
@@ -141,10 +148,54 @@ export default function Layout() {
       if (notifRef.current && !notifRef.current.contains(e.target)) {
         setNotifOpen(false);
       }
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (e.key === 'Escape') setSearchOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    searchTimer.current = setTimeout(() => {
+      api.get('/search', { params: { q } })
+        .then(r => {
+          setSearchResults(r.data.data || []);
+          setSearchOpen(true);
+        })
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false));
+    }, 250);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+  }, [searchQuery]);
+
+  const openSearchResult = (item) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    if (item?.process_url) navigate(item.process_url);
+  };
 
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
@@ -390,13 +441,64 @@ export default function Layout() {
               <span style={{color:'#fff'}} className="current">{breadcrumb}</span>
             </nav>
           </div>
-          <div className="header-search" role="search">
+          <div className="header-search" role="search" ref={searchRef} style={{position:'relative', width: 340}}>
             <svg className="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/>
               <path d="m21 21-4.35-4.35"/>
             </svg>
-            <input type="search" placeholder="Search complaints, cases, officers…" id="globalSearch" autoComplete="off" aria-label="Global Search" />
+            <input
+              ref={searchInputRef}
+              type="search"
+              placeholder="Search tracking no e.g. 0001/26…"
+              id="globalSearch"
+              autoComplete="off"
+              aria-label="Global Search"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+              onFocus={() => { if (searchQuery.trim() || searchResults.length) setSearchOpen(true); }}
+            />
             <kbd style={{fontSize:'10px',color:'white',border:'1px solid rgba(255,255,255,0.3)',borderRadius:'4px',padding:'1px 5px'}}>Ctrl K</kbd>
+            {searchOpen && searchQuery.trim() && (
+              <div className="global-search-dropdown" style={{
+                position:'absolute', top:'calc(100% + 8px)', left:0, right:0, zIndex:1200,
+                background:'#fff', borderRadius:10, border:'1px solid #d8dee6',
+                boxShadow:'0 12px 32px rgba(0,0,0,0.18)', overflow:'hidden', maxHeight:360, overflowY:'auto'
+              }}>
+                {searchLoading && (
+                  <div style={{padding:'14px 16px', fontSize:13, color:'#6c757d'}}>Searching…</div>
+                )}
+                {!searchLoading && searchResults.length === 0 && (
+                  <div style={{padding:'14px 16px', fontSize:13, color:'#6c757d'}}>No matching complaints found</div>
+                )}
+                {!searchLoading && searchResults.map((item) => (
+                  <button
+                    key={`${item.type}-${item.id}-${item.verification_id || 0}`}
+                    type="button"
+                    onClick={() => openSearchResult(item)}
+                    style={{
+                      display:'block', width:'100%', textAlign:'left', border:'none', background:'transparent',
+                      padding:'12px 14px', cursor:'pointer', borderBottom:'1px solid #f0f2f5'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f8fb'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <div style={{display:'flex', justifyContent:'space-between', gap:8, alignItems:'baseline'}}>
+                      <strong style={{fontSize:13, color:'#015C94'}}>{item.tracking_no || `Complaint #${item.id}`}</strong>
+                      {item.verification_no && (
+                        <span style={{fontSize:11, fontWeight:700, color:'#264078', background:'rgba(38,64,120,0.1)', padding:'2px 8px', borderRadius:999}}>
+                          {item.verification_no}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{fontSize:12.5, color:'#2b2b2b', marginTop:3}}>{item.complainant_name}</div>
+                    <div style={{fontSize:11.5, color:'#6c757d', marginTop:2}}>
+                      {item.verification_status ? `Verification: ${item.verification_status.replace(/_/g, ' ')}` : 'No verification assigned'}
+                      {item.officer_name ? ` · ${item.officer_name}` : ''}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="header-right">
             <button className="header-icon-btn" title="Refresh Data" aria-label="Refresh" onClick={() => window.location.reload()}>

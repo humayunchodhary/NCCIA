@@ -270,8 +270,12 @@
   <div class="section-title">1. Tracking Information</div>
   <table class="data">
     <tr><td class="label">Tracking No</td><td class="value">{{ $report->tracking_no }}</td></tr>
-    <tr><td class="label">Assignment Date</td><td class="value">{{ $report->assignment_date?->format('d M Y') ?? '—' }}</td></tr>
-    <tr><td class="label">Verification Date</td><td class="value">{{ $report->verification_date?->format('d M Y') ?? '—' }}</td></tr>
+    <tr><td class="label">Registration Date</td><td class="value">{{ $report->registration_at?->format('d M Y h:i A') ?? '—' }}</td></tr>
+    <tr><td class="label">Assignment Date</td><td class="value">{{ $report->assignment_date?->format('d M Y h:i A') ?? '—' }}</td></tr>
+    <tr><td class="label">Verification Date</td><td class="value">{{ $report->verification_date?->format('d M Y h:i A') ?? '—' }}</td></tr>
+    @if($report->comments)
+    <tr><td class="label">Comments</td><td class="value">{{ $report->comments }}</td></tr>
+    @endif
   </table>
 </div>
 
@@ -361,7 +365,7 @@
       <div class="sig-desig">{{ $report->creator?->designation ?? 'Investigation Officer' }}</div>
       <div class="sig-branch">{{ $report->creator?->circle?->name ?? 'NCCIA' }}</div>
       <div class="sig-nccia">National Cyber Crime Investigation Agency</div>
-      <div class="sig-date">Dated: {{ $report->verification_date?->format('d M Y') ?? now()->format('d M Y') }}</div>
+      <div class="sig-date">Dated: {{ $report->verification_date?->format('d M Y h:i A') ?? now()->format('d M Y h:i A') }}</div>
     </td>
   </tr>
 </table>
