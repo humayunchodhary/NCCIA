@@ -33,7 +33,15 @@ class TestMail extends Command
         }
 
         $this->error('FAILED: ' . $result['error']);
-        $this->warn('Agar connection timeout dikhe: cPanel host ne outbound SMTP (587/465) block kiya hua ho sakta hai.');
+        $this->warn('Gmail SMTP is host pe block hai (decloud.iwhost.org).');
+        $this->warn('Fix: cPanel → Email Accounts → noreply@nccia.real-erp.net banao, phir .env:');
+        $this->line('  MAIL_MAILER=smtp');
+        $this->line('  MAIL_HOST=localhost');
+        $this->line('  MAIL_PORT=587');
+        $this->line('  MAIL_USERNAME=noreply@nccia.real-erp.net');
+        $this->line('  MAIL_PASSWORD=cpanel-email-password');
+        $this->line('  MAIL_FROM_ADDRESS=noreply@nccia.real-erp.net');
+        $this->warn('Ya MAIL_MAILER=sendmail rakho (external SMTP ke baghair).');
 
         return self::FAILURE;
     }
