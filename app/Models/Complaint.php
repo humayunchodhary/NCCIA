@@ -159,32 +159,42 @@ class Complaint extends Model
             });
         }
 
-        $ids = collect();
+        // Scale-safe: EXISTS subqueries — never pluck millions of IDs into PHP
+        $hasVo = $user->hasRole('verification_officer');
+        $hasEo = $user->hasRole('enquiry_officer');
+        $hasIo = $user->hasRole('investigation_officer');
 
-        if ($user->hasRole('verification_officer')) {
-            $ids = $ids->merge(
-                Verification::where('verification_officer_id', $user->id)->pluck('complaint_id')
-            );
-        }
-
-        if ($user->hasRole('enquiry_officer')) {
-            $ids = $ids->merge(
-                Enquiry::where('enquiry_officer_id', $user->id)->pluck('complaint_id')
-            );
-        }
-
-        if ($user->hasRole('investigation_officer')) {
-            $enquiryIds = CaseFile::where('investigation_officer_id', $user->id)->pluck('enquiry_id');
-            $ids = $ids->merge(
-                Enquiry::whereIn('id', $enquiryIds)->pluck('complaint_id')
-            );
-        }
-
-        if ($ids->isEmpty()) {
+        if (!$hasVo && !$hasEo && !$hasIo) {
             return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereIn('id', $ids->unique()->values());
+        return $query->where(function ($q) use ($user, $hasVo, $hasEo, $hasIo) {
+            if ($hasVo) {
+                $q->orWhereExists(function ($sub) use ($user) {
+                    $sub->selectRaw('1')
+                        ->from('verifications')
+                        ->whereColumn('verifications.complaint_id', 'complaints.id')
+                        ->where('verifications.verification_officer_id', $user->id);
+                });
+            }
+            if ($hasEo) {
+                $q->orWhereExists(function ($sub) use ($user) {
+                    $sub->selectRaw('1')
+                        ->from('enquiries')
+                        ->whereColumn('enquiries.complaint_id', 'complaints.id')
+                        ->where('enquiries.enquiry_officer_id', $user->id);
+                });
+            }
+            if ($hasIo) {
+                $q->orWhereExists(function ($sub) use ($user) {
+                    $sub->selectRaw('1')
+                        ->from('enquiries')
+                        ->join('cases', 'cases.enquiry_id', '=', 'enquiries.id')
+                        ->whereColumn('enquiries.complaint_id', 'complaints.id')
+                        ->where('cases.investigation_officer_id', $user->id);
+                });
+            }
+        });
     }
 
     /**

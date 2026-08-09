@@ -65,7 +65,7 @@ export default function Layout() {
   useEffect(() => {
     const fetchCounts = () => api.get('/sidebar-counts').then(r => setCounts(r.data)).catch(() => {});
     fetchCounts();
-    const timer = setInterval(fetchCounts, 30000);
+    const timer = setInterval(fetchCounts, 90000);
     return () => clearInterval(timer);
   }, [location.pathname]);
 
@@ -99,7 +99,7 @@ export default function Layout() {
 
   useEffect(() => {
     fetchNotifications();
-    const timer = setInterval(fetchNotifications, 5000);
+    const timer = setInterval(fetchNotifications, 45000);
     return () => clearInterval(timer);
   }, []);
 

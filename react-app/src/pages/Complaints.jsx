@@ -46,6 +46,8 @@ export default function Complaints() {
   const { user } = useAuth();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [offenceMap, setOffenceMap] = useState({});
   const [assignTarget, setAssignTarget] = useState(null);
@@ -58,8 +60,19 @@ export default function Complaints() {
   const canDelete = hasRole(user, 'admin');
   const canEdit = canCreate || hasRole(user, 'circle_incharge') || hasRole(user, 'admin');
 
+  const fetchList = (p = page) => {
+    setLoading(true);
+    api.get(`/complaints?page=${p}&per_page=15`).then(r => {
+      setList(r.data.data || r.data || []);
+      setMeta(r.data.meta || { current_page: p, last_page: 1, total: (r.data.data || []).length });
+    }).finally(() => setLoading(false));
+  };
+
   useEffect(() => {
-    api.get('/complaints').then(r => setList(r.data.data || r.data)).finally(() => setLoading(false));
+    fetchList(page);
+  }, [page]);
+
+  useEffect(() => {
     api.get('/offence-types').then(r => {
       const d = r.data.data || r.data;
       const arr = Array.isArray(d) ? d : (d.data || []);
@@ -99,8 +112,8 @@ export default function Complaints() {
       await api.post(`/complaints/${assignTarget.id}/direct-assign`, assignForm);
       setAssignTarget(null);
       setAssignForm({ verification_officer_id: '', priority_type: 'normal' });
-      // Refresh list
-      api.get('/complaints').then(r => setList(r.data.data || r.data)).finally(() => setOfficers([]));
+      fetchList(page);
+      setOfficers([]);
     } catch (e) {
       alert(e.response?.data?.message || 'Failed to assign verification');
     }
@@ -221,6 +234,15 @@ export default function Complaints() {
               </tbody>
             </table>
           </div>
+          {meta.last_page > 1 && (
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderTop:'1px solid #e2e8f0',fontSize:13}}>
+              <span style={{color:'#64748b'}}>Total {meta.total || 0} · Page {meta.current_page} / {meta.last_page}</span>
+              <div style={{display:'flex',gap:8}}>
+                <button type="button" className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
+                <button type="button" className="btn btn-outline btn-sm" disabled={page >= meta.last_page} onClick={() => setPage(p => p + 1)}>Next</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

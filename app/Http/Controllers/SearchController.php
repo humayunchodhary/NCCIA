@@ -22,16 +22,19 @@ class SearchController extends Controller
         $user = $request->user();
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
 
+        // Prefer prefix match on tracking/cnic (index-friendly) for scale
         $complaints = Complaint::visibleTo($user)
             ->with(['verification.officer'])
             ->where(function ($query) use ($like, $q) {
-                $query->where('tracking_no', 'like', $like)
-                    ->orWhere('complainant_name', 'like', $like)
-                    ->orWhere('cnic', 'like', $like)
-                    ->orWhere('diary_no', 'like', $like);
+                $query->where('tracking_no', 'like', $q . '%')
+                    ->orWhere('diary_no', 'like', $q . '%')
+                    ->orWhere('cnic', 'like', $q . '%')
+                    ->orWhere('complainant_name', 'like', $q . '%');
 
                 if (ctype_digit($q)) {
                     $query->orWhere('id', (int) $q);
+                } elseif (str_contains($q, '/')) {
+                    $query->orWhere('tracking_no', 'like', '%' . $q . '%');
                 }
             })
             ->orderByDesc('id')

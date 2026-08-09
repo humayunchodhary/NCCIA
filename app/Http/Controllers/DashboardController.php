@@ -9,6 +9,7 @@ use App\Models\Enquiry;
 use App\Models\Verification;
 use App\Models\OffenceType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -232,11 +233,14 @@ class DashboardController extends Controller
         try {
         $user = request()->user();
         $role = $user?->roles?->first()?->name ?? $user?->role ?? 'operator';
-        $year = request('year', now()->year);
+        $year = (int) request('year', now()->year);
         $dateFrom = request('date_from');
         $dateTo = request('date_to');
         $accountFilter = request('account');
 
+        $cacheKey = 'dash:v2:' . ($user?->id ?: 0) . ':' . md5(json_encode([$role, $year, $dateFrom, $dateTo, $accountFilter]));
+
+        $payload = Cache::remember($cacheKey, 60, function () use ($user, $role, $year, $dateFrom, $dateTo) {
         // ─── Role-based base queries (data isolation via Complaint::visibleTo) ──
         $cmpQuery = Complaint::visibleTo($user);
 
@@ -247,10 +251,10 @@ class DashboardController extends Controller
             $cmpQuery = $cmpQuery->whereDate('created_at', '<=', $dateTo);
         }
 
-        $verQuery = Verification::whereIn('complaint_id', (clone $cmpQuery)->pluck('id'));
-        $enqQuery = Enquiry::whereIn('complaint_id', (clone $cmpQuery)->pluck('id'));
-        $caseEnqIds = (clone $enqQuery)->pluck('id');
-        $caseQuery = $caseEnqIds->isNotEmpty() ? CaseFile::whereIn('enquiry_id', $caseEnqIds) : CaseFile::whereRaw('0=1');
+        // Subqueries — never pluck millions of IDs into PHP
+        $verQuery = Verification::whereIn('complaint_id', (clone $cmpQuery)->select('id'));
+        $enqQuery = Enquiry::whereIn('complaint_id', (clone $cmpQuery)->select('id'));
+        $caseQuery = CaseFile::whereIn('enquiry_id', (clone $enqQuery)->select('id'));
 
         // ─── Stats ─────────────────────────────────────────────────
         $totalVerifications       = (clone $verQuery)->count();
@@ -305,30 +309,44 @@ class DashboardController extends Controller
         $overallPerformance = $totalComplaints > 0
             ? round(($resolvedComplaints / $totalComplaints) * 100) : 0;
 
-        // ─── Workflow Completion (lifecycle %) ────────────────────
-        $visibleComplaints = (clone $cmpQuery)->with(['verification', 'enquiry', 'caseFiles'])->get();
-        $totalVisible = $visibleComplaints->count();
-        $avgCompletion = $totalVisible > 0 ? round($visibleComplaints->avg(fn($c) => $c->progressPercent())) : 0;
-
+        // ─── Workflow stages via COUNT queries (no full-table hydrate) ──
         $workflowStages = [
-            'registered'           => 0,
-            'scrutiny_complete'    => 0,
-            'verification'         => 0,
-            'verification_submitted' => 0,
-            'enquiry'              => 0,
-            'case_filed'           => 0,
-            'resolved'             => 0,
+            'resolved' => (clone $cmpQuery)->where(function ($q) {
+                $q->whereNotNull('final_status')->orWhereIn('status', ['invalid', 'irrelevant']);
+            })->count(),
+            'case_filed' => (clone $cmpQuery)->whereNull('final_status')
+                ->whereNotIn('status', ['invalid', 'irrelevant'])
+                ->whereHas('caseFiles')->count(),
+            'enquiry' => (clone $cmpQuery)->whereNull('final_status')
+                ->whereNotIn('status', ['invalid', 'irrelevant'])
+                ->whereHas('enquiry')->whereDoesntHave('caseFiles')->count(),
+            'verification_submitted' => (clone $cmpQuery)->whereNull('final_status')
+                ->whereDoesntHave('enquiry')
+                ->whereHas('verification', fn ($q) => $q->whereIn('status', ['submitted', 'approved']))
+                ->count(),
+            'verification' => (clone $cmpQuery)->whereNull('final_status')
+                ->whereDoesntHave('enquiry')
+                ->whereHas('verification', fn ($q) => $q->whereNotIn('status', ['submitted', 'approved', 'closed']))
+                ->count(),
+            'scrutiny_complete' => (clone $cmpQuery)->where('status', 'complete')->whereNotNull('tracking_no')
+                ->whereNull('final_status')
+                ->whereDoesntHave('verification')->count(),
+            'registered' => (clone $cmpQuery)->where(function ($q) {
+                $q->where('status', 'incomplete')->orWhereNull('tracking_no');
+            })->whereNull('final_status')->whereDoesntHave('verification')->count(),
         ];
-        foreach ($visibleComplaints as $c) {
-            $p = $c->progressPercent();
-            if ($p >= 100)                $workflowStages['resolved']++;
-            elseif ($p >= 90)             $workflowStages['case_filed']++;
-            elseif ($p >= 70)             $workflowStages['enquiry']++;
-            elseif ($p >= 60)             $workflowStages['verification_submitted']++;
-            elseif ($p >= 40)             $workflowStages['verification']++;
-            elseif ($p >= 25)             $workflowStages['scrutiny_complete']++;
-            else                          $workflowStages['registered']++;
+
+        $stageWeights = [
+            'registered' => 10, 'scrutiny_complete' => 25, 'verification' => 40,
+            'verification_submitted' => 60, 'enquiry' => 80, 'case_filed' => 90, 'resolved' => 100,
+        ];
+        $weighted = 0;
+        $stageTotal = 0;
+        foreach ($workflowStages as $k => $n) {
+            $weighted += $n * ($stageWeights[$k] ?? 0);
+            $stageTotal += $n;
         }
+        $avgCompletion = $stageTotal > 0 ? (int) round($weighted / $stageTotal) : 0;
 
         $completeCount = (clone $cmpQuery)->where('status', 'complete')->whereNotNull('tracking_no')->count();
         $incompleteCount = (clone $cmpQuery)->where(function ($q) {
@@ -365,30 +383,32 @@ class DashboardController extends Controller
             'avg_completion'        => $avgCompletion,
             'workflow_stages'       => $workflowStages,
         ];
-        // ─── Monthly Trends ────────────────────────────────────────
+        // ─── Monthly Trends (3 grouped queries, not 36 counts) ─────
+        $receivedMap = (clone $cmpQuery)->whereYear('created_at', $year)
+            ->selectRaw('MONTH(created_at) as m, COUNT(*) as c')
+            ->groupBy('m')->pluck('c', 'm');
+        $resolvedMap = (clone $cmpQuery)
+            ->where(function ($q) {
+                $q->whereNotNull('final_status')->orWhereIn('status', ['invalid', 'irrelevant']);
+            })
+            ->whereYear('updated_at', $year)
+            ->selectRaw('MONTH(updated_at) as m, COUNT(*) as c')
+            ->groupBy('m')->pluck('c', 'm');
+        $convertedMap = (clone $enqQuery)->whereYear('created_at', $year)
+            ->selectRaw('MONTH(created_at) as m, COUNT(*) as c')
+            ->groupBy('m')->pluck('c', 'm');
+
         $monthlyTrends = [];
         for ($m = 1; $m <= 12; $m++) {
-            $received = (clone $cmpQuery)->whereYear('created_at', $year)
-                ->whereMonth('created_at', $m)->count();
-            $resolved = (clone $cmpQuery)
-                ->where(function ($q) {
-                    $q->whereNotNull('final_status')
-                      ->orWhereIn('status', ['invalid', 'irrelevant']);
-                })
-                ->whereYear('updated_at', $year)
-                ->whereMonth('updated_at', $m)
-                ->count();
-            $converted = (clone $enqQuery)->whereYear('created_at', $year)
-                ->whereMonth('created_at', $m)->count();
             $monthlyTrends[] = [
                 'month'     => date('M', mktime(0, 0, 0, $m, 1)),
-                'received'  => $received,
-                'resolved'  => $resolved,
-                'converted' => $converted,
+                'received'  => (int) ($receivedMap[$m] ?? 0),
+                'resolved'  => (int) ($resolvedMap[$m] ?? 0),
+                'converted' => (int) ($convertedMap[$m] ?? 0),
             ];
         }
 
-        // ─── Category Breakdown ────────────────────────────────────
+        // ─── Category Breakdown (scoped to visible complaints) ─────
         $categoryColors = [
             'Financial / Banking Fraud'      => '#FDDF00',
             'Cyberstalking'                  => '#264078',
@@ -396,10 +416,13 @@ class DashboardController extends Controller
             'Impersonation / Identity Theft' => '#9b3232',
         ];
 
-        $categoryBreakdown = OffenceType::selectRaw('value, name, count(*) as total')
+        $categoryBreakdown = OffenceType::query()
+            ->selectRaw('offence_types.value, offence_types.name, COUNT(*) as total')
             ->join('complaints', 'offence_types.value', '=', 'complaints.offence_type')
-            ->groupBy('value', 'name')
+            ->whereIn('complaints.id', (clone $cmpQuery)->select('id'))
+            ->groupBy('offence_types.value', 'offence_types.name')
             ->orderByDesc('total')
+            ->limit(12)
             ->get();
 
         $totalCategorized = $categoryBreakdown->sum('total');
@@ -412,7 +435,7 @@ class DashboardController extends Controller
         $recentLimit = ($role === 'operator') ? 20 : 5;
         $recentComplaints = (clone $cmpQuery)
             ->with(['verification.officer', 'enquiry', 'caseFiles'])
-            ->latest()
+            ->latest('id')
             ->take($recentLimit)
             ->get()
             ->map(function (Complaint $c) {
@@ -434,9 +457,10 @@ class DashboardController extends Controller
                 ];
             });
 
-        return response()->json(compact(
-            'stats', 'monthlyTrends', 'categoryBreakdown', 'recentComplaints'
-        ));
+        return compact('stats', 'monthlyTrends', 'categoryBreakdown', 'recentComplaints');
+        });
+
+        return response()->json($payload);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage(), 'line' => $e->getLine()], 500);
         }

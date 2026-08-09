@@ -52,7 +52,8 @@ export default function Dashboard() {
   useEffect(() => { fetchDashboard(); }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => fetchDashboard(filtersRef.current, true), 30000);
+    // Soft refresh only — heavy dashboard is cached server-side
+    const timer = setInterval(() => fetchDashboard(filtersRef.current, true), 120000);
     return () => clearInterval(timer);
   }, []);
 

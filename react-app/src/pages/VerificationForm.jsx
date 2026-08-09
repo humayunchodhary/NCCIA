@@ -48,8 +48,8 @@ export default function VerificationForm() {
       setOfficers(Array.isArray(all) ? all : []);
     }).catch(() => {});
     api.get('/lookup/circles').then(r => setCircles(r.data || [])).catch(() => {});
-    api.get('/complaints').then(r => {
-      const all = r.data.data || r.data;
+    api.get('/complaints/search').then(r => {
+      const all = r.data.data || r.data || [];
       setComplaints(all.filter(c => c.tracking_no));
       setAllComplaints(all);
     }).catch(() => {});

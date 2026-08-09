@@ -25,6 +25,8 @@ export default function Verifications() {
   const { user } = useAuth();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [stats, setStats] = useState({ total: 0, pending: 0, progress: 0, approved: 0 });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -94,24 +96,34 @@ export default function Verifications() {
     }
   };
 
-  const fetchData = () => {
+  const fetchData = (p = page) => {
     const params = new URLSearchParams();
+    params.set('page', String(p));
+    params.set('per_page', '15');
     if (search) params.set('search', search);
     if (statusFilter) params.set('status', statusFilter);
-    const qs = params.toString();
-    api.get('/verifications' + (qs ? `?${qs}` : '')).then(r => {
-      const page = r.data;
-      setList((page && page.data) ? page.data : []);
+    api.get('/verifications?' + params.toString()).then(r => {
+      const payload = r.data;
+      setList((payload && payload.data) ? payload.data : []);
+      setMeta({
+        current_page: payload?.current_page || p,
+        last_page: payload?.last_page || 1,
+        total: payload?.total || 0,
+      });
       setSelected([]);
     }).finally(() => setLoading(false));
     api.get('/verifications/stats').then(r => setStats(r.data)).catch(() => {});
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 15000);
-    return () => clearInterval(interval);
+    setPage(1);
   }, [search, statusFilter]);
+
+  useEffect(() => {
+    fetchData(page);
+    const interval = setInterval(() => fetchData(page), 60000);
+    return () => clearInterval(interval);
+  }, [page, search, statusFilter]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -417,6 +429,15 @@ export default function Verifications() {
               </tbody>
             </table>
           </div>
+          {meta.last_page > 1 && (
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderTop:'1px solid #e2e8f0',fontSize:13}}>
+              <span style={{color:'#64748b'}}>Total {meta.total || 0} · Page {meta.current_page} / {meta.last_page}</span>
+              <div style={{display:'flex',gap:8}}>
+                <button type="button" className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
+                <button type="button" className="btn btn-outline btn-sm" disabled={page >= meta.last_page} onClick={() => setPage(p => p + 1)}>Next</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

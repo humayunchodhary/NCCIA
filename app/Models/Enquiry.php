@@ -182,12 +182,6 @@ class Enquiry extends Model
             return $query->where('enquiry_officer_id', $user->id);
         }
 
-        $complaintIds = Complaint::visibleTo($user)->pluck('id');
-
-        if ($complaintIds->isEmpty()) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        return $query->whereIn('complaint_id', $complaintIds);
+        return $query->whereIn('complaint_id', Complaint::visibleTo($user)->select('id'));
     }
 }

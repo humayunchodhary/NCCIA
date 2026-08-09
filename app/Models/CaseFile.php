@@ -88,12 +88,6 @@ class CaseFile extends Model
             return $query->where('investigation_officer_id', $user->id);
         }
 
-        $enquiryIds = Enquiry::visibleTo($user)->pluck('id');
-
-        if ($enquiryIds->isEmpty()) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        return $query->whereIn('enquiry_id', $enquiryIds);
+        return $query->whereIn('enquiry_id', Enquiry::visibleTo($user)->select('id'));
     }
 }

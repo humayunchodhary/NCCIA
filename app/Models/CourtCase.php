@@ -71,12 +71,6 @@ class CourtCase extends Model
             return $query;
         }
 
-        $caseIds = CaseFile::visibleTo($user)->pluck('id');
-
-        if ($caseIds->isEmpty()) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        return $query->whereIn('case_id', $caseIds);
+        return $query->whereIn('case_id', CaseFile::visibleTo($user)->select('id'));
     }
 }

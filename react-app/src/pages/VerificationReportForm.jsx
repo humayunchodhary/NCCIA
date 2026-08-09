@@ -165,7 +165,7 @@ const [form, setForm] = useState({    tracking_no: '',
 
   useEffect(() => {
     api.get('/lookup/offence-types').then(r => setCrimeCategories(r.data.data || r.data)).catch(() => {});
-    api.get('/complaints').then(r => setComplaints(r.data.data || r.data)).catch(() => {});
+    api.get('/complaints/search').then(r => setComplaints(r.data.data || r.data || [])).catch(() => {});
     if (id) {
       api.get(`/verifications/reports/${id}`).then(r => {
         const d = r.data.data || r.data;

@@ -44,16 +44,44 @@ class ComplaintController extends Controller
     {
         $this->authorize('viewAny', Complaint::class);
 
+        $perPage = min(50, max(10, (int) request('per_page', 15)));
+
         $complaints = Complaint::visibleTo(request()->user())
             ->with(['enquiry', 'verification.officer', 'caseFiles', 'circle'])
-            ->latest()
-            ->paginate(15);
+            ->latest('id')
+            ->paginate($perPage);
 
         if (request()->expectsJson()) {
             return ComplaintResource::collection($complaints);
         }
 
         return view('pages.all-complaints', compact('complaints'));
+    }
+
+    /**
+     * Lightweight typeahead for forms (never load full complaint tables).
+     */
+    public function search(Request $request)
+    {
+        $this->authorize('viewAny', Complaint::class);
+
+        $q = trim((string) $request->get('q', ''));
+        $query = Complaint::visibleTo($request->user())
+            ->with('verification:id,complaint_id,verification_officer_id,status,assigned_at')
+            ->whereNotNull('tracking_no');
+
+        if ($q !== '') {
+            $query->where(function ($qq) use ($q) {
+                $qq->where('tracking_no', 'like', $q . '%')
+                    ->orWhere('diary_no', 'like', $q . '%')
+                    ->orWhere('cnic', 'like', $q . '%')
+                    ->orWhere('complainant_name', 'like', $q . '%');
+            });
+        }
+
+        $rows = $query->latest('id')->limit(20)->get(['id', 'tracking_no', 'diary_no', 'complainant_name', 'cnic', 'contact_no', 'contact_country_code', 'profession', 'offence_type', 'cmu', 'description', 'entry_time', 'created_at', 'status']);
+
+        return response()->json(['data' => $rows]);
     }
 
     public function create()

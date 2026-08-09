@@ -28,8 +28,9 @@ class VerificationController extends Controller
         if ($search = request('search')) {
             $query->where(function ($q) use ($search) {
                 $q->whereHas('complaint', function ($cq) use ($search) {
-                    $cq->where('tracking_no', 'like', "%{$search}%")
-                       ->orWhere('complainant_name', 'like', "%{$search}%");
+                    // Prefix search uses indexes; avoid leading % on tracking_no
+                    $cq->where('tracking_no', 'like', "{$search}%")
+                       ->orWhere('complainant_name', 'like', "{$search}%");
                 })->orWhere('id', $search);
             });
         }
@@ -38,10 +39,14 @@ class VerificationController extends Controller
             $query->where('status', $status);
         }
 
-        $verifications = $query->latest()->paginate(15)->withQueryString();
+        $perPage = min(50, max(10, (int) request('per_page', 15)));
+        $verifications = $query->latest('id')->paginate($perPage)->withQueryString();
+
+        if (request()->expectsJson()) {
+            return response()->json($verifications);
+        }
 
         $statsQuery = Verification::visibleTo(request()->user());
-
         $stats = [
             'total'    => (clone $statsQuery)->count(),
             'pending'  => (clone $statsQuery)->where('status', 'pending_assignment')->count(),
@@ -49,23 +54,24 @@ class VerificationController extends Controller
             'approved' => (clone $statsQuery)->whereIn('status', ['submitted', 'approved'])->count(),
         ];
 
-        if (request()->expectsJson()) {
-            return response()->json($verifications);
-        }
-
         return view('verifications.index', compact('verifications', 'stats'));
     }
 
     public function stats()
     {
-        $query = Verification::visibleTo(request()->user());
+        $user = request()->user();
+        $key = 'verif-stats:v1:' . $user->id;
 
-        return response()->json([
-            'total'    => (clone $query)->count(),
-            'pending'  => (clone $query)->where('status', 'pending_assignment')->count(),
-            'progress' => (clone $query)->whereIn('status', ['assigned', 'in_progress', 'sent_back'])->count(),
-            'approved' => (clone $query)->whereIn('status', ['submitted', 'approved'])->count(),
-        ]);
+        return response()->json(\Illuminate\Support\Facades\Cache::remember($key, 45, function () use ($user) {
+            $query = Verification::visibleTo($user);
+
+            return [
+                'total'    => (clone $query)->count(),
+                'pending'  => (clone $query)->where('status', 'pending_assignment')->count(),
+                'progress' => (clone $query)->whereIn('status', ['assigned', 'in_progress', 'sent_back'])->count(),
+                'approved' => (clone $query)->whereIn('status', ['submitted', 'approved'])->count(),
+            ];
+        }));
     }
 
     public function listReports()
