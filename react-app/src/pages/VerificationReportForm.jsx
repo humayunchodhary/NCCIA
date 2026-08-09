@@ -111,8 +111,10 @@ export default function VerificationReportForm() {
   const [complaints, setComplaints] = useState([]);
   const [crimeCategories, setCrimeCategories] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [submittingCi, setSubmittingCi] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
+  const [linkedVerificationId, setLinkedVerificationId] = useState(null);
 
 const [form, setForm] = useState({    tracking_no: '',
     complaint_id: '',
@@ -215,6 +217,7 @@ const [form, setForm] = useState({    tracking_no: '',
     const tracking = e.target.value;
     setForm(f => ({ ...f, tracking_no: tracking }));
     const comp = complaints.find(c => c.tracking_no === tracking);
+    if (comp?.verification?.id) setLinkedVerificationId(comp.verification.id);
     if (comp) {
       const phone = (comp.contact_no || '').replace(/\D/g, '').replace(/^0+/, '');
       const v = comp.verification || {};
@@ -237,15 +240,13 @@ const [form, setForm] = useState({    tracking_no: '',
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
+  const buildFormData = () => {
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => {
       if (v === null || v === undefined || v === '') return;
       if (k === 'evidence') {
         let existingCount = 0, newIdx = 0;
-        v.forEach((ev, i) => {
+        v.forEach((ev) => {
           if (ev.file instanceof File) {
             fd.append(`evidence_file[${newIdx}]`, ev.file);
             fd.append(`evidence_desc[${newIdx}]`, ev.desc || '');
@@ -259,16 +260,44 @@ const [form, setForm] = useState({    tracking_no: '',
         });
         return;
       }
-      if (k === 'accused') { v.forEach((a, i) => { Object.entries(a).forEach(([ak, av]) => { if (ak === 'photo' && av instanceof File) fd.append(`accused_photo[${i}]`, av); else fd.append(`accused[${i}][${ak}]`, av ?? ''); }); }); return; }
+      if (k === 'accused') {
+        v.forEach((a, i) => {
+          Object.entries(a).forEach(([ak, av]) => {
+            if (ak === 'photo' && av instanceof File) fd.append(`accused_photo[${i}]`, av);
+            else fd.append(`accused[${i}][${ak}]`, av ?? '');
+          });
+        });
+        return;
+      }
       fd.append(k, v);
     });
+    return fd;
+  };
+
+  const saveReport = async () => {
+    const fd = buildFormData();
+    const url = id ? `/verifications/reports/${id}` : '/verifications/reports';
+    if (id) {
+      await api.put(url, fd);
+      return id;
+    }
+    const res = await api.post(url, fd);
+    return res.data?.data?.id || null;
+  };
+
+  const resolveVerificationId = () => {
+    if (linkedVerificationId) return linkedVerificationId;
+    const comp = complaints.find(c => String(c.id) === String(form.complaint_id) || c.tracking_no === form.tracking_no);
+    return comp?.verification?.id || null;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setServerError('');
+    setErrors({});
     try {
-      const url = id ? `/verifications/reports/${id}` : '/verifications/reports';
-      if (id) {
-        await api.put(url, fd);
-      } else {
-        await api.post(url, fd);
-      }
+      await saveReport();
       navigate('/verifications/reports');
     } catch (err) {
       const res = err.response?.data;
@@ -280,9 +309,50 @@ const [form, setForm] = useState({    tracking_no: '',
       } else {
         setServerError('Error saving report. Please try again. Status: ' + (err.response?.status || 'N/A'));
       }
-      console.error('Save error:', err.response);
+    } finally {
+      setSaving(false);
     }
-    finally { setSaving(false); }
+  };
+
+  const handleSubmitToCircleIncharge = async () => {
+    if (!form.recommendation) {
+      setServerError('Circle Incharge ko submit karne se pehle Recommendation select karein.');
+      return;
+    }
+    const reportText = (form.recommendation_full || form.recommendation_short || form.comments || '').trim();
+    if (!reportText) {
+      setServerError('Submit se pehle Recommendation / Comments mein report text likhein.');
+      return;
+    }
+    const verificationId = resolveVerificationId();
+    if (!verificationId) {
+      setServerError('Is complaint ki Verification assignment nahi mili. Pehle VO assign hona zaroori hai.');
+      return;
+    }
+
+    setSubmittingCi(true);
+    setServerError('');
+    setErrors({});
+    try {
+      await saveReport();
+      await api.post(`/verifications/${verificationId}/submit-report`, {
+        report_text: reportText,
+        recommendation: form.recommendation,
+        closure_reason: form.closure_reason || null,
+      });
+      alert('Verification report Circle Incharge ko submit ho gayi.');
+      navigate('/verifications');
+    } catch (err) {
+      const res = err.response?.data;
+      if (res?.errors) {
+        setErrors(res.errors);
+        setServerError('Please fix the highlighted fields below.');
+      } else {
+        setServerError(res?.message || 'Submit to Circle Incharge failed');
+      }
+    } finally {
+      setSubmittingCi(false);
+    }
   };
 
   const addAccused = () => setForm(f => ({ ...f, accused: [...f.accused, { name: '', father_name: '', phone: '', country_code: '+92', cnic: '', address: '', post_address: '', nationality: 'Pakistani', passport_no: '', photo: null }] }));
@@ -692,11 +762,24 @@ const [form, setForm] = useState({    tracking_no: '',
           <div className="cf-alert cf-alert-error">{serverError}</div>
         )}
 
-        <div className="cf-form-actions" style={{display:'flex',justifyContent:'flex-end',gap:'10px',paddingTop:'20px',marginTop:'10px'}}>
-          <Link to="/verifications/reports" className="btn btn-outline">Reset</Link>
-          <button type="submit" className="btn cf-submit-btn" disabled={saving} style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:600,fontSize:'14px',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',border:'none',cursor:saving?'not-allowed':'pointer',opacity:saving?0.7:1}}>
+        <div style={{marginTop:12,padding:'12px 14px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,fontSize:13,color:'#1e3a5f'}}>
+          Form save karne ke baad <strong>Submit to Circle Incharge</strong> dabayein — report same circle ke CI ko chali jayegi.
+        </div>
+
+        <div className="cf-form-actions" style={{display:'flex',justifyContent:'flex-end',gap:'10px',paddingTop:'20px',marginTop:'10px',flexWrap:'wrap'}}>
+          <Link to="/verifications/reports" className="btn btn-outline">Back</Link>
+          <button type="submit" className="btn cf-submit-btn" disabled={saving || submittingCi} style={{background:'#64748b',color:'#fff',padding:'12px 24px',fontWeight:600,fontSize:'14px',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',border:'none',cursor:saving?'not-allowed':'pointer',opacity:saving?0.7:1}}>
+            {saving ? 'Saving...' : (id ? 'Save Draft' : 'Save Report')}
+          </button>
+          <button
+            type="button"
+            className="btn cf-submit-btn"
+            disabled={saving || submittingCi}
+            onClick={handleSubmitToCircleIncharge}
+            style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:700,fontSize:'14px',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',border:'none',cursor:submittingCi?'not-allowed':'pointer',opacity:submittingCi?0.7:1,boxShadow:'0 2px 8px rgba(1,92,148,0.35)'}}
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            {saving ? 'Saving...' : (id ? 'Update Report' : 'Save Verification Report')}
+            {submittingCi ? 'Submitting...' : 'Submit to Circle Incharge'}
           </button>
         </div>
       </form>

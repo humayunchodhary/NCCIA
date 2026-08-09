@@ -158,12 +158,17 @@ export default function Verifications() {
       await api.post(`/verifications/${submitTarget.id}/submit-report`, submitForm);
       fetchData();
       setSubmitTarget(null);
+      alert('Report Circle Incharge ko submit ho gayi. Woh ab Approve / Review kar sakte hain.');
     } catch (e) {
       alert(e.response?.data?.message || 'Failed to submit report');
     } finally {
       setSubmitSaving(false);
     }
   };
+
+  const canSubmitToCi = (v) =>
+    ['assigned', 'in_progress', 'sent_back'].includes(v.status)
+    && (String(user?.id) === String(v.verification_officer_id) || hasRole('admin') || hasRole('verification_officer'));
 
   // ── Review/Approve ──
   const openReviewModal = (v) => {
@@ -372,10 +377,16 @@ export default function Verifications() {
                           Message
                         </button>
 
-                        {['assigned', 'in_progress', 'sent_back'].includes(v.status) && user?.id === v.verification_officer_id && (
-                          <button onClick={() => openSubmitModal(v)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}} title="Submit Report">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                            Submit
+                        {canSubmitToCi(v) && String(user?.id) === String(v.verification_officer_id) && (
+                          <button
+                            type="button"
+                            onClick={() => openSubmitModal(v)}
+                            className="btn btn-sm"
+                            style={{background:'#015C94',color:'#fff',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 12px',cursor:'pointer',fontSize:'12px',fontWeight:700,boxShadow:'0 2px 6px rgba(1,92,148,0.35)'}}
+                            title="Submit report to Circle Incharge"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            Submit to CI
                           </button>
                         )}
 
@@ -423,10 +434,13 @@ export default function Verifications() {
         <div className="modal-overlay" onClick={() => setSubmitTarget(null)}>
           <div className="modal-container" style={{maxWidth:'640px'}} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Submit Verification Report</h3>
+              <h3>Submit to Circle Incharge</h3>
               <button className="modal-close" onClick={() => setSubmitTarget(null)}>&times;</button>
             </div>
             <div className="modal-body" style={{maxHeight:'70vh',overflowY:'auto'}}>
+              <p style={{marginBottom:12,fontSize:13,color:'#334155',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,padding:'10px 12px'}}>
+                Yeh report <strong>aap ke Circle Incharge</strong> ko jayegi (same circle). Submit ke baad status = Submitted ho jayega.
+              </p>
               <div className="cf-group">
                 <label className="cf-label">Report Text <span className="required">*</span></label>
                 <textarea className="cf-input" rows="5" value={submitForm.report_text} onChange={e => setSubmitForm({...submitForm, report_text: e.target.value})} placeholder="Detailed verification report..." required />
@@ -489,8 +503,8 @@ export default function Verifications() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setSubmitTarget(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSubmitReport} disabled={submitSaving || !submitForm.recommendation || !submitForm.report_text}>
-                {submitSaving ? 'Submitting...' : 'Submit Report'}
+              <button className="btn btn-primary" onClick={handleSubmitReport} disabled={submitSaving || !submitForm.recommendation || !submitForm.report_text} style={{background:'#015C94',fontWeight:700}}>
+                {submitSaving ? 'Submitting...' : 'Submit to Circle Incharge'}
               </button>
             </div>
           </div>

@@ -4,7 +4,6 @@ import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDisplayDateTime, toLocalInput } from '../utils/datetime';
-
 const RECOMMENDATION_OPTIONS = [
   { value: 'enquiry_registration', name: 'Enquiry Registration' },
   { value: 'closure', name: 'Closure' },
@@ -36,9 +35,12 @@ export default function VerificationForm() {
   const [allComplaints, setAllComplaints] = useState([]);
   const [circles, setCircles] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [submittingCi, setSubmittingCi] = useState(false);
   const [errors, setErrors] = useState({});
   const [complaintDetail, setComplaintDetail] = useState(null);
   const isEdit = !!id;
+  const isAssignedVo = isEdit && String(user?.id) === String(form.verification_officer_id);
+  const canSubmitToCi = isAssignedVo && ['assigned', 'in_progress', 'sent_back'].includes(form.status);
 
   useEffect(() => {
     api.get('/lookup/verification-officers').then(r => {
@@ -129,6 +131,34 @@ export default function VerificationForm() {
       else setErrors({ _general: err.response?.data?.message || 'Failed to save' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSubmitToCircleIncharge = async () => {
+    if (!isEdit) return;
+    if (!form.report_text?.trim() || !form.recommendation) {
+      setErrors({ _general: 'Circle Incharge ko submit karne se pehle Report Text aur Recommendation fill karein.' });
+      return;
+    }
+    setSubmittingCi(true);
+    setErrors({});
+    try {
+      await api.put(`/verifications/${id}`, form);
+      await api.post(`/verifications/${id}/submit-report`, {
+        report_text: form.report_text,
+        recommendation: form.recommendation,
+        closure_reason: form.closure_reason || null,
+        merge_complaint_id: form.merge_complaint_id || null,
+        transfer_department: form.transfer_department || null,
+        transfer_circle_id: form.transfer_circle_id || null,
+      });
+      alert('Report Circle Incharge ko submit ho gayi.');
+      navigate('/verifications');
+    } catch (err) {
+      if (err.response?.status === 422) setErrors(err.response.data.errors || {});
+      else setErrors({ _general: err.response?.data?.message || 'Submit to Circle Incharge failed' });
+    } finally {
+      setSubmittingCi(false);
     }
   };
 
@@ -395,9 +425,28 @@ export default function VerificationForm() {
           </div>
         )}
 
-        <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:20}}>
-          <button type="submit" className="btn btn-primary" disabled={saving} style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:600,borderRadius:'8px',border:'none'}}>{saving ? 'Saving...' : (isEdit ? 'Update Verification' : 'Assign Verification')}</button>
+        {canSubmitToCi && (
+          <div style={{marginTop:16,padding:'12px 14px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,fontSize:13,color:'#1e3a5f'}}>
+            Report + Recommendation complete hone ke baad <strong>Submit to Circle Incharge</strong> dabayein — yeh same circle ke CI ko chali jayegi.
+          </div>
+        )}
+
+        <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:20,flexWrap:'wrap'}}>
           <button type="button" className="btn btn-outline" onClick={() => navigate('/verifications')}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={saving || submittingCi} style={{background:'#64748b',color:'#fff',padding:'12px 24px',fontWeight:600,borderRadius:'8px',border:'none'}}>
+            {saving ? 'Saving...' : (isEdit ? 'Save Draft' : 'Assign Verification')}
+          </button>
+          {canSubmitToCi && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={saving || submittingCi}
+              onClick={handleSubmitToCircleIncharge}
+              style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:700,borderRadius:'8px',border:'none',boxShadow:'0 2px 8px rgba(1,92,148,0.35)'}}
+            >
+              {submittingCi ? 'Submitting...' : 'Submit to Circle Incharge'}
+            </button>
+          )}
         </div>
       </form>
     </div>
