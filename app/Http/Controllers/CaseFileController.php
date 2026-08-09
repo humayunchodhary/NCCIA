@@ -159,8 +159,161 @@ class CaseFileController extends Controller
             $caseFile->investigationOfficer?->notify(new CaseAssignedNotification($caseFile));
         }
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Case/FIR registered — ' . $caseFile->fir_no,
+                'data'    => $caseFile->load(
+                    'enquiry.complaint',
+                    'investigationOfficer',
+                    'activities.creator',
+                    'arrests',
+                    'legalOpinions.creator',
+                    'approvals.circleIncharge'
+                ),
+            ], 201);
+        }
+
         return redirect()->route('dashboard')
             ->with('success', 'Case/FIR registered — ' . $caseFile->fir_no);
+    }
+
+    public function update(Request $request, CaseFile $caseFile)
+    {
+        abort_unless(
+            CaseFile::visibleTo($request->user())->whereKey($caseFile->id)->exists(),
+            404
+        );
+
+        $data = $request->validate([
+            'fir_no'                   => 'nullable|string|unique:cases,fir_no,' . $caseFile->id,
+            'investigation_officer_id' => 'nullable|integer|exists:users,id',
+            'status'                   => 'nullable|string|max:50',
+            'recommendation'           => 'nullable|string|max:30',
+            'transfer_department'      => 'nullable|string|max:255',
+            'transfer_circle'          => 'nullable|string|max:255',
+            'actions'                  => 'nullable|string',
+            'arrests'                  => 'nullable|string',
+            'ad_legal_opinion'         => 'nullable|string',
+            'add_director_decision'    => 'nullable|string',
+            'dd_legal_opinion'         => 'nullable|string',
+            'incharge_approval'        => 'nullable|string|in:agree,review',
+            'incharge_remarks'         => 'nullable|string',
+        ]);
+
+        foreach (['actions', 'arrests'] as $field) {
+            if (!empty($data[$field]) && is_string($data[$field])) {
+                $decoded = json_decode($data[$field], true);
+                $data[$field] = is_array($decoded) ? $decoded : [];
+            } elseif (!isset($data[$field])) {
+                $data[$field] = [];
+            }
+        }
+
+        DB::transaction(function () use ($caseFile, $data, $request) {
+            $caseFile->update(array_filter([
+                'fir_no'                   => $data['fir_no'] ?? null,
+                'investigation_officer_id' => $data['investigation_officer_id'] ?? null,
+                'status'                   => $data['status'] ?? null,
+                'recommendation'           => $data['recommendation'] ?? null,
+                'transfer_department'      => $data['transfer_department'] ?? null,
+                'transfer_circle'          => $data['transfer_circle'] ?? null,
+            ], fn ($v) => $v !== null));
+
+            if (!empty($data['actions'])) {
+                $actionTypes = [
+                    'dac_request'     => 'DAC Request',
+                    'mobile_record'   => 'Mobile Record Obtained',
+                    'bank_record'     => 'Bank Record Obtained',
+                    'notice'          => 'Notice Issued',
+                    'diary'           => 'Diary Maintained',
+                    'seizure'         => 'Seizure Made',
+                    'forensic_report' => 'Forensic Report',
+                    'recovery'        => 'Recovery Effected',
+                    'raid'            => 'Raid Conducted',
+                ];
+                foreach ($data['actions'] as $action) {
+                    $type = is_array($action) ? ($action['type'] ?? null) : $action;
+                    if (!$type) {
+                        continue;
+                    }
+                    $exists = $caseFile->activities()->where('type', $type)->exists();
+                    if ($exists) {
+                        continue;
+                    }
+                    CaseActivity::create([
+                        'case_id'       => $caseFile->id,
+                        'type'          => $type,
+                        'description'   => is_array($action) && !empty($action['description'])
+                            ? $action['description']
+                            : ($actionTypes[$type] ?? $type),
+                        'activity_date' => now(),
+                        'created_by'    => $request->user()->id,
+                    ]);
+                }
+            }
+
+            if (!empty($data['arrests'])) {
+                foreach ($data['arrests'] as $a) {
+                    if (empty($a['accused_name'])) {
+                        continue;
+                    }
+                    $caseFile->arrests()->create([
+                        'accused_name'   => $a['accused_name'],
+                        'cnic'           => $a['cnic'] ?? null,
+                        'arrest_date'    => $a['arrest_date'] ?? now()->toDateString(),
+                        'remand_details' => $a['remand_details'] ?? null,
+                    ]);
+                }
+            }
+
+            if (!empty($data['ad_legal_opinion'])) {
+                CaseLegalOpinion::create([
+                    'case_id'      => $caseFile->id,
+                    'role'         => 'ad_legal',
+                    'opinion_text' => $data['ad_legal_opinion'],
+                    'decision'     => $data['ad_legal_opinion'],
+                    'created_by'   => $request->user()->id,
+                ]);
+            }
+            if (!empty($data['add_director_decision'])) {
+                CaseLegalOpinion::create([
+                    'case_id'      => $caseFile->id,
+                    'role'         => 'additional_director',
+                    'opinion_text' => '',
+                    'decision'     => $data['add_director_decision'],
+                    'created_by'   => $request->user()->id,
+                ]);
+            }
+            if (!empty($data['dd_legal_opinion'])) {
+                CaseLegalOpinion::create([
+                    'case_id'      => $caseFile->id,
+                    'role'         => 'dd_legal',
+                    'opinion_text' => $data['dd_legal_opinion'],
+                    'decision'     => $data['dd_legal_opinion'],
+                    'created_by'   => $request->user()->id,
+                ]);
+            }
+            if (!empty($data['incharge_approval'])) {
+                CaseApproval::create([
+                    'case_id'            => $caseFile->id,
+                    'circle_incharge_id' => $request->user()->id,
+                    'decision'           => $data['incharge_approval'],
+                    'remarks'           => $data['incharge_remarks'] ?? null,
+                ]);
+            }
+        });
+
+        return response()->json([
+            'message' => 'Case updated successfully',
+            'data'    => $caseFile->fresh()->load(
+                'enquiry.complaint',
+                'investigationOfficer',
+                'activities.creator',
+                'arrests',
+                'legalOpinions.creator',
+                'approvals.circleIncharge'
+            ),
+        ]);
     }
 
     public function show(CaseFile $caseFile)

@@ -98,6 +98,9 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::delete('/cases/{caseFile}', [CaseFileController::class, 'destroy'])->name('api.cases.destroy');
     Route::post('/cases/{caseFile}/assign-officer', [CaseFileController::class, 'assignOfficer'])
         ->middleware('role:admin,circle_incharge');
+    Route::post('/cases/{caseFile}/submit-cfr', [CaseFileController::class, 'submitCfr']);
+    Route::post('/cases/{caseFile}/approve', [CaseFileController::class, 'approve'])
+        ->middleware('role:admin,circle_incharge');
 
     // Court Cases
     Route::get('/court-cases', [CourtCaseController::class, 'index'])->name('api.court-cases.index');
@@ -107,6 +110,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::delete('/court-cases/{courtCase}', [CourtCaseController::class, 'destroy'])->name('api.court-cases.destroy');
     Route::post('/court-cases/{courtCase}/verdict', [CourtCaseController::class, 'verdict'])->name('api.court-cases.verdict');
     Route::post('/court-cases/{courtCase}/forward-report', [CourtCaseController::class, 'forwardReport'])->name('api.court-cases.forward-report');
+    Route::get('/court-cases/{courtCase}/hearings', [\App\Http\Controllers\HearingController::class, 'index']);
+    Route::post('/court-cases/{courtCase}/hearings', [\App\Http\Controllers\HearingController::class, 'store']);
 
     // Offence Types - everyone can view, only admin can modify
     Route::get('/offence-types', [OffenceTypeController::class, 'index'])->name('api.offence-types.index');
