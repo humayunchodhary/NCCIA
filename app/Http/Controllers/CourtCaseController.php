@@ -102,17 +102,41 @@ class CourtCaseController extends Controller
             'details'      => 'nullable|string|max:5000',
         ]);
 
-        $verdict = $courtCase->verdicts()->create([
-            'verdict'      => $data['verdict'],
-            'verdict_date' => $data['verdict_date'],
-            'details'      => $data['details'] ?? null,
-        ]);
+        $verdict = DB::transaction(function () use ($data, $courtCase) {
+            $verdict = $courtCase->verdicts()->create([
+                'verdict'      => $data['verdict'],
+                'verdict_date' => $data['verdict_date'],
+                'details'      => $data['details'] ?? null,
+            ]);
 
-        $courtCase->update(['status' => 'verdict_given']);
+            $courtCase->update(['status' => 'verdict_given']);
+
+            $caseFile = $courtCase->caseFile()->with('enquiry')->first();
+            if ($caseFile) {
+                $caseFile->update(['status' => 'closed']);
+
+                $finalStatus = match ($data['verdict']) {
+                    'conviction' => 'closed_conviction',
+                    'acquittal'  => 'closed_acquittal',
+                    'discharge'  => 'closed_discharge',
+                    'dismissed'  => 'closed_dismissed',
+                    default      => 'closed',
+                };
+
+                if ($caseFile->enquiry?->complaint_id) {
+                    \App\Models\Complaint::whereKey($caseFile->enquiry->complaint_id)->update([
+                        'status'       => 'closed',
+                        'final_status' => $finalStatus,
+                    ]);
+                }
+            }
+
+            return $verdict;
+        });
 
         return response()->json([
-            'message' => 'Verdict recorded',
-            'data'    => $verdict,
+            'message' => 'Verdict recorded — case closed',
+            'data'    => $verdict->load('courtCase.caseFile'),
         ], 201);
     }
 
