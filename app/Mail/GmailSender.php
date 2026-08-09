@@ -5,73 +5,48 @@ namespace App\Mail;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Reliable OTP/mail delivery for shared hosting (cPanel).
- * Tries PHP mail(), then Gmail SMTP (587 STARTTLS / 465 SSL).
+ * Fast Gmail SMTP delivery for OTP (single attempt, short timeout).
+ * Avoids PHP mail() + multi-port retries that hang shared hosting for 60s+.
  */
 class GmailSender
 {
+    private const CONNECT_TIMEOUT = 8;
+    private const IO_TIMEOUT = 10;
+
     public static function send(string $to, string $subject, string $body): bool
     {
-        $username = (string) env('MAIL_USERNAME', 'humayunchodhary@gmail.com');
+        $username = trim((string) env('MAIL_USERNAME', 'humayunchodhary@gmail.com'));
         $password = preg_replace('/\s+/', '', (string) env('MAIL_PASSWORD', 'cqyq tzaa jndp zajf'));
-        $from = (string) env('MAIL_FROM_ADDRESS', $username);
         $fromName = (string) env('MAIL_FROM_NAME', 'NCCIA Portal');
 
         if ($username === '' || $password === '') {
             Log::error('GmailSender: MAIL_USERNAME / MAIL_PASSWORD missing');
+
             return false;
         }
 
-        // 1) Hosting PHP mail()
-        if (self::sendPhpMail($to, $subject, $body, $from, $fromName)) {
-            Log::info("GmailSender: OTP mail sent via PHP mail() to {$to}");
+        // One fast path only: Gmail 587 STARTTLS
+        $ok = self::sendSmtp(
+            'smtp.gmail.com',
+            587,
+            'starttls',
+            $to,
+            $subject,
+            $body,
+            $username,
+            $password,
+            $fromName
+        );
+
+        if ($ok) {
+            Log::info("GmailSender: sent to {$to}");
+
             return true;
         }
 
-        // 2) Laravel-configured SMTP host (if not localhost)
-        $cfgHost = (string) env('MAIL_HOST', '');
-        if ($cfgHost !== '' && !in_array($cfgHost, ['127.0.0.1', 'localhost'], true)) {
-            $cfgPort = (int) env('MAIL_PORT', 587);
-            $enc = strtolower((string) env('MAIL_ENCRYPTION', $cfgPort === 465 ? 'ssl' : 'tls'));
-            $mode = $enc === 'ssl' ? 'ssl' : 'starttls';
-            if (self::sendSmtp($cfgHost, $cfgPort, $mode, $to, $subject, $body, $username, $password, $fromName)) {
-                Log::info("GmailSender: OTP mail sent via {$cfgHost}:{$cfgPort} to {$to}");
-                return true;
-            }
-        }
-
-        // 3) Gmail SMTP fallbacks
-        $attempts = [
-            ['smtp.gmail.com', 587, 'starttls'],
-            ['smtp.gmail.com', 465, 'ssl'],
-        ];
-
-        foreach ($attempts as [$host, $port, $mode]) {
-            if (self::sendSmtp($host, $port, $mode, $to, $subject, $body, $username, $password, $fromName)) {
-                Log::info("GmailSender: OTP mail sent via {$host}:{$port} ({$mode}) to {$to}");
-                return true;
-            }
-        }
-
-        Log::error("GmailSender: all delivery methods failed for {$to}");
+        Log::error("GmailSender: send failed for {$to}");
 
         return false;
-    }
-
-    private static function sendPhpMail(string $to, string $subject, string $body, string $from, string $fromName): bool
-    {
-        $headers = "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $headers .= 'From: ' . self::encodeAddress($fromName, $from) . "\r\n";
-        $headers .= "Reply-To: {$from}\r\n";
-
-        try {
-            return @mail($to, $subject, $body, $headers);
-        } catch (\Throwable $e) {
-            Log::warning('GmailSender: mail() exception: ' . $e->getMessage());
-
-            return false;
-        }
     }
 
     private static function sendSmtp(
@@ -94,14 +69,22 @@ class GmailSender
             ],
         ]);
 
-        $socket = @stream_socket_client($remote, $errno, $errstr, 20, STREAM_CLIENT_CONNECT, $ctx);
+        $socket = @stream_socket_client(
+            $remote,
+            $errno,
+            $errstr,
+            self::CONNECT_TIMEOUT,
+            STREAM_CLIENT_CONNECT,
+            $ctx
+        );
+
         if (!$socket) {
             Log::warning("GmailSender: connect failed {$remote}: {$errno} {$errstr}");
 
             return false;
         }
 
-        stream_set_timeout($socket, 20);
+        stream_set_timeout($socket, self::IO_TIMEOUT);
 
         try {
             self::expect($socket, 220);
@@ -150,7 +133,7 @@ class GmailSender
 
             return true;
         } catch (\Throwable $e) {
-            Log::warning('GmailSender: SMTP ' . $remote . ' failed: ' . $e->getMessage());
+            Log::warning('GmailSender: SMTP failed: ' . $e->getMessage());
             @fclose($socket);
 
             return false;

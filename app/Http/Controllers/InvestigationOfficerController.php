@@ -321,37 +321,20 @@ class InvestigationOfficerController extends Controller
     }
 
     /**
-     * Deliver OTP email for real. Never treat MAIL_MAILER=log as success.
+     * Deliver OTP via fast Gmail SMTP only (ignores MAIL_MAILER=log duplicates).
      */
     private function deliverOtpEmail(string $email, string $otp, string $name): bool
     {
         $subject = 'NCCIA Portal - OTP for Account Access';
         $html = view('emails.otp', ['otp' => $otp, 'name' => $name])->render();
 
-        // Primary: GmailSender (PHP mail + SMTP) — works when Laravel mailer is "log"
         try {
-            if (GmailSender::send($email, $subject, $html)) {
-                return true;
-            }
+            return GmailSender::send($email, $subject, $html);
         } catch (\Throwable $e) {
-            logger()->warning('GmailSender OTP failed: ' . $e->getMessage());
+            logger()->warning('OTP email failed: ' . $e->getMessage());
+
+            return false;
         }
-
-        // Secondary: Laravel mail only if configured to actually deliver
-        $mailer = (string) config('mail.default');
-        if (!in_array($mailer, ['log', 'array'], true)) {
-            try {
-                Mail::mailer($mailer)->to($email)->send(new OtpMail($otp, $name));
-
-                return true;
-            } catch (\Throwable $e) {
-                logger()->warning('Laravel Mail OTP failed: ' . $e->getMessage());
-            }
-        } else {
-            logger()->warning("Skipping Laravel Mail — MAIL_MAILER={$mailer} does not deliver email");
-        }
-
-        return false;
     }
 
     public function verifyOtp(Request $request, InvestigationOfficer $investigationOfficer)

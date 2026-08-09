@@ -21,7 +21,7 @@ export default function VerificationReports() {
 
   useEffect(() => {
     fetchReports();
-    const interval = setInterval(fetchReports, 15000);
+    const interval = setInterval(fetchReports, 90000);
     return () => clearInterval(interval);
   }, []);
 
