@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Complaint;
 use App\Models\Verification;
+use App\Policies\ComplaintPolicy;
 use App\Policies\VerificationPolicy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -17,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Gate::policy(Complaint::class, ComplaintPolicy::class);
         Gate::policy(Verification::class, VerificationPolicy::class);
 
         $this->registerSqliteCompatibilityFunctions();

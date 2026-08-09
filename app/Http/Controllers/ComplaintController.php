@@ -41,6 +41,8 @@ class ComplaintController extends Controller
 
     public function index()
     {
+        $this->authorize('viewAny', Complaint::class);
+
         $complaints = Complaint::visibleTo(request()->user())
             ->with(['enquiry', 'verification', 'caseFiles', 'circle'])
             ->latest()
@@ -106,10 +108,7 @@ class ComplaintController extends Controller
 
     public function show(Complaint $complaint)
     {
-        abort_unless(
-            Complaint::visibleTo(request()->user())->whereKey($complaint->id)->exists(),
-            404
-        );
+        $this->authorize('view', $complaint);
 
         return new ComplaintResource($complaint->load(['enquiry', 'verification', 'caseFiles', 'circle']));
     }
@@ -122,6 +121,11 @@ class ComplaintController extends Controller
 
     public function update(UpdateComplaintRequest $request, Complaint $complaint)
     {
+        abort_unless(
+            Complaint::visibleTo($request->user())->whereKey($complaint->id)->exists(),
+            404
+        );
+
         $data = $request->validated();
         $data['laws']     = $request->has('laws') ? $request->laws : $complaint->laws;
         $data['evidence'] = $request->has('evidence') ? $request->evidence : $complaint->evidence;
@@ -186,6 +190,8 @@ class ComplaintController extends Controller
 
     public function destroy(Complaint $complaint)
     {
+        $this->authorize('delete', $complaint);
+
         activity()->useLog('complaints')
             ->performedOn($complaint)
             ->causedBy(auth()->user())
@@ -212,7 +218,7 @@ class ComplaintController extends Controller
         $complaint->status = $request->status;
         $complaint->scrutiny_result = $request->status;
 
-        if ($request->status === 'complete') {
+        if ($request->status === 'complete' && !$complaint->tracking_no) {
             $circle = $complaint->circle;
             $complaint->tracking_no = $trackingGen->generate($circle);
         }
@@ -222,6 +228,13 @@ class ComplaintController extends Controller
         }
 
         $complaint->save();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Complaint status updated to ' . $request->status,
+                'data' => new ComplaintResource($complaint->fresh()),
+            ]);
+        }
 
         return redirect()->route('all.complaints')
             ->with('success', 'Complaint status updated to ' . $request->status);

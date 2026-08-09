@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Complaint;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreComplaintRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('create', Complaint::class) ?? false;
     }
 
     public function rules(): array

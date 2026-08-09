@@ -34,6 +34,7 @@ class Verification extends Model
         'assigned_at',
         'submitted_at',
         'approved_at',
+        'completed_at',
         'appeared_at',
         'complainant_message',
         'sent_by',
@@ -45,6 +46,7 @@ class Verification extends Model
             'assigned_at'          => 'datetime',
             'submitted_at'         => 'datetime',
             'approved_at'          => 'datetime',
+            'completed_at'         => 'datetime',
             'appeared_at'          => 'datetime',
         ];
     }

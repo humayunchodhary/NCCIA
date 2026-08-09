@@ -9,14 +9,22 @@ class ComplaintPolicy
 {
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('investigation_officer')) return false;
+        // Investigation officers use case workflow, not the complaints module.
+        if ($user->hasRole('investigation_officer') && !$user->hasAnyRole(['admin', 'circle_incharge', 'operator'])) {
+            return false;
+        }
+
+        // VO may read assigned complaints (scoped by visibleTo) for verification work.
         return true;
     }
 
     public function view(User $user, Complaint $complaint): bool
     {
-        if ($user->hasRole('investigation_officer')) return false;
-        return true;
+        if ($user->hasRole('investigation_officer') && !$user->hasAnyRole(['admin', 'circle_incharge', 'operator'])) {
+            return false;
+        }
+
+        return Complaint::visibleTo($user)->whereKey($complaint->id)->exists();
     }
 
     public function create(User $user): bool
@@ -26,10 +34,28 @@ class ComplaintPolicy
 
     public function update(User $user, Complaint $complaint): bool
     {
-        if ($user->hasRole('investigation_officer')) return false;
-        if ($user->hasRole('admin')) return true;
-        if ($user->hasRole('circle_incharge')) return true;
-        if ($user->id === $complaint->user_id) return true;
+        // Verification officers must not edit complaints.
+        if ($user->hasRole('verification_officer') && !$user->hasAnyRole(['admin', 'circle_incharge', 'operator'])) {
+            return false;
+        }
+
+        if ($user->hasRole('investigation_officer') && !$user->hasAnyRole(['admin', 'circle_incharge', 'operator'])) {
+            return false;
+        }
+
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+
+        if ($user->hasRole('circle_incharge')) {
+            return !$user->circle_id || (int) $complaint->circle_id === (int) $user->circle_id;
+        }
+
+        if ($user->hasRole('operator')) {
+            return (int) $user->id === (int) $complaint->user_id
+                || (int) $user->id === (int) $complaint->operator_id;
+        }
+
         return false;
     }
 

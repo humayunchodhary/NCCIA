@@ -6,6 +6,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import ProgressBar from '../components/ProgressBar';
 import { openPrintWindow } from '../utils/print';
 import { useAuth } from '../contexts/AuthContext';
+import { canAssignVerification, canCreateComplaint, hasRole } from '../utils/permissions';
 
 const CLOSURE_REASON_LABELS = {
   non_pursuance: 'Non-Pursuance',
@@ -49,11 +50,12 @@ export default function Complaints() {
   const [offenceMap, setOffenceMap] = useState({});
   const [assignTarget, setAssignTarget] = useState(null);
   const [assignForm, setAssignForm] = useState({ verification_officer_id: '', priority_type: 'normal' });
-  const [hasOperatorRole, setHasOperatorRole] = useState(false);
   const [officers, setOfficers] = useState([]);
 
-  const hasRole = (roleName) => user?.roles?.some(r => r.name === roleName);
-  const canAssign = hasRole('operator') || hasRole('circle_incharge') || hasRole('admin');
+  const canAssign = canAssignVerification(user);
+  const canCreate = canCreateComplaint(user);
+  const canDelete = hasRole(user, 'admin');
+  const canEdit = canCreate || hasRole(user, 'circle_incharge') || hasRole(user, 'admin');
 
   useEffect(() => {
     api.get('/complaints').then(r => setList(r.data.data || r.data)).finally(() => setLoading(false));
@@ -62,11 +64,6 @@ export default function Complaints() {
       const arr = Array.isArray(d) ? d : (d.data || []);
       setOffenceMap(Object.fromEntries(arr.map(o => [o.value, o.name])));
     }).catch(() => {});
-    // Check operator role
-    if (user?.roles) {
-      const has = user.roles.some(r => r.name === 'operator' || r.name === 'circle_incharge' || r.name === 'admin');
-      setHasOperatorRole(has);
-    }
   }, []);
 
   const handleDelete = async () => {
@@ -118,11 +115,13 @@ export default function Complaints() {
           <p className="page-subtitle">All registered complaints</p>
           <div className="title-underline"></div>
         </div>
-        <div className="page-actions">
-          <Link to="/complaints/create" className="btn btn-primary btn-sm">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> New Complaint
-          </Link>
-        </div>
+        {canCreate && (
+          <div className="page-actions">
+            <Link to="/complaints/create" className="btn btn-primary btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> New Complaint
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="card">
@@ -178,16 +177,20 @@ export default function Complaints() {
                              Assign
                            </button>
                          )}
-                         <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </Link>
+                         {canEdit && (
+                           <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </Link>
+                         )}
                         <button onClick={() => printSlip(c)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Print 80mm Slip">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                           Print Slip
                         </button>
-                        <button onClick={() => setDeleteTarget(c)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
+                        {canDelete && (
+                          <button onClick={() => setDeleteTarget(c)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

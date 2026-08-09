@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import SearchableSelect from '../components/SearchableSelect';
+import { canAssignVerification, hasRole as userHasRole } from '../utils/permissions';
 
 const RECOMMENDATION_OPTIONS = [
   { value: 'enquiry_registration', label: 'Enquiry Registration' },
@@ -34,7 +35,10 @@ export default function Verifications() {
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [closeReason, setCloseReason] = useState('');
 
+  const hasRole = (roleName) => userHasRole(user, roleName);
   const canBulk = hasRole('admin') || hasRole('circle_incharge');
+  const canAssign = canAssignVerification(user);
+  const canDelete = hasRole('admin');
 
   // Submit Report modal
   const [submitTarget, setSubmitTarget] = useState(null);
@@ -52,8 +56,6 @@ export default function Verifications() {
   const [changeOfficerSaving, setChangeOfficerSaving] = useState(false);
   const [officers, setOfficers] = useState([]);
   const [circles, setCircles] = useState([]);
-
-  const hasRole = (roleName) => user?.roles?.some(r => r.name === roleName);
 
   const fetchData = () => {
     const params = new URLSearchParams();
@@ -214,12 +216,14 @@ export default function Verifications() {
           <p className="page-subtitle">Manage complaint verifications &nbsp;·&nbsp; CCRC-LHR</p>
           <div className="title-underline"></div>
         </div>
-        <div className="page-actions">
-          <Link to="/verifications/create" className="btn btn-primary btn-sm">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            Assign New
-          </Link>
-        </div>
+        {canAssign && (
+          <div className="page-actions">
+            <Link to="/verifications/create" className="btn btn-primary btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+              Assign New
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="tab-nav" style={{display:'flex',gap:'2px',marginBottom:'16px',padding:'4px',background:'#f3f0f0',borderRadius:'8px'}}>
@@ -341,9 +345,11 @@ export default function Verifications() {
                           </button>
                         )}
 
-                        <button onClick={() => setDeleteTarget(v)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
+                        {canDelete && (
+                          <button onClick={() => setDeleteTarget(v)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

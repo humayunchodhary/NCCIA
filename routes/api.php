@@ -24,10 +24,14 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
 
     // Complaints
     Route::get('/complaints', [ComplaintController::class, 'index'])->name('api.complaints.index');
-    Route::post('/complaints', [ComplaintController::class, 'store'])->name('api.complaints.store');
+    Route::post('/complaints', [ComplaintController::class, 'store'])
+        ->middleware('role:operator,admin,circle_incharge')
+        ->name('api.complaints.store');
     Route::get('/complaints/{complaint}', [ComplaintController::class, 'show'])->name('api.complaints.show');
     Route::put('/complaints/{complaint}', [ComplaintController::class, 'update'])->name('api.complaints.update');
-    Route::delete('/complaints/{complaint}', [ComplaintController::class, 'destroy'])->name('api.complaints.destroy');
+    Route::delete('/complaints/{complaint}', [ComplaintController::class, 'destroy'])
+        ->middleware('role:admin')
+        ->name('api.complaints.destroy');
     Route::get('/complaints/{complaint}/slip', [ComplaintController::class, 'slip'])->name('api.complaints.slip');
     Route::post('/complaints/{complaint}/scrutiny', [ComplaintController::class, 'scrutiny'])
         ->middleware('role:admin,circle_incharge');
@@ -36,7 +40,9 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
 
     // Verifications — SPECIFIC routes FIRST, then wildcard {verification} routes
     Route::get('/verifications', [VerificationController::class, 'index'])->name('api.verifications.index');
-    Route::post('/verifications', [VerificationController::class, 'store'])->name('api.verifications.store');
+    Route::post('/verifications', [VerificationController::class, 'store'])
+        ->middleware('role:operator,admin,circle_incharge')
+        ->name('api.verifications.store');
     Route::get('/verifications/stats', [VerificationController::class, 'stats']);
     Route::get('/verifications/reports-list', [VerificationController::class, 'listReports']);
     Route::get('/verifications/reports/{report}', [VerificationController::class, 'showReport']);
@@ -44,9 +50,12 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/verifications/reports', [VerificationController::class, 'storeReport']);
     Route::get('/verifications/{verification}', [VerificationController::class, 'show'])->name('api.verifications.show');
     Route::put('/verifications/{verification}', [VerificationController::class, 'update'])->name('api.verifications.update');
-    Route::delete('/verifications/{verification}', [VerificationController::class, 'destroy'])->name('api.verifications.destroy');
+    Route::delete('/verifications/{verification}', [VerificationController::class, 'destroy'])
+        ->middleware('role:admin')
+        ->name('api.verifications.destroy');
     Route::post('/verifications/{verification}/submit-report', [VerificationController::class, 'submitReport']);
-    Route::post('/verifications/{verification}/approve', [VerificationController::class, 'approve']);
+    Route::post('/verifications/{verification}/approve', [VerificationController::class, 'approve'])
+        ->middleware('role:admin,circle_incharge');
     Route::post('/verifications/{verification}/change-officer', [VerificationController::class, 'changeOfficer'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/verifications/bulk-close', [VerificationController::class, 'bulkClose'])

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
+import { canView } from '../utils/permissions';
 
 function getBreadcrumb(pathname) {
   const map = {
@@ -29,31 +30,6 @@ function timeAgo(iso) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
-}
-
-// Role → feature permission matrix
-const ROLE_FEATURES = {
-  admin:               ['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile'],
-  circle_incharge:     ['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','offence_types','reference','profile'],
-  verification_officer:['dashboard','verifications','reports','enquiries','profile'],
-  enquiry_officer:     ['dashboard','enquiries','dac_cases','profile'],
-  investigation_officer:['dashboard','verifications','reports','enquiries','dac_cases','profile'],
-  moharrar:            ['dashboard','analytics','complaints','enquiries','dac_cases','court_cases','offence_types','reference','profile'],
-  reader_branch:       ['dashboard','complaints','enquiries','profile'],
-  operator:            ['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','offence_types','reference','profile'],
-  ad_legal:            ['dashboard','enquiries','dac_cases','profile'],
-  dd_legal:            ['dashboard','enquiries','dac_cases','profile'],
-  additional_director: ['dashboard','enquiries','dac_cases','profile'],
-  director_general:    ['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile'],
-};
-
-function canView(feature, user) {
-  if (!user) return false;
-  const permissions = user.permissions?.map?.(p => p.name || p) || [];
-  if (permissions.includes(feature)) return true;
-  const roles = user.roles?.map?.(r => r.name || r) || [user.role || ''];
-  if (roles.some(r => ROLE_FEATURES[r]?.includes(feature))) return true;
-  return permissions.includes(feature);
 }
 
 export default function Layout() {
@@ -249,34 +225,44 @@ export default function Layout() {
               <span>Analytics</span>
             </NavLink>
           </div>}
-          <div className="nav-section-label">Complaints</div>
-          <div className="nav-item">
-            <NavLink to="/complaints" className="nav-link" data-page="complaints">
-              <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-              <span>Complaints</span>
-            </NavLink>
-          </div>
-          <div className="nav-item">
-            <NavLink to="/verifications" end className="nav-link" data-page="verifications">
-              <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
-              <span>Verifications</span>
-              <span className="nav-badge urgent">{counts.verifications}</span>
-            </NavLink>
-          </div>
-          <div className="nav-item">
-            <NavLink to="/verifications/reports" className="nav-link" data-page="verifications-reports">
-              <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
-              <span>Verification Reports</span>
-              <span className="nav-badge urgent">{counts.reports}</span>
-            </NavLink>
-          </div>
-          <div className="nav-item">
-            <NavLink to="/enquiries" className="nav-link" data-page="enquiries">
-              <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-              <span>Enquiries</span>
-              <span className="nav-badge">{counts.enquiries}</span>
-            </NavLink>
-          </div>
+          {(canView('complaints', user) || canView('verifications', user) || canView('reports', user) || canView('enquiries', user)) && (
+            <div className="nav-section-label">Complaints</div>
+          )}
+          {canView('complaints', user) && (
+            <div className="nav-item">
+              <NavLink to="/complaints" className="nav-link" data-page="complaints">
+                <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                <span>Complaints</span>
+              </NavLink>
+            </div>
+          )}
+          {canView('verifications', user) && (
+            <div className="nav-item">
+              <NavLink to="/verifications" end className="nav-link" data-page="verifications">
+                <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+                <span>Verifications</span>
+                <span className="nav-badge urgent">{counts.verifications}</span>
+              </NavLink>
+            </div>
+          )}
+          {canView('reports', user) && (
+            <div className="nav-item">
+              <NavLink to="/verifications/reports" className="nav-link" data-page="verifications-reports">
+                <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+                <span>Verification Reports</span>
+                <span className="nav-badge urgent">{counts.reports}</span>
+              </NavLink>
+            </div>
+          )}
+          {canView('enquiries', user) && (
+            <div className="nav-item">
+              <NavLink to="/enquiries" className="nav-link" data-page="enquiries">
+                <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                <span>Enquiries</span>
+                <span className="nav-badge">{counts.enquiries}</span>
+              </NavLink>
+            </div>
+          )}
           <div className="nav-item">
             <NavLink to="/messages" className="nav-link" data-page="messages">
               <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>

@@ -8,7 +8,10 @@ class UpdateComplaintRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $complaint = $this->route('complaint');
+
+        return $complaint
+            && ($this->user()?->can('update', $complaint) ?? false);
     }
 
     public function rules(): array

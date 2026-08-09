@@ -328,6 +328,8 @@ class VerificationController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Verification::class);
+
         $data = $request->validate([
             'complaint_id'           => 'required|exists:complaints,id',
             'verification_officer_id'=> 'required|exists:users,id',
@@ -362,6 +364,8 @@ class VerificationController extends Controller
 
     public function update(Request $request, Verification $verification)
     {
+        $this->authorize('update', $verification);
+
         $rules = [
             'verification_officer_id' => 'required|exists:users,id',
             'priority_type'           => 'required|in:normal,high,critical',
@@ -377,6 +381,13 @@ class VerificationController extends Controller
         ];
 
         $data = $request->validate($rules);
+
+        $user = $request->user();
+
+        // Only supervisors may reassign the verification officer.
+        if (!$user->hasAnyRole(['admin', 'circle_incharge'])) {
+            $data['verification_officer_id'] = $verification->verification_officer_id;
+        }
 
         if (!empty($data['recommendation'])) {
             $data['submitted_at'] = now();
@@ -414,6 +425,8 @@ class VerificationController extends Controller
 
     public function destroy(Verification $verification)
     {
+        $this->authorize('delete', $verification);
+
         activity()->useLog('verifications')
             ->performedOn($verification)
             ->causedBy(auth()->user())
@@ -514,6 +527,8 @@ class VerificationController extends Controller
 
     public function submitReport(Request $request, Verification $verification)
     {
+        $this->authorize('submit', $verification);
+
         $data = $request->validate([
             'report_text'        => 'required|string',
             'recommendation'     => 'required|string|in:enquiry_registration,closure,merge,transfer',
@@ -538,6 +553,8 @@ class VerificationController extends Controller
 
     public function approve(Request $request, Verification $verification)
     {
+        $this->authorize('approve', $verification);
+
         $data = $request->validate([
             'decision'           => 'required|string|in:agree,review',
             'recommendation'     => 'required|string|in:enquiry_registration,closure,merge,transfer',
