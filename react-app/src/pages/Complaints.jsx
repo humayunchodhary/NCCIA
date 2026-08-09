@@ -52,7 +52,8 @@ export default function Complaints() {
   const [assignForm, setAssignForm] = useState({ verification_officer_id: '', priority_type: 'normal' });
   const [officers, setOfficers] = useState([]);
 
-  const canAssign = canAssignVerification(user);
+  // Assign VO for operator is on Complete Registration form only
+  const canAssign = canAssignVerification(user) && !hasRole(user, 'operator');
   const canCreate = canCreateComplaint(user);
   const canDelete = hasRole(user, 'admin');
   const canEdit = canCreate || hasRole(user, 'circle_incharge') || hasRole(user, 'admin');

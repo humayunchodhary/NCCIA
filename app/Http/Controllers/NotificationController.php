@@ -89,23 +89,21 @@ class NotificationController extends Controller
             ];
         }
 
-        // Operator — complaints needing VO assignment
-        if ($user->hasRole('operator')) {
+        // Operator — only incomplete registrations (assign VO is on Complete Registration form)
+        if ($user->hasRole('operator') && !$user->hasAnyRole(['admin', 'circle_incharge', 'director_general'])) {
             foreach (Complaint::query()
-                ->where('status', 'complete')
-                ->whereNotNull('tracking_no')
-                ->whereDoesntHave('verification')
+                ->whereIn('status', ['incomplete', 'registered'])
                 ->where(function ($qq) use ($user) {
                     $qq->where('operator_id', $user->id)->orWhere('user_id', $user->id);
                 })
                 ->orderByDesc('id')
-                ->limit(15)
+                ->limit(10)
                 ->get() as $c) {
                 $tasks[] = [
-                    'module' => 'complaint_assign',
-                    'title'  => 'Assign VO — Complaint #' . $c->tracking_no,
-                    'status' => 'needs_assignment',
-                    'url'    => '/complaints',
+                    'module' => 'complaint_registration',
+                    'title'  => 'Complete Registration — #' . ($c->diary_no ?: $c->id),
+                    'status' => $c->status,
+                    'url'    => '/complaints/' . $c->id . '/edit',
                 ];
             }
         }

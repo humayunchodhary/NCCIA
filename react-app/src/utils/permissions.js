@@ -2,7 +2,7 @@
 export const ROLE_FEATURES = {
   admin:                ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'profile'],
   circle_incharge:      ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'offence_types', 'reference', 'profile'],
-  operator:             ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'profile'],
+  operator:             ['dashboard', 'complaints', 'profile'],
   verification_officer: ['dashboard', 'verifications', 'reports', 'profile'],
   enquiry_officer:      ['dashboard', 'enquiries', 'dac_cases', 'profile'],
   investigation_officer:['dashboard', 'dac_cases', 'court_cases', 'profile'],
@@ -17,13 +17,11 @@ export const ROLE_FEATURES = {
 /** Who fills / does what (flowchart WS_FLOW_CHART) */
 export const ROLE_DUTIES = {
   operator: {
-    stage: 'Complaint (CMU)',
+    stage: 'Complaint (CMU) — Complete Registration only',
     fills: [
-      'Complainant details (Name, CNIC, Contact, Address, Profession)',
-      'Complaint details (Report Date, Received Via, Diary No, Received From)',
-      'Crime details (Description, Offence Type, Amount, Occurrence)',
-      'Operator details + Scrutiny (Complete / Incomplete / Invalid / Irrelevant)',
-      'Direct Assign Verification Officer after tracking no.',
+      'Complete Registration form (complainant + complaint + scrutiny)',
+      'When Scrutiny = Complete: Assign Verification Officer on the same form',
+      'No verification reports / verification list / analytics for this role',
     ],
   },
   circle_incharge: {
@@ -92,20 +90,24 @@ export const ROLE_DUTIES = {
   },
 };
 
-export function canView(feature, user) {
-  if (!user) return false;
-  const permissions = user.permissions?.map?.(p => p.name || p) || [];
-  if (permissions.includes(feature)) return true;
-  const roles = user.roles?.map?.(r => r.name || r) || [user.role || ''];
-  return roles.some(r => ROLE_FEATURES[r]?.includes(feature));
-}
-
 export function hasRole(user, roleName) {
   return !!user?.roles?.some(r => (r.name || r) === roleName);
 }
 
 export function hasAnyRole(user, roleNames) {
   return roleNames.some(r => hasRole(user, r));
+}
+
+export function canView(feature, user) {
+  if (!user) return false;
+  // Operator: Complete Registration only (ignore stale permission grants)
+  if (hasRole(user, 'operator') && !hasAnyRole(user, ['admin', 'circle_incharge', 'director_general'])) {
+    return ['dashboard', 'complaints', 'profile'].includes(feature);
+  }
+  const permissions = user.permissions?.map?.(p => p.name || p) || [];
+  if (permissions.includes(feature)) return true;
+  const roles = user.roles?.map?.(r => r.name || r) || [user.role || ''];
+  return roles.some(r => ROLE_FEATURES[r]?.includes(feature));
 }
 
 export function canCreateComplaint(user) {

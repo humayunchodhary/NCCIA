@@ -14,7 +14,7 @@ const ROLE_PORTALS = {
   investigation_officer:{ icon: '🕵️', name: 'Investigation Officer Portal', desc: 'Case/Court stage — investigation, challan, court reports.' },
   moharrar:            { icon: '📝', name: 'Moharrar Portal', desc: 'FIR number & case registry (Case stage).' },
   reader_branch:       { icon: '📂', name: 'Reader Branch Portal', desc: 'Enquiry number registration (Enquiry stage).' },
-  operator:            { icon: '💻', name: 'Operator / CMU Portal', desc: 'Complaint data entry, scrutiny, tracking no, direct assign VO.' },
+  operator:            { icon: '💻', name: 'Operator / CMU Portal', desc: 'Complete Registration only — form pe scrutiny + assign VO.' },
   ad_legal:            { icon: '⚖️', name: 'AD Legal Portal', desc: 'Legal opinions on enquiry / case / court.' },
   dd_legal:            { icon: '⚖️', name: 'DD Legal Portal', desc: 'Legal opinions on enquiry / case / court.' },
   additional_director: { icon: '⚖️', name: 'Additional Director Portal', desc: 'Opinion / approval on legal reports.' },
@@ -64,6 +64,48 @@ export default function Dashboard() {
     a.href = url; a.download = `dashboard-report-${new Date().toISOString().slice(0,10)}.json`;
     a.click(); URL.revokeObjectURL(url);
   };
+
+  const isOperatorOnly = role === 'operator';
+
+  if (isOperatorOnly) {
+    return (
+      <div className="dashboard_page">
+        <div className="page-header">
+          <div className="page-title-group">
+            <div className="page-label">Operator / CMU</div>
+            <h1 className="page-title">Complete Registration</h1>
+            <p className="page-subtitle">Sirf complaint registration — verification reports yahan nahi</p>
+            <div className="title-underline"></div>
+          </div>
+        </div>
+
+        <div className="role-portal-banner" style={{background:'linear-gradient(135deg,#015C94,#0b3d5c)',color:'#fff',borderRadius:12,padding:'20px 24px',marginBottom:20,display:'flex',alignItems:'center',gap:16}}>
+          <div style={{fontSize:36}}>{portal.icon}</div>
+          <div>
+            <div style={{fontSize:13,opacity:0.85}}>Welcome, <strong>{user?.name?.split(' ')[0] || 'Operator'}</strong></div>
+            <div style={{fontSize:20,fontWeight:700}}>{portal.name}</div>
+            <div style={{fontSize:13,opacity:0.9,marginTop:4}}>{portal.desc}</div>
+          </div>
+        </div>
+
+        <div className="card" style={{maxWidth:720, margin:'0 auto', border:'1px solid #e2e8f0'}}>
+          <div className="card-body" style={{padding:28, textAlign:'center'}}>
+            <div style={{fontSize:15, color:'#334155', marginBottom:8, fontWeight:600}}>Aapka kaam</div>
+            <p style={{fontSize:13.5, color:'#64748b', lineHeight:1.55, marginBottom:20}}>
+              Complete Registration form fill karein. Scrutiny = Complete hone par Tracking No generate hoga
+              aur isi form se Verification Officer assign hoga.
+            </p>
+            <ul style={{textAlign:'left', margin:'0 auto 24px', maxWidth:420, paddingLeft:18, color:'#475569', fontSize:13, lineHeight:1.6}}>
+              {(duties.fills || []).map((item) => <li key={item}>{item}</li>)}
+            </ul>
+            <Link to="/complaints/create" className="btn btn-primary" style={{padding:'12px 22px', fontSize:14}}>
+              Complete Registration
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return <div className="dashboard_page"><LoadingSkeleton type="stats" rows={8} /><LoadingSkeleton type="table" rows={5} /></div>;
   if (error) return <div style={{ padding: 40, textAlign: 'center' }}><div style={{ color: '#e53e3e', fontSize: 14, marginBottom: 8 }}>⚠️ Dashboard Error</div><div style={{ color: '#888', fontSize: 13 }}>{error}</div></div>;

@@ -53,6 +53,10 @@ class UpdateComplaintRequest extends FormRequest
             'operator_id' => 'nullable|integer|exists:users,id',
             'scrutiny_result' => 'nullable|string|in:complete,incomplete,invalid,irrelevant',
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx|max:10240',
+
+            // Assign VO on Complete Registration (same form)
+            'verification_officer_id' => 'nullable|integer|exists:users,id',
+            'assign_priority_type'    => 'nullable|string|in:normal,high,critical',
         ];
     }
 }

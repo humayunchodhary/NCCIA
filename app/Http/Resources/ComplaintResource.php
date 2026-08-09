@@ -76,6 +76,7 @@ class ComplaintResource extends JsonResource
                     'id'                      => $this->verification->id,
                     'status'                  => $this->verification->status,
                     'verification_officer_id' => $this->verification->verification_officer_id,
+                    'priority_type'           => $this->verification->priority_type,
                     'assigned_at'             => $this->verification->assigned_at?->toISOString(),
                     'submitted_at'            => $this->verification->submitted_at?->toISOString(),
                     'approved_at'             => $this->verification->approved_at?->toISOString(),

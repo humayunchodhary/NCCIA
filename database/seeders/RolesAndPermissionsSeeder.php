@@ -37,9 +37,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 'dashboard','analytics','complaints','verifications','reports','enquiries',
                 'io_records','dac_cases','court_cases','offence_types','reference','profile',
             ],
-            // CMU data entry + direct assign verification (not enquiry/case work)
+            // CMU: Complete Registration only (+ assign VO on that form)
             'operator' => [
-                'dashboard','analytics','complaints','verifications','reports','profile',
+                'dashboard','complaints','profile',
             ],
             // Verification stage only
             'verification_officer' => [
@@ -79,7 +79,10 @@ class RolesAndPermissionsSeeder extends Seeder
             $user->revokePermissionTo(['enquiries', 'complaints', 'dac_cases', 'court_cases', 'analytics', 'io_records']);
         }
         foreach (User::role('operator')->get() as $user) {
-            $user->revokePermissionTo(['enquiries', 'dac_cases', 'court_cases', 'io_records']);
+            $user->revokePermissionTo([
+                'enquiries', 'dac_cases', 'court_cases', 'io_records',
+                'verifications', 'reports', 'analytics',
+            ]);
         }
         foreach (User::role('investigation_officer')->get() as $user) {
             $user->revokePermissionTo(['verifications', 'reports', 'enquiries', 'complaints']);

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
 import { countryCodes } from '../data/countries';
+import { canAssignVerification, hasRole } from '../utils/permissions';
 
 const SCRUTINY_OPTIONS = [
   { value: 'complete', name: 'Complete (Generate Tracking No)' },
@@ -74,6 +75,8 @@ const initialForm = {
   operator_remarks: '',
   source: '',
   scrutiny_result: '',
+  verification_officer_id: '',
+  assign_priority_type: 'normal',
 };
 
 const PRIORITY_OPTIONS = [
@@ -94,6 +97,10 @@ export default function ComplaintForm() {
   const [existingAttachment, setExistingAttachment] = useState(null);
 
   const { user } = useAuth();
+  const isOperator = hasRole(user, 'operator') && !hasRole(user, 'admin') && !hasRole(user, 'circle_incharge');
+  const showAssignVo = canAssignVerification(user);
+  const [voOfficers, setVoOfficers] = useState([]);
+  const [hasVerification, setHasVerification] = useState(false);
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
@@ -126,27 +133,54 @@ export default function ComplaintForm() {
 
   useEffect(() => {
     api.get('/offence-types').then(r => setOffenceTypes(r.data.data || r.data)).catch(() => {});
+    if (showAssignVo) {
+      api.get('/lookup/verification-officers').then(r => {
+        const all = r.data.data || r.data;
+        setVoOfficers(Array.isArray(all) ? all : []);
+      }).catch(() => {});
+    }
     if (id) {
       api.get(`/complaints/${id}`).then(r => {
         const d = r.data.data || r.data;
         if (d.contact_no) d.contact_no = d.contact_no.replace(/\D/g, '').replace(/^0+/, '');
         if (!d.contact_country_code) d.contact_country_code = '+92';
-        setForm({ ...initialForm, ...d, laws: d.laws || [], evidence: d.evidence || [] });
+        setHasVerification(!!d.verification);
+        setForm({
+          ...initialForm,
+          ...d,
+          laws: d.laws || [],
+          evidence: d.evidence || [],
+          verification_officer_id: d.verification?.verification_officer_id || '',
+          assign_priority_type: d.verification?.priority_type || d.priority_type || 'normal',
+        });
         if (d.attachment_url) setExistingAttachment(d.attachment_url);
-      }).catch(() => navigate('/complaints'));
+      }).catch(() => navigate(isOperator ? '/' : '/complaints'));
     }
-  }, [id, navigate]);
+  }, [id, navigate, showAssignVo, isOperator]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setErrors({});
     setServerError('');
+
+    const needsVo = form.scrutiny_result === 'complete' && showAssignVo && !hasVerification;
+    if (needsVo && !form.verification_officer_id) {
+      setErrors({ verification_officer_id: 'Verification Officer select karein (Complete Registration).' });
+      setServerError('Complete registration ke liye Verification Officer assign karna zaroori hai.');
+      setSaving(false);
+      return;
+    }
+
     try {
       const fd = new FormData();
       const payload = { ...form };
       if (!payload.entry_time) {
         payload.entry_time = new Date().toISOString().slice(0, 16);
+      }
+      if (!needsVo) {
+        delete payload.verification_officer_id;
+        delete payload.assign_priority_type;
       }
       Object.entries(payload).forEach(([k, v]) => {
         if (k === 'laws' && Array.isArray(v)) {
@@ -170,13 +204,12 @@ export default function ComplaintForm() {
         const res = await api.post('/complaints', fd);
         const wa = res.data?.complainant_notify?.whatsapp_url;
         if (wa) {
-          // Auto-open WhatsApp registration message to complainant
           window.open(wa, '_blank');
         } else if (res.data?.data?.tracking_no && !res.data?.complainant_notify?.phone) {
           alert('Complaint registered (' + res.data.data.tracking_no + '), but complainant phone missing — WhatsApp message nahi bhej saka.');
         }
       }
-      navigate('/complaints');
+      navigate(isOperator ? '/' : '/complaints');
     } catch (err) {
       const res = err.response?.data;
       if (res?.errors) {
@@ -223,8 +256,8 @@ export default function ComplaintForm() {
     <div className="page-content">
       <div className="page-header">
         <div className="page-title-group">
-          <h1 className="page-title">{id ? 'Edit Complaint' : 'New Complaint'}</h1>
-          <p className="page-subtitle">{id ? 'Update complaint details' : 'Register a new complaint'}</p>
+          <h1 className="page-title">{id ? 'Edit Registration' : 'Complete Registration'}</h1>
+          <p className="page-subtitle">{id ? 'Update complaint / registration details' : 'Complaint registration + assign verification officer'}</p>
           <div className="title-underline"></div>
         </div>
       </div>
@@ -332,6 +365,44 @@ export default function ComplaintForm() {
             {renderField('Scrutiny Result', 'scrutiny_result', { required: true, options: SCRUTINY_OPTIONS })}
             {renderField('Operator Remarks', 'operator_remarks', { rows: 2 })}
 
+            {showAssignVo && form.scrutiny_result === 'complete' && (
+              <div className="cf-section" style={{ marginTop: 16, border: '1px solid #bfdbfe', borderRadius: 10 }}>
+                <div className="cf-section-header" style={{ background: 'rgba(1,92,148,0.06)' }}>
+                  <div className="cf-section-icon" style={{ background: '#015C94' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+                  </div>
+                  <div>
+                    <div className="cf-section-title">Assign Verification Officer</div>
+                    <div className="cf-section-sub">Complete Registration ke sath hi VO assign hota hai</div>
+                  </div>
+                  <div className="cf-section-badge">Required</div>
+                </div>
+                <div className="cf-body">
+                  {hasVerification ? (
+                    <div style={{ fontSize: 13, color: '#166534', background: '#f0fdf4', padding: '10px 12px', borderRadius: 8 }}>
+                      Verification officer pehle se assign ho chuka hai.
+                    </div>
+                  ) : (
+                    <div className="cf-row-2">
+                      <div className="cf-field">
+                        <label className="cf-label required">Verification Officer</label>
+                        <SearchableSelect
+                          value={form.verification_officer_id ? String(form.verification_officer_id) : ''}
+                          onChange={v => setForm(f => ({ ...f, verification_officer_id: v != null ? String(v) : '' }))}
+                          options={voOfficers.map(o => ({ ...o, id: String(o.id) }))}
+                          placeholder="Select Verification Officer"
+                          valueKey="id"
+                          formatLabel={o => o.name + (o.designation ? ` (${o.designation})` : '')}
+                        />
+                        {errors.verification_officer_id && <div className="cf-error">{errors.verification_officer_id}</div>}
+                      </div>
+                      {renderField('Verification Priority', 'assign_priority_type', { required: true, options: PRIORITY_OPTIONS })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="cf-section" style={{ marginTop: 16 }}>
               <div className="cf-section-header">
                 <div className="cf-section-icon" style={{ background: '#805ad5' }}>
@@ -363,9 +434,9 @@ export default function ComplaintForm() {
         )}
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button type="button" className="btn btn-outline" onClick={() => navigate('/complaints')}>Cancel</button>
+          <button type="button" className="btn btn-outline" onClick={() => navigate(isOperator ? '/' : '/complaints')}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : (id ? 'Update Complaint' : 'Register Complaint')}
+            {saving ? 'Saving...' : (id ? 'Update Registration' : 'Complete Registration')}
           </button>
         </div>
       </form>

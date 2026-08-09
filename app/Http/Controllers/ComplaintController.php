@@ -65,9 +65,14 @@ class ComplaintController extends Controller
     public function store(StoreComplaintRequest $request)
     {
         $data = $request->validated();
+        $officerId = $data['verification_officer_id'] ?? null;
+        $assignPriority = $data['assign_priority_type'] ?? ($data['priority_type'] ?? 'normal');
+        unset($data['verification_officer_id'], $data['assign_priority_type']);
+
         $data['laws'] = $request->has('laws') ? $request->laws : null;
         $data['evidence'] = $request->has('evidence') ? $request->evidence : null;
         $data['user_id'] = Auth::id();
+        $data['operator_id'] = $data['operator_id'] ?? Auth::id();
         $data['attachment'] = $this->uploadAttachment($request);
 
         $scrutinyResult = $data['scrutiny_result'] ?? null;
@@ -96,6 +101,10 @@ class ComplaintController extends Controller
             $complaint = Complaint::create($data);
         }
 
+        if ($scrutinyResult === 'complete' && $officerId) {
+            $this->assignVerificationOfficer($complaint, (int) $officerId, $assignPriority);
+        }
+
         // When complaint gets a tracking number, notify complainant immediately (WhatsApp deep-link).
         $notify = null;
         if ($complaint->tracking_no) {
@@ -106,7 +115,7 @@ class ComplaintController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Complaint registered successfully' . ($complaint->tracking_no ? ' — ' . $complaint->tracking_no : ''),
-                'data' => new ComplaintResource($complaint),
+                'data' => new ComplaintResource($complaint->load('verification')),
                 'complainant_notify' => $notify,
             ], 201);
         }
@@ -137,6 +146,10 @@ class ComplaintController extends Controller
         );
 
         $data = $request->validated();
+        $officerId = $data['verification_officer_id'] ?? null;
+        $assignPriority = $data['assign_priority_type'] ?? ($data['priority_type'] ?? 'normal');
+        unset($data['verification_officer_id'], $data['assign_priority_type']);
+
         $data['laws']     = $request->has('laws') ? $request->laws : $complaint->laws;
         $data['evidence'] = $request->has('evidence') ? $request->evidence : $complaint->evidence;
         $data['attachment'] = $request->hasFile('attachment') ? $this->uploadAttachment($request, $complaint) : ($request->has('attachment') ? $request->input('attachment') : $complaint->attachment);
@@ -166,6 +179,11 @@ class ComplaintController extends Controller
             $complaint->update($data);
         }
 
+        $complaint->refresh();
+        if ($scrutinyResult === 'complete' && $officerId && !$complaint->verification) {
+            $this->assignVerificationOfficer($complaint, (int) $officerId, $assignPriority);
+        }
+
         $notify = null;
         $complaint->refresh();
         if ($complaint->tracking_no && (!$hadTracking || !$complaint->registration_notified_at)) {
@@ -176,7 +194,7 @@ class ComplaintController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Complaint updated successfully',
-                'data'    => new ComplaintResource($complaint),
+                'data'    => new ComplaintResource($complaint->load('verification')),
                 'complainant_notify' => $notify,
             ]);
         }
@@ -295,18 +313,11 @@ class ComplaintController extends Controller
             'priority_type'           => 'required|in:normal,high,critical',
         ]);
 
-        $verification = DB::transaction(function () use ($complaint, $data) {
-            return Verification::create([
-                'complaint_id'            => $complaint->id,
-                'verification_officer_id' => $data['verification_officer_id'],
-                'priority_type'           => $data['priority_type'],
-                'status'                  => 'assigned',
-                'assigned_by'             => Auth::id(),
-                'assigned_at'             => now(),
-            ]);
-        });
-
-        $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        $verification = $this->assignVerificationOfficer(
+            $complaint,
+            (int) $data['verification_officer_id'],
+            $data['priority_type']
+        );
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -316,5 +327,30 @@ class ComplaintController extends Controller
         }
 
         return back()->with('success', 'Verification assigned to ' . ($verification->officer?->name ?? 'officer'));
+    }
+
+    protected function assignVerificationOfficer(Complaint $complaint, int $officerId, string $priority = 'normal'): Verification
+    {
+        $priority = in_array($priority, ['normal', 'high', 'critical'], true) ? $priority : 'normal';
+
+        $verification = DB::transaction(function () use ($complaint, $officerId, $priority) {
+            if ($complaint->verification) {
+                return $complaint->verification;
+            }
+
+            return Verification::create([
+                'complaint_id'            => $complaint->id,
+                'verification_officer_id' => $officerId,
+                'priority_type'           => $priority,
+                'status'                  => 'assigned',
+                'assigned_by'             => Auth::id(),
+                'assigned_at'             => now(),
+            ]);
+        });
+
+        $verification->loadMissing('officer');
+        $verification->officer?->notify(new VerificationAssignedNotification($verification));
+
+        return $verification;
     }
 }
