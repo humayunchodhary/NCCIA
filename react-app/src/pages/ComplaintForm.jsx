@@ -167,7 +167,14 @@ export default function ComplaintForm() {
       if (id) {
         await api.put(`/complaints/${id}`, fd);
       } else {
-        await api.post('/complaints', fd);
+        const res = await api.post('/complaints', fd);
+        const wa = res.data?.complainant_notify?.whatsapp_url;
+        if (wa) {
+          // Auto-open WhatsApp registration message to complainant
+          window.open(wa, '_blank');
+        } else if (res.data?.data?.tracking_no && !res.data?.complainant_notify?.phone) {
+          alert('Complaint registered (' + res.data.data.tracking_no + '), but complainant phone missing — WhatsApp message nahi bhej saka.');
+        }
       }
       navigate('/complaints');
     } catch (err) {

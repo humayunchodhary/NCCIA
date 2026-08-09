@@ -57,6 +57,43 @@ export default function Verifications() {
   const [officers, setOfficers] = useState([]);
   const [circles, setCircles] = useState([]);
 
+  // Direct Message / WhatsApp modal
+  const [msgTarget, setMsgTarget] = useState(null);
+  const [msgForm, setMsgForm] = useState({ appeared_at: '', complainant_message: '', message_via: 'whatsapp' });
+  const [msgSaving, setMsgSaving] = useState(false);
+
+  const openMessageModal = (v) => {
+    const tracking = v.complaint?.tracking_no || ('#' + (v.complaint_id || v.id));
+    const officer = v.officer?.name || user?.name || 'Verification Officer';
+    const appear = v.appeared_at ? String(v.appeared_at).slice(0, 16) : '';
+    const defaultMsg = v.complainant_message || (
+      `Assalam-o-Alaikum. Aap ki complaint number ${tracking} ke mutaliq verification ke liye aap ko ${officer} ke samnay ${appear || '[date/time]'} par pesh hona hai. Baraye meherbani waqt par hazir hon. — NCCIA / CCRC`
+    );
+    setMsgTarget(v);
+    setMsgForm({
+      appeared_at: appear,
+      complainant_message: defaultMsg,
+      message_via: v.message_via || 'whatsapp',
+    });
+  };
+
+  const handleSendMessage = async () => {
+    if (!msgTarget) return;
+    setMsgSaving(true);
+    try {
+      const r = await api.post(`/verifications/${msgTarget.id}/notify-complainant`, msgForm);
+      const wa = r.data?.complainant_notify?.whatsapp_url;
+      if (wa) window.open(wa, '_blank');
+      else alert(r.data?.message || 'Message saved, but WhatsApp link unavailable (phone missing).');
+      setMsgTarget(null);
+      fetchData();
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to send message');
+    } finally {
+      setMsgSaving(false);
+    }
+  };
+
   const fetchData = () => {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
@@ -323,6 +360,17 @@ export default function Verifications() {
                         <Link to={`/verifications/${v.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => openMessageModal(v)}
+                          className="btn btn-sm"
+                          style={{background:'#25D366',color:'#fff',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}}
+                          title="Message Complainant via WhatsApp"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                          Message
+                        </button>
 
                         {['assigned', 'in_progress', 'sent_back'].includes(v.status) && user?.id === v.verification_officer_id && (
                           <button onClick={() => openSubmitModal(v)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}} title="Submit Report">
@@ -610,6 +658,47 @@ export default function Verifications() {
               <button className="btn btn-outline" onClick={() => setChangeOfficerTarget(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleChangeOfficer} disabled={changeOfficerSaving || !changeOfficerForm.verification_officer_id}>
                 {changeOfficerSaving ? 'Changing...' : 'Change Officer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Message Complainant Modal ── */}
+      {msgTarget && (
+        <div className="modal-overlay" onClick={() => setMsgTarget(null)}>
+          <div className="modal-container" style={{maxWidth:'560px'}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Message Complainant</h3>
+              <button className="modal-close" onClick={() => setMsgTarget(null)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p style={{marginBottom:12, fontSize:13, color:'#555'}}>
+                Complaint <strong>#{msgTarget.complaint?.tracking_no || msgTarget.complaint_id}</strong>
+                {msgTarget.complaint?.contact_no ? ` · ${msgTarget.complaint.contact_country_code || '+92'}${msgTarget.complaint.contact_no}` : ' · Phone missing'}
+              </p>
+              <div className="cf-group">
+                <label className="cf-label">Appear By (Date &amp; Time)</label>
+                <input type="datetime-local" className="cf-input" value={msgForm.appeared_at} onChange={e => setMsgForm(f => ({...f, appeared_at: e.target.value}))} />
+              </div>
+              <div className="cf-group">
+                <label className="cf-label">Message</label>
+                <textarea className="cf-input cf-textarea" rows={4} value={msgForm.complainant_message} onChange={e => setMsgForm(f => ({...f, complainant_message: e.target.value}))} />
+              </div>
+              <div className="cf-group">
+                <label className="cf-label">Channel</label>
+                <select className="cf-input" value={msgForm.message_via} onChange={e => setMsgForm(f => ({...f, message_via: e.target.value}))}>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="sms">SMS</option>
+                  <option value="phone">Phone</option>
+                  <option value="in_app">Record Only</option>
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setMsgTarget(null)}>Cancel</button>
+              <button className="btn btn-primary" style={{background:'#25D366', border:'none'}} onClick={handleSendMessage} disabled={msgSaving}>
+                {msgSaving ? 'Sending…' : 'Send via WhatsApp'}
               </button>
             </div>
           </div>

@@ -4,20 +4,21 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ProgressBar from '../components/ProgressBar';
+import { getRoleDuties } from '../utils/permissions';
 
 const ROLE_PORTALS = {
   admin:               { icon: '🛠️', name: 'Admin Portal', desc: 'Full system administration — manage users, circles, offence types & all modules.' },
-  circle_incharge:     { icon: '✅', name: 'Circle Incharge Portal', desc: 'Scrutiny complaints, review verifications, assign & approve enquiries, manage cases.' },
-  verification_officer:{ icon: '📋', name: 'Verification Officer Portal', desc: 'Assigned verifications only — call complainant, verify, submit report & recommendations. No complaint/enquiry access.' },
-  enquiry_officer:     { icon: '🔍', name: 'Enquiry Officer Portal', desc: 'Record activities, manage evidence, submit CFR for assigned enquiries.' },
-  investigation_officer:{ icon: '🕵️', name: 'Investigation Officer Portal', desc: 'Conduct DAC investigations, record arrests, submit case reports.' },
-  moharrar:            { icon: '📝', name: 'Moharrar Portal', desc: 'Register cases/FIRs, assign investigation officers, manage court cases.' },
-  reader_branch:       { icon: '📂', name: 'Reader Branch Portal', desc: 'Receive complaints, generate tracking numbers, register enquiries.' },
-  operator:            { icon: '💻', name: 'Operator Portal', desc: 'Data entry — complaints, verifications, enquiries, cases & court cases.' },
-  ad_legal:            { icon: '⚖️', name: 'AD Legal Portal', desc: 'Review enquiries & cases, provide legal opinions.' },
-  dd_legal:            { icon: '⚖️', name: 'DD Legal Portal', desc: 'Review enquiries & cases, provide legal opinions.' },
-  additional_director: { icon: '⚖️', name: 'Additional Director Portal', desc: 'Review enquiries & cases, provide legal opinions.' },
-  director_general:    { icon: '🎯', name: 'Director General Portal', desc: 'Full system oversight — monitor all modules, access analytics & management.' },
+  circle_incharge:     { icon: '✅', name: 'Circle Incharge Portal', desc: 'Assign officers, approve verification/enquiry/case reports per flowchart.' },
+  verification_officer:{ icon: '📋', name: 'Verification Officer Portal', desc: 'Verification stage only — notify complainant, verify, VO comments, submit recommendations.' },
+  enquiry_officer:     { icon: '🔍', name: 'Enquiry Officer Portal', desc: 'Enquiry stage — activities, evidence, CFR.' },
+  investigation_officer:{ icon: '🕵️', name: 'Investigation Officer Portal', desc: 'Case/Court stage — investigation, challan, court reports.' },
+  moharrar:            { icon: '📝', name: 'Moharrar Portal', desc: 'FIR number & case registry (Case stage).' },
+  reader_branch:       { icon: '📂', name: 'Reader Branch Portal', desc: 'Enquiry number registration (Enquiry stage).' },
+  operator:            { icon: '💻', name: 'Operator / CMU Portal', desc: 'Complaint data entry, scrutiny, tracking no, direct assign VO.' },
+  ad_legal:            { icon: '⚖️', name: 'AD Legal Portal', desc: 'Legal opinions on enquiry / case / court.' },
+  dd_legal:            { icon: '⚖️', name: 'DD Legal Portal', desc: 'Legal opinions on enquiry / case / court.' },
+  additional_director: { icon: '⚖️', name: 'Additional Director Portal', desc: 'Opinion / approval on legal reports.' },
+  director_general:    { icon: '🎯', name: 'Director General Portal', desc: 'Full oversight & analytics.' },
 };
 
 export default function Dashboard() {
@@ -26,6 +27,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const role = user?.roles?.[0]?.name || user?.role || 'operator';
   const portal = ROLE_PORTALS[role] || ROLE_PORTALS.operator;
+  const duties = getRoleDuties(user);
 
   const [error, setError] = useState(null);
   const [chartExpanded, setChartExpanded] = useState(false);
@@ -120,12 +122,24 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="role-portal-banner" style={{background:'linear-gradient(135deg,#2563eb,#1e40af)',color:'#fff',borderRadius:12,padding:'20px 24px',marginBottom:24,display:'flex',alignItems:'center',gap:16,boxShadow:'0 4px 16px rgba(37,99,235,0.25)'}}>
+      <div className="role-portal-banner" style={{background:'linear-gradient(135deg,#2563eb,#1e40af)',color:'#fff',borderRadius:12,padding:'20px 24px',marginBottom:16,display:'flex',alignItems:'center',gap:16,boxShadow:'0 4px 16px rgba(37,99,235,0.25)'}}>
         <div style={{fontSize:36}}>{portal.icon}</div>
         <div>
           <div style={{fontSize:13,opacity:0.85,textTransform:'uppercase',letterSpacing:1}}>Welcome back, <strong>{user?.name?.split(' ')[0] || 'User'}</strong></div>
           <div style={{fontSize:20,fontWeight:700}}>{portal.name}</div>
           <div style={{fontSize:13,opacity:0.9,marginTop:4}}>{portal.desc}</div>
+        </div>
+      </div>
+
+      <div className="card" style={{marginBottom:24, border:'1px solid #e2e8f0'}}>
+        <div className="card-body" style={{padding:'16px 20px'}}>
+          <div style={{fontSize:12, fontWeight:700, color:'#015C94', textTransform:'uppercase', letterSpacing:0.6, marginBottom:6}}>
+            Aapka stage: {duties.stage}
+          </div>
+          <div style={{fontSize:13, color:'#334155', marginBottom:8}}>Aap yeh fill / perform karenge:</div>
+          <ul style={{margin:0, paddingLeft:18, color:'#475569', fontSize:13, lineHeight:1.55}}>
+            {(duties.fills || []).map((item) => <li key={item}>{item}</li>)}
+          </ul>
         </div>
       </div>
 

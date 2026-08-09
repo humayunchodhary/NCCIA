@@ -365,9 +365,32 @@ const [form, setForm] = useState({    tracking_no: '',
                 <span className="cf-hint">When verification was completed / complainant appeared</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon" style={{background:'#0E7C7B'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div>
+              <div className="cf-section-title">Verification Officer Comment</div>
+              <div className="cf-section-sub">VO remarks / notes for this verification report (required for VO working)</div>
+            </div>
+            <div className="cf-section-badge">VO</div>
+          </div>
+          <div className="cf-body">
             <div className="cf-field">
-              <label className="cf-label">Comments</label>
-              <textarea className="cf-input cf-textarea" name="comments" rows={3} placeholder="Officer comments / notes for this verification report…" value={form.comments} onChange={setF('comments')}></textarea>
+              <label className="cf-label">VO Comment / Remarks</label>
+              <textarea
+                className="cf-input cf-textarea"
+                name="comments"
+                rows={4}
+                placeholder="Verification officer apni comments / findings yahan likhein…"
+                value={form.comments}
+                onChange={setF('comments')}
+              ></textarea>
+              <span className="cf-hint">Yeh comment verification report ke sath save hota hai</span>
             </div>
           </div>
         </div>

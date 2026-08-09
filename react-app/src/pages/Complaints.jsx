@@ -182,6 +182,26 @@ export default function Complaints() {
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </Link>
                          )}
+                         {c.tracking_no && canCreate && (
+                           <button
+                             type="button"
+                             onClick={async () => {
+                               try {
+                                 const r = await api.post(`/complaints/${c.id}/notify-complainant`);
+                                 const wa = r.data?.complainant_notify?.whatsapp_url;
+                                 if (wa) window.open(wa, '_blank');
+                                 else alert('Phone missing — WhatsApp message nahi ban saka.');
+                               } catch (e) {
+                                 alert(e.response?.data?.message || 'Notify failed');
+                               }
+                             }}
+                             className="btn btn-sm"
+                             style={{background:'#25D366',color:'#fff',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}
+                             title="Send registration WhatsApp to complainant"
+                           >
+                             Message
+                           </button>
+                         )}
                         <button onClick={() => printSlip(c)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Print 80mm Slip">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                           Print Slip

@@ -11,6 +11,7 @@ use App\Models\Verification;
 use App\Models\VerificationReport;
 use App\Notifications\VerificationAssignedNotification;
 use App\Notifications\ComplainantMessageNotification;
+use App\Services\ComplainantNotifyService;
 use App\Services\EnquiryNumberGenerator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -473,6 +474,59 @@ class VerificationController extends Controller
 
         return redirect()->route('verifications.index')
             ->with('success', 'Verification updated successfully');
+    }
+
+    /**
+     * Quick action: save appearance message and return WhatsApp deep-link.
+     */
+    public function notifyComplainant(Request $request, Verification $verification, ComplainantNotifyService $notify)
+    {
+        $this->authorize('update', $verification);
+
+        $data = $request->validate([
+            'appeared_at'         => 'nullable|date',
+            'complainant_message' => 'nullable|string|max:2000',
+            'message_via'         => 'nullable|string|in:whatsapp,sms,phone,in_app,email',
+        ]);
+
+        if (!empty($data['appeared_at'])) {
+            $verification->appeared_at = $data['appeared_at'];
+        }
+
+        $message = trim((string) ($data['complainant_message'] ?? ''));
+        if ($message === '') {
+            $message = $notify->appearanceMessage($verification->loadMissing('complaint', 'officer'), $request->user());
+        }
+
+        $via = $data['message_via'] ?? 'whatsapp';
+        $verification->fill([
+            'complainant_message' => $message,
+            'message_via'         => $via,
+            'sent_by'             => $request->user()->id,
+            'whatsapp_sent_at'    => $via === 'whatsapp' ? now() : $verification->whatsapp_sent_at,
+        ])->save();
+
+        $complaint = $verification->complaint;
+        $whatsappUrl = $notify->whatsappUrl($complaint, $message);
+
+        // Keep circle incharge in the loop
+        if ($complaint?->circle_id) {
+            $circleUsers = User::role('circle_incharge')->where('circle_id', $complaint->circle_id)->get();
+            foreach ($circleUsers as $cu) {
+                $cu->notify(new ComplainantMessageNotification($verification));
+            }
+        }
+
+        return response()->json([
+            'message' => 'Complainant message ready',
+            'data' => $verification->fresh()->load('complaint', 'officer', 'sentByUser'),
+            'complainant_notify' => [
+                'message'      => $message,
+                'via'          => $via,
+                'whatsapp_url' => $whatsappUrl,
+                'phone'        => $notify->phoneDigits($complaint),
+            ],
+        ]);
     }
 
     public function destroy(Verification $verification)

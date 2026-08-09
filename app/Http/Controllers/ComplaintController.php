@@ -10,6 +10,7 @@ use App\Http\Requests\StoreComplaintRequest;
 use App\Http\Requests\UpdateComplaintRequest;
 use App\Http\Resources\ComplaintResource;
 use App\Notifications\VerificationAssignedNotification;
+use App\Services\ComplainantNotifyService;
 use App\Services\PrintService;
 use App\Services\TrackingNumberGenerator;
 use Illuminate\Http\Request;
@@ -95,15 +96,24 @@ class ComplaintController extends Controller
             $complaint = Complaint::create($data);
         }
 
+        // When complaint gets a tracking number, notify complainant immediately (WhatsApp deep-link).
+        $notify = null;
+        if ($complaint->tracking_no) {
+            $notify = app(ComplainantNotifyService::class)->notifyRegistration($complaint);
+            $complaint->refresh();
+        }
+
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Complaint registered successfully' . ($complaint->tracking_no ? ' — ' . $complaint->tracking_no : ''),
                 'data' => new ComplaintResource($complaint),
+                'complainant_notify' => $notify,
             ], 201);
         }
 
         return redirect()->route('dashboard')
-            ->with('success', 'Complaint registered successfully — ' . ($complaint->tracking_no ?? 'N/A'));
+            ->with('success', 'Complaint registered successfully — ' . ($complaint->tracking_no ?? 'N/A'))
+            ->with('complainant_whatsapp_url', $notify['whatsapp_url'] ?? null);
     }
 
     public function show(Complaint $complaint)
@@ -133,6 +143,8 @@ class ComplaintController extends Controller
 
         $scrutinyResult = $data['scrutiny_result'] ?? $complaint->scrutiny_result;
 
+        $hadTracking = (bool) $complaint->tracking_no;
+
         if ($scrutinyResult === 'complete' && !$complaint->tracking_no) {
             $circle = $complaint->circle;
             $generator = app(\App\Services\TrackingNumberGenerator::class);
@@ -154,10 +166,18 @@ class ComplaintController extends Controller
             $complaint->update($data);
         }
 
+        $notify = null;
+        $complaint->refresh();
+        if ($complaint->tracking_no && (!$hadTracking || !$complaint->registration_notified_at)) {
+            $notify = app(ComplainantNotifyService::class)->notifyRegistration($complaint);
+            $complaint->refresh();
+        }
+
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Complaint updated successfully',
                 'data'    => new ComplaintResource($complaint),
+                'complainant_notify' => $notify,
             ]);
         }
 
@@ -229,15 +249,39 @@ class ComplaintController extends Controller
 
         $complaint->save();
 
+        $notify = null;
+        if ($complaint->tracking_no && !$complaint->registration_notified_at) {
+            $notify = app(ComplainantNotifyService::class)->notifyRegistration($complaint);
+            $complaint->refresh();
+        }
+
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Complaint status updated to ' . $request->status,
                 'data' => new ComplaintResource($complaint->fresh()),
+                'complainant_notify' => $notify,
             ]);
         }
 
         return redirect()->route('all.complaints')
             ->with('success', 'Complaint status updated to ' . $request->status);
+    }
+
+    /**
+     * Resend / open registration WhatsApp message for a tracked complaint.
+     */
+    public function notifyComplainant(Complaint $complaint, ComplainantNotifyService $notify)
+    {
+        $this->authorize('view', $complaint);
+        abort_unless($complaint->tracking_no, 422, 'Tracking number not generated yet.');
+
+        $payload = $notify->notifyRegistration($complaint);
+
+        return response()->json([
+            'message' => 'Registration message ready for complainant',
+            'complainant_notify' => $payload,
+            'data' => new ComplaintResource($complaint->fresh()),
+        ]);
     }
 
     /**

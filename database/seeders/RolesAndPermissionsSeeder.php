@@ -26,22 +26,48 @@ class RolesAndPermissionsSeeder extends Seeder
             Permission::firstOrCreate(['name' => $feat, 'guard_name' => 'web']);
         }
 
+        // NCCIA flowchart stages: Complaint → Verification → Enquiry → Case → Court
         $roleFeatures = [
-            'admin'               => ['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile'],
-            'circle_incharge'     => ['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','offence_types','reference','profile'],
-            // Flowchart: VO = Verification stage only (not Complaint / Enquiry / Case / Court)
-            'verification_officer'=> ['dashboard','verifications','reports','profile'],
-            // Flowchart: Enquiry Officer = Enquiry stage (+ DAC requests during enquiry)
-            'enquiry_officer'     => ['dashboard','enquiries','dac_cases','profile'],
-            // Flowchart: Investigation Officer = Case / Court stage (not Verification / Enquiry)
-            'investigation_officer'=>['dashboard','dac_cases','court_cases','profile'],
-            'moharrar'            => ['dashboard','analytics','complaints','enquiries','dac_cases','court_cases','offence_types','reference','profile'],
-            'reader_branch'       => ['dashboard','complaints','enquiries','profile'],
-            'operator'            => ['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','offence_types','reference','profile'],
-            'ad_legal'            => ['dashboard','enquiries','dac_cases','profile'],
-            'dd_legal'            => ['dashboard','enquiries','dac_cases','profile'],
+            'admin' => [
+                'dashboard','analytics','complaints','verifications','reports','enquiries',
+                'io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile',
+            ],
+            // Assign VO/EO/IO, approve reports/CFR/cases
+            'circle_incharge' => [
+                'dashboard','analytics','complaints','verifications','reports','enquiries',
+                'io_records','dac_cases','court_cases','offence_types','reference','profile',
+            ],
+            // CMU data entry + direct assign verification (not enquiry/case work)
+            'operator' => [
+                'dashboard','analytics','complaints','verifications','reports','profile',
+            ],
+            // Verification stage only
+            'verification_officer' => [
+                'dashboard','verifications','reports','profile',
+            ],
+            // Enquiry stage (+ DAC request during enquiry)
+            'enquiry_officer' => [
+                'dashboard','enquiries','dac_cases','profile',
+            ],
+            // Case / Court stage
+            'investigation_officer' => [
+                'dashboard','dac_cases','court_cases','profile',
+            ],
+            // FIR number / case registry
+            'moharrar' => [
+                'dashboard','dac_cases','court_cases','profile',
+            ],
+            // Enquiry number registration
+            'reader_branch' => [
+                'dashboard','enquiries','profile',
+            ],
+            'ad_legal' => ['dashboard','enquiries','dac_cases','profile'],
+            'dd_legal' => ['dashboard','enquiries','dac_cases','profile'],
             'additional_director' => ['dashboard','enquiries','dac_cases','profile'],
-            'director_general'    => ['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile'],
+            'director_general' => [
+                'dashboard','analytics','complaints','verifications','reports','enquiries',
+                'io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile',
+            ],
         ];
 
         foreach ($roleFeatures as $roleName => $perms) {
@@ -49,12 +75,20 @@ class RolesAndPermissionsSeeder extends Seeder
             $role->syncPermissions($perms);
         }
 
-        // Strip stale direct grants that conflict with flowchart stage boundaries.
         foreach (User::role('verification_officer')->get() as $user) {
-            $user->revokePermissionTo(['enquiries', 'complaints', 'dac_cases', 'court_cases', 'analytics']);
+            $user->revokePermissionTo(['enquiries', 'complaints', 'dac_cases', 'court_cases', 'analytics', 'io_records']);
+        }
+        foreach (User::role('operator')->get() as $user) {
+            $user->revokePermissionTo(['enquiries', 'dac_cases', 'court_cases', 'io_records']);
         }
         foreach (User::role('investigation_officer')->get() as $user) {
             $user->revokePermissionTo(['verifications', 'reports', 'enquiries', 'complaints']);
+        }
+        foreach (User::role('moharrar')->get() as $user) {
+            $user->revokePermissionTo(['complaints', 'enquiries', 'verifications', 'reports']);
+        }
+        foreach (User::role('reader_branch')->get() as $user) {
+            $user->revokePermissionTo(['complaints', 'verifications', 'reports', 'dac_cases', 'court_cases']);
         }
     }
 }

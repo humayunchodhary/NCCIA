@@ -51,6 +51,9 @@ class Complaint extends Model
         'entry_time',
         'scrutiny_result',
         'operator_remarks',
+        'registration_message',
+        'registration_notify_via',
+        'registration_notified_at',
         'status',
         'final_status',
         'closure_reason',
@@ -77,6 +80,7 @@ class Complaint extends Model
             'occurrence_date' => 'date:Y-m-d',
             'entry_time' => 'datetime',
             'slip_generated_at' => 'datetime',
+            'registration_notified_at' => 'datetime',
             'slip_generated' => 'boolean',
         ];
     }

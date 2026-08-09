@@ -39,6 +39,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->middleware('role:admin,circle_incharge');
     Route::post('/complaints/{complaint}/direct-assign', [ComplaintController::class, 'directAssign'])
         ->middleware('role:operator,admin,circle_incharge');
+    Route::post('/complaints/{complaint}/notify-complainant', [ComplaintController::class, 'notifyComplainant'])
+        ->middleware('role:operator,admin,circle_incharge');
 
     // Verifications — SPECIFIC routes FIRST, then wildcard {verification} routes
     Route::get('/verifications', [VerificationController::class, 'index'])->name('api.verifications.index');
@@ -60,6 +62,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->middleware('role:admin')
         ->name('api.verifications.destroy');
     Route::post('/verifications/{verification}/submit-report', [VerificationController::class, 'submitReport']);
+    Route::post('/verifications/{verification}/notify-complainant', [VerificationController::class, 'notifyComplainant']);
     Route::post('/verifications/{verification}/approve', [VerificationController::class, 'approve'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/verifications/{verification}/change-officer', [VerificationController::class, 'changeOfficer'])
