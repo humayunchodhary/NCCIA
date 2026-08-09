@@ -20,7 +20,6 @@ export default function InvestigationOfficers() {
   const [grantStep, setGrantStep] = useState('email'); // 'email' | 'otp' | 'done'
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [grantingDirect, setGrantingDirect] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
@@ -112,25 +111,9 @@ export default function InvestigationOfficers() {
       setGrantStep('otp');
     } catch (err) {
       const d = err.response?.data || {};
-      setOtpError([d.message, d.hint].filter(Boolean).join(' — ') || 'OTP send failed. Grant Directly use kar sakte ho.');
+      setOtpError([d.message, d.hint].filter(Boolean).join(' — ') || 'OTP send failed. Dubara try karein.');
     } finally {
       setSendingOtp(false);
-    }
-  };
-
-  const handleGrantDirect = async () => {
-    if (!grantTarget || !grantForm.email) return;
-    setGrantingDirect(true);
-    setOtpError('');
-    try {
-      const r = await api.post(`/investigation-officers/${grantTarget.id}/grant-access`, { email: grantForm.email });
-      setGrantResult({ success: true, ...r.data });
-      setGrantStep('done');
-      fetchData(page);
-    } catch (err) {
-      setOtpError(err.response?.data?.message || 'Failed to grant access');
-    } finally {
-      setGrantingDirect(false);
     }
   };
 
@@ -311,14 +294,11 @@ export default function InvestigationOfficers() {
                   <input className="cf-input" type="email" value={grantForm.email} onChange={e => setGrantForm({ ...grantForm, email: e.target.value })} required />
                 </div>
                 <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px' }}>
-                  Pehle Send OTP try karo. Agar mail fail ho to Grant Directly use karo.
+                  OTP email pe jayega. Inbox aur Spam check karein (valid 10 min).
                 </p>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <button type="button" className="btn btn-primary btn-sm" onClick={handleSendOtp} disabled={sendingOtp || !grantForm.email}>
                     {sendingOtp ? 'Sending OTP...' : 'Send OTP'}
-                  </button>
-                  <button type="button" className="btn btn-sm" style={{ background: '#015C94', color: '#fff', border: 'none' }} onClick={handleGrantDirect} disabled={grantingDirect || !grantForm.email}>
-                    {grantingDirect ? 'Granting...' : 'Grant Directly'}
                   </button>
                   <button type="button" className="btn btn-outline btn-sm" onClick={closeGrant}>Cancel</button>
                 </div>
