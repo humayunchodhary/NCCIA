@@ -7,12 +7,10 @@ use App\Models\InvestigationOfficer;
 use App\Models\Otp;
 use App\Models\User;
 use App\Models\Zone;
-use App\Mail\OtpMail;
-use App\Mail\GmailSender;
+use App\Services\OtpMailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class InvestigationOfficerController extends Controller
@@ -304,37 +302,20 @@ class InvestigationOfficerController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        $delivered = $this->deliverOtpEmail($email, $otp, $investigationOfficer->name);
+        $result = app(OtpMailService::class)->send($email, $otp, $investigationOfficer->name);
 
-        if (!$delivered) {
-            logger()->error('IO OTP email failed for ' . $email);
-
+        if (!$result['ok']) {
             return response()->json([
-                'message' => 'OTP email send nahi hui. MAIL_USERNAME / MAIL_PASSWORD (Gmail App Password) .env mein check karein, phir dubara Send OTP try karein.',
+                'message' => 'OTP email send nahi hui: ' . ($result['error'] ?? 'unknown error'),
+                'hint'    => 'cPanel pe chalao: php artisan nccia:test-mail ' . $email . ' — agar timeout aaye to host outbound Gmail SMTP (587/465) block kar raha hai.',
             ], 500);
         }
 
         return response()->json([
             'message' => 'OTP sent to ' . $email . '. Inbox / Spam folder check karein.',
             'email'   => $email,
+            'via'     => $result['via'],
         ]);
-    }
-
-    /**
-     * Deliver OTP via fast Gmail SMTP only (ignores MAIL_MAILER=log duplicates).
-     */
-    private function deliverOtpEmail(string $email, string $otp, string $name): bool
-    {
-        $subject = 'NCCIA Portal - OTP for Account Access';
-        $html = view('emails.otp', ['otp' => $otp, 'name' => $name])->render();
-
-        try {
-            return GmailSender::send($email, $subject, $html);
-        } catch (\Throwable $e) {
-            logger()->warning('OTP email failed: ' . $e->getMessage());
-
-            return false;
-        }
     }
 
     public function verifyOtp(Request $request, InvestigationOfficer $investigationOfficer)

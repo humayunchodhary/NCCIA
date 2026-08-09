@@ -20,6 +20,7 @@ export default function InvestigationOfficers() {
   const [grantStep, setGrantStep] = useState('email'); // 'email' | 'otp' | 'done'
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [grantingDirect, setGrantingDirect] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
@@ -110,9 +111,26 @@ export default function InvestigationOfficers() {
       await api.post(`/investigation-officers/${grantTarget.id}/send-otp`, { email: grantForm.email });
       setGrantStep('otp');
     } catch (err) {
-      setOtpError(err.response?.data?.message || 'Failed to send OTP — use Grant Directly if mail is down.');
+      const d = err.response?.data || {};
+      setOtpError([d.message, d.hint].filter(Boolean).join(' — ') || 'OTP send failed. Grant Directly use kar sakte ho.');
     } finally {
       setSendingOtp(false);
+    }
+  };
+
+  const handleGrantDirect = async () => {
+    if (!grantTarget || !grantForm.email) return;
+    setGrantingDirect(true);
+    setOtpError('');
+    try {
+      const r = await api.post(`/investigation-officers/${grantTarget.id}/grant-access`, { email: grantForm.email });
+      setGrantResult({ success: true, ...r.data });
+      setGrantStep('done');
+      fetchData(page);
+    } catch (err) {
+      setOtpError(err.response?.data?.message || 'Failed to grant access');
+    } finally {
+      setGrantingDirect(false);
     }
   };
 
@@ -286,18 +304,21 @@ export default function InvestigationOfficers() {
             {grantStep === 'email' && (
               <div style={{ padding: '16px 24px 24px' }}>
                 {otpError && (
-                  <div style={{ background: 'rgba(229,62,62,0.1)', border: '1px solid #e53e3e', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#e53e3e' }}>{otpError}</div>
+                  <div style={{ background: 'rgba(229,62,62,0.1)', border: '1px solid #e53e3e', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#e53e3e', lineHeight: 1.45, wordBreak: 'break-word' }}>{otpError}</div>
                 )}
                 <div className="cf-field">
                   <label className="cf-label required">Email (Login ID)</label>
                   <input className="cf-input" type="email" value={grantForm.email} onChange={e => setGrantForm({ ...grantForm, email: e.target.value })} required />
                 </div>
                 <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px' }}>
-                  OTP email pe zaroor jayega. Inbox aur Spam dono check karein (valid 10 min).
+                  Pehle Send OTP try karo. Agar mail fail ho to Grant Directly use karo.
                 </p>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <button type="button" className="btn btn-primary btn-sm" onClick={handleSendOtp} disabled={sendingOtp || !grantForm.email}>
                     {sendingOtp ? 'Sending OTP...' : 'Send OTP'}
+                  </button>
+                  <button type="button" className="btn btn-sm" style={{ background: '#015C94', color: '#fff', border: 'none' }} onClick={handleGrantDirect} disabled={grantingDirect || !grantForm.email}>
+                    {grantingDirect ? 'Granting...' : 'Grant Directly'}
                   </button>
                   <button type="button" className="btn btn-outline btn-sm" onClick={closeGrant}>Cancel</button>
                 </div>
