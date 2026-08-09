@@ -258,6 +258,19 @@ class ComplaintController extends Controller
         ]);
     }
 
+    /**
+     * Public complaint receipt verification (scanned via QR on slip).
+     */
+    public function verifySlip(int $id, string $token)
+    {
+        $complaint = Complaint::with('circle')->findOrFail($id);
+        $expected = substr(hash_hmac('sha256', 'complaint:' . $complaint->id, (string) config('app.key')), 0, 32);
+
+        abort_unless(hash_equals($expected, $token), 404);
+
+        return view('complaints.slip-verify', compact('complaint'));
+    }
+
     public function destroy(Complaint $complaint)
     {
         $this->authorize('delete', $complaint);

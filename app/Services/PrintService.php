@@ -14,44 +14,87 @@ class PrintService
     }
 
     /**
-     * 80mm thermal complaint slip.
+     * 80mm thermal complaint slip with QR verification.
      */
     public function complaintSlip(Complaint $complaint): string
     {
         $complaint->loadMissing('circle');
 
-        $number   = $complaint->slip_number ?: ($complaint->tracking_no ?: ('#' . $complaint->id));
-        $circle   = $complaint->circle?->name ?? '—';
-        $name     = e($complaint->complainant_name);
-        $cnic     = e($complaint->cnic);
+        $number   = $complaint->tracking_no ?: ($complaint->slip_number ?: ('#' . $complaint->id));
+        $token    = hash_hmac('sha256', 'complaint:' . $complaint->id, (string) config('app.key'));
+        $verifyUrl = URL::to('/verify/complaint/' . $complaint->id . '/' . substr($token, 0, 32));
+        $qr       = $this->qr->svgDataUri($verifyUrl);
+
+        $circle   = e($complaint->circle?->name ?? '—');
+        $name     = e($complaint->complainant_name ?: '—');
+        $cnic     = e($complaint->cnic ?: '—');
+        $phone    = trim(($complaint->contact_country_code ? '+' . ltrim((string) $complaint->contact_country_code, '+') . ' ' : '') . ($complaint->contact_no ?? ''));
+        $phone    = e($phone !== '' ? $phone : '—');
         $date     = $complaint->report_date ? \Illuminate\Support\Carbon::parse($complaint->report_date)->format('d/m/Y') : '—';
         $time     = $complaint->entry_time ? \Illuminate\Support\Carbon::parse($complaint->entry_time)->format('h:i A') : '—';
-        $address  = e($complaint->address);
+        $address  = e($complaint->address ?: '—');
         $offence  = e($complaint->offence_type ?? '—');
+        $source   = e($complaint->source ? ucfirst(str_replace('_', ' ', $complaint->source)) : '—');
+        $operator = e($complaint->operator_name ?: '—');
         $issuedAt = now()->format('d/m/Y h:i A');
         $logo     = url('images/NCCIA.webp');
+        $numberE  = e($number);
 
         return <<<HTML
         <div class="slip">
-          <div class="center">
+          <div class="head">
             <img src="{$logo}" alt="NCCIA" class="logo" />
-            <div class="org">National Compliance &amp; Integrity Authority (NCCIA)</div>
-            <div class="tag">COMPLAINT RECEIPT SLIP</div>
+            <div class="org">NATIONAL COMPLIANCE &amp;<br/>INTEGRITY AUTHORITY</div>
+            <div class="org-ur">قومی تعمیل و دیانت داری اتھارٹی</div>
+            <div class="tag">COMPLAINT RECEIPT</div>
           </div>
-          <hr/>
+
+          <div class="num-box">
+            <div class="num-label">Complaint No.</div>
+            <div class="num-val">{$numberE}</div>
+          </div>
+
           <table class="kv">
-            <tr><td class="k">Complaint No.</td><td class="v"><strong>{$number}</strong></td></tr>
-            <tr><td class="k">Name</td><td class="v">{$name}</td></tr>
+            <tr><td class="k">Complainant</td><td class="v">{$name}</td></tr>
             <tr><td class="k">CNIC</td><td class="v">{$cnic}</td></tr>
+            <tr><td class="k">Contact</td><td class="v">{$phone}</td></tr>
             <tr><td class="k">Circle</td><td class="v">{$circle}</td></tr>
             <tr><td class="k">Report Date</td><td class="v">{$date}</td></tr>
             <tr><td class="k">Report Time</td><td class="v">{$time}</td></tr>
+            <tr><td class="k">Source</td><td class="v">{$source}</td></tr>
             <tr><td class="k">Offence</td><td class="v">{$offence}</td></tr>
+            <tr><td class="k">Address</td><td class="v">{$address}</td></tr>
           </table>
-          <hr/>
-          <div class="small center">Complainant: {$name}<br/>{$address}</div>
-          <div class="small center">Issued: {$issuedAt}</div>
-          <div class="small center">NCCIA — Serving the Nation</div>
+
+          <div class="note">
+            Please keep this slip for future reference.
+            Quote the Complaint No. for all follow-ups.
+          </div>
+
+          <table class="sign-row">
+            <tr>
+              <td class="sign">
+                <div class="sign-line"></div>
+                <div class="small">Operator / Desk</div>
+                <div class="tiny">{$operator}</div>
+              </td>
+              <td class="sign">
+                <div class="sign-line"></div>
+                <div class="small">Complainant</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="qr-block">
+            <img src="{$qr}" alt="Verify QR" class="qr" />
+            <div class="small">Scan to verify this receipt</div>
+            <div class="tiny muted">{$verifyUrl}</div>
+          </div>
+
+          <div class="foot">
+            <div class="tiny">Issued: {$issuedAt}</div>
+            <div class="tiny">NCCIA — Serving the Nation</div>
+          </div>
         </div>
         HTML;
     }
@@ -61,17 +104,31 @@ class PrintService
         return $this->document(
             $this->complaintSlip($complaint),
             '@page { size: 80mm auto; margin: 2mm; }
-             body { margin:0; }
-             .slip { width: 76mm; font-family: Arial, Helvetica, sans-serif; font-size: 11px; color:#000; }
-             .center { text-align:center; }
-             .org { font-weight:700; font-size:12px; margin-top:4px; }
-             .tag { font-weight:700; letter-spacing:1px; margin-top:2px; }
-             .logo { width:60px; height:60px; object-fit:contain; }
-             .kv { width:100%; border-collapse:collapse; margin:4px 0; }
-             .kv td { padding:3px 0; vertical-align:top; }
-             .k { width:78px; font-weight:600; }
-             .small { font-size:10px; margin-top:3px; }
-             hr { border:none; border-top:1px dashed #000; margin:6px 0; }'
+             body { margin:0; background:#fff; }
+             .slip { width: 76mm; font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
+             .head { text-align:center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px; }
+             .logo { width:52px; height:52px; object-fit:contain; }
+             .org { font-weight:800; font-size:11px; line-height:1.25; margin-top:3px; letter-spacing:0.2px; }
+             .org-ur { font-size:11px; font-weight:700; margin-top:2px; }
+             .tag { display:inline-block; margin-top:5px; padding:2px 8px; border:1.5px solid #000; font-weight:800; font-size:10px; letter-spacing:1.2px; }
+             .num-box { text-align:center; border:1.5px dashed #000; padding:6px 4px; margin:8px 0; }
+             .num-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; }
+             .num-val { font-size:16px; font-weight:800; letter-spacing:0.5px; margin-top:2px; }
+             .kv { width:100%; border-collapse:collapse; margin:2px 0 6px; }
+             .kv td { padding:3px 0; vertical-align:top; border-bottom:1px dotted #bbb; }
+             .kv tr:last-child td { border-bottom:none; }
+             .k { width:78px; font-weight:700; color:#222; }
+             .v { word-break:break-word; }
+             .note { font-size:9.5px; line-height:1.35; text-align:center; border:1px solid #000; padding:5px 4px; margin:6px 0; }
+             .sign-row { width:100%; border-collapse:collapse; margin:10px 0 6px; }
+             .sign { width:50%; text-align:center; vertical-align:top; padding:0 3px; }
+             .sign-line { border-top:1px solid #000; margin:18px 0 3px; }
+             .qr-block { text-align:center; border-top:1px dashed #000; padding-top:6px; margin-top:4px; }
+             .qr { width:92px; height:92px; }
+             .foot { text-align:center; margin-top:4px; border-top:1px solid #000; padding-top:4px; }
+             .small { font-size:9.5px; font-weight:700; }
+             .tiny { font-size:8.5px; margin-top:1px; }
+             .muted { color:#444; word-break:break-all; line-height:1.2; }'
         );
     }
 
