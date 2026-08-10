@@ -83,7 +83,7 @@ export default function UserForm() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} style={{maxWidth:600,margin:'0 auto'}}>
+      <form onSubmit={handleSubmit} style={{margin:'0 auto'}}>
         {Object.keys(errors).length > 0 && (
           <div style={{background:'rgba(229,62,62,0.1)',border:'1px solid #e53e3e',borderRadius:8,padding:'12px 16px',marginBottom:16}}>
             <ul style={{margin:0,paddingLeft:18,fontSize:13,color:'#e53e3e'}}>

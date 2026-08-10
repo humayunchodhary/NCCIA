@@ -167,7 +167,7 @@ export default function VerificationForm() {
   const rec = form.recommendation;
 
   return (
-    <div className="page-content" style={{maxWidth:'800px',margin:'0 auto'}}>
+    <div className="page-content" style={{margin:'0 auto'}}>
       <div className="page-header">
         <div className="page-title-group">
           <div className="page-label">Verifications</div>

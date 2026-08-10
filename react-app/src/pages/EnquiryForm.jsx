@@ -397,7 +397,7 @@ export default function EnquiryForm() {
   };
 
   return (
-    <div className="page-content" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="page-content" style={{ margin: '0 auto' }}>
       <form onSubmit={handleSubmit}>
         <div className="page-header">
           <div className="page-title-group">

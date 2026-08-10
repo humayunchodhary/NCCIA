@@ -365,7 +365,7 @@ const [form, setForm] = useState({    tracking_no: '',
   const updateEvidence = (i, field, value) => setForm(f => ({ ...f, evidence: f.evidence.map((e, idx) => idx === i ? { ...e, [field]: value } : e) }));
 
   return (
-    <div className="page-content" style={{maxWidth:'1120px',margin:'0 auto'}}>
+    <div className="page-content" style={{margin:'0 auto'}}>
       <form onSubmit={handleSubmit} encType="multipart/form-data" noValidate>
         <div className="page-header">
           <div className="page-title-group">
