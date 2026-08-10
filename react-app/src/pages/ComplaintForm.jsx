@@ -51,6 +51,7 @@ const initialForm = {
   complainant_name: '',
   cnic: '',
   contact_no: '',
+  email: '',
   contact_country_code: '+92',
   nationality: 'Pakistani',
   passport_no: '',
@@ -290,6 +291,14 @@ export default function ComplaintForm() {
                   <input type="text" className="cf-input" value={form.contact_no} onChange={setPhone} placeholder="3XXXXXXXXX" required maxLength={12} style={{flex:1}} />
                 </div>
                 {errors.contact_no && <div className="cf-error">{errors.contact_no}</div>}
+              </div>
+              {renderField('Profession', 'profession')}
+            </div>
+            <div className="cf-row-2">
+              <div className="cf-field">
+                <label className="cf-label required">Email</label>
+                <input type="email" className="cf-input" value={form.email} onChange={set('email')} placeholder="example@domain.com" />
+                {errors.email && <div className="cf-error">{errors.email}</div>}
               </div>
               {renderField('Profession', 'profession')}
             </div>
