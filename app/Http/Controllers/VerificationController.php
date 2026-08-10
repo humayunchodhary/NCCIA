@@ -725,36 +725,58 @@ class VerificationController extends Controller
         $this->authorize('approve', $verification);
 
         $data = $request->validate([
-            'decision'           => 'required|string|in:agree,review',
-            'recommendation'     => 'required|string|in:enquiry_registration,closure,merge,transfer',
-            'closure_reason'     => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
-            'merge_complaint_id' => 'nullable|integer|exists:complaints,id',
-            'transfer_department'=> 'nullable|string|max:255',
-            'transfer_circle_id' => 'nullable|integer|exists:circles,id',
-            'remarks'            => 'nullable|string|max:2000',
+            'decision'            => 'required|string|in:agree,review',
+            'recommendation'      => 'required|string|in:enquiry_registration,closure,merge,transfer',
+            'closure_reason'      => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
+            'merge_complaint_id'  => 'nullable|integer|exists:complaints,id',
+            'transfer_department' => 'nullable|string|max:255',
+            'transfer_circle_id'  => 'nullable|integer|exists:circles,id',
+            'enquiry_officer_id'  => 'nullable|integer|exists:users,id',
+            'remarks'             => 'nullable|string|max:2000',
         ]);
 
+        if ($data['decision'] === 'agree') {
+            if ($data['recommendation'] === 'closure' && empty($data['closure_reason'])) {
+                return response()->json(['message' => 'Closure reason is required.'], 422);
+            }
+            if ($data['recommendation'] === 'merge' && empty($data['merge_complaint_id'])) {
+                return response()->json(['message' => 'Please select the complaint to merge with.'], 422);
+            }
+            if ($data['recommendation'] === 'transfer' && empty($data['transfer_department'])) {
+                return response()->json(['message' => 'Transfer department is required.'], 422);
+            }
+            if ($data['recommendation'] === 'enquiry_registration' && empty($data['enquiry_officer_id'])) {
+                return response()->json(['message' => 'Please select an Enquiry Officer before approving enquiry registration.'], 422);
+            }
+        }
+
         $approval = $verification->approvals()->create([
-            'circle_incharge_id' => $request->user()->id,
-            'decision'           => $data['decision'],
-            'recommendation'     => $data['recommendation'],
-            'closure_reason'     => $data['closure_reason'] ?? null,
-            'merge_complaint_id' => $data['merge_complaint_id'] ?? null,
-            'transfer_department'=> $data['transfer_department'] ?? null,
-            'transfer_circle_id' => $data['transfer_circle_id'] ?? null,
-            'remarks'            => $data['remarks'] ?? null,
+            'circle_incharge_id'  => $request->user()->id,
+            'decision'            => $data['decision'],
+            'recommendation'      => $data['recommendation'],
+            'closure_reason'      => $data['closure_reason'] ?? null,
+            'merge_complaint_id'  => $data['merge_complaint_id'] ?? null,
+            'transfer_department' => $data['transfer_department'] ?? null,
+            'transfer_circle_id'  => $data['transfer_circle_id'] ?? null,
+            'remarks'             => $data['remarks'] ?? null,
         ]);
 
         $updateData = [
-            'recommendation'     => $data['recommendation'],
-            'closure_reason'     => $data['closure_reason'] ?? null,
-            'merge_complaint_id' => $data['merge_complaint_id'] ?? null,
-            'transfer_department'=> $data['transfer_department'] ?? null,
-            'transfer_circle_id' => $data['transfer_circle_id'] ?? null,
+            'recommendation'      => $data['recommendation'],
+            'closure_reason'      => $data['closure_reason'] ?? null,
+            'merge_complaint_id'  => $data['merge_complaint_id'] ?? null,
+            'transfer_department' => $data['transfer_department'] ?? null,
+            'transfer_circle_id'  => $data['transfer_circle_id'] ?? null,
         ];
 
         // ── DOWNSTREAM ACTIONS on the Complaint ──
         $complaint = $verification->complaint;
+
+        // Keep circle aligned so CI visibility stays consistent
+        if ($complaint && !$complaint->circle_id && $request->user()?->circle_id) {
+            $complaint->update(['circle_id' => $request->user()->circle_id]);
+            $complaint->refresh();
+        }
 
         if ($data['decision'] === 'agree') {
             $updateData['status']      = 'approved';
@@ -784,8 +806,8 @@ class VerificationController extends Controller
                 case 'transfer':
                     DB::transaction(function () use ($complaint, $data) {
                         $complaint->update([
-                            'status'                => 'transferred',
-                            'final_status'          => 'transferred',
+                            'status'                 => 'transferred',
+                            'final_status'           => 'transferred',
                             'transfer_to_department' => $data['transfer_department'] ?? null,
                             'transfer_to_circle_id'  => $data['transfer_circle_id'] ?? null,
                         ]);
@@ -794,14 +816,17 @@ class VerificationController extends Controller
 
                 case 'enquiry_registration':
                     try {
-                        DB::transaction(function () use ($complaint) {
+                        DB::transaction(function () use ($complaint, $data) {
                             $circle = $complaint->circle;
                             $gen = app(EnquiryNumberGenerator::class);
+                            $officerId = (int) $data['enquiry_officer_id'];
                             $enquiry = Enquiry::create([
-                                'complaint_id'   => $complaint->id,
-                                'enquiry_number' => $gen->generate($circle?->code),
-                                'status'         => 'registered',
-                                'reg_date'       => now(),
+                                'complaint_id'       => $complaint->id,
+                                'enquiry_number'     => $gen->generate($circle?->code),
+                                'status'             => 'assigned',
+                                'reg_date'           => now(),
+                                'assignment_date'    => now(),
+                                'enquiry_officer_id' => $officerId,
                             ]);
                             $complaint->update([
                                 'status'       => 'enquiry_registered',
@@ -835,6 +860,12 @@ class VerificationController extends Controller
 
     public function changeOfficer(Request $request, Verification $verification)
     {
+        abort_unless(
+            $request->user()->hasAnyRole(['admin', 'circle_incharge'])
+            || Verification::visibleTo($request->user())->whereKey($verification->id)->exists(),
+            403
+        );
+
         $data = $request->validate([
             'verification_officer_id' => 'required|integer|exists:users,id',
         ]);
@@ -851,8 +882,10 @@ class VerificationController extends Controller
             'transfer_circle_id'      => null,
             'submitted_at'            => null,
             'completed_at'            => null,
+            'approved_at'             => null,
         ]);
 
+        $verification->load('officer');
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
 
         return response()->json([

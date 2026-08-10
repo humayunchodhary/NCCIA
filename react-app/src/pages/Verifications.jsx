@@ -49,8 +49,9 @@ export default function Verifications() {
 
   // Review/Approve modal
   const [reviewTarget, setReviewTarget] = useState(null);
-  const [reviewForm, setReviewForm] = useState({ decision: 'agree', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', remarks: '' });
+  const [reviewForm, setReviewForm] = useState({ decision: 'agree', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', enquiry_officer_id: '', remarks: '' });
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [enquiryOfficers, setEnquiryOfficers] = useState([]);
 
   // Change Officer modal
   const [changeOfficerTarget, setChangeOfficerTarget] = useState(null);
@@ -185,6 +186,10 @@ export default function Verifications() {
   // ── Review/Approve ──
   const openReviewModal = (v) => {
     api.get('/lookup/circles').then(r => setCircles(r.data || [])).catch(() => {});
+    api.get('/lookup/enquiry-officers').then(r => {
+      const all = r.data?.data || r.data;
+      setEnquiryOfficers(Array.isArray(all) ? all : []);
+    }).catch(() => setEnquiryOfficers([]));
     setReviewTarget(v);
     setReviewForm({
       decision: 'agree',
@@ -193,17 +198,51 @@ export default function Verifications() {
       merge_complaint_id: v.merge_complaint_id || '',
       transfer_department: v.transfer_department || '',
       transfer_circle_id: v.transfer_circle_id || '',
+      enquiry_officer_id: '',
       remarks: '',
     });
   };
 
   const handleReview = async () => {
     if (!reviewTarget) return;
+    if (reviewForm.decision === 'agree') {
+      if (!reviewForm.recommendation) {
+        alert('Final recommendation select karein.');
+        return;
+      }
+      if (reviewForm.recommendation === 'closure' && !reviewForm.closure_reason) {
+        alert('Closure reason select karein.');
+        return;
+      }
+      if (reviewForm.recommendation === 'merge' && !reviewForm.merge_complaint_id) {
+        alert('Merge wali complaint select karein.');
+        return;
+      }
+      if (reviewForm.recommendation === 'transfer' && !reviewForm.transfer_department) {
+        alert('Transfer department likhein.');
+        return;
+      }
+      if (reviewForm.recommendation === 'enquiry_registration' && !reviewForm.enquiry_officer_id) {
+        alert('Enquiry Officer select karein.');
+        return;
+      }
+    }
     setReviewSaving(true);
     try {
-      await api.post(`/verifications/${reviewTarget.id}/approve`, reviewForm);
+      const payload = {
+        decision: reviewForm.decision,
+        recommendation: reviewForm.recommendation,
+        remarks: reviewForm.remarks || null,
+        closure_reason: reviewForm.closure_reason || null,
+        merge_complaint_id: reviewForm.merge_complaint_id ? Number(reviewForm.merge_complaint_id) : null,
+        transfer_department: reviewForm.transfer_department || null,
+        transfer_circle_id: reviewForm.transfer_circle_id ? Number(reviewForm.transfer_circle_id) : null,
+        enquiry_officer_id: reviewForm.enquiry_officer_id ? Number(reviewForm.enquiry_officer_id) : null,
+      };
+      await api.post(`/verifications/${reviewTarget.id}/approve`, payload);
       fetchData();
       setReviewTarget(null);
+      alert(payload.decision === 'agree' ? 'Approved successfully.' : 'Sent back to officer.');
     } catch (e) {
       alert(e.response?.data?.message || 'Failed to process review');
     } finally {
@@ -214,20 +253,26 @@ export default function Verifications() {
   // ── Change Officer ──
   const openChangeOfficerModal = (v) => {
     api.get('/lookup/verification-officers').then(r => {
-      const all = r.data.data || r.data;
+      const all = r.data?.data || r.data;
       setOfficers(Array.isArray(all) ? all : []);
-    }).catch(() => {});
+    }).catch(() => setOfficers([]));
     setChangeOfficerTarget(v);
     setChangeOfficerForm({ verification_officer_id: '' });
   };
 
   const handleChangeOfficer = async () => {
-    if (!changeOfficerTarget || !changeOfficerForm.verification_officer_id) return;
+    if (!changeOfficerTarget || !changeOfficerForm.verification_officer_id) {
+      alert('Naya Verification Officer select karein.');
+      return;
+    }
     setChangeOfficerSaving(true);
     try {
-      await api.post(`/verifications/${changeOfficerTarget.id}/change-officer`, changeOfficerForm);
+      await api.post(`/verifications/${changeOfficerTarget.id}/change-officer`, {
+        verification_officer_id: Number(changeOfficerForm.verification_officer_id),
+      });
       fetchData();
       setChangeOfficerTarget(null);
+      alert('Verification officer change ho gaya.');
     } catch (e) {
       alert(e.response?.data?.message || 'Failed to change officer');
     } finally {
@@ -403,14 +448,14 @@ export default function Verifications() {
                         )}
 
                         {v.status === 'submitted' && (hasRole('circle_incharge') || hasRole('admin')) && (
-                          <button onClick={() => openReviewModal(v)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}} title="Review">
+                          <button type="button" onClick={() => openReviewModal(v)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}} title="Review & Approve">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            Review
+                            Review / Approve
                           </button>
                         )}
 
                         {(hasRole('admin') || hasRole('circle_incharge')) && (
-                          <button onClick={() => openChangeOfficerModal(v)} className="btn btn-sm" style={{background:'rgba(214,158,46,0.12)',color:'#d69e2e',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}} title="Change Officer">
+                          <button type="button" onClick={() => openChangeOfficerModal(v)} className="btn btn-sm" style={{background:'rgba(214,158,46,0.12)',color:'#d69e2e',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}} title="Change Officer">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
                             Change
                           </button>
@@ -563,7 +608,7 @@ export default function Verifications() {
               </div>
               <div className="cf-group">
                 <label className="cf-label">Final Recommendation <span className="required">*</span></label>
-                <select className="cf-input" value={reviewForm.recommendation} onChange={e => setReviewForm({...reviewForm, recommendation: e.target.value, closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: ''})} required>
+                <select className="cf-input" value={reviewForm.recommendation} onChange={e => setReviewForm({...reviewForm, recommendation: e.target.value, closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', enquiry_officer_id: ''})} required>
                   <option value="">Select recommendation...</option>
                   {RECOMMENDATION_OPTIONS.map(o => (
                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -589,7 +634,7 @@ export default function Verifications() {
                   <SearchableSelect
                     value={reviewForm.merge_complaint_id}
                     onChange={v => setReviewForm({...reviewForm, merge_complaint_id: v})}
-                    options={list.filter(x => x.complaint?.tracking_no).map(x => x.complaint)}
+                    options={list.filter(x => x.complaint?.tracking_no && x.complaint_id !== reviewTarget.complaint_id).map(x => x.complaint)}
                     placeholder="Select complaint..."
                     valueKey="id"
                     formatLabel={o => '#' + o.tracking_no + ' - ' + o.complainant_name}
@@ -617,14 +662,29 @@ export default function Verifications() {
                 </>
               )}
 
+              {reviewForm.decision === 'agree' && reviewForm.recommendation === 'enquiry_registration' && (
+                <div className="cf-group">
+                  <label className="cf-label">Enquiry Officer <span className="required">*</span></label>
+                  <SearchableSelect
+                    value={reviewForm.enquiry_officer_id}
+                    onChange={v => setReviewForm({...reviewForm, enquiry_officer_id: v})}
+                    options={enquiryOfficers}
+                    placeholder="Select enquiry officer..."
+                    valueKey="id"
+                    formatLabel={o => o.name + (o.designation ? ' (' + o.designation + ')' : '') + (o.circle?.name ? ' — ' + o.circle.name : '')}
+                  />
+                  <div style={{fontSize:12,color:'#64748b',marginTop:6}}>Approve ke sath yeh officer enquiry pe assign ho jayega.</div>
+                </div>
+              )}
+
               <div className="cf-group">
                 <label className="cf-label">Remarks</label>
                 <textarea className="cf-input" rows="3" value={reviewForm.remarks} onChange={e => setReviewForm({...reviewForm, remarks: e.target.value})} placeholder="Any additional remarks or instructions..." />
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setReviewTarget(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleReview} disabled={reviewSaving || !reviewForm.decision || !reviewForm.recommendation}>
+              <button type="button" className="btn btn-outline" onClick={() => setReviewTarget(null)}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={handleReview} disabled={reviewSaving || !reviewForm.decision || !reviewForm.recommendation}>
                 {reviewSaving ? 'Processing...' : (reviewForm.decision === 'agree' ? 'Approve' : 'Send Back')}
               </button>
             </div>

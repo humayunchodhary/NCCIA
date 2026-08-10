@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import WorkflowProgress, { caseProgress } from '../components/WorkflowProgress';
 
 export default function Cases() {
   const [list, setList] = useState([]);
@@ -27,7 +28,7 @@ export default function Cases() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  if (loading) return <div className="page-content"><LoadingSkeleton type="table" columns={4} rows={8} /></div>;
+  if (loading) return <div className="page-content"><LoadingSkeleton type="table" columns={5} rows={8} /></div>;
 
   return (
     <div className="page-content">
@@ -49,16 +50,21 @@ export default function Cases() {
           <div className="table-responsive">
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>FIR No</th><th>Enquiry</th><th>IO</th><th>Status</th><th>Created</th><th style={{textAlign:'center'}}>Actions</th></tr>
+                <tr><th>#</th><th>FIR No</th><th>Enquiry</th><th>IO</th><th>Status</th><th>Progress</th><th>Created</th><th style={{textAlign:'center'}}>Actions</th></tr>
               </thead>
               <tbody>
-                {list.map((c, i) => (
+                {list.map((c) => {
+                  const prog = caseProgress(c.status);
+                  return (
                   <tr key={c.id}>
                     <td><span className="table-id">#{c.id}</span></td>
                     <td><span style={{fontSize:'13px',fontWeight:500}}>{c.fir_no || `CASE-${c.id}`}</span></td>
                     <td><span style={{fontSize:12}}>{c.enquiry?.enquiry_number || c.enquiry_id || '-'}</span></td>
                     <td><span style={{fontSize:12}}>{c.investigation_officer?.name || '-'}</span></td>
                     <td><span className={`badge ${c.status === 'closed' || c.status === 'approved' ? 'badge-finalized' : 'badge-pending'}`}>{c.status}</span></td>
+                    <td style={{ minWidth: 180 }}>
+                      <WorkflowProgress percent={prog.percent} stage={prog.stage} compact />
+                    </td>
                     <td><span style={{fontSize:'12px',color:'#6c757d'}}>{new Date(c.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span></td>
                     <td style={{textAlign:'center'}}>
                       <Link to={`/cases/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
@@ -66,8 +72,9 @@ export default function Cases() {
                       </Link>
                     </td>
                   </tr>
-                ))}
-                {list.length === 0 && <tr><td colSpan={7} style={{textAlign:'center',padding:'24px',color:'#6c757d'}}>No cases found</td></tr>}
+                  );
+                })}
+                {list.length === 0 && <tr><td colSpan={8} style={{textAlign:'center',padding:'24px',color:'#6c757d'}}>No cases found</td></tr>}
               </tbody>
             </table>
           </div>

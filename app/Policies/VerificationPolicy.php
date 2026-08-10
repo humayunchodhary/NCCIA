@@ -53,17 +53,31 @@ class VerificationPolicy
             return true;
         }
 
-        return $user->hasRole('circle_incharge') && $this->sameCircle($user, $verification);
+        if (!$user->hasRole('circle_incharge')) {
+            return false;
+        }
+
+        // Allow if same circle OR verification is already in CI's visible scope
+        if ($this->sameCircle($user, $verification)) {
+            return true;
+        }
+
+        return Verification::visibleTo($user)->whereKey($verification->id)->exists();
     }
 
     protected function sameCircle(User $user, Verification $verification): bool
     {
+        $complaintCircle = $verification->complaint?->circle_id
+            ?? $verification->officer?->circle_id;
+
+        // If complaint has no circle yet, fall back to officer circle / allow CI with circle
+        if (!$complaintCircle) {
+            return (bool) $user->circle_id;
+        }
+
         if (!$user->circle_id) {
             return false;
         }
-
-        $complaintCircle = $verification->complaint?->circle_id
-            ?? $verification->officer?->circle_id;
 
         return (int) $complaintCircle === (int) $user->circle_id;
     }

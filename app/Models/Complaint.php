@@ -207,36 +207,53 @@ class Complaint extends Model
      */
     public function progressPercent(): int
     {
-        if ($this->final_status) {
+        $terminal = [
+            'closed', 'merged', 'transferred', 'invalid', 'irrelevant',
+            'closed_conviction', 'closed_acquittal', 'closed_discharge', 'closed_dismissed',
+        ];
+
+        if ($this->final_status && in_array($this->final_status, $terminal, true)) {
             return 100;
         }
 
-        if (in_array($this->status, ['invalid', 'irrelevant'])) {
+        if (in_array($this->status, ['invalid', 'irrelevant'], true)) {
             return 100;
         }
 
-        $case = $this->caseFiles->first();
+        $case = $this->relationLoaded('caseFiles')
+            ? $this->caseFiles->first()
+            : $this->caseFiles()->first();
+
         if ($case) {
-            return $case->status === 'closed' ? 100 : 90;
+            if (in_array($case->status, ['closed', 'challan_submitted'], true) || str_starts_with((string) $case->status, 'closed')) {
+                return 100;
+            }
+
+            return 90;
         }
 
         $enquiry = $this->enquiry;
         if ($enquiry) {
-            if (in_array($enquiry->status, ['closed', 'converted_to_case'])) {
+            if (in_array($enquiry->status, ['closed', 'converted_to_case', 'referred_court'], true)) {
                 return 95;
             }
             if ($enquiry->status === 'approved') {
                 return 85;
             }
-            if (in_array($enquiry->status, ['cfr_submitted', 'in_progress'])) {
+            if (in_array($enquiry->status, ['cfr_submitted', 'in_progress', 'assigned'], true)) {
                 return 80;
             }
+
             return 70;
         }
 
         $verification = $this->verification;
         if ($verification) {
-            return in_array($verification->status, ['submitted', 'approved']) ? 60 : 40;
+            if ($verification->status === 'approved') {
+                return 65;
+            }
+
+            return in_array($verification->status, ['submitted'], true) ? 60 : 40;
         }
 
         return $this->status === 'complete' ? 25 : 10;
@@ -249,11 +266,79 @@ class Complaint extends Model
         if ($p >= 95)  return 'Enquiry Closed';
         if ($p >= 90)  return 'Case Registered';
         if ($p >= 85)  return 'Enquiry Approved';
-        if ($p >= 80)  return 'Enquiry CFR Submitted';
+        if ($p >= 80)  return 'Enquiry In Progress';
         if ($p >= 70)  return 'Enquiry Registered';
-        if ($p >= 60)  return 'Verification Approved';
+        if ($p >= 65)  return 'Verification Approved';
+        if ($p >= 60)  return 'Verification Submitted';
         if ($p >= 40)  return 'Under Verification';
         if ($p >= 25)  return 'Scrutiny Complete';
         return 'Incomplete';
+    }
+
+    /**
+     * Workflow steps for progress UI: Complaint → Verification → Enquiry → Case → Court.
+     *
+     * @return array{steps: list<array{key:string,label:string,state:string}>, current: string, percent: int}
+     */
+    public function workflowProgress(): array
+    {
+        $case = $this->relationLoaded('caseFiles')
+            ? $this->caseFiles->first()
+            : $this->caseFiles()->first();
+        $enquiry = $this->enquiry;
+        $verification = $this->verification;
+        $terminal = [
+            'closed', 'merged', 'transferred', 'invalid', 'irrelevant',
+            'closed_conviction', 'closed_acquittal', 'closed_discharge', 'closed_dismissed',
+        ];
+        $done = $this->final_status && in_array($this->final_status, $terminal, true);
+
+        $courtReached = $done && $case;
+
+        $steps = [
+            [
+                'key'   => 'complaint',
+                'label' => 'Complaint',
+                'state' => $this->status === 'complete' || $verification || $enquiry || $case || $done
+                    ? 'done'
+                    : 'current',
+            ],
+            [
+                'key'   => 'verification',
+                'label' => 'Verification',
+                'state' => $enquiry || $case || ($verification && $verification->status === 'approved') || $done
+                    ? 'done'
+                    : ($verification ? 'current' : 'todo'),
+            ],
+            [
+                'key'   => 'enquiry',
+                'label' => 'Enquiry',
+                'state' => $case || ($enquiry && in_array($enquiry->status, ['approved', 'converted_to_case', 'closed', 'referred_court'], true)) || ($done && !$verification)
+                    ? 'done'
+                    : ($enquiry ? 'current' : 'todo'),
+            ],
+            [
+                'key'   => 'case',
+                'label' => 'Case',
+                'state' => ($case && in_array($case->status, ['closed', 'challan_submitted'], true)) || $courtReached
+                    ? 'done'
+                    : ($case ? 'current' : 'todo'),
+            ],
+            [
+                'key'   => 'court',
+                'label' => 'Court',
+                'state' => $courtReached ? 'done' : 'todo',
+            ],
+        ];
+
+        $current = collect($steps)->firstWhere('state', 'current')['key']
+            ?? (collect($steps)->last(fn ($s) => $s['state'] === 'done')['key'] ?? 'complaint');
+
+        return [
+            'steps'   => $steps,
+            'current' => $current,
+            'percent' => $this->progressPercent(),
+            'stage'   => $this->progressStage(),
+        ];
     }
 }

@@ -15,12 +15,12 @@ export default function SearchableSelect({ value, onChange, options, placeholder
   const [search, setSearch] = useState('');
   const ref = useRef(null);
 
-  const selected = options.find(o => (getValue(o, valueKey)) === value);
+  const selected = options.find(o => String(getValue(o, valueKey)) === String(value ?? ''));
 
   const filtered = search
     ? options.filter(o => {
         const label = getLabel(o, labelKey, formatLabel).toString().toLowerCase();
-        const val = getValue(o, valueKey).toString().toLowerCase();
+        const val = String(getValue(o, valueKey)).toLowerCase();
         return label.includes(search.toLowerCase()) || val.includes(search.toLowerCase());
       })
     : options;

@@ -67,6 +67,7 @@ class ComplaintResource extends JsonResource
             'operator_id'          => $this->operator_id,
             'progress_percent'     => $this->progressPercent(),
             'progress_stage'       => $this->progressStage(),
+            'workflow'             => $this->workflowProgress(),
             'verification'         => $this->whenLoaded('verification', function () {
                 if (!$this->verification) {
                     return null;

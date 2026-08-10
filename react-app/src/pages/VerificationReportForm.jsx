@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { countryCodes } from '../data/countries';
 import { toLocalInput } from '../utils/datetime';
@@ -108,6 +108,7 @@ const majorCities = [
 export default function VerificationReportForm() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const [complaints, setComplaints] = useState([]);
   const [crimeCategories, setCrimeCategories] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -212,6 +213,33 @@ const [form, setForm] = useState({    tracking_no: '',
       }).catch(() => navigate('/verifications/reports'));
     }
   }, [id, navigate]);
+
+  // Prefill from top-search deep link: /verifications/reports/create?tracking=0001/26
+  useEffect(() => {
+    if (id) return;
+    const tracking = searchParams.get('tracking');
+    if (!tracking || !complaints.length) return;
+    const comp = complaints.find(c => c.tracking_no === tracking);
+    if (!comp) {
+      setForm(f => ({ ...f, tracking_no: tracking }));
+      return;
+    }
+    if (comp.verification?.id) setLinkedVerificationId(comp.verification.id);
+    const phone = (comp.contact_no || '').replace(/\D/g, '').replace(/^0+/, '');
+    const v = comp.verification || {};
+    setForm(f => ({
+      ...f,
+      tracking_no: tracking,
+      complaint_id: comp.id,
+      registration_at: toLocalInput(comp.entry_time || comp.created_at),
+      assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
+      verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
+      victim_name: comp.complainant_name || '',
+      victim_cnic: comp.cnic || '',
+      victim_phone: phone,
+      city: comp.cmu || f.city,
+    }));
+  }, [id, searchParams, complaints]);
 
   const handleTrackingChange = (e) => {
     const tracking = e.target.value;

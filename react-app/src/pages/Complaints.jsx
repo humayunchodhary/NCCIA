@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
-import ProgressBar from '../components/ProgressBar';
+import WorkflowProgress from '../components/WorkflowProgress';
 import { openPrintWindow } from '../utils/print';
 import { useAuth } from '../contexts/AuthContext';
 import { canAssignVerification, canCreateComplaint, hasRole } from '../utils/permissions';
@@ -154,9 +154,8 @@ export default function Complaints() {
                     <td>{c.cnic}</td>
                     <td>{offenceMap[c.offence_type] || c.offence_type}</td>
                     <td><span className={`badge ${STATUS_COLORS[c.final_status || c.status] || 'badge-pending'}`}>{STATUS_LABELS[c.final_status || c.status] || c.status}</span></td>
-                    <td style={{ minWidth: 150 }}>
-                      <ProgressBar value={c.progress_percent} showLabel />
-                      <div style={{ fontSize: 11, color: '#6c757d', marginTop: 4 }}>{c.progress_stage}</div>
+                    <td style={{ minWidth: 200 }}>
+                      <WorkflowProgress workflow={c.workflow} percent={c.progress_percent} stage={c.progress_stage} compact />
                     </td>
                     <td>
                       {c.enquiry ? (

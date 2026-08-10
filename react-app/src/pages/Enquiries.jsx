@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import SearchableSelect from '../components/SearchableSelect';
+import WorkflowProgress, { enquiryProgress } from '../components/WorkflowProgress';
 
 const STATUS_COLORS = {
   registered: 'badge-pending',
@@ -201,7 +202,7 @@ export default function Enquiries() {
             <div className="table-responsive">
               <table className="data-table">
                 <thead>
-                  <tr><th>#</th><th>Complaint</th><th>Status</th><th>Enquiry Officer</th><th>Created</th><th style={{textAlign:'center'}}>Actions</th></tr>
+                  <tr><th>#</th><th>Complaint</th><th>Status</th><th>Progress</th><th>Enquiry Officer</th><th>Created</th><th style={{textAlign:'center'}}>Actions</th></tr>
                 </thead>
                 <tbody>
                   {filteredList.map((e, i) => (
@@ -218,6 +219,13 @@ export default function Enquiries() {
                             <span className="badge badge-info" style={{ fontSize: 11 }}>{e.notice_count} notice{e.notice_count > 1 ? 's' : ''}</span>
                           )}
                         </div>
+                      </td>
+                      <td style={{ minWidth: 180 }}>
+                        <WorkflowProgress
+                          percent={enquiryProgress(e.status).percent}
+                          stage={enquiryProgress(e.status).stage}
+                          compact
+                        />
                       </td>
                       <td>{e.officer?.name || '-'}</td>
                       <td><span style={{fontSize:12,color:'#6c757d'}}>{new Date(e.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span></td>
@@ -258,7 +266,7 @@ export default function Enquiries() {
                       </td>
                     </tr>
                   ))}
-                  {filteredList.length === 0 && <tr><td colSpan={6} style={{textAlign:'center',padding:24,color:'#6c757d'}}>No enquiries found</td></tr>}
+                  {filteredList.length === 0 && <tr><td colSpan={7} style={{textAlign:'center',padding:24,color:'#6c757d'}}>No enquiries found</td></tr>}
                 </tbody>
               </table>
             </div>
