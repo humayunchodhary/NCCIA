@@ -114,7 +114,8 @@ export default function ComplaintPdfImport() {
     } catch (err) {
       const partial = err.response?.data?.extracted;
       if (partial) setPreview(partial);
-      setPreviewError(err.response?.data?.error || err.message || 'Preview failed');
+      const detail = err.response?.data?.error || err.message || 'Preview failed';
+      setPreviewError(detail.includes('OCR') ? detail : `OCR error: ${detail}`);
     } finally {
       setPreviewLoading(false);
       setMessage('');
