@@ -21,7 +21,7 @@ class ComplaintPdfExtractor
         }
 
         if ($python) {
-            $result = Process::timeout(180)->run([
+            $result = Process::timeout(300)->run([
                 $python,
                 $script,
                 $absolutePdfPath,

@@ -78,15 +78,26 @@ export default function ComplaintPdfImport() {
     const fd = new FormData();
     Array.from(files).forEach(f => fd.append('files[]', f));
     fd.append('auto_apply', '1');
-    fd.append('sync', '1');
+    fd.append('sync', '0');
     try {
-      const r = await api.post('/complaint-pdf-imports', fd);
-      setMessage(r.data?.message || 'Upload queued.');
+      const r = await api.post('/complaint-pdf-imports', fd, { timeout: 120000 });
+      const uploaded = r.data?.imports || [];
+      setMessage(`Uploaded ${uploaded.length} file(s). Running OCR…`);
+      for (const imp of uploaded) {
+        setMessage(`Processing ${imp.original_filename}… (OCR may take 1–2 min)`);
+        await api.post(`/complaint-pdf-imports/${imp.id}/process`, { auto_apply: 1 }, { timeout: 300000 });
+      }
+      setMessage('Import complete.');
       if (fileRef.current) fileRef.current.value = '';
       setPreview(null);
       fetchData();
     } catch (err) {
-      setMessage(err.response?.data?.message || 'Upload failed');
+      const msg = err.response?.data?.message
+        || err.response?.data?.import?.error_message
+        || err.message
+        || 'Upload/process failed';
+      setMessage(msg);
+      fetchData();
     } finally {
       setUploading(false);
     }
@@ -95,7 +106,7 @@ export default function ComplaintPdfImport() {
   const processImport = async (id) => {
     setProcessingId(id);
     try {
-      await api.post(`/complaint-pdf-imports/${id}/process`);
+      await api.post(`/complaint-pdf-imports/${id}/process`, { auto_apply: 1 }, { timeout: 300000 });
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || err.response?.data?.import?.error_message || 'Process failed');
@@ -221,10 +232,10 @@ export default function ComplaintPdfImport() {
                       }}>{row.status}</span>
                     </td>
                     <td>{ex.tracking_no || row.complaint?.tracking_no || '—'}</td>
-                    <td>{ex.victim_name || '—'}</td>
+                    <td>{ex.victim_name || ex.complainant_full_name || '—'}</td>
                     <td>
                       <button type="button" className="btn btn-sm btn-outline" onClick={() => setSelected(row)} style={{ marginRight: 6 }}>View</button>
-                      {(row.status === 'pending' || row.status === 'failed') && (
+                      {(row.status === 'pending' || row.status === 'failed' || row.status === 'processing') && (
                         <button type="button" className="btn btn-sm btn-primary" disabled={processingId === row.id} onClick={() => processImport(row.id)} style={{ marginRight: 6 }}>
                           {processingId === row.id ? 'Processing…' : 'Process'}
                         </button>
@@ -234,6 +245,9 @@ export default function ComplaintPdfImport() {
                       )}
                       {row.complaint_id && (
                         <Link to={`/complaints/${row.complaint_id}/edit`} className="btn btn-sm btn-outline" style={{ marginLeft: 6 }}>Complaint</Link>
+                      )}
+                      {row.error_message && (
+                        <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4, maxWidth: 220 }}>{row.error_message}</div>
                       )}
                     </td>
                   </tr>

@@ -45,6 +45,8 @@ class ComplaintPdfImportService
 
     public function process(ComplaintPdfImport $import): ComplaintPdfImport
     {
+        @set_time_limit(300);
+
         $import->update(['status' => ComplaintPdfImport::STATUS_PROCESSING]);
 
         $absolute = Storage::disk('public')->path($import->stored_path);

@@ -39,6 +39,8 @@ class ComplaintPdfImportController extends Controller
 
     public function store(Request $request, ComplaintPdfImportService $service)
     {
+        @set_time_limit(300);
+
         $request->validate([
             'files'      => 'required|array|min:1|max:100',
             'files.*'    => 'file|mimes:pdf|max:51200',
@@ -73,6 +75,8 @@ class ComplaintPdfImportController extends Controller
 
     public function process(Request $request, ComplaintPdfImport $complaintPdfImport)
     {
+        @set_time_limit(300);
+
         $request->validate([
             'auto_apply' => 'nullable|boolean',
         ]);
@@ -110,7 +114,8 @@ class ComplaintPdfImportController extends Controller
     private function runImportJob(int $importId, int $userId, bool $autoApply, bool $sync): ComplaintPdfImport
     {
         if ($sync) {
-            ProcessComplaintPdfImport::dispatchSync($importId, $userId, $autoApply);
+            $job = new ProcessComplaintPdfImport($importId, $userId, $autoApply);
+            app()->call([$job, 'handle']);
 
             return ComplaintPdfImport::with(['complaint', 'verificationReport'])->findOrFail($importId);
         }

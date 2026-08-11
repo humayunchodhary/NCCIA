@@ -182,14 +182,6 @@ def parse_verification_report(text: str, filename: str) -> dict:
     elif not victim_gender and re.search(r"\bFemale\b", text, re.I):
         victim_gender = "female"
 
-    city = clean_value(city)
-    address = clean_value(address)
-    crime_category = clean_value(crime_category)
-    crime_description = clean_value(crime_description)
-    victim_occupation = clean_value(victim_occupation)
-    if recommendation_text and len(recommendation_text) > 200:
-        recommendation_text = recommendation_text[:200] + "…"
-
     cnic_raw = first_match(
         text,
         [r"CNIC\s*No\.?\s*:?\s*([\d\-]+)", r"CNIC\s*No\.?\s*([\d]+)", r"CNIC\s*:?\s*([\d\-]+)"],
@@ -276,6 +268,14 @@ def parse_verification_report(text: str, filename: str) -> dict:
         text,
         [r"Justification\s*:?\s*(.+?)(?:Reporting Officer|Assistant Sub|$)"],
     )
+
+    city = clean_value(city)
+    address = clean_value(address)
+    crime_category = clean_value(crime_category)
+    crime_description = clean_value(crime_description)
+    victim_occupation = clean_value(victim_occupation)
+    if recommendation_text and len(recommendation_text) > 200:
+        recommendation_text = recommendation_text[:200] + "…"
 
     inquiry_no = first_match(
         text,
