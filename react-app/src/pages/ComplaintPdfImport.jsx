@@ -162,9 +162,12 @@ export default function ComplaintPdfImport() {
             <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16 }}>
               <FieldRow label="Tracking No" value={preview.tracking_no} />
               <FieldRow label="Inquiry No" value={preview.inquiry_no} />
-              <FieldRow label="Complainant" value={preview.victim_name} />
+              <FieldRow label="Complainant" value={preview.complainant_full_name || preview.victim_name} />
+              <FieldRow label="Father Name" value={preview.victim_father_name} />
               <FieldRow label="CNIC" value={preview.victim_cnic} />
               <FieldRow label="Phone" value={preview.victim_phone} />
+              <FieldRow label="Gender" value={preview.victim_gender} />
+              <FieldRow label="Occupation" value={preview.victim_occupation} />
               <FieldRow label="Address" value={preview.victim_address} />
               <FieldRow label="Crime Category" value={preview.crime_category} />
               <FieldRow label="Amount" value={preview.amount_involved} />

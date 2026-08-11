@@ -187,7 +187,7 @@ class ComplaintPdfExtractor
         return null;
     }
 
-    private function normalizeCnic(?string $raw): ?string
+    public function normalizeCnic(?string $raw): ?string
     {
         if (!$raw) {
             return null;
