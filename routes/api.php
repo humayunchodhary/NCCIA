@@ -19,6 +19,7 @@ use App\Http\Controllers\ReferenceController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\SidebarCountsController;
 
 Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
@@ -248,19 +249,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::put('/user-manuals/{manual}', [ReferenceController::class, 'manualsUpdate']);
     Route::delete('/user-manuals/{manual}', [ReferenceController::class, 'manualsDestroy']);
 
-    Route::get('/sidebar-counts', function () {
-        $user = request()->user();
-        $key = 'sidebar:v1:' . $user->id;
-
-        return response()->json(\Illuminate\Support\Facades\Cache::remember($key, 45, function () use ($user) {
-            return [
-                'verifications' => \App\Models\Verification::visibleTo($user)->count(),
-                'reports' => \App\Models\VerificationReport::visibleTo($user)->count(),
-                'enquiries' => \App\Models\Enquiry::visibleTo($user)->count(),
-                'messages' => \App\Models\Message::where('receiver_id', $user->id)->where('is_read', false)->count(),
-            ];
-        }));
-    });
+    Route::get('/sidebar-counts', SidebarCountsController::class);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);

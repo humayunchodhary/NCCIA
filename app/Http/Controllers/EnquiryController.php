@@ -683,6 +683,7 @@ class EnquiryController extends Controller
         $payload['attachments'] = $enquiry->enquiryAttachments;
 
         return response()->json($payload);
+    }
 
     public function update(Request $request, Enquiry $enquiry)
     {
