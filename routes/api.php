@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ComplaintController;
+use App\Http\Controllers\ComplaintPdfImportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\EnquiryController;
@@ -41,6 +42,18 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/complaints/{complaint}/direct-assign', [ComplaintController::class, 'directAssign'])
         ->middleware('role:operator,admin,circle_incharge');
     Route::post('/complaints/{complaint}/notify-complainant', [ComplaintController::class, 'notifyComplainant'])
+        ->middleware('role:operator,admin,circle_incharge');
+
+    Route::get('/complaint-pdf-imports', [ComplaintPdfImportController::class, 'index']);
+    Route::get('/complaint-pdf-imports/stats', [ComplaintPdfImportController::class, 'stats']);
+    Route::post('/complaint-pdf-imports', [ComplaintPdfImportController::class, 'store'])
+        ->middleware('role:operator,admin,circle_incharge');
+    Route::post('/complaint-pdf-imports/preview', [ComplaintPdfImportController::class, 'preview'])
+        ->middleware('role:operator,admin,circle_incharge');
+    Route::get('/complaint-pdf-imports/{complaintPdfImport}', [ComplaintPdfImportController::class, 'show']);
+    Route::post('/complaint-pdf-imports/{complaintPdfImport}/extract', [ComplaintPdfImportController::class, 'extract'])
+        ->middleware('role:operator,admin,circle_incharge');
+    Route::post('/complaint-pdf-imports/{complaintPdfImport}/apply', [ComplaintPdfImportController::class, 'apply'])
         ->middleware('role:operator,admin,circle_incharge');
 
     // Verifications — SPECIFIC routes FIRST, then wildcard {verification} routes

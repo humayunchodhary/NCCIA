@@ -133,7 +133,10 @@ export default function Complaints() {
           <div className="title-underline"></div>
         </div>
         {canCreate && (
-          <div className="page-actions">
+          <div className="page-actions" style={{ display: 'flex', gap: 8 }}>
+            <Link to="/complaints/import-pdf" className="btn btn-outline btn-sm">
+              Import PDF
+            </Link>
             <Link to="/complaints/create" className="btn btn-primary btn-sm">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
               {hasRole(user, 'operator') && !hasRole(user, 'admin') ? 'Complete Registration' : 'New Complaint'}

@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
 import Complaints from './pages/Complaints';
 import ComplaintForm from './pages/ComplaintForm';
+import ComplaintPdfImport from './pages/ComplaintPdfImport';
 import Verifications from './pages/Verifications';
 import VerificationForm from './pages/VerificationForm';
 import VerificationReports from './pages/VerificationReports';
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="analytics" element={<FeatureRoute feature="analytics"><Analytics /></FeatureRoute>} />
         <Route path="complaints" element={<FeatureRoute feature="complaints"><Complaints /></FeatureRoute>} />
         <Route path="complaints/create" element={<CreateComplaintRoute><ComplaintForm /></CreateComplaintRoute>} />
+        <Route path="complaints/import-pdf" element={<CreateComplaintRoute><ComplaintPdfImport /></CreateComplaintRoute>} />
         <Route path="complaints/:id/edit" element={<FeatureRoute feature="complaints"><ComplaintForm /></FeatureRoute>} />
         <Route path="verifications" element={<FeatureRoute feature="verifications"><Verifications /></FeatureRoute>} />
         <Route path="verifications/create" element={<AssignVerificationRoute><VerificationForm /></AssignVerificationRoute>} />
