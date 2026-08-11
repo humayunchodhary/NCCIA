@@ -61,6 +61,9 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/complaint-pdf-imports/{complaintPdfImport}/apply', [ComplaintPdfImportController::class, 'apply'])
         ->middleware('role:operator,admin,circle_incharge');
 
+    Route::post('/adp/apply', [\App\Http\Controllers\AdpApplyController::class, 'apply'])
+        ->middleware('role:operator,admin,circle_incharge');
+
     // Verifications — SPECIFIC routes FIRST, then wildcard {verification} routes
     Route::get('/verifications', [VerificationController::class, 'index'])->name('api.verifications.index');
     Route::post('/verifications', [VerificationController::class, 'store'])
