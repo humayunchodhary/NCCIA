@@ -35,6 +35,8 @@ export default function ComplaintPdfImport() {
   const [message, setMessage] = useState('');
   const [selected, setSelected] = useState(null);
 
+  const [processingId, setProcessingId] = useState(null);
+
   const canUpload = canCreateComplaint(user);
 
   const fetchData = useCallback(() => {
@@ -76,6 +78,7 @@ export default function ComplaintPdfImport() {
     const fd = new FormData();
     Array.from(files).forEach(f => fd.append('files[]', f));
     fd.append('auto_apply', '1');
+    fd.append('sync', '1');
     try {
       const r = await api.post('/complaint-pdf-imports', fd);
       setMessage(r.data?.message || 'Upload queued.');
@@ -86,6 +89,19 @@ export default function ComplaintPdfImport() {
       setMessage(err.response?.data?.message || 'Upload failed');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const processImport = async (id) => {
+    setProcessingId(id);
+    try {
+      await api.post(`/complaint-pdf-imports/${id}/process`);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || err.response?.data?.import?.error_message || 'Process failed');
+      fetchData();
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -128,7 +144,7 @@ export default function ComplaintPdfImport() {
           />
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button type="submit" className="btn btn-primary" disabled={uploading}>
-              {uploading ? 'Uploading…' : 'Upload & Import'}
+              {uploading ? 'Processing OCR… (may take 1–2 min)' : 'Upload & Import'}
             </button>
             <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center' }}>
               Bulk: up to 100 PDFs per batch · Max 50MB each
@@ -205,8 +221,13 @@ export default function ComplaintPdfImport() {
                     <td>{ex.victim_name || '—'}</td>
                     <td>
                       <button type="button" className="btn btn-sm btn-outline" onClick={() => setSelected(row)} style={{ marginRight: 6 }}>View</button>
+                      {(row.status === 'pending' || row.status === 'failed') && (
+                        <button type="button" className="btn btn-sm btn-primary" disabled={processingId === row.id} onClick={() => processImport(row.id)} style={{ marginRight: 6 }}>
+                          {processingId === row.id ? 'Processing…' : 'Process'}
+                        </button>
+                      )}
                       {row.status === 'extracted' && (
-                        <button type="button" className="btn btn-sm btn-primary" onClick={() => applyImport(row.id)}>Apply</button>
+                        <button type="button" className="btn btn-sm btn-primary" onClick={() => applyImport(row.id)} style={{ marginRight: 6 }}>Apply</button>
                       )}
                       {row.complaint_id && (
                         <Link to={`/complaints/${row.complaint_id}/edit`} className="btn btn-sm btn-outline" style={{ marginLeft: 6 }}>Complaint</Link>

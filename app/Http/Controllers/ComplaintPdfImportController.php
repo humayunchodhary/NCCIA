@@ -44,20 +44,80 @@ class ComplaintPdfImportController extends Controller
             'files.*'    => 'file|mimes:pdf|max:51200',
             'batch_id'   => 'nullable|string|max:64',
             'auto_apply' => 'nullable|boolean',
+            'sync'       => 'nullable|boolean',
         ]);
 
         $autoApply = $request->boolean('auto_apply', true);
+        $sync = $request->boolean('sync', $this->shouldProcessSync());
         $result = $service->storeUploads($request->file('files'), $request->user(), $request->input('batch_id'));
 
+        $processed = [];
         foreach ($result['imports'] as $import) {
-            ProcessComplaintPdfImport::dispatch($import->id, $request->user()->id, $autoApply);
+            $processed[] = $this->runImportJob($import->id, $request->user()->id, $autoApply, $sync);
         }
 
+        $synced = collect($processed)->every(fn ($i) => in_array($i->status, [
+            ComplaintPdfImport::STATUS_IMPORTED,
+            ComplaintPdfImport::STATUS_EXTRACTED,
+            ComplaintPdfImport::STATUS_FAILED,
+        ], true));
+
         return response()->json([
-            'message'  => count($result['imports']) . ' PDF(s) queued for import.',
+            'message'  => $synced
+                ? count($processed) . ' PDF(s) processed.'
+                : count($processed) . ' PDF(s) queued for import.',
             'batch_id' => $result['batch_id'],
-            'imports'  => $result['imports'],
-        ], 202);
+            'imports'  => $processed,
+        ], $synced ? 200 : 202);
+    }
+
+    public function process(Request $request, ComplaintPdfImport $complaintPdfImport)
+    {
+        $request->validate([
+            'auto_apply' => 'nullable|boolean',
+        ]);
+
+        $import = $this->runImportJob(
+            $complaintPdfImport->id,
+            $request->user()->id,
+            $request->boolean('auto_apply', true),
+            true
+        );
+
+        $ok = in_array($import->status, [
+            ComplaintPdfImport::STATUS_IMPORTED,
+            ComplaintPdfImport::STATUS_EXTRACTED,
+        ], true);
+
+        return response()->json([
+            'message' => $ok
+                ? ($import->status === ComplaintPdfImport::STATUS_IMPORTED ? 'Imported successfully' : 'Extracted — review and apply')
+                : ($import->error_message ?? 'Processing failed'),
+            'import'  => $import->load(['complaint', 'verificationReport']),
+        ], $ok ? 200 : 422);
+    }
+
+    private function shouldProcessSync(): bool
+    {
+        if (env('PDF_IMPORT_SYNC') !== null) {
+            return filter_var(env('PDF_IMPORT_SYNC'), FILTER_VALIDATE_BOOL);
+        }
+
+        // Default: sync on web uploads (shared hosting usually has no queue worker)
+        return true;
+    }
+
+    private function runImportJob(int $importId, int $userId, bool $autoApply, bool $sync): ComplaintPdfImport
+    {
+        if ($sync) {
+            ProcessComplaintPdfImport::dispatchSync($importId, $userId, $autoApply);
+
+            return ComplaintPdfImport::with(['complaint', 'verificationReport'])->findOrFail($importId);
+        }
+
+        ProcessComplaintPdfImport::dispatch($importId, $userId, $autoApply);
+
+        return ComplaintPdfImport::findOrFail($importId);
     }
 
     public function show(ComplaintPdfImport $complaintPdfImport)
