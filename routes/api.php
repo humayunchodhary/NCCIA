@@ -50,6 +50,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->middleware('role:operator,admin,circle_incharge');
     Route::post('/complaint-pdf-imports/preview', [ComplaintPdfImportController::class, 'preview'])
         ->middleware('role:operator,admin,circle_incharge');
+    Route::post('/complaint-pdf-imports/render-page', [ComplaintPdfImportController::class, 'renderPage'])
+        ->middleware('role:operator,admin,circle_incharge');
     Route::get('/complaint-pdf-imports/{complaintPdfImport}', [ComplaintPdfImportController::class, 'show']);
     Route::post('/complaint-pdf-imports/{complaintPdfImport}/process', [ComplaintPdfImportController::class, 'process'])
         ->middleware('role:operator,admin,circle_incharge');

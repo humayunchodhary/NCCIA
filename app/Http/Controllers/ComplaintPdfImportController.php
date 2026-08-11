@@ -226,4 +226,73 @@ class ComplaintPdfImportController extends Controller
             'error'     => $extract['error'],
         ], $extract['ok'] ? 200 : 422);
     }
+
+    public function renderPage(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf|max:51200',
+            'page' => 'nullable|integer|min:0|max:9',
+        ]);
+
+        $page = (int) $request->input('page', 0);
+        $tmp = $request->file('file')->store('imports/tmp', 'public');
+        $absolute = storage_path('app/public/' . $tmp);
+
+        try {
+            $image = $this->renderPdfPageImage($absolute, $page);
+            if (!$image) {
+                return response()->json([
+                    'error' => 'Could not render PDF page on server (Imagick/Ghostscript missing).',
+                ], 422);
+            }
+
+            return response()->json([
+                'image' => $image,
+                'page'  => $page,
+            ]);
+        } finally {
+            @unlink($absolute);
+        }
+    }
+
+    private function renderPdfPageImage(string $pdfPath, int $page): ?string
+    {
+        if (extension_loaded('imagick')) {
+            try {
+                $im = new \Imagick();
+                $im->setResolution(220, 220);
+                $im->readImage($pdfPath . '[' . $page . ']');
+                $im->setImageBackgroundColor(new \ImagickPixel('white'));
+                $im->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+                if (method_exists($im, 'mergeImageLayers')) {
+                    $im = $im->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+                }
+                $im->setImageFormat('png');
+
+                return 'data:image/png;base64,' . base64_encode($im->getImageBlob());
+            } catch (\Throwable $e) {
+                \Log::warning('Imagick PDF page render failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        $pdftoppm = trim((string) shell_exec('which pdftoppm 2>/dev/null'));
+        if ($pdftoppm !== '') {
+            $outDir = sys_get_temp_dir() . '/nccia-pdf-' . uniqid();
+            @mkdir($outDir, 0755, true);
+            $prefix = $outDir . '/page';
+            $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . ($page + 1) . ' -l ' . ($page + 1)
+                . ' -r 220 ' . escapeshellarg($pdfPath) . ' ' . escapeshellarg($prefix);
+            @exec($cmd, $output, $code);
+            $png = $prefix . '-1.png';
+            if ($code === 0 && is_file($png)) {
+                $data = file_get_contents($png);
+                @unlink($png);
+                @rmdir($outDir);
+
+                return $data ? 'data:image/png;base64,' . base64_encode($data) : null;
+            }
+        }
+
+        return null;
+    }
 }

@@ -60,7 +60,15 @@ export default function ComplaintPdfImport() {
   }, [fetchData]);
 
   const runBrowserOcr = async (file) => {
-    const text = await extractTextFromPdf(file, (s) => setMessage(s));
+    const text = await extractTextFromPdf(file, (s) => setMessage(s), {
+      serverRenderPage: async (pageIndex) => {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('page', String(pageIndex));
+        const r = await api.post('/complaint-pdf-imports/render-page', fd, { timeout: 120000 });
+        return r.data?.image || null;
+      },
+    });
     ocrCacheRef.current.set(file.name, text);
     return text;
   };
