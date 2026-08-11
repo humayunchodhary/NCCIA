@@ -129,9 +129,7 @@ class AdpApplyController extends Controller
         $enquiry = $data['enquiry_and_case'] ?? [];
 
         $fullName = trim($victim['name'] ?? '');
-        if (!empty($victim['father_name']) && $fullName && !str_contains(strtoupper($fullName), 'S/O')) {
-            $fullName = trim($fullName . ' S/O ' . $victim['father_name']);
-        }
+        $fatherName = trim((string) ($victim['father_name'] ?? ''));
 
         $phone = preg_replace('/\D/', '', $victim['phone'] ?? '') ?? '';
         if (str_starts_with($phone, '92') && strlen($phone) > 10) {
@@ -142,30 +140,76 @@ class AdpApplyController extends Controller
         }
         $phone = substr($phone, 0, 10) ?: '3000000000';
 
+        $whatsapp = preg_replace('/\D/', '', $victim['whatsapp'] ?? $victim['whatsapp_no'] ?? '') ?? '';
+        if (str_starts_with($whatsapp, '92') && strlen($whatsapp) > 10) {
+            $whatsapp = substr($whatsapp, 2);
+        }
+        if (str_starts_with($whatsapp, '0')) {
+            $whatsapp = substr($whatsapp, 1);
+        }
+        $whatsapp = substr($whatsapp, 0, 10) ?: null;
+
         $cnic = $this->normalizeCnic($victim['cnic'] ?? '');
         if (!$cnic) {
             throw new \InvalidArgumentException('CNIC not found in ADP extract.');
         }
         $address = $victim['address'] ?? $victim['postal_address'] ?? 'Imported via ADP';
+        $gender = strtolower(trim((string) ($victim['gender'] ?? '')));
+        if ($gender && !in_array($gender, ['male', 'female', 'other'], true)) {
+            $gender = null;
+        }
+
+        $platforms = $crime['platforms'] ?? $crime['platform'] ?? null;
+        if (is_string($platforms) && $platforms !== '') {
+            $platforms = array_values(array_filter(array_map('trim', preg_split('/[,;|]/', $platforms) ?: [])));
+        }
+        if (!is_array($platforms)) {
+            $platforms = null;
+        }
+
+        $crimeMediums = $crime['crime_mediums'] ?? $crime['medium'] ?? null;
+        if (is_string($crimeMediums) && $crimeMediums !== '') {
+            $crimeMediums = array_values(array_filter(array_map('trim', preg_split('/[,;|]/', $crimeMediums) ?: [])));
+        }
+        if (!is_array($crimeMediums)) {
+            $crimeMediums = null;
+        }
 
         return array_filter([
             'complainant_name'     => $fullName ?: 'Unknown',
+            'father_name'          => $fatherName ?: null,
             'cnic'                 => $cnic,
             'contact_no'           => $phone,
+            'whatsapp_no'          => $whatsapp,
+            'gender'               => $gender,
+            'email'                => $victim['email'] ?? null,
             'contact_country_code' => '+92',
             'nationality'          => $victim['nationality'] ?? 'Pakistani',
             'passport_no'          => $victim['passport_no'] ?? null,
             'address'              => $address,
             'post_address'         => $victim['postal_address'] ?? $address,
+            'district'             => $victim['district'] ?? $crime['city'] ?? null,
             'profession'           => $victim['occupation'] ?? null,
             'report_date'          => $this->parseDate($ref['registration_date'] ?? $ref['verification_date'] ?? null) ?? now()->toDateString(),
+            'reporting_time'       => $ref['reporting_time'] ?? now()->format('H:i'),
             'diary_no'             => $enquiry['enquiry_no'] ?? $ref['tracking_no'] ?? 'ADP-' . now()->format('His'),
             'received_via'         => 'Postal Service',
             'received_from'        => 'General Public',
             'cmu'                  => 'CCRC',
             'priority_type'        => 'normal',
             'offence_type'         => $crime['category'] ?? 'Cyber Crime',
+            'crime_mediums'        => $crimeMediums,
+            'platforms'            => $platforms,
+            'platform_profile_page'=> $crime['profile_page'] ?? $crime['platform_profile_page'] ?? null,
+            'platform_username'    => $crime['username'] ?? $crime['platform_username'] ?? null,
+            'platform_email_involved' => $crime['email_involved'] ?? $crime['platform_email_involved'] ?? null,
+            'platform_mobile_involved'=> $crime['mobile_involved'] ?? $crime['platform_mobile_involved'] ?? null,
             'amount_involved'      => $this->parseAmount($crime['amount_involved'] ?? null),
+            'bank_name_sender'     => $crime['bank_name_sender'] ?? $crime['sender_bank'] ?? null,
+            'bank_name_receiver'   => $crime['bank_name_receiver'] ?? $crime['receiver_bank'] ?? null,
+            'account_no_sender'    => $crime['account_no_sender'] ?? $crime['sender_account'] ?? null,
+            'account_no_receiver'  => $crime['account_no_receiver'] ?? $crime['receiver_account'] ?? null,
+            'transaction_date'     => $this->parseDate($crime['transaction_date'] ?? null),
             'occurrence_date'      => $this->parseDate($crime['occurrence_date'] ?? $ref['assignment_date'] ?? null) ?? now()->toDateString(),
             'description'          => $crime['description'] ?? $enquiry['cfr_summary'] ?? 'Imported via ADP',
             'operator_name'        => $user->name,

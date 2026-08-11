@@ -29,7 +29,7 @@ class ComplaintPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['admin', 'circle_incharge', 'operator']);
+        return $user->hasAnyRole(['admin', 'circle_incharge', 'operator', 'director_general']);
     }
 
     public function update(User $user, Complaint $complaint): bool
@@ -43,7 +43,7 @@ class ComplaintPolicy
             return false;
         }
 
-        if ($user->hasRole('admin')) {
+        if ($user->hasRole('admin') || $user->hasRole('director_general')) {
             return true;
         }
 

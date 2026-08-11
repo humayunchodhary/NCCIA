@@ -111,7 +111,8 @@ export function canView(feature, user) {
 }
 
 export function canCreateComplaint(user) {
-  return hasAnyRole(user, ['admin', 'circle_incharge', 'operator']);
+  // Anyone with complaints module create access (shared Complete Registration form)
+  return hasAnyRole(user, ['admin', 'circle_incharge', 'operator', 'director_general']);
 }
 
 export function canAssignVerification(user) {
