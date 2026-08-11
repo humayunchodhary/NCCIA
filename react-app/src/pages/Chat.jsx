@@ -35,6 +35,15 @@ function formatDay(iso) {
   return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function sortMessagesNewestFirst(list) {
+  return [...(list || [])].sort((a, b) => {
+    const ta = a?.created_at ? new Date(a.created_at).getTime() : 0;
+    const tb = b?.created_at ? new Date(b.created_at).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return (b?.id || 0) - (a?.id || 0);
+  });
+}
+
 function initialsOf(name) {
   return (name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 }
@@ -61,7 +70,7 @@ export default function Chat() {
     if (!otherId || otherId === meId) return;
     setThreadLoading(true);
     api.get(`/messages/conversations/${otherId}`).then(r => {
-      setMessages(r.data || []);
+      setMessages(sortMessagesNewestFirst(r.data));
     }).catch(() => {}).finally(() => setThreadLoading(false));
   }, [meId]);
 
@@ -98,13 +107,13 @@ export default function Chat() {
     setSending(true);
     try {
       const r = await api.post('/messages', { receiver_id: activeId, message: body });
-      setMessages(prev => [{
+      setMessages(prev => sortMessagesNewestFirst([{
         id: r.data.id,
         sender_id: r.data.sender_id,
         message: r.data.message,
         is_read: false,
         created_at: r.data.created_at,
-      }, ...prev]);
+      }, ...prev]));
       setText('');
       refreshConversations();
     } catch (err) {
@@ -135,6 +144,18 @@ export default function Chat() {
   });
 
   const convFor = (id) => conversations.find(c => c.user?.id === id);
+
+  const sortedContacts = [...filtered].sort((a, b) => {
+    const convA = convFor(a.id);
+    const convB = convFor(b.id);
+    const unreadA = convA?.unread || 0;
+    const unreadB = convB?.unread || 0;
+    if (unreadB !== unreadA) return unreadB - unreadA;
+    const timeA = convA?.last_time ? new Date(convA.last_time).getTime() : 0;
+    const timeB = convB?.last_time ? new Date(convB.last_time).getTime() : 0;
+    if (timeB !== timeA) return timeB - timeA;
+    return (a.name || '').localeCompare(b.name || '');
+  });
 
   if (loading) {
     return (
@@ -193,7 +214,7 @@ export default function Chat() {
               {filtered.length === 0 && (
                 <div style={{ padding: 20, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No contacts found</div>
               )}
-              {filtered.map(c => {
+              {sortedContacts.map(c => {
                 const conv = convFor(c.id);
                 const unread = conv?.unread || 0;
                 const isActive = activeId === c.id;
