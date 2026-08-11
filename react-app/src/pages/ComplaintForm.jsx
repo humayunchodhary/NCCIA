@@ -269,23 +269,55 @@ export default function ComplaintForm() {
     }
   }, [id, navigate, showAssignVo, isOperator]);
 
+  const errText = (err) => {
+    if (!err) return '';
+    if (Array.isArray(err)) return err.filter(Boolean).join(' ');
+    if (typeof err === 'object') return Object.values(err).flat().filter(Boolean).join(' ');
+    return String(err);
+  };
+
+  const normalizeEmail = (raw) => {
+    if (!raw) return '';
+    const v = String(raw).trim().replace(/,/g, '.');
+    if (/^(na|n\/a|nil|none|-)$/i.test(v)) return '';
+    return v;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setErrors({});
     setServerError('');
 
+    const fixedEmail = normalizeEmail(form.email);
+    if (fixedEmail !== form.email) {
+      setForm(f => ({ ...f, email: fixedEmail }));
+    }
+
+    const localErrors = {};
+    if (fixedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fixedEmail)) {
+      localErrors.email = 'Email invalid — example: name@gmail.com (dot use karein, comma nahi).';
+    }
+    if (form.cnic && !/^\d{5}-\d{7}-\d$/.test(form.cnic)) {
+      localErrors.cnic = 'CNIC format: XXXXX-XXXXXXX-X';
+    }
+
     const needsVo = form.scrutiny_result === 'complete' && showAssignVo && !hasVerification;
     if (needsVo && !form.verification_officer_id) {
-      setErrors({ verification_officer_id: 'Verification Officer select karein (Complete Registration).' });
-      setServerError('Complete registration ke liye Verification Officer assign karna zaroori hai.');
+      localErrors.verification_officer_id = 'Verification Officer select karein (Complete Registration).';
+    }
+
+    if (Object.keys(localErrors).length) {
+      setErrors(localErrors);
+      setServerError(Object.values(localErrors).join(' '));
       setSaving(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     try {
       const fd = new FormData();
-      const payload = { ...form };
+      const payload = { ...form, email: fixedEmail };
       if (!payload.entry_time) {
         payload.entry_time = new Date().toISOString().slice(0, 16);
       }
@@ -326,11 +358,16 @@ export default function ComplaintForm() {
     } catch (err) {
       const res = err.response?.data;
       if (res?.errors) {
-        setErrors(res.errors);
-        setServerError('Please fix the highlighted fields below.');
+        const flat = {};
+        Object.entries(res.errors).forEach(([k, v]) => {
+          flat[k] = Array.isArray(v) ? v.join(' ') : String(v);
+        });
+        setErrors(flat);
+        setServerError(Object.values(flat).join(' ') || 'Please fix the highlighted fields below.');
       } else {
         setServerError(res?.message || 'Error saving complaint. Please try again.');
       }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSaving(false);
     }
@@ -360,7 +397,7 @@ export default function ComplaintForm() {
         ) : (
           <input type={type} className="cf-input" value={form[field]} onChange={set(field)} placeholder={placeholder} required={required} style={fieldErr ? { borderColor: '#e53e3e' } : {}} />
         )}
-        {fieldErr && <div className="cf-error">{fieldErr}</div>}
+        {fieldErr && <div className="cf-error">{errText(fieldErr)}</div>}
       </div>
     );
   };
@@ -383,7 +420,7 @@ export default function ComplaintForm() {
             </label>
           ))}
         </div>
-        {fieldErr && <div className="cf-error">{fieldErr}</div>}
+        {fieldErr && <div className="cf-error">{errText(fieldErr)}</div>}
       </div>
     );
   };
@@ -398,7 +435,10 @@ export default function ComplaintForm() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
+        {serverError && (
+          <div className="cf-alert cf-alert-error" style={{ marginBottom: 16 }}>{serverError}</div>
+        )}
         <div className="cf-section">
           <div className="cf-section-header">
             <div className="cf-section-icon">
@@ -416,7 +456,7 @@ export default function ComplaintForm() {
               <div className="cf-field">
                 <label className="cf-label required">CNIC</label>
                 <input type="text" className="cf-input" value={form.cnic} onChange={setCNIC} placeholder="XXXXX-XXXXXXX-X" required maxLength={15} />
-                {errors.cnic && <div className="cf-error">{errors.cnic}</div>}
+                {errors.cnic && <div className="cf-error">{errText(errors.cnic)}</div>}
               </div>
               {renderField('Gender', 'gender', { options: GENDER_OPTIONS })}
             </div>
@@ -429,7 +469,7 @@ export default function ComplaintForm() {
                   </select>
                   <input type="text" className="cf-input" value={form.contact_no} onChange={setPhone} placeholder="3XXXXXXXXX" required maxLength={12} style={{ flex: 1 }} />
                 </div>
-                {errors.contact_no && <div className="cf-error">{errors.contact_no}</div>}
+                {errors.contact_no && <div className="cf-error">{errText(errors.contact_no)}</div>}
               </div>
               <div className="cf-field">
                 <label className="cf-label">WhatsApp No</label>
@@ -439,14 +479,24 @@ export default function ComplaintForm() {
                   </select>
                   <input type="text" className="cf-input" value={form.whatsapp_no} onChange={setWhatsApp} placeholder="3XXXXXXXXX" maxLength={12} style={{ flex: 1 }} />
                 </div>
-                {errors.whatsapp_no && <div className="cf-error">{errors.whatsapp_no}</div>}
+                {errors.whatsapp_no && <div className="cf-error">{errText(errors.whatsapp_no)}</div>}
               </div>
             </div>
             <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label">Email</label>
-                <input type="email" className="cf-input" value={form.email} onChange={set('email')} placeholder="example@domain.com" />
-                {errors.email && <div className="cf-error">{errors.email}</div>}
+                <input
+                  type="text"
+                  inputMode="email"
+                  autoComplete="email"
+                  className="cf-input"
+                  value={form.email}
+                  onChange={set('email')}
+                  onBlur={() => setForm(f => ({ ...f, email: normalizeEmail(f.email) }))}
+                  placeholder="name@gmail.com"
+                  style={errors.email ? { borderColor: '#e53e3e' } : {}}
+                />
+                {errors.email && <div className="cf-error">{errText(errors.email)}</div>}
               </div>
               {renderField('Profession', 'profession')}
             </div>
@@ -585,7 +635,7 @@ export default function ComplaintForm() {
                     </div>
                     <div className="cf-field">
                       <label className="cf-label">Email</label>
-                      <input type="email" className="cf-input" value={a.email} onChange={e => updateInitialAccused(i, 'email', e.target.value)} placeholder="email@example.com" />
+                      <input type="text" inputMode="email" className="cf-input" value={a.email} onChange={e => updateInitialAccused(i, 'email', e.target.value)} placeholder="email@example.com" />
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

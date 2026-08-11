@@ -23,7 +23,7 @@ class UpdateComplaintRequest extends FormRequest
             'contact_no'              => 'required|string|max:20',
             'whatsapp_no'             => 'nullable|string|max:20',
             'gender'                  => 'nullable|string|max:20',
-            'email'                   => 'nullable|email|max:255',
+            'email'                   => 'nullable|email:filter|max:255',
             'contact_country_code'    => 'nullable|string|max:8',
             'nationality'             => 'nullable|string|max:50',
             'passport_no'             => 'nullable|string|max:50|required_if:nationality,Dual Nationality Holder|required_if:nationality,Foreigner',
@@ -82,11 +82,33 @@ class UpdateComplaintRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->has('email') && is_string($this->email)) {
+            $email = trim(str_replace(',', '.', $this->email));
+            if ($email === '' || preg_match('/^(na|n\/a|nil|none|-)$/i', $email)) {
+                $this->merge(['email' => null]);
+            } else {
+                $this->merge(['email' => $email]);
+            }
+        }
+
+        foreach (['platform_email_involved', 'platform_username', 'platform_profile_page', 'platform_mobile_involved'] as $field) {
+            if ($this->has($field) && is_string($this->$field) && preg_match('/^(na|n\/a|nil|none|-)$/i', trim($this->$field))) {
+                $this->merge([$field => null]);
+            }
+        }
+
         if ($this->has('initial_accused') && is_string($this->initial_accused)) {
             $decoded = json_decode($this->initial_accused, true);
             if (json_last_error() === JSON_ERROR_NONE) {
                 $this->merge(['initial_accused' => $decoded]);
             }
         }
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email.email' => 'Email invalid hai — example: name@gmail.com (comma nahi, dot use karein).',
+        ];
     }
 }

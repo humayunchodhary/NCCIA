@@ -92,6 +92,20 @@ class ComplaintController extends Controller
 
     public function store(StoreComplaintRequest $request)
     {
+        try {
+            return $this->storeComplaint($request);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (str_contains($e->getMessage(), 'Unknown column') || str_contains($e->getMessage(), 'no such column')) {
+                return response()->json([
+                    'message' => 'Database columns missing. Server pe chalao: php artisan migrate --force',
+                ], 500);
+            }
+            throw $e;
+        }
+    }
+
+    private function storeComplaint(StoreComplaintRequest $request)
+    {
         $data = $request->validated();
         $officerId = $data['verification_officer_id'] ?? null;
         $assignPriority = $data['assign_priority_type'] ?? ($data['priority_type'] ?? 'normal');
