@@ -14,6 +14,112 @@ use Illuminate\Support\Facades\DB;
 
 class CaseFileController extends Controller
 {
+    private function decodeArrayField(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return [];
+    }
+
+    /** Frontend sends `activities`; legacy/forms use `actions`. */
+    private function normalizeActions(Request $request, array $data): array
+    {
+        $raw = $data['actions'] ?? $request->input('activities') ?? [];
+
+        return $this->decodeArrayField($raw);
+    }
+
+    private function normalizeArrests(array $data): array
+    {
+        return $this->decodeArrayField($data['arrests'] ?? []);
+    }
+
+    private function syncLegalOpinions(CaseFile $caseFile, array $opinions, int $userId): void
+    {
+        $keep = [];
+
+        foreach ($opinions as $opinion) {
+            if (!is_array($opinion)) {
+                continue;
+            }
+
+            $role = $opinion['role'] ?? null;
+            if (!$role) {
+                continue;
+            }
+
+            $attrs = [
+                'role'         => $role,
+                'opinion_text' => $opinion['opinion_text'] ?? '',
+                'decision'     => $opinion['decision'] ?? '',
+                'created_by'   => $opinion['created_by'] ?? $userId,
+            ];
+
+            if (!empty($opinion['id'])) {
+                $existing = CaseLegalOpinion::where('case_id', $caseFile->id)->whereKey($opinion['id'])->first();
+                if ($existing) {
+                    $existing->update($attrs);
+                    $keep[] = $existing->id;
+                    continue;
+                }
+            }
+
+            $model = $caseFile->legalOpinions()->create($attrs);
+            $keep[] = $model->id;
+        }
+
+        if ($keep) {
+            $caseFile->legalOpinions()->whereNotIn('id', $keep)->delete();
+        }
+    }
+
+    private function syncApprovals(CaseFile $caseFile, array $approvals, int $userId): void
+    {
+        $keep = [];
+
+        foreach ($approvals as $approval) {
+            if (!is_array($approval)) {
+                continue;
+            }
+
+            if (empty($approval['decision'])) {
+                continue;
+            }
+
+            $inchargeId = $approval['circle_incharge_id'] ?? $userId;
+
+            $attrs = [
+                'circle_incharge_id' => $inchargeId,
+                'decision'           => $approval['decision'],
+                'remarks'            => $approval['remarks'] ?? null,
+            ];
+
+            if (!empty($approval['id'])) {
+                $existing = CaseApproval::where('case_id', $caseFile->id)->whereKey($approval['id'])->first();
+                if ($existing) {
+                    $existing->update($attrs);
+                    $keep[] = $existing->id;
+                    continue;
+                }
+            }
+
+            $model = $caseFile->approvals()->create($attrs);
+            $keep[] = $model->id;
+        }
+
+        if ($keep) {
+            $caseFile->approvals()->whereNotIn('id', $keep)->delete();
+        }
+    }
+
     public function index()
     {
         $query = CaseFile::visibleTo(request()->user())->with('enquiry', 'investigationOfficer');
@@ -35,6 +141,8 @@ class CaseFileController extends Controller
 
     public function store(Request $request, FirNumberGenerator $gen)
     {
+        $this->authorize('create', CaseFile::class);
+
         $data = $request->validate([
             'enquiry_id'              => 'required|integer|exists:enquiries,id',
             'fir_no'                  => 'nullable|string|unique:cases,fir_no',
@@ -44,8 +152,11 @@ class CaseFileController extends Controller
             'transfer_department'     => 'nullable|string|max:255',
             'transfer_circle'         => 'nullable|string|max:255',
             'merge_complaint_id'      => 'nullable|string|max:255',
-            'actions'                 => 'nullable|string',
-            'arrests'                 => 'nullable|string',
+            'actions'                 => 'nullable',
+            'activities'              => 'nullable',
+            'arrests'                 => 'nullable',
+            'legal_opinions'          => 'nullable',
+            'approvals'               => 'nullable',
             'ad_legal_opinion'       => 'nullable|string',
             'add_director_decision'  => 'nullable|string',
             'dd_legal_opinion'       => 'nullable|string',
@@ -53,15 +164,10 @@ class CaseFileController extends Controller
             'incharge_remarks'       => 'nullable|string',
         ]);
 
-        // Decode JSON string arrays from FormData
-        foreach (['actions', 'arrests'] as $field) {
-            if (!empty($data[$field])) {
-                $decoded = json_decode($data[$field], true);
-                $data[$field] = is_array($decoded) ? $decoded : [];
-            } else {
-                $data[$field] = [];
-            }
-        }
+        $actions = $this->normalizeActions($request, $data);
+        $arrests = $this->normalizeArrests($data);
+        $legalOpinions = $this->decodeArrayField($data['legal_opinions'] ?? []);
+        $approvals = $this->decodeArrayField($data['approvals'] ?? []);
 
         $caseFile = DB::transaction(function () use ($data, $request, $gen) {
             $enquiry = Enquiry::findOrFail($data['enquiry_id']);
@@ -74,7 +180,7 @@ class CaseFileController extends Controller
             ]);
 
             // Create activities from checked actions
-            if (!empty($data['actions'])) {
+            if (!empty($actions)) {
                 $actionTypes = [
                     'dac_request'   => 'DAC Request',
                     'mobile_record' => 'Mobile Record Obtained',
@@ -87,21 +193,30 @@ class CaseFileController extends Controller
                     'raid'          => 'Raid Conducted',
                 ];
 
-                foreach ($data['actions'] as $action) {
-                    $description = $actionTypes[$action] ?? $action;
+                foreach ($actions as $action) {
+                    $type = is_array($action) ? ($action['type'] ?? null) : $action;
+                    if (!$type) {
+                        continue;
+                    }
+                    $description = $actionTypes[$type] ?? $type;
+                    if (is_array($action) && !empty($action['description'])) {
+                        $description = $action['description'];
+                    }
                     CaseActivity::create([
                         'case_id'       => $caseFile->id,
-                        'type'          => $action,
+                        'type'          => $type,
                         'description'   => $description,
-                        'activity_date' => now(),
+                        'activity_date' => is_array($action) && !empty($action['activity_date'])
+                            ? $action['activity_date']
+                            : now(),
                         'created_by'    => $request->user()->id,
                     ]);
                 }
             }
 
             // Create arrests
-            if (!empty($data['arrests'])) {
-                foreach ($data['arrests'] as $a) {
+            if (!empty($arrests)) {
+                foreach ($arrests as $a) {
                     $caseFile->arrests()->create([
                         'accused_name'   => $a['accused_name'],
                         'cnic'           => $a['cnic'],
@@ -152,6 +267,14 @@ class CaseFileController extends Controller
                 ]);
             }
 
+            if (!empty($legalOpinions)) {
+                $this->syncLegalOpinions($caseFile, $legalOpinions, $request->user()->id);
+            }
+
+            if (!empty($approvals)) {
+                $this->syncApprovals($caseFile, $approvals, $request->user()->id);
+            }
+
             return $caseFile;
         });
 
@@ -183,16 +306,22 @@ class CaseFileController extends Controller
             CaseFile::visibleTo($request->user())->whereKey($caseFile->id)->exists(),
             404
         );
+        $this->authorize('update', $caseFile);
 
         $data = $request->validate([
+            'enquiry_id'               => 'nullable|integer|exists:enquiries,id',
             'fir_no'                   => 'nullable|string|unique:cases,fir_no,' . $caseFile->id,
             'investigation_officer_id' => 'nullable|integer|exists:users,id',
             'status'                   => 'nullable|string|max:50',
             'recommendation'           => 'nullable|string|max:30',
             'transfer_department'      => 'nullable|string|max:255',
             'transfer_circle'          => 'nullable|string|max:255',
-            'actions'                  => 'nullable|string',
-            'arrests'                  => 'nullable|string',
+            'merge_complaint_id'       => 'nullable|string|max:255',
+            'actions'                  => 'nullable',
+            'activities'               => 'nullable',
+            'arrests'                  => 'nullable',
+            'legal_opinions'           => 'nullable',
+            'approvals'                => 'nullable',
             'ad_legal_opinion'         => 'nullable|string',
             'add_director_decision'    => 'nullable|string',
             'dd_legal_opinion'         => 'nullable|string',
@@ -200,26 +329,30 @@ class CaseFileController extends Controller
             'incharge_remarks'         => 'nullable|string',
         ]);
 
-        foreach (['actions', 'arrests'] as $field) {
-            if (!empty($data[$field]) && is_string($data[$field])) {
-                $decoded = json_decode($data[$field], true);
-                $data[$field] = is_array($decoded) ? $decoded : [];
-            } elseif (!isset($data[$field])) {
-                $data[$field] = [];
-            }
-        }
+        $actions = $this->normalizeActions($request, $data);
+        $arrests = $this->normalizeArrests($data);
+        $legalOpinions = $this->decodeArrayField($data['legal_opinions'] ?? []);
+        $approvals = $this->decodeArrayField($data['approvals'] ?? []);
 
-        DB::transaction(function () use ($caseFile, $data, $request) {
-            $caseFile->update(array_filter([
-                'fir_no'                   => $data['fir_no'] ?? null,
-                'investigation_officer_id' => $data['investigation_officer_id'] ?? null,
+        DB::transaction(function () use ($caseFile, $data, $request, $actions, $arrests, $legalOpinions, $approvals) {
+            $updates = array_filter([
+                'enquiry_id'               => $data['enquiry_id'] ?? null,
+                'fir_no'                   => array_key_exists('fir_no', $data) ? $data['fir_no'] : null,
+                'investigation_officer_id' => array_key_exists('investigation_officer_id', $data)
+                    ? ($data['investigation_officer_id'] ?: null)
+                    : null,
                 'status'                   => $data['status'] ?? null,
-                'recommendation'           => $data['recommendation'] ?? null,
-                'transfer_department'      => $data['transfer_department'] ?? null,
-                'transfer_circle'          => $data['transfer_circle'] ?? null,
-            ], fn ($v) => $v !== null));
+                'recommendation'           => array_key_exists('recommendation', $data) ? ($data['recommendation'] ?: null) : null,
+                'transfer_department'      => array_key_exists('transfer_department', $data) ? ($data['transfer_department'] ?: null) : null,
+                'transfer_circle'          => array_key_exists('transfer_circle', $data) ? ($data['transfer_circle'] ?: null) : null,
+                'merge_complaint_id'       => array_key_exists('merge_complaint_id', $data) ? ($data['merge_complaint_id'] ?: null) : null,
+            ], fn ($v) => $v !== null);
 
-            if (!empty($data['actions'])) {
+            if ($updates) {
+                $caseFile->update($updates);
+            }
+
+            if (!empty($actions)) {
                 $actionTypes = [
                     'dac_request'     => 'DAC Request',
                     'mobile_record'   => 'Mobile Record Obtained',
@@ -231,29 +364,39 @@ class CaseFileController extends Controller
                     'recovery'        => 'Recovery Effected',
                     'raid'            => 'Raid Conducted',
                 ];
-                foreach ($data['actions'] as $action) {
+                foreach ($actions as $action) {
                     $type = is_array($action) ? ($action['type'] ?? null) : $action;
                     if (!$type) {
                         continue;
                     }
-                    $exists = $caseFile->activities()->where('type', $type)->exists();
-                    if ($exists) {
+                    $existing = $caseFile->activities()->where('type', $type)->first();
+                    $description = is_array($action) && !empty($action['description'])
+                        ? $action['description']
+                        : ($actionTypes[$type] ?? $type);
+                    $activityDate = is_array($action) && !empty($action['activity_date'])
+                        ? $action['activity_date']
+                        : now();
+
+                    if ($existing) {
+                        $existing->update([
+                            'description'   => $description,
+                            'activity_date' => $activityDate,
+                        ]);
                         continue;
                     }
+
                     CaseActivity::create([
                         'case_id'       => $caseFile->id,
                         'type'          => $type,
-                        'description'   => is_array($action) && !empty($action['description'])
-                            ? $action['description']
-                            : ($actionTypes[$type] ?? $type),
-                        'activity_date' => now(),
+                        'description'   => $description,
+                        'activity_date' => $activityDate,
                         'created_by'    => $request->user()->id,
                     ]);
                 }
             }
 
-            if (!empty($data['arrests'])) {
-                foreach ($data['arrests'] as $a) {
+            if (!empty($arrests)) {
+                foreach ($arrests as $a) {
                     if (empty($a['accused_name'])) {
                         continue;
                     }
@@ -264,6 +407,14 @@ class CaseFileController extends Controller
                         'remand_details' => $a['remand_details'] ?? null,
                     ]);
                 }
+            }
+
+            if (!empty($legalOpinions)) {
+                $this->syncLegalOpinions($caseFile, $legalOpinions, $request->user()->id);
+            }
+
+            if (!empty($approvals)) {
+                $this->syncApprovals($caseFile, $approvals, $request->user()->id);
             }
 
             if (!empty($data['ad_legal_opinion'])) {
@@ -298,7 +449,7 @@ class CaseFileController extends Controller
                     'case_id'            => $caseFile->id,
                     'circle_incharge_id' => $request->user()->id,
                     'decision'           => $data['incharge_approval'],
-                    'remarks'           => $data['incharge_remarks'] ?? null,
+                    'remarks'            => $data['incharge_remarks'] ?? null,
                 ]);
             }
         });

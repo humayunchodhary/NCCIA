@@ -81,10 +81,43 @@ export default function CaseForm() {
     if (id) {
       api.get(`/cases/${id}`).then(r => {
         const d = r.data.data || r.data;
-        if (d.enquiry) {
-          d.enquiry_id = d.enquiry.id;
-        }
-        setForm(f => ({ ...f, ...d }));
+        setForm({
+          enquiry_id: d.enquiry_id || d.enquiry?.id || '',
+          fir_no: d.fir_no || '',
+          investigation_officer_id: d.investigation_officer_id || '',
+          status: d.status || 'registered',
+          recommendation: d.recommendation || '',
+          transfer_department: d.transfer_department || '',
+          transfer_circle: d.transfer_circle || '',
+          merge_complaint_id: d.merge_complaint_id || '',
+          activities: (d.activities || []).map(a => ({
+            id: a.id,
+            type: a.type || '',
+            description: a.description || '',
+            activity_date: a.activity_date ? String(a.activity_date).slice(0, 10) : '',
+            attachment: null,
+          })),
+          arrests: (d.arrests || []).map(a => ({
+            id: a.id,
+            accused_name: a.accused_name || '',
+            cnic: a.cnic || '',
+            arrest_date: a.arrest_date ? String(a.arrest_date).slice(0, 10) : '',
+            remand_details: a.remand_details || '',
+          })),
+          legal_opinions: (d.legal_opinions || []).map(lo => ({
+            id: lo.id,
+            role: lo.role || '',
+            opinion_text: lo.opinion_text || '',
+            decision: lo.decision || '',
+            created_by: lo.created_by || '',
+          })),
+          approvals: (d.approvals || []).map(ap => ({
+            id: ap.id,
+            circle_incharge_id: ap.circle_incharge_id || '',
+            decision: ap.decision || '',
+            remarks: ap.remarks || '',
+          })),
+        });
       }).catch(() => navigate('/cases'));
     }
   }, [id, navigate]);
@@ -112,26 +145,39 @@ export default function CaseForm() {
   const removeApproval = (i) => setForm(f => ({ ...f, approvals: f.approvals.filter((_, idx) => idx !== i) }));
   const updateApproval = (i, field, value) => setForm(f => ({ ...f, approvals: f.approvals.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
+  const buildPayload = () => ({
+    enquiry_id: form.enquiry_id || undefined,
+    fir_no: form.fir_no || undefined,
+    investigation_officer_id: form.investigation_officer_id || undefined,
+    status: form.status,
+    recommendation: form.recommendation || undefined,
+    transfer_department: form.transfer_department || undefined,
+    transfer_circle: form.transfer_circle || undefined,
+    merge_complaint_id: form.merge_complaint_id || undefined,
+    activities: form.activities
+      .filter(a => a.type)
+      .map(a => ({
+        id: a.id,
+        type: a.type,
+        description: a.description,
+        activity_date: a.activity_date,
+      })),
+    arrests: form.arrests.filter(a => a.accused_name),
+    legal_opinions: form.legal_opinions.filter(lo => lo.role),
+    approvals: form.approvals.filter(ap => ap.decision),
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setErrors({});
     setServerError('');
     try {
-      const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => {
-        if (['activities', 'arrests', 'legal_opinions', 'approvals'].includes(k)) {
-          if (Array.isArray(v) && v.length > 0) fd.append(k, JSON.stringify(v));
-          return;
-        }
-        if (v !== null && v !== undefined && v !== '') {
-          fd.append(k, v);
-        }
-      });
+      const payload = buildPayload();
       if (id) {
-        await api.put(`/cases/${id}`, fd);
+        await api.put(`/cases/${id}`, payload);
       } else {
-        await api.post('/cases', fd);
+        await api.post('/cases', payload);
       }
       navigate('/cases');
     } catch (err) {

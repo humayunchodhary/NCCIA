@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
+import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration } from '../utils/permissions';
 
 const ENQUIRY_STATUS = [
   { value: 'registered', name: 'Registered (Reader Branch)' },
@@ -118,12 +119,19 @@ export default function EnquiryForm() {
   const [forensicFile, setForensicFile] = useState(null);
   const [technicalReportUrl, setTechnicalReportUrl] = useState('');
   const [forensicReportUrl, setForensicReportUrl] = useState('');
+  const [caseFileId, setCaseFileId] = useState(null);
+  const [ioOfficers, setIoOfficers] = useState([]);
+  const [registerIoId, setRegisterIoId] = useState('');
+  const [registerRemarks, setRegisterRemarks] = useState('');
+  const [registerSaving, setRegisterSaving] = useState(false);
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
+  const canRegisterCase = canRegisterCaseFromEnquiry(user);
   const canSubmitCfr = !!id
     && ['registered', 'assigned', 'in_progress'].includes(form.status)
     && roleNames.some(r => ['admin', 'circle_incharge', 'enquiry_officer'].includes(r));
+  const showRegisterCase = !!id && canRegisterCase && enquiryReadyForCaseRegistration({ status: form.status, case_file_id: caseFileId });
 
   const officerName = officers.find(o => String(o.value) === String(form.enquiry_officer_id))?.name || '';
   const recName = RECOMMENDATIONS.find(o => o.value === form.recommendation)?.name || '';
@@ -136,7 +144,13 @@ export default function EnquiryForm() {
     api.get('/lookup/legal-officers').then(r => setLegalOfficers(r.data.data || r.data)).catch(() => {});
     api.get('/lookup/circles').then(r => setCircles(r.data.data || r.data)).catch(() => {});
     api.get('/lookup/circle-incharges').then(r => { const d = r.data.data || r.data; setCircleIncharges(Array.isArray(d) ? d : []); }).catch(() => {});
-  }, []);
+    if (canRegisterCaseFromEnquiry(user)) {
+      api.get('/lookup/investigation-officers').then(r => {
+        const d = r.data.data || r.data;
+        setIoOfficers((Array.isArray(d) ? d : []).map(o => ({ value: o.id, name: o.name + (o.designation ? ' (' + o.designation + ')' : '') })));
+      }).catch(() => {});
+    }
+  }, [user]);
 
   useEffect(() => {
     if (id) {
@@ -144,6 +158,7 @@ export default function EnquiryForm() {
         const d = r.data.data || r.data;
         if (d.technical_report_attachment) setTechnicalReportUrl(d.technical_report_attachment);
         if (d.forensic_report_attachment) setForensicReportUrl(d.forensic_report_attachment);
+        setCaseFileId(d.case_file_id || d.case_file?.id || null);
         const toDate = (v) => (v ? String(v).slice(0, 10) : '');
         setForm(f => ({
           ...f,
@@ -367,6 +382,31 @@ export default function EnquiryForm() {
       }
     } finally {
       setSubmittingCfr(false);
+    }
+  };
+
+  const handleRegisterCase = async () => {
+    if (!id) return;
+    setRegisterSaving(true);
+    setServerError('');
+    try {
+      const res = await api.post(`/enquiries/${id}/register-case`, {
+        investigation_officer_id: registerIoId || undefined,
+        remarks: registerRemarks || undefined,
+      });
+      const caseFile = res.data?.data?.case_file;
+      const enquiry = res.data?.data?.enquiry;
+      if (enquiry?.status) setForm(f => ({ ...f, status: enquiry.status, recommendation: 'convert_to_case' }));
+      if (caseFile?.id) {
+        setCaseFileId(caseFile.id);
+        navigate(`/cases/${caseFile.id}/edit`);
+      } else {
+        navigate('/enquiries');
+      }
+    } catch (err) {
+      setServerError(err.response?.data?.message || 'Case registration failed. Please try again.');
+    } finally {
+      setRegisterSaving(false);
     }
   };
 
@@ -880,6 +920,34 @@ export default function EnquiryForm() {
           </div>
         )}
 
+        {showRegisterCase && (
+          <div style={{ marginTop: 16, padding: '14px 16px', background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46', marginBottom: 8 }}>Case / FIR Registration</div>
+            <p style={{ fontSize: 13, color: '#047857', marginBottom: 12 }}>
+              Enquiry complete ho chuki hai. Neeche se case register karein — FIR number auto generate hoga.
+            </p>
+            <div className="cf-row-2" style={{ marginBottom: 12 }}>
+              <div className="cf-field">
+                <label className="cf-label">Investigation Officer (optional)</label>
+                <select className="cf-input" value={registerIoId} onChange={e => setRegisterIoId(e.target.value)}>
+                  <option value="">Select IO...</option>
+                  {ioOfficers.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                </select>
+              </div>
+              <div className="cf-field">
+                <label className="cf-label">Remarks</label>
+                <input type="text" className="cf-input" value={registerRemarks} onChange={e => setRegisterRemarks(e.target.value)} placeholder="Optional remarks" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {caseFileId && (
+          <div style={{ marginTop: 16, padding: '12px 14px', background: '#f0fff4', border: '1px solid #9ae6b4', borderRadius: 8, fontSize: 13, color: '#276749' }}>
+            Case already registered. <Link to={`/cases/${caseFileId}/edit`} style={{ fontWeight: 700, color: '#015C94' }}>View Case →</Link>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20, flexWrap: 'wrap' }}>
           <Link to="/enquiries" className="btn btn-outline">Cancel</Link>
           <button
@@ -894,11 +962,22 @@ export default function EnquiryForm() {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={saving || submittingCfr}
+              disabled={saving || submittingCfr || registerSaving}
               onClick={handleSubmitCfr}
               style={{ background: '#015C94', color: '#fff', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(1,92,148,0.35)' }}
             >
               {submittingCfr ? 'Submitting...' : 'Submit CFR'}
+            </button>
+          )}
+          {showRegisterCase && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={saving || submittingCfr || registerSaving}
+              onClick={handleRegisterCase}
+              style={{ background: '#059669', color: '#fff', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(5,150,105,0.35)' }}
+            >
+              {registerSaving ? 'Registering...' : 'Register Case / FIR'}
             </button>
           )}
         </div>

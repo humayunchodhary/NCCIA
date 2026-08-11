@@ -73,4 +73,30 @@ class EnquiryPolicy
     {
         return $user->hasRole('admin');
     }
+
+    /**
+     * Register enquiry as DAC case/FIR (Circle Incharge, legal chain, Moharrar, Admin).
+     */
+    public function registerCase(User $user, Enquiry $enquiry): bool
+    {
+        if (!$this->canAccessEnquiryModule($user)) {
+            return false;
+        }
+
+        if (!$user->hasAnyRole([
+            'admin', 'circle_incharge', 'moharrar',
+            'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+        ])) {
+            return false;
+        }
+
+        if ($enquiry->hasRegisteredCase()) {
+            return false;
+        }
+
+        return in_array($enquiry->status, [
+            'cfr_submitted', 'approved', 'referred_court', 'in_progress',
+            'legal_review_dd', 'legal_review_ad', 'legal_review_dg',
+        ], true);
+    }
 }

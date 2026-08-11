@@ -22,17 +22,22 @@ class CaseFilePolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['admin', 'circle_incharge']);
+        return $user->hasAnyRole([
+            'admin', 'circle_incharge', 'moharrar',
+            'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+        ]);
     }
 
     public function update(User $user, CaseFile $caseFile): bool
     {
         if ($user->hasRole('investigation_officer')) {
-            return $caseFile->investigation_officer_id === $user->id;
+            return (int) $caseFile->investigation_officer_id === (int) $user->id;
         }
-        if ($user->hasRole('admin')) return true;
-        if ($user->hasRole('circle_incharge')) return true;
-        return false;
+
+        return $user->hasAnyRole([
+            'admin', 'circle_incharge', 'moharrar',
+            'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+        ]);
     }
 
     public function delete(User $user, CaseFile $caseFile): bool

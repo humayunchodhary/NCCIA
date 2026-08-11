@@ -13,6 +13,7 @@ use App\Models\EnquiryWitness;
 use App\Models\EnquiryNotice;
 use App\Notifications\EnquiryAssignedNotification;
 use App\Notifications\NoticeNonAppearanceNotification;
+use App\Notifications\CaseAssignedNotification;
 use App\Services\EnquiryNumberGenerator;
 use App\Services\FirNumberGenerator;
 use App\Services\PrintService;
@@ -420,7 +421,7 @@ class EnquiryController extends Controller
     {
         $this->authorize('viewAny', Enquiry::class);
 
-        $query = Enquiry::visibleTo(request()->user())->with('complaint', 'officer');
+        $query = Enquiry::visibleTo(request()->user())->with('complaint', 'officer', 'caseFile');
 
         if ($search = request('search')) {
             $query->whereHas('complaint', function ($q) use ($search) {
@@ -470,7 +471,7 @@ class EnquiryController extends Controller
     {
         $this->authorize('view', $enquiry);
 
-        $enquiry->load('complaint', 'officer', 'activities.creator', 'legalOpinions.creator', 'approvals.circleIncharge', 'witnesses', 'notices');
+        $enquiry->load('complaint', 'officer', 'caseFile', 'activities.creator', 'legalOpinions.creator', 'approvals.circleIncharge', 'witnesses', 'notices');
         return response()->json($enquiry);
     }
 
@@ -814,9 +815,79 @@ class EnquiryController extends Controller
         return response()->json([
             'message' => 'Enquiry ' . ($data['decision'] === 'agree' ? 'approved' : 'sent for review'),
             'data'    => [
-                'enquiry'  => $enquiry->fresh()->load('approvals'),
+                'enquiry'  => $enquiry->fresh()->load('approvals', 'caseFile'),
                 'approval' => $approval,
             ],
         ]);
+    }
+
+    public function registerCase(Request $request, Enquiry $enquiry)
+    {
+        $this->authorize('registerCase', $enquiry);
+
+        $request->merge([
+            'investigation_officer_id' => $request->input('investigation_officer_id') ?: null,
+        ]);
+
+        $data = $request->validate([
+            'investigation_officer_id' => 'nullable|integer|exists:users,id',
+            'remarks'                  => 'nullable|string|max:2000',
+        ]);
+
+        try {
+            $caseFile = DB::transaction(function () use ($enquiry, $data, $request) {
+                $complaint  = $enquiry->complaint()->with('circle')->first();
+                $circleCode = $complaint?->circle?->code;
+                $gen        = app(FirNumberGenerator::class);
+
+                $caseFile = CaseFile::create([
+                    'enquiry_id'               => $enquiry->id,
+                    'fir_no'                   => $gen->generate($circleCode),
+                    'investigation_officer_id' => $data['investigation_officer_id'] ?? null,
+                    'status'                   => 'registered',
+                ]);
+
+                $enquiry->update([
+                    'status'         => 'converted_to_case',
+                    'recommendation' => 'convert_to_case',
+                    'case_file_id'   => $caseFile->id,
+                    'approved_at'    => $enquiry->approved_at ?? now(),
+                ]);
+
+                if ($complaint) {
+                    $complaint->update([
+                        'status'       => 'case_registered',
+                        'final_status' => 'case_registered',
+                    ]);
+                }
+
+                EnquiryApproval::create([
+                    'enquiry_id'         => $enquiry->id,
+                    'circle_incharge_id' => $request->user()->id,
+                    'decision'           => 'agree',
+                    'remarks'            => $data['remarks'] ?? 'Case registered via Register Case action',
+                ]);
+
+                return $caseFile;
+            });
+
+            if ($caseFile->investigation_officer_id) {
+                $caseFile->investigationOfficer?->notify(new CaseAssignedNotification($caseFile));
+            }
+
+            return response()->json([
+                'message' => 'Case/FIR registered — ' . $caseFile->fir_no,
+                'data'    => [
+                    'enquiry'   => $enquiry->fresh()->load('caseFile', 'complaint'),
+                    'case_file' => $caseFile->load('enquiry.complaint', 'investigationOfficer'),
+                ],
+            ], 201);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Case registration failed: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

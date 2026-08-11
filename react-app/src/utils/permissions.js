@@ -118,6 +118,34 @@ export function canAssignVerification(user) {
   return hasAnyRole(user, ['admin', 'circle_incharge', 'operator']);
 }
 
+/** Enquiry → Case/FIR registration (Circle Incharge, legal chain, Moharrar, DG). */
+export function canRegisterCaseFromEnquiry(user) {
+  return hasAnyRole(user, [
+    'admin', 'circle_incharge', 'moharrar',
+    'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+  ]);
+}
+
+export function canUpdateCase(user) {
+  return hasAnyRole(user, [
+    'admin', 'circle_incharge', 'moharrar',
+    'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+    'investigation_officer',
+  ]);
+}
+
+export const ENQUIRY_CASE_REGISTER_STATUSES = [
+  'cfr_submitted', 'approved', 'referred_court', 'in_progress',
+  'legal_review_dd', 'legal_review_ad', 'legal_review_dg',
+];
+
+export function enquiryReadyForCaseRegistration(enquiry) {
+  if (!enquiry || enquiry.case_file_id || enquiry.case_file?.id) {
+    return false;
+  }
+  return ENQUIRY_CASE_REGISTER_STATUSES.includes(enquiry.status);
+}
+
 export function getRoleDuties(user) {
   const roles = user?.roles?.map?.(r => r.name || r) || [user?.role].filter(Boolean);
   const primary = roles[0] || 'operator';

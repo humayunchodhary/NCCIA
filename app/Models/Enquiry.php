@@ -119,6 +119,20 @@ class Enquiry extends Model
         return $this->hasMany(EnquiryNotice::class);
     }
 
+    public function caseFile(): BelongsTo
+    {
+        return $this->belongsTo(CaseFile::class, 'case_file_id');
+    }
+
+    public function hasRegisteredCase(): bool
+    {
+        if ($this->case_file_id) {
+            return true;
+        }
+
+        return CaseFile::where('enquiry_id', $this->id)->exists();
+    }
+
     /**
      * Number of notices on this enquiry where the person failed to appear.
      */

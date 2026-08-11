@@ -87,6 +87,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->middleware('role:admin,circle_incharge,enquiry_officer');
     Route::post('/enquiries/{enquiry}/approve', [EnquiryController::class, 'approve'])
         ->middleware('role:admin,circle_incharge');
+    Route::post('/enquiries/{enquiry}/register-case', [EnquiryController::class, 'registerCase'])
+        ->middleware('role:admin,circle_incharge,moharrar,ad_legal,dd_legal,additional_director,director_general');
     Route::post('/enquiries/{enquiry}/change-officer', [EnquiryController::class, 'changeOfficer'])
         ->middleware('role:admin,circle_incharge');
 

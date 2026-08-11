@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import SearchableSelect from '../components/SearchableSelect';
 import WorkflowProgress, { enquiryProgress } from '../components/WorkflowProgress';
+import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration } from '../utils/permissions';
 
 const STATUS_COLORS = {
   registered: 'badge-pending',
@@ -33,6 +34,7 @@ const STATUS_LABELS = {
 
 export default function Enquiries() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, pending: 0, progress: 0, approved: 0 });
@@ -64,7 +66,14 @@ export default function Enquiries() {
   const [changeOfficerId, setChangeOfficerId] = useState('');
   const [changeSaving, setChangeSaving] = useState(false);
 
+  // Register Case modal
+  const [registerTarget, setRegisterTarget] = useState(null);
+  const [registerForm, setRegisterForm] = useState({ investigation_officer_id: '', remarks: '' });
+  const [ioOfficers, setIoOfficers] = useState([]);
+  const [registerSaving, setRegisterSaving] = useState(false);
+
   const hasRole = (roleName) => user?.roles?.some(r => r.name === roleName);
+  const canRegisterCase = canRegisterCaseFromEnquiry(user);
 
   const fetchData = useCallback((p = page) => {
     setLoading(true);
@@ -163,6 +172,39 @@ export default function Enquiries() {
     finally { setChangeSaving(false); }
   };
 
+  // ── Register Case ──
+  const openRegisterCase = (e) => {
+    api.get('/lookup/investigation-officers').then(r => {
+      const all = r.data.data || r.data;
+      setIoOfficers(Array.isArray(all) ? all : []);
+    }).catch(() => {});
+    setRegisterTarget(e);
+    setRegisterForm({ investigation_officer_id: '', remarks: '' });
+  };
+
+  const handleRegisterCase = async () => {
+    if (!registerTarget) return;
+    setRegisterSaving(true);
+    try {
+      const res = await api.post(`/enquiries/${registerTarget.id}/register-case`, {
+        investigation_officer_id: registerForm.investigation_officer_id || undefined,
+        remarks: registerForm.remarks || undefined,
+      });
+      const caseFile = res.data?.data?.case_file;
+      fetchData();
+      setRegisterTarget(null);
+      if (caseFile?.id) {
+        navigate(`/cases/${caseFile.id}/edit`);
+      } else {
+        alert(res.data?.message || 'Case registered successfully');
+      }
+    } catch (e) {
+      alert(e.response?.data?.message || 'Case registration failed');
+    } finally {
+      setRegisterSaving(false);
+    }
+  };
+
   const filteredList = list;
 
   return (
@@ -252,6 +294,18 @@ export default function Enquiries() {
                               Review
                             </button>
                           )}
+
+                          {canRegisterCase && enquiryReadyForCaseRegistration(e) && (
+                            <button onClick={() => openRegisterCase(e)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.18)',color:'#015C94',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:700}} title="Register Case/FIR">
+                              Register Case
+                            </button>
+                          )}
+
+                          {e.case_file_id || e.case_file?.id ? (
+                            <Link to={`/cases/${e.case_file_id || e.case_file.id}/edit`} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600,textDecoration:'none'}} title="View registered case">
+                              View Case
+                            </Link>
+                          ) : null}
 
                           {(hasRole('admin') || hasRole('circle_incharge')) && (
                             <button onClick={() => openChange(e)} className="btn btn-sm" style={{background:'rgba(128,90,213,0.12)',color:'#805ad5',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Change Officer">
@@ -403,6 +457,40 @@ export default function Enquiries() {
               <button className="btn btn-outline" onClick={() => setApproveTarget(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleApprove} disabled={approveSaving || !approveForm.decision || !approveForm.recommendation}>
                 {approveSaving ? 'Processing...' : (approveForm.decision === 'agree' ? 'Approve' : 'Send Back')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Register Case Modal ── */}
+      {registerTarget && (
+        <div className="modal-overlay" onClick={() => setRegisterTarget(null)}>
+          <div className="modal-container" style={{maxWidth:540}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header"><h3>Register Case / FIR</h3><button className="modal-close" onClick={() => setRegisterTarget(null)}>&times;</button></div>
+            <div className="modal-body">
+              <p style={{marginBottom:12,fontSize:13,color:'#666'}}>
+                Enquiry <strong>#{registerTarget.enquiry_number || registerTarget.id}</strong> ko case/FIR mein convert karein. FIR number auto generate hoga.
+              </p>
+              {registerTarget.cfr_summary && (
+                <div className="cf-group">
+                  <label className="cf-label">CFR Summary</label>
+                  <div style={{padding:'10px 14px',background:'#f9f9f9',borderRadius:8,fontSize:13,color:'#333',whiteSpace:'pre-wrap',border:'1px solid #e5e5e5',maxHeight:120,overflowY:'auto'}}>{registerTarget.cfr_summary}</div>
+                </div>
+              )}
+              <div className="cf-group">
+                <label className="cf-label">Investigation Officer (optional)</label>
+                <SearchableSelect value={registerForm.investigation_officer_id} onChange={v => setRegisterForm({...registerForm, investigation_officer_id: v})} options={ioOfficers} placeholder="Select IO..." valueKey="id" formatLabel={o => o.name + (o.designation ? ' (' + o.designation + ')' : '')} />
+              </div>
+              <div className="cf-group">
+                <label className="cf-label">Remarks</label>
+                <textarea className="cf-input" rows={3} value={registerForm.remarks} onChange={e => setRegisterForm({...registerForm, remarks: e.target.value})} placeholder="Optional remarks for case registration..." />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setRegisterTarget(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleRegisterCase} disabled={registerSaving}>
+                {registerSaving ? 'Registering...' : 'Register Case / FIR'}
               </button>
             </div>
           </div>
