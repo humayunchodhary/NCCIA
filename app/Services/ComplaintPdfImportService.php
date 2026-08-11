@@ -43,7 +43,7 @@ class ComplaintPdfImportService
         return ['batch_id' => $batchId, 'imports' => $imports];
     }
 
-    public function process(ComplaintPdfImport $import): ComplaintPdfImport
+    public function process(ComplaintPdfImport $import, ?string $ocrText = null): ComplaintPdfImport
     {
         @set_time_limit(300);
 
@@ -54,12 +54,16 @@ class ComplaintPdfImportService
             return $this->fail($import, 'Stored PDF file not found.');
         }
 
-        $extract = $this->extractor->extract($absolute, $import->original_filename);
+        $extract = $this->extractor->extract($absolute, $import->original_filename, $ocrText);
         if (!$extract['ok'] || empty($extract['data'])) {
-            return $this->fail($import, $extract['error'] ?? 'No data could be extracted from PDF.');
+            return $this->fail($import, $extract['error'] ?? 'No data could be extracted from PDF. Try browser OCR preview first.');
         }
 
         $data = $this->normalizeExtractedData($extract['data']);
+
+        if (!$this->extractor->hasMinimumFields($data)) {
+            return $this->fail($import, 'CNIC and complainant name not found in PDF. Wait for browser OCR preview, then upload again.');
+        }
 
         $import->update([
             'extracted_data' => $data,
@@ -171,6 +175,10 @@ class ComplaintPdfImportService
         }
 
         if (!$complaint && !empty($data['inquiry_no'])) {
+            $complaint = Complaint::where('diary_no', $data['inquiry_no'])->latest('id')->first();
+        }
+
+        if (!$complaint && !empty($data['inquiry_no'])) {
             $report = VerificationReport::where('inquiry_no', $data['inquiry_no'])->first();
             if ($report?->complaint_id) {
                 $complaint = Complaint::find($report->complaint_id);
@@ -202,8 +210,15 @@ class ComplaintPdfImportService
     {
         $fullName = $data['complainant_full_name']
             ?? $data['victim_name']
-            ?? ($existing?->complainant_name)
-            ?? ('Imported ' . ($data['inquiry_no'] ?? pathinfo($import->original_filename, PATHINFO_FILENAME)));
+            ?? $existing?->complainant_name;
+
+        if (!$fullName) {
+            throw new \RuntimeException('Complainant name not found in PDF.');
+        }
+
+        if (empty($data['victim_cnic']) && !$existing?->cnic) {
+            throw new \RuntimeException('CNIC not found in PDF.');
+        }
 
         $address = $data['victim_address'] ?? $existing?->address ?? 'Imported from PDF';
         $description = trim(implode("\n\n", array_filter([
@@ -215,7 +230,7 @@ class ComplaintPdfImportService
 
         $payload = [
             'complainant_name'     => $fullName,
-            'cnic'                 => $data['victim_cnic'] ?? $existing?->cnic ?? '00000-0000000-0',
+            'cnic'                 => $data['victim_cnic'] ?? $existing?->cnic,
             'contact_no'           => $this->contactDigits($data['victim_phone'] ?? $existing?->contact_no ?? '3000000000'),
             'contact_country_code' => '+92',
             'nationality'          => 'Pakistani',

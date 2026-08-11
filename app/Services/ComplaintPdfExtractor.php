@@ -11,8 +11,21 @@ class ComplaintPdfExtractor
     /**
      * @return array{ok: bool, data: array<string, mixed>, used_ocr: bool, page_count: ?int, error: ?string}
      */
-    public function extract(string $absolutePdfPath, string $originalFilename): array
+    public function extract(string $absolutePdfPath, string $originalFilename, ?string $ocrText = null): array
     {
+        if ($ocrText !== null && trim($ocrText) !== '') {
+            $data = $this->parseVerificationReportText($ocrText, $originalFilename);
+            $data['used_ocr'] = true;
+
+            return [
+                'ok'         => $this->hasMinimumFields($data),
+                'data'       => $data,
+                'used_ocr'   => true,
+                'page_count' => 1,
+                'error'      => $this->hasMinimumFields($data) ? null : 'OCR text parsed but CNIC/name not found.',
+            ];
+        }
+
         $python = $this->pythonBinary();
         $script = base_path('scripts/nccia_pdf_extract.py');
 
@@ -113,35 +126,91 @@ class ComplaintPdfExtractor
             return null;
         };
 
-        $trackingNo = $pick(['/Tracking\s*No\.?\s*:?\s*([A-Z0-9][A-Z0-9\-\/]+)/i']);
-        $fullName = $pick(['/Name\s*:?\s*(.+?)\s+Gender\s*:/is', '/Name\s*:?\s*(.+?)(?:CNIC|$)/is']);
+        $trackingNo = $pick([
+            '/Tracking\s*No\.?\s*:?\s*([A-Z0-9][A-Z0-9\-\/]+)/i',
+            '/VERIFICATION\s*REPORT\s*[\n\r]+No\.?\s*([A-Z0-9][A-Z0-9\-\/]+)/i',
+            '/No\.?\s*(CCW-[A-Z0-9\-\/]+)/i',
+        ]);
+        $fullName = $pick([
+            '/COMPLAINANT\s*DETAILS.*?Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)/is',
+            '/Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)/is',
+            '/Name\s*:?\s*(.+?)\s+Gender\s*:/is',
+        ]);
         [$victimName, $fatherName] = $this->splitNameFather($fullName);
-        $cnicRaw = $pick(['/CNIC\s*No\.?\s*:?\s*([\d\-]+)/i']);
-        $phoneRaw = $pick(['/Mobile\s*Number\s*:?\s*([\d\-]+)/i', '/Contact\s*Details\s*:?\s*([\d\-]+)/i']);
+        $cnicRaw = $pick([
+            '/CNIC\s*No\.?\s*:?\s*([\d\-]+)/i',
+            '/CNIC\s*No\.?\s*([\d]{13})/i',
+            '/CNIC\s*:?\s*([\d\-]+)/i',
+        ]);
+        $phoneRaw = $pick([
+            '/Mobile\s*Number\s*:?\s*([\d\-]+)/i',
+            '/Details\.?\s*Mobile\s*Number\s*:?\s*([\d\-]+)/i',
+            '/Contact\s*Details\s*:?\s*([\d\-]+)/i',
+        ]);
 
-        return array_filter([
+        $gender = strtolower($pick(['/Gender\s*:?\s*(Male|Female|Other)/i']) ?? '') ?: null;
+        if (!$gender && preg_match('/\bMale\b/i', $text)) {
+            $gender = 'male';
+        } elseif (!$gender && preg_match('/\bFemale\b/i', $text)) {
+            $gender = 'female';
+        }
+
+        $data = array_filter([
             'document_type'        => 'verification_report',
             'tracking_no'          => $trackingNo,
             'verification_date'    => $this->normalizeDate($pick(['/Verification\s*Date\s*:?\s*([\d\-\/]+)/i'])),
             'assignment_date'      => $this->normalizeDate($pick(['/Assignment\s*Date\s*:?\s*([\d\-\/]+)/i'])),
             'victim_name'          => $victimName,
             'victim_father_name'   => $fatherName,
-            'victim_gender'        => strtolower($pick(['/Gender\s*:?\s*(Male|Female|Other)/i']) ?? '') ?: null,
+            'victim_gender'        => $gender,
             'victim_cnic'          => $this->normalizeCnic($cnicRaw),
-            'victim_occupation'    => $pick(['/Occupation\s*:?\s*(.+?)(?:Contact|Mobile|Address|$)/is']),
+            'victim_occupation'    => $pick(['/Occupation\s*:?\s*(.+?)(?:Contact|Mobile|Address|Details|$)/is']),
             'victim_phone'         => $this->normalizePhone($phoneRaw),
-            'victim_address'       => $pick(['/Current\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|$)/is']),
-            'crime_category'       => $pick(['/BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|$)/is']),
-            'crime_description'    => $pick(['/(accuse[d]?\s+defrauded.+?)(?:City|Amount|RECOMMEND|$)/is']),
-            'city'                 => $pick(['/City\s*of\s*Occurrence\s*:?\s*(.+?)(?:Complaint|Amount|RECOMMEND|$)/is']),
-            'amount_involved'      => $this->normalizeAmount($pick(['/Amount\s*Involved\s*:?\s*([\d,\.]+)/i'])),
-            'recommendation_short' => $pick(['/RECOMMENDATIONS\s*:?\s*(.+?)(?:Justification|Reporting Officer|$)/is']),
+            'victim_address'       => $pick([
+                '/Current\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|Online|$)/is',
+                '/Addresses\s*Current\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|Online|$)/is',
+            ]),
+            'crime_category'       => $pick([
+                '/BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|Online|$)/is',
+                '/Online\s+Job\s+Frauds/i',
+            ]),
+            'crime_description'    => $pick([
+                '/(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|$)/is',
+            ]),
+            'city'                 => trim($pick([
+                '/City\s*of\s*Occurrence\s*:?\s*(.+?)(?:Complaint|Amount|RECOMMEND|$)/is',
+                '/0f\s*Occurrence\s*(.+?)(?:working|Amount|RECOMMEND|$)/is',
+            ]) ?? '', '"'),
+            'amount_involved'      => $this->normalizeAmount($pick([
+                '/Amount\s*Involved\.?\s*:?\s*([\d,\.]+)/i',
+                '/Amount\s*Involved\s*:?\s*([\d,\.]+)/i',
+            ])),
+            'recommendation_short' => Str::limit($pick([
+                '/RECOMMENDATIONS?\s*:?\s*(.+?)(?:Justification|Reporting Officer|$)/is',
+            ]) ?? '', 500),
             'recommendation_full'  => $pick(['/Justification\s*:?\s*(.+?)(?:Reporting Officer|$)/is']),
             'recommendation'       => $this->mapRecommendation($text),
             'inquiry_no'           => $this->inquiryRefFromFilename($originalFilename),
             'source_filename'      => $originalFilename,
             'raw_text_preview'     => Str::limit($text, 2000),
         ], fn ($v) => $v !== null && $v !== '');
+
+        $score = 0;
+        foreach (['tracking_no', 'victim_name', 'victim_cnic', 'victim_phone', 'crime_category', 'city'] as $k) {
+            if (!empty($data[$k])) {
+                $score++;
+            }
+        }
+        $data['confidence_score'] = $score;
+
+        return $data;
+    }
+
+    public function hasMinimumFields(array $data): bool
+    {
+        return !empty($data['victim_cnic'])
+            && !empty($data['victim_name'])
+            && ($data['victim_cnic'] ?? '') !== '00000-0000000-0';
     }
 
     /**
@@ -263,7 +332,7 @@ class ComplaintPdfExtractor
     private function mapRecommendation(string $text): ?string
     {
         $lower = strtolower($text);
-        if (str_contains($lower, 'register enquiry') || str_contains($lower, 'registration of enquiry')) {
+        if (str_contains($lower, 'register enq') || str_contains($lower, 'register enquiry') || str_contains($lower, 'registration of enquiry')) {
             return 'enquiry_registration';
         }
         if (str_contains($lower, 'closure') || str_contains($lower, 'close')) {

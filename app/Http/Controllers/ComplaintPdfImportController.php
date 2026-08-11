@@ -73,20 +73,20 @@ class ComplaintPdfImportController extends Controller
         ], $synced ? 200 : 202);
     }
 
-    public function process(Request $request, ComplaintPdfImport $complaintPdfImport)
+    public function process(Request $request, ComplaintPdfImport $complaintPdfImport, ComplaintPdfImportService $service)
     {
         @set_time_limit(300);
 
         $request->validate([
             'auto_apply' => 'nullable|boolean',
+            'ocr_text'   => 'nullable|string|max:500000',
         ]);
 
-        $import = $this->runImportJob(
-            $complaintPdfImport->id,
-            $request->user()->id,
-            $request->boolean('auto_apply', true),
-            true
-        );
+        $import = $service->process($complaintPdfImport, $request->input('ocr_text'));
+
+        if ($request->boolean('auto_apply', true) && $import->status === ComplaintPdfImport::STATUS_EXTRACTED) {
+            $import = $service->applyToSystem($import, $request->user(), true);
+        }
 
         $ok = in_array($import->status, [
             ComplaintPdfImport::STATUS_IMPORTED,
@@ -160,18 +160,35 @@ class ComplaintPdfImportController extends Controller
         ], $ok ? 200 : 422);
     }
 
-    public function preview(Request $request, ComplaintPdfImportService $service)
+    public function preview(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:pdf|max:51200',
+            'file'      => 'nullable|file|mimes:pdf|max:51200',
+            'ocr_text'  => 'nullable|string|max:500000',
+            'filename'  => 'nullable|string|max:255',
         ]);
+
+        $extractor = app(\App\Services\ComplaintPdfExtractor::class);
+
+        if ($request->filled('ocr_text')) {
+            $filename = $request->input('filename', 'preview.pdf');
+            $data = $extractor->parseVerificationReportText($request->input('ocr_text'), $filename);
+            $data['used_ocr'] = true;
+
+            return response()->json([
+                'extracted' => $data,
+                'used_ocr'  => true,
+                'error'     => $extractor->hasMinimumFields($data) ? null : 'CNIC/name not detected — try again',
+            ], $extractor->hasMinimumFields($data) ? 200 : 422);
+        }
+
+        $request->validate(['file' => 'required|file|mimes:pdf|max:51200']);
 
         $file = $request->file('file');
         $tmp = $file->store('imports/tmp', 'public');
         $absolute = storage_path('app/public/' . $tmp);
 
-        $extract = app(\App\Services\ComplaintPdfExtractor::class)
-            ->extract($absolute, $file->getClientOriginalName());
+        $extract = $extractor->extract($absolute, $file->getClientOriginalName());
 
         @unlink($absolute);
 
