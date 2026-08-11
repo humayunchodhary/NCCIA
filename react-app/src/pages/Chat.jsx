@@ -50,7 +50,7 @@ export default function Chat() {
   const [loading, setLoading] = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const threadEndRef = useRef(null);
+  const threadTopRef = useRef(null);
   const meId = user?.id;
 
   const refreshConversations = useCallback(() => {
@@ -80,8 +80,8 @@ export default function Chat() {
   }, [refreshConversations, loadThread, activeId]);
 
   useEffect(() => {
-    if (threadEndRef.current) {
-      threadEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (threadTopRef.current) {
+      threadTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [messages, activeId]);
 
@@ -98,13 +98,13 @@ export default function Chat() {
     setSending(true);
     try {
       const r = await api.post('/messages', { receiver_id: activeId, message: body });
-      setMessages(prev => [...prev, {
+      setMessages(prev => [{
         id: r.data.id,
         sender_id: r.data.sender_id,
         message: r.data.message,
         is_read: false,
         created_at: r.data.created_at,
-      }]);
+      }, ...prev]);
       setText('');
       refreshConversations();
     } catch (err) {
@@ -271,14 +271,14 @@ export default function Chat() {
                 </div>
 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: '#f3f4f6' }}>
+                  <div ref={threadTopRef} />
                   {threadLoading && <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 20 }}>Loading conversation…</div>}
                   {!threadLoading && messages.length === 0 && (
                     <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 30 }}>No messages yet. Say hello!</div>
                   )}
                   {!threadLoading && messages.map((m, i) => {
                     const mine = Number(m.sender_id) === Number(meId);
-                    const prev = messages[i - 1];
-                    const showDay = !prev || formatDay(prev.created_at) !== formatDay(m.created_at);
+                    const showDay = i === 0 || formatDay(messages[i - 1].created_at) !== formatDay(m.created_at);
                     return (
                       <div key={m.id}>
                         {showDay && (
@@ -313,7 +313,6 @@ export default function Chat() {
                       </div>
                     );
                   })}
-                  <div ref={threadEndRef} />
                 </div>
 
                 <form onSubmit={sendMessage} style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, background: '#fff' }}>

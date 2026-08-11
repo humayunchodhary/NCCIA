@@ -7,6 +7,7 @@ import WorkflowProgress from '../components/WorkflowProgress';
 import { openPrintWindow } from '../utils/print';
 import { useAuth } from '../contexts/AuthContext';
 import { canAssignVerification, canCreateComplaint, hasRole } from '../utils/permissions';
+import { useAutoRefresh } from '../utils/useAutoRefresh';
 
 const CLOSURE_REASON_LABELS = {
   non_pursuance: 'Non-Pursuance',
@@ -71,6 +72,8 @@ export default function Complaints() {
   useEffect(() => {
     fetchList(page);
   }, [page]);
+
+  useAutoRefresh(() => fetchList(page), [page], 30000);
 
   useEffect(() => {
     api.get('/offence-types').then(r => {

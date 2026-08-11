@@ -471,7 +471,18 @@ class EnquiryController extends Controller
     {
         $this->authorize('view', $enquiry);
 
-        $enquiry->load('complaint', 'officer', 'caseFile', 'activities.creator', 'legalOpinions.creator', 'approvals.circleIncharge', 'witnesses', 'notices');
+        $enquiry->load(
+            'complaint.verification.officer',
+            'complaint.latestVerificationReport.creator',
+            'officer',
+            'caseFile',
+            'activities.creator',
+            'legalOpinions.creator',
+            'approvals.circleIncharge',
+            'witnesses',
+            'notices'
+        );
+
         return response()->json($enquiry);
     }
 

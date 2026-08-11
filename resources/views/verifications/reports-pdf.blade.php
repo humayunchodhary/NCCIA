@@ -288,6 +288,7 @@
     <tr><td class="label">Gender</td><td class="value">{{ ucfirst($report->victim_gender ?? '—') }}</td></tr>
     <tr><td class="label">CNIC Number</td><td class="value">{{ $report->victim_cnic }}</td></tr>
     <tr><td class="label">Contact Number</td><td class="value">{{ $report->victim_country_code ?? '+92' }} {{ $report->victim_phone }}</td></tr>
+    <tr><td class="label">Email</td><td class="value">{{ $report->victim_email ?? '—' }}</td></tr>
   </table>
 </div>
 
@@ -313,6 +314,7 @@
         <tr><td class="label">Accused #{{ $i + 1 }} Name</td><td>{{ $a['name'] ?? '—' }}</td></tr>
         <tr><td class="label">Father Name</td><td>{{ $a['father_name'] ?? '—' }}</td></tr>
         <tr><td class="label">Phone</td><td>{{ $a['phone'] ?? '—' }}</td></tr>
+        <tr><td class="label">Email</td><td>{{ $a['email'] ?? '—' }}</td></tr>
         <tr><td class="label">CNIC</td><td>{{ $a['cnic'] ?? '—' }}</td></tr>
         <tr><td class="label">Address</td><td>{{ $a['address'] ?? '—' }}</td></tr>
       </table>

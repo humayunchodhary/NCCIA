@@ -105,6 +105,11 @@ class Complaint extends Model
         return $this->hasOne(Verification::class);
     }
 
+    public function latestVerificationReport(): HasOne
+    {
+        return $this->hasOne(VerificationReport::class)->latestOfMany();
+    }
+
     public function caseFiles(): HasManyThrough
     {
         return $this->hasManyThrough(CaseFile::class, Enquiry::class, 'complaint_id', 'enquiry_id', 'id', 'id');

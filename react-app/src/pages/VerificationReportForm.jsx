@@ -129,6 +129,7 @@ const [form, setForm] = useState({    tracking_no: '',
     victim_cnic: '',
     victim_country_code: '+92',
     victim_phone: '',
+    victim_email: '',
     crime_category: '',
     city: '',
     crime_description: '',
@@ -177,7 +178,7 @@ const [form, setForm] = useState({    tracking_no: '',
           desc: ev.description || '',
         }));
         const accused = (d.accused || []).map(a => ({
-          name: a.name || '', father_name: a.father_name || '', phone: a.phone || '',
+          name: a.name || '', father_name: a.father_name || '', phone: a.phone || '', email: a.email || '',
           country_code: '+92', cnic: a.cnic || '', address: a.address || '',
           post_address: a.post_address || '', nationality: a.nationality || 'Pakistani',
           passport_no: a.passport_no || '', photo: a.photo || null,
@@ -196,6 +197,7 @@ const [form, setForm] = useState({    tracking_no: '',
           victim_cnic: d.victim_cnic || '',
           victim_country_code: d.victim_country_code || '+92',
           victim_phone: d.victim_phone || '',
+          victim_email: d.victim_email || '',
           crime_category: d.crime_category || '',
           city: d.city || '',
           crime_description: d.crime_description || '',
@@ -383,7 +385,7 @@ const [form, setForm] = useState({    tracking_no: '',
     }
   };
 
-  const addAccused = () => setForm(f => ({ ...f, accused: [...f.accused, { name: '', father_name: '', phone: '', country_code: '+92', cnic: '', address: '', post_address: '', nationality: 'Pakistani', passport_no: '', photo: null }] }));
+  const addAccused = () => setForm(f => ({ ...f, accused: [...f.accused, { name: '', father_name: '', phone: '', email: '', country_code: '+92', cnic: '', address: '', post_address: '', nationality: 'Pakistani', passport_no: '', photo: null }] }));
   const removeAccused = (i) => setForm(f => ({ ...f, accused: f.accused.filter((_, idx) => idx !== i) }));
   const updateAccused = (i, field, value) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
   const updateAccusedFile = (i, field, file) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
@@ -565,6 +567,13 @@ const [form, setForm] = useState({    tracking_no: '',
                 </div>
                 <span className="cf-hint" id="phoneHint">Pakistan: 10 digits after code</span>
               </div>
+
+              <div className="cf-field">
+                <label className="cf-label">Email</label>
+                <div className="cf-input-wrap">
+                  <input type="email" className="cf-input" name="victim_email" value={form.victim_email} onChange={setF('victim_email')} placeholder="victim@email.com" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -640,10 +649,11 @@ const [form, setForm] = useState({    tracking_no: '',
                       </div>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',marginBottom:'12px'}}>
                         <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input font-mono" value={a.cnic} onChange={e => {let v=e.target.value.replace(/\D/g,'').slice(0,13);if(v.length>5)v=v.slice(0,5)+'-'+v.slice(5);if(v.length>13)v=v.slice(0,13)+'-'+v.slice(13);updateAccused(i,'cnic',v);}} maxLength={15} placeholder="00000-0000000-0" /></div>
+                        <div className="cf-field"><label className="cf-label">Email</label><input type="email" className="cf-input" value={a.email || ''} onChange={e => updateAccused(i, 'email', e.target.value)} placeholder="accused@email.com" /></div>
                         <div className="cf-field"><label className="cf-label">Address</label><input type="text" className="cf-input" value={a.address || ''} onChange={e => updateAccused(i, 'address', e.target.value)} placeholder="Accused address" /></div>
-                        <div className="cf-field"><label className="cf-label">Postal Address</label><input type="text" className="cf-input" value={a.post_address || ''} onChange={e => updateAccused(i, 'post_address', e.target.value)} placeholder="Accused postal address" /></div>
                       </div>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'12px'}}>
+                        <div className="cf-field"><label className="cf-label">Postal Address</label><input type="text" className="cf-input" value={a.post_address || ''} onChange={e => updateAccused(i, 'post_address', e.target.value)} placeholder="Accused postal address" /></div>
                         <div className="cf-field"><label className="cf-label">Nationality</label>
                           <select className="cf-input" value={a.nationality || 'Pakistani'} onChange={e => updateAccused(i, 'nationality', e.target.value)}>
                             <option value="Pakistani">Pakistani</option>

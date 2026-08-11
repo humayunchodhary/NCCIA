@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import WorkflowProgress, { caseProgress } from '../components/WorkflowProgress';
+import { useAutoRefresh } from '../utils/useAutoRefresh';
 
 export default function Cases() {
   const [list, setList] = useState([]);
@@ -27,6 +28,7 @@ export default function Cases() {
   }, [page]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(() => fetchData(page), [page], 30000);
 
   if (loading) return <div className="page-content"><LoadingSkeleton type="table" columns={5} rows={8} /></div>;
 

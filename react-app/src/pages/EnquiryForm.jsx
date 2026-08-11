@@ -3,7 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
-import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration } from '../utils/permissions';
+import VerificationReportPanel from '../components/VerificationReportPanel';
+import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
+import { useAutoRefresh } from '../utils/useAutoRefresh';
 
 const ENQUIRY_STATUS = [
   { value: 'registered', name: 'Registered (Reader Branch)' },
@@ -124,6 +126,8 @@ export default function EnquiryForm() {
   const [registerIoId, setRegisterIoId] = useState('');
   const [registerRemarks, setRegisterRemarks] = useState('');
   const [registerSaving, setRegisterSaving] = useState(false);
+  const [verificationReport, setVerificationReport] = useState(null);
+  const [linkedVerification, setLinkedVerification] = useState(null);
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
@@ -132,6 +136,81 @@ export default function EnquiryForm() {
     && ['registered', 'assigned', 'in_progress'].includes(form.status)
     && roleNames.some(r => ['admin', 'circle_incharge', 'enquiry_officer'].includes(r));
   const showRegisterCase = !!id && canRegisterCase && enquiryReadyForCaseRegistration({ status: form.status, case_file_id: caseFileId });
+  const showVerificationReport = !!id && canViewVerificationReportInEnquiry(user);
+
+  const applyEnquiryPayload = (d) => {
+    if (d.technical_report_attachment) setTechnicalReportUrl(d.technical_report_attachment);
+    if (d.forensic_report_attachment) setForensicReportUrl(d.forensic_report_attachment);
+    setCaseFileId(d.case_file_id || d.case_file?.id || null);
+    setVerificationReport(d.complaint?.latest_verification_report || d.complaint?.latestVerificationReport || null);
+    setLinkedVerification(d.complaint?.verification || null);
+    const toDate = (v) => (v ? String(v).slice(0, 10) : '');
+    setForm(f => ({
+      ...f,
+      complaint_id: d.complaint_id || d.complaint?.id || '',
+      tracking_no: d.complaint?.tracking_no || d.tracking_no || '',
+      enquiry_number: d.enquiry_number || '',
+      status: d.status || 'registered',
+      enquiry_officer_id: d.enquiry_officer_id || '',
+      recommendation: d.recommendation || '',
+      closure_reason: d.closure_reason || '',
+      transfer_department: d.transfer_department || '',
+      transfer_circle: d.transfer_circle || '',
+      merge_complaint_id: d.merge_complaint?.tracking_no || d.merge_complaint_id || '',
+      cfr_summary: d.cfr_summary || '',
+      technical_report: d.technical_report || '',
+      forensic_report: d.forensic_report || '',
+      activities: (d.activities || []).map(a => ({
+        id: a.id,
+        type: a.type || '',
+        description: a.description || '',
+        activity_date: toDate(a.activity_date),
+        attachment_path: a.attachment_path || '',
+      })),
+      witnesses: (d.witnesses || []).map(w => ({
+        id: w.id,
+        name: w.name || '',
+        cnic: w.cnic || '',
+        nationality: w.nationality || '',
+        passport: w.passport || '',
+        address: w.address || '',
+        attachment: w.attachment || '',
+      })),
+      notices: (d.notices || []).map(n => ({
+        id: n.id,
+        notice_number: n.notice_number || '',
+        notice_type: n.notice_type || '',
+        receiver_name: n.receiver_name || '',
+        person_type: n.person_type || '',
+        notice_via: n.notice_via || '',
+        notice_date: toDate(n.notice_date),
+        address: n.address || '',
+        phone: n.phone || '',
+        description: n.description || '',
+        status: n.status || 'issued',
+      })),
+      legal_opinions: (d.legal_opinions || []).map(lo => ({
+        id: lo.id,
+        role: lo.role || '',
+        opinion_text: lo.opinion_text || '',
+        decision: lo.decision || '',
+        created_by: lo.created_by || '',
+      })),
+      approvals: (d.approvals || []).map(ap => ({
+        id: ap.id,
+        circle_incharge_id: ap.circle_incharge_id || '',
+        decision: ap.decision || '',
+        remarks: ap.remarks || '',
+      })),
+    }));
+  };
+
+  const reloadEnquiry = () => {
+    if (!id) return;
+    api.get(`/enquiries/${id}`).then(r => {
+      applyEnquiryPayload(r.data.data || r.data);
+    }).catch(() => {});
+  };
 
   const officerName = officers.find(o => String(o.value) === String(form.enquiry_officer_id))?.name || '';
   const recName = RECOMMENDATIONS.find(o => o.value === form.recommendation)?.name || '';
@@ -155,71 +234,12 @@ export default function EnquiryForm() {
   useEffect(() => {
     if (id) {
       api.get(`/enquiries/${id}`).then(r => {
-        const d = r.data.data || r.data;
-        if (d.technical_report_attachment) setTechnicalReportUrl(d.technical_report_attachment);
-        if (d.forensic_report_attachment) setForensicReportUrl(d.forensic_report_attachment);
-        setCaseFileId(d.case_file_id || d.case_file?.id || null);
-        const toDate = (v) => (v ? String(v).slice(0, 10) : '');
-        setForm(f => ({
-          ...f,
-          complaint_id: d.complaint_id || d.complaint?.id || '',
-          tracking_no: d.complaint?.tracking_no || d.tracking_no || '',
-          enquiry_number: d.enquiry_number || '',
-          status: d.status || 'registered',
-          enquiry_officer_id: d.enquiry_officer_id || '',
-          recommendation: d.recommendation || '',
-          closure_reason: d.closure_reason || '',
-          transfer_department: d.transfer_department || '',
-          transfer_circle: d.transfer_circle || '',
-          merge_complaint_id: d.merge_complaint?.tracking_no || d.merge_complaint_id || '',
-          cfr_summary: d.cfr_summary || '',
-          technical_report: d.technical_report || '',
-          forensic_report: d.forensic_report || '',
-          activities: (d.activities || []).map(a => ({
-            id: a.id,
-            type: a.type || '',
-            description: a.description || '',
-            activity_date: toDate(a.activity_date),
-            attachment_path: a.attachment_path || '',
-          })),
-          witnesses: (d.witnesses || []).map(w => ({
-            id: w.id,
-            name: w.name || '',
-            cnic: w.cnic || '',
-            nationality: w.nationality || '',
-            passport: w.passport || '',
-            address: w.address || '',
-            attachment: w.attachment || '',
-          })),
-          notices: (d.notices || []).map(n => ({
-            id: n.id,
-            notice_number: n.notice_number || '',
-            notice_type: n.notice_type || '',
-            receiver_name: n.receiver_name || '',
-            person_type: n.person_type || '',
-            notice_via: n.notice_via || '',
-            notice_date: toDate(n.notice_date),
-            address: n.address || '',
-            phone: n.phone || '',
-            description: n.description || '',
-            status: n.status || 'issued',
-          })),
-          legal_opinions: (d.legal_opinions || []).map(lo => ({
-            id: lo.id,
-            role: lo.role || '',
-            opinion_text: lo.opinion_text || '',
-            decision: lo.decision || '',
-          })),
-          approvals: (d.approvals || []).map(ap => ({
-            id: ap.id,
-            circle_incharge_id: ap.circle_incharge_id || '',
-            decision: ap.decision || 'agree',
-            remarks: ap.remarks || '',
-          })),
-        }));
+        applyEnquiryPayload(r.data.data || r.data);
       }).catch(() => navigate('/enquiries'));
     }
   }, [id, navigate]);
+
+  useAutoRefresh(() => reloadEnquiry(), [id], 30000);
 
   const handleTrackingChange = (e) => {
     const tracking = e.target.value;
@@ -448,9 +468,13 @@ export default function EnquiryForm() {
         </div>
 
         <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px' }}>
-          {['details', 'witnesses', 'notices', 'reports', 'activities', 'legal', 'approvals', 'outcome'].map(tab => (
+          {(showVerificationReport
+            ? ['details', 'verification', 'witnesses', 'notices', 'reports', 'activities', 'legal', 'approvals', 'outcome']
+            : ['details', 'witnesses', 'notices', 'reports', 'activities', 'legal', 'approvals', 'outcome']
+          ).map(tab => (
             <button key={tab} type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 16px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
               {tab === 'details' && '📋 Details'}
+              {tab === 'verification' && '📄 Verification Report'}
               {tab === 'witnesses' && `🧑‍⚖️ Witnesses${form.witnesses?.length ? ` (${form.witnesses.length})` : ''}`}
               {tab === 'notices' && `🔔 Notices${nonAppearanceCount ? ` ⭐` : ''}${form.notices?.length ? ` (${form.notices.length})` : ''}`}
               {tab === 'reports' && '🧪 Reports'}
@@ -560,6 +584,20 @@ export default function EnquiryForm() {
         )}
 
         {/* WITNESSES TAB */}
+        {activeTab === 'verification' && showVerificationReport && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#264078' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <div><div className="cf-section-title">Verification Report</div><div className="cf-section-sub">Linked complaint verification — read only</div></div>
+            </div>
+            <div className="cf-body">
+              <VerificationReportPanel report={verificationReport} verification={linkedVerification} />
+            </div>
+          </div>
+        )}
+
         {activeTab === 'witnesses' && (
           <div className="cf-section">
             <div className="cf-section-header">

@@ -96,7 +96,8 @@ class MessageController extends Controller
             ->update(['is_read' => true, 'read_at' => now()]);
 
         $messages = Message::between($me->id, $user->id)
-            ->orderBy('created_at')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->with('sender:id,name')
             ->get()
             ->map(fn ($m) => [

@@ -134,6 +134,13 @@ export function canUpdateCase(user) {
   ]);
 }
 
+export function canViewVerificationReportInEnquiry(user) {
+  return hasAnyRole(user, [
+    'admin', 'circle_incharge', 'enquiry_officer', 'investigation_officer',
+    'moharrar', 'reader_branch', 'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+  ]);
+}
+
 export const ENQUIRY_CASE_REGISTER_STATUSES = [
   'cfr_submitted', 'approved', 'referred_court', 'in_progress',
   'legal_review_dd', 'legal_review_ad', 'legal_review_dg',

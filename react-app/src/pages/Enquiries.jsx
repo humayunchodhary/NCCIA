@@ -7,6 +7,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import SearchableSelect from '../components/SearchableSelect';
 import WorkflowProgress, { enquiryProgress } from '../components/WorkflowProgress';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration } from '../utils/permissions';
+import { useAutoRefresh } from '../utils/useAutoRefresh';
 
 const STATUS_COLORS = {
   registered: 'badge-pending',
@@ -90,6 +91,7 @@ export default function Enquiries() {
   }, [page, search, statusFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useAutoRefresh(() => fetchData(page), [page, search, statusFilter], 30000);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;

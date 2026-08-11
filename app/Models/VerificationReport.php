@@ -20,6 +20,7 @@ class VerificationReport extends Model
         'victim_cnic',
         'victim_country_code',
         'victim_phone',
+        'victim_email',
         'crime_category',
         'crime_description',
         'city',

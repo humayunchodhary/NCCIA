@@ -130,6 +130,7 @@ class VerificationController extends Controller
             'victim_cnic'         => ['required', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
             'victim_country_code' => 'nullable|string|max:8',
             'victim_phone'        => 'required|string|max:20',
+            'victim_email'        => 'nullable|email|max:255',
 
             'crime_category'      => 'required|string|max:255',
             'crime_description'   => 'nullable|string|max:5000',
@@ -140,6 +141,7 @@ class VerificationController extends Controller
             'accused.*.name'      => 'nullable|string|max:255',
             'accused.*.father_name' => 'nullable|string|max:255',
             'accused.*.phone'     => 'nullable|string|max:20',
+            'accused.*.email'     => 'nullable|email|max:255',
             'accused.*.cnic'      => ['nullable', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
             'accused.*.address'   => 'nullable|string|max:1000',
             'accused.*.post_address' => 'nullable|string|max:1000',
@@ -297,6 +299,7 @@ class VerificationController extends Controller
             'victim_cnic'         => ['required', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
             'victim_country_code' => 'nullable|string|max:8',
             'victim_phone'        => 'required|string|max:20',
+            'victim_email'        => 'nullable|email|max:255',
 
             'crime_category'      => 'required|string|max:255',
             'crime_description'   => 'nullable|string|max:5000',
@@ -307,6 +310,7 @@ class VerificationController extends Controller
             'accused.*.name'      => 'nullable|string|max:255',
             'accused.*.father_name' => 'nullable|string|max:255',
             'accused.*.phone'     => 'nullable|string|max:20',
+            'accused.*.email'     => 'nullable|email|max:255',
             'accused.*.cnic'      => ['nullable', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
             'accused.*.address'   => 'nullable|string|max:1000',
             'accused.*.post_address' => 'nullable|string|max:1000',
