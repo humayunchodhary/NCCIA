@@ -280,12 +280,12 @@ export default function CaseForm() {
         <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px' }}>
           {['details', 'activities', 'arrests', 'legal', 'approvals', 'outcome'].map(tab => (
             <button type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 20px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
-              {tab === 'details' && '📋 Details'}
-              {tab === 'activities' && '📝 Activities'}
-              {tab === 'arrests' && '🚔 Arrests'}
-              {tab === 'legal' && '⚖️ Legal Opinions'}
-              {tab === 'approvals' && '✅ Approvals'}
-              {tab === 'outcome' && '🎯 Outcome'}
+              {tab === 'details' && 'Details'}
+              {tab === 'activities' && 'Activities'}
+              {tab === 'arrests' && 'Arrests'}
+              {tab === 'legal' && 'Legal Opinions'}
+              {tab === 'approvals' && 'Approvals'}
+              {tab === 'outcome' && 'Outcome'}
             </button>
           ))}
         </div>

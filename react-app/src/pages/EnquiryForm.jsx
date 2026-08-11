@@ -598,7 +598,7 @@ export default function EnquiryForm() {
     if (technicalFile) fd.append('technical_report_attachment', technicalFile);
     if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
 
-    // PHP does not populate multipart on real PUT ΓÇö use method spoofing
+    // PHP does not populate multipart on real PUT — use method spoofing
     if (id) {
       fd.append('_method', 'PUT');
       await api.post(`/enquiries/${id}`, fd);
@@ -730,18 +730,18 @@ export default function EnquiryForm() {
         <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px', flexWrap: 'wrap' }}>
           {tabOrder.map(tab => (
             <button key={tab} type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 16px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
-              {tab === 'details' && '📋 Details'}
-              {tab === 'verification' && '📄 Verification Report'}
-              {tab === 'accused' && `👤 Accused${form.accused?.length ? ` (${form.accused.length})` : ''}`}
-              {tab === 'witnesses' && `≡ƒºæΓÇìΓÜû∩╕Å Witnesses${form.witnesses?.length ? ` (${form.witnesses.length})` : ''}`}
-              {tab === 'notices' && `≡ƒöö Summons${nonAppearanceCount ? ` Γ¡É` : ''}${form.notices?.length ? ` (${form.notices.length})` : ''}`}
-              {tab === 'attachments' && `≡ƒôÄ Attachments${form.attachments?.length ? ` (${form.attachments.length})` : ''}`}
-              {tab === 'reports' && '≡ƒº¬ Reports'}
-              {tab === 'activities' && '≡ƒô¥ Activities'}
-              {tab === 'requisitions' && `≡ƒô¿ Requisitions${form.requisitions?.length ? ` (${form.requisitions.length})` : ''}`}
-              {tab === 'legal' && 'ΓÜû∩╕Å Legal Opinions'}
-              {tab === 'approvals' && 'Γ£à Approvals'}
-              {tab === 'outcome' && '≡ƒÄ» Outcome'}
+              {tab === 'details' && 'Details'}
+              {tab === 'verification' && 'Verification Report'}
+              {tab === 'accused' && `Accused${form.accused?.length ? ` (${form.accused.length})` : ''}`}
+              {tab === 'witnesses' && `Witnesses${form.witnesses?.length ? ` (${form.witnesses.length})` : ''}`}
+              {tab === 'notices' && `Summons${nonAppearanceCount ? ' !' : ''}${form.notices?.length ? ` (${form.notices.length})` : ''}`}
+              {tab === 'attachments' && `Attachments${form.attachments?.length ? ` (${form.attachments.length})` : ''}`}
+              {tab === 'reports' && 'Reports'}
+              {tab === 'activities' && 'Activities'}
+              {tab === 'requisitions' && `Requisitions${form.requisitions?.length ? ` (${form.requisitions.length})` : ''}`}
+              {tab === 'legal' && 'Legal Opinions'}
+              {tab === 'approvals' && 'Approvals'}
+              {tab === 'outcome' && 'Outcome'}
             </button>
           ))}
         </div>
@@ -765,14 +765,14 @@ export default function EnquiryForm() {
                 </div>
                 <div className="cf-body">
                   <div className="cf-row-3" style={{ marginBottom: 12 }}>
-                    <div className="cf-field"><label className="cf-label">Complainant No</label><div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{selectedComplaint.tracking_no || form.tracking_no || 'ΓÇö'}</div></div>
-                    <div className="cf-field"><label className="cf-label">Enquiry No</label><div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{form.enquiry_number || 'ΓÇö'}</div></div>
+                    <div className="cf-field"><label className="cf-label">Complainant No</label><div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{selectedComplaint.tracking_no || form.tracking_no || '—'}</div></div>
+                    <div className="cf-field"><label className="cf-label">Enquiry No</label><div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{form.enquiry_number || '—'}</div></div>
                     <div className="cf-field">
                       <label className="cf-label">Date of Registration</label>
                       {isPrivileged ? (
                         <input type="date" className="cf-input" value={form.reg_date} onChange={setF('reg_date')} />
                       ) : (
-                        <div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{form.reg_date || 'ΓÇö'}</div>
+                        <div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{form.reg_date || '—'}</div>
                       )}
                     </div>
                   </div>
@@ -788,9 +788,9 @@ export default function EnquiryForm() {
                       ['District', selectedComplaint.district],
                       ['Offence', selectedComplaint.offence_type],
                     ].map(([label, val]) => (
-                      <div key={label}><strong style={{ color: '#666', fontSize: 11, textTransform: 'uppercase' }}>{label}</strong><div style={{ marginTop: 2 }}>{val || 'ΓÇö'}</div></div>
+                      <div key={label}><strong style={{ color: '#666', fontSize: 11, textTransform: 'uppercase' }}>{label}</strong><div style={{ marginTop: 2 }}>{val || '—'}</div></div>
                     ))}
-                    <div style={{ gridColumn: '1 / -1' }}><strong style={{ color: '#666', fontSize: 11, textTransform: 'uppercase' }}>Address</strong><div style={{ marginTop: 2 }}>{selectedComplaint.address || 'ΓÇö'}</div></div>
+                    <div style={{ gridColumn: '1 / -1' }}><strong style={{ color: '#666', fontSize: 11, textTransform: 'uppercase' }}>Address</strong><div style={{ marginTop: 2 }}>{selectedComplaint.address || '—'}</div></div>
                   </div>
                 </div>
               </div>
@@ -811,8 +811,8 @@ export default function EnquiryForm() {
                     <div className="cf-input-wrap">
                       <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                       <select className="cf-input cf-select" value={form.tracking_no} onChange={handleTrackingChange} required>
-                        <option value="">ΓÇö Select Tracking No. ΓÇö</option>
-                        {complaints.map(c => <option key={c.id} value={c.tracking_no}>{c.tracking_no} ΓÇö {c.complainant_name}</option>)}
+                        <option value="">— Select Tracking No. —</option>
+                        {complaints.map(c => <option key={c.id} value={c.tracking_no}>{c.tracking_no} — {c.complainant_name}</option>)}
                       </select>
                     </div>
                     <input type="hidden" name="complaint_id" value={form.complaint_id} />
@@ -835,7 +835,7 @@ export default function EnquiryForm() {
               <div className="cf-body">
                 {!isPrivileged && (
                   <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
-                    ≡ƒöÆ This section is read-only. Only Circle Incharge / Admin can assign or change the Enquiry Officer.
+                    This section is read-only. Only Circle Incharge / Admin can assign or change the Enquiry Officer.
                   </div>
                 )}
                 {isPrivileged ? (
@@ -920,7 +920,7 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Father Name</label><input type="text" className="cf-input" value={a.father_name} onChange={e => updateAccused(i, 'father_name', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Gender</label>
                       <select className="cf-input" value={a.gender} onChange={e => updateAccused(i, 'gender', e.target.value)}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -996,7 +996,7 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Relation</label><input type="text" className="cf-input" value={w.relation} onChange={e => updateWitness(i, 'relation', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Gender</label>
                       <select className="cf-input" value={w.gender} onChange={e => updateWitness(i, 'gender', e.target.value)}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -1062,12 +1062,12 @@ export default function EnquiryForm() {
               <div className="cf-section-icon" style={{ background: '#B7791F' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
               </div>
-              <div><div className="cf-section-title">Summon Detail</div><div className="cf-section-sub">Issue summons ΓÇö after 3 non-appearances the matter is referred to court</div></div>
+              <div><div className="cf-section-title">Summon Detail</div><div className="cf-section-sub">Issue summons — after 3 non-appearances the matter is referred to court</div></div>
             </div>
             <div className="cf-body">
               {nonAppearanceCount > 0 && (
                 <div style={{ padding: '12px 16px', marginBottom: 16, background: 'rgba(255,193,7,0.14)', border: '1px solid #d69e2e', borderRadius: 8, fontSize: 13, color: '#7a5b00', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 20 }}>Γ¡É</span>
+                  <span style={{ fontSize: 20 }}>!</span>
                   <div>
                     <strong>Non-Appearance recorded ({nonAppearanceCount} of 3).</strong>
                     {referredToCourt
@@ -1078,7 +1078,7 @@ export default function EnquiryForm() {
               )}
               {referredToCourt && (
                 <div style={{ padding: '12px 16px', marginBottom: 16, background: 'rgba(229,62,62,0.1)', border: '1px solid #e53e3e', borderRadius: 8, fontSize: 13, color: '#b42318', fontWeight: 600 }}>
-                  ΓÜá This enquiry has been referred to court (3 non-appearances).
+                  Warning: This enquiry has been referred to court (3 non-appearances).
                 </div>
               )}
               <button type="button" className="btn btn-outline btn-sm" onClick={addNotice} style={{ marginBottom: 16 }}>
@@ -1091,7 +1091,7 @@ export default function EnquiryForm() {
                       <strong style={{ display: 'block', marginBottom: 6 }}>Previous Summon History</strong>
                       {form.notices.slice(0, i).map((prev, pi) => (
                         <div key={pi} style={{ marginBottom: 4 }}>
-                          #{pi + 1}: {prev.notice_date || 'ΓÇö'} ΓÇö {NOTICE_STATUS_OPTIONS.find(o => o.value === prev.status)?.name || prev.status || 'ΓÇö'}
+                          #{pi + 1}: {prev.notice_date || '—'} — {NOTICE_STATUS_OPTIONS.find(o => o.value === prev.status)?.name || prev.status || '—'}
                           {prev.appearance_remarks && ` (${APPEARANCE_REMARKS_OPTIONS.find(o => o.value === prev.appearance_remarks)?.name || prev.appearance_remarks})`}
                         </div>
                       ))}
@@ -1103,7 +1103,7 @@ export default function EnquiryForm() {
                     </div>
                     <div className="cf-field"><label className="cf-label">Notice Type</label>
                       <select className="cf-input" value={n.notice_type} onChange={e => updateNotice(i, 'notice_type', e.target.value)}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {NOTICE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -1120,13 +1120,13 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Notice Via</label>
                       <select className="cf-input" value={n.notice_via} onChange={e => updateNotice(i, 'notice_via', e.target.value)}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {NOTICE_VIA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Person Type</label>
                       <select className="cf-input" value={n.person_type} onChange={e => updateNotice(i, 'person_type', e.target.value)}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {PERSON_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -1145,7 +1145,7 @@ export default function EnquiryForm() {
                     </div>
                     <div className="cf-field"><label className="cf-label">Appearance Remarks</label>
                       <select className="cf-input" value={n.appearance_remarks || ''} onChange={e => updateNotice(i, 'appearance_remarks', e.target.value)}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {APPEARANCE_REMARKS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -1250,7 +1250,7 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Activity Type</label>
                       <select className="cf-input" value={a.type} onChange={e => updateActivity(i, 'type', e.target.value)}>
-                        <option value="">ΓÇö Select Type ΓÇö</option>
+                        <option value="">— Select Type —</option>
                         {ACTIVITY_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -1270,7 +1270,7 @@ export default function EnquiryForm() {
                     </button>
                   </div>
                   <div className="cf-field"><label className="cf-label">Description</label>
-                    <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activityΓÇª" style={{ width: '100%' }}></textarea>
+                    <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity..." style={{ width: '100%' }}></textarea>
                   </div>
                   {a.type === 'diaries' && (
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
@@ -1304,7 +1304,7 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Type</label>
                       <select className="cf-input" value={rq.type} onChange={e => updateRequisition(i, 'type', e.target.value)}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {REQUISITION_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -1348,7 +1348,7 @@ export default function EnquiryForm() {
             <div className="cf-body">
               {!isPrivileged && (
                 <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
-                  ≡ƒöÆ This section is read-only. Only Circle Incharge / Admin can add or modify legal opinions.
+                  This section is read-only. Only Circle Incharge / Admin can add or modify legal opinions.
                 </div>
               )}
               {isPrivileged && (
@@ -1361,19 +1361,19 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Role</label>
                       <select className="cf-input" value={lo.role} onChange={e => updateLegalOpinion(i, 'role', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">ΓÇö Select Role ΓÇö</option>
+                        <option value="">— Select Role —</option>
                         {LEGAL_ROLES.map(r => <option key={r} value={r}>{r.toUpperCase().replace('_', ' ')}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Decision</label>
                       <select className="cf-input" value={lo.decision} onChange={e => updateLegalOpinion(i, 'decision', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {LEGAL_DECISIONS.map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Officer</label>
                       <select className="cf-input" value={lo.created_by} onChange={e => updateLegalOpinion(i, 'created_by', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">ΓÇö Select Officer ΓÇö</option>
+                        <option value="">— Select Officer —</option>
                         {legalOfficers.map(o => <option key={o.id} value={o.id}>{o.name} ({o.designation})</option>)}
                       </select>
                     </div>
@@ -1384,7 +1384,7 @@ export default function EnquiryForm() {
                     )}
                   </div>
                   <div className="cf-field"><label className="cf-label">Opinion Text</label>
-                    <textarea className="cf-input" rows={3} value={lo.opinion_text} onChange={e => updateLegalOpinion(i, 'opinion_text', e.target.value)} disabled={!isPrivileged} placeholder="Enter legal opinionΓÇª" style={{ width: '100%' }}></textarea>
+                    <textarea className="cf-input" rows={3} value={lo.opinion_text} onChange={e => updateLegalOpinion(i, 'opinion_text', e.target.value)} disabled={!isPrivileged} placeholder="Enter legal opinion..." style={{ width: '100%' }}></textarea>
                   </div>
                 </div>
               ))}
@@ -1406,7 +1406,7 @@ export default function EnquiryForm() {
             <div className="cf-body">
               {!isPrivileged && (
                 <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
-                  ≡ƒöÆ This section is read-only. Only Circle Incharge / Admin can add or modify approvals.
+                  This section is read-only. Only Circle Incharge / Admin can add or modify approvals.
                 </div>
               )}
               {isPrivileged && (
@@ -1419,13 +1419,13 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Circle Incharge</label>
                       <select className="cf-input" value={ap.circle_incharge_id} onChange={e => updateApproval(i, 'circle_incharge_id', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         {circleIncharges.map(o => <option key={o.id} value={o.id}>{o.name}{o.designation ? ' (' + o.designation + ')' : ''}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Decision</label>
                       <select className="cf-input" value={ap.decision} onChange={e => updateApproval(i, 'decision', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">ΓÇö Select ΓÇö</option>
+                        <option value="">— Select —</option>
                         <option value="agree">Agree</option>
                         <option value="review">Review</option>
                       </select>
@@ -1462,11 +1462,11 @@ export default function EnquiryForm() {
                 {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS, required: true })}
               </div>
               {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
-              {renderField('Charge Against', 'charge_against', { rows: 3, placeholder: 'Charges framed against accusedΓÇª' })}
-              {renderField('Oral Evidence', 'oral_evidence', { rows: 3, placeholder: 'Summary of oral evidenceΓÇª' })}
-              {renderField('Documentary Evidence', 'documentary_evidence', { rows: 3, placeholder: 'List of documentary evidenceΓÇª' })}
-              {renderField('Plea', 'plea', { rows: 2, placeholder: 'Plea of accusedΓÇª' })}
-              {renderField('Conclusion', 'conclusion', { rows: 3, placeholder: 'Investigation conclusionΓÇª' })}
+              {renderField('Charge Against', 'charge_against', { rows: 3, placeholder: 'Charges framed against accused...' })}
+              {renderField('Oral Evidence', 'oral_evidence', { rows: 3, placeholder: 'Summary of oral evidence...' })}
+              {renderField('Documentary Evidence', 'documentary_evidence', { rows: 3, placeholder: 'List of documentary evidence...' })}
+              {renderField('Plea', 'plea', { rows: 2, placeholder: 'Plea of accused...' })}
+              {renderField('Conclusion', 'conclusion', { rows: 3, placeholder: 'Investigation conclusion...' })}
               {renderField('CFR Summary', 'cfr_summary', {
                 rows: 4,
                 required: true,
@@ -1475,10 +1475,10 @@ export default function EnquiryForm() {
               <div className="cf-field" style={{ marginBottom: 16 }}>
                 <label className="cf-label">CFR Remarks</label>
                 {canEditCfrRemarks ? (
-                  <textarea className="cf-input" rows={3} value={form.cfr_remarks || ''} onChange={setF('cfr_remarks')} placeholder="Additional Director / Admin remarksΓÇª" style={{ width: '100%' }} />
+                  <textarea className="cf-input" rows={3} value={form.cfr_remarks || ''} onChange={setF('cfr_remarks')} placeholder="Additional Director / Admin remarks..." style={{ width: '100%' }} />
                 ) : (
                   <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)', minHeight: 60 }}>
-                    {form.cfr_remarks || 'ΓÇö'}
+                    {form.cfr_remarks || '—'}
                   </div>
                 )}
               </div>
@@ -1521,7 +1521,7 @@ export default function EnquiryForm() {
 
         {canSubmitCfr && (
           <div style={{ marginTop: 16, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e3a5f' }}>
-            Outcome tab mein <strong>Recommendation</strong> + <strong>CFR Summary</strong> complete karke <strong>Submit CFR</strong> dabayein ΓÇö Circle Incharge ko review ke liye chala jayega.
+            Outcome tab mein <strong>Recommendation</strong> + <strong>CFR Summary</strong> complete karke <strong>Submit CFR</strong> dabayein — Circle Incharge ko review ke liye chala jayega.
           </div>
         )}
 
