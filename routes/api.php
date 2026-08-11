@@ -61,6 +61,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/complaint-pdf-imports/{complaintPdfImport}/apply', [ComplaintPdfImportController::class, 'apply'])
         ->middleware('role:operator,admin,circle_incharge');
 
+    Route::post('/adp/extract', [\App\Http\Controllers\AdpApplyController::class, 'extract'])
+        ->middleware('role:operator,admin,circle_incharge');
     Route::post('/adp/apply', [\App\Http\Controllers\AdpApplyController::class, 'apply'])
         ->middleware('role:operator,admin,circle_incharge');
 

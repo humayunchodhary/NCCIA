@@ -4,8 +4,6 @@ import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { canCreateComplaint } from '../utils/permissions';
 
-const ADP_API = import.meta.env.VITE_ADP_API_URL || 'http://localhost:8000';
-
 function Field({ label, value }) {
   if (!value) return null;
   return (
@@ -33,16 +31,11 @@ export default function AdpImport() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${ADP_API}/api/v1/extract`, { method: 'POST', body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `ADP error ${res.status}`);
-      }
-      const json = await res.json();
-      setExtracted(json.data);
-      setMessage(`Extracted in ${json.elapsed_ms}ms (${json.ai_provider}${json.used_ocr ? ' + OCR' : ''})`);
+      const res = await api.post('/adp/extract', fd);
+      setExtracted(res.data.data);
+      setMessage(`Extracted in ${res.data.elapsed_ms}ms (${res.data.ai_provider}${res.data.used_ocr ? ' + OCR' : ''})`);
     } catch (err) {
-      setMessage(err.message || 'Extract failed — is ADP backend running on port 8000?');
+      setMessage(err.response?.data?.message || err.message || 'Extract failed — is ADP backend running?');
     } finally {
       setLoading(false);
     }

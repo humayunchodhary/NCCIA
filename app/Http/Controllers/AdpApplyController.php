@@ -6,12 +6,48 @@ use App\Http\Resources\ComplaintResource;
 use App\Models\Complaint;
 use App\Models\VerificationReport;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class AdpApplyController extends Controller
 {
+    public function extract(Request $request)
+    {
+        $this->authorize('create', Complaint::class);
+
+        $request->validate([
+            'file' => 'required|file|mimes:pdf|max:51200',
+        ]);
+
+        $base = config('services.adp.url');
+        if (!$base) {
+            return response()->json(['message' => 'ADP backend URL not configured (ADP_API_URL).'], 503);
+        }
+
+        $file = $request->file('file');
+        $timeout = config('services.adp.timeout', 120);
+
+        try {
+            $response = Http::timeout($timeout)
+                ->attach('file', file_get_contents($file->getRealPath()), $file->getClientOriginalName())
+                ->post("{$base}/api/v1/extract");
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'ADP backend unreachable. Start it on port 8001 or set ADP_API_URL.',
+                'detail'  => $e->getMessage(),
+            ], 502);
+        }
+
+        if (!$response->successful()) {
+            $body = $response->json();
+            return response()->json([
+                'message' => $body['detail'] ?? $body['message'] ?? 'ADP extract failed',
+            ], $response->status());
+        }
+
+        return response()->json($response->json());
+    }
+
     public function apply(Request $request)
     {
         $this->authorize('create', Complaint::class);
