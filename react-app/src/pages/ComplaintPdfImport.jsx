@@ -39,6 +39,7 @@ export default function ComplaintPdfImport() {
   const [message, setMessage] = useState('');
   const [selected, setSelected] = useState(null);
   const [processingId, setProcessingId] = useState(null);
+  const [serverCaps, setServerCaps] = useState(null);
 
   const canUpload = canCreateComplaint(user);
   const previewReady = Boolean(preview?.victim_cnic && preview?.victim_name);
@@ -55,6 +56,9 @@ export default function ComplaintPdfImport() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
+    api.get('/complaint-pdf-imports/capabilities').then(r => setServerCaps(r.data || null)).catch(() => {});
+  }, []);
+  useEffect(() => {
     const t = setInterval(fetchData, 8000);
     return () => clearInterval(t);
   }, [fetchData]);
@@ -65,8 +69,16 @@ export default function ComplaintPdfImport() {
         const fd = new FormData();
         fd.append('file', file);
         fd.append('page', String(pageIndex));
-        const r = await api.post('/complaint-pdf-imports/render-page', fd, { timeout: 120000 });
-        return r.data?.image || null;
+        try {
+          const r = await api.post('/complaint-pdf-imports/render-page', fd, { timeout: 120000 });
+          return r.data?.image || null;
+        } catch (err) {
+          const caps = err.response?.data?.capabilities;
+          if (caps && !caps.imagick && !caps.ghostscript && !caps.pdftoppm && !caps.mutool) {
+            throw new Error('Server par Imagick/Ghostscript nahi. Hosting panel se Imagick PHP extension enable karwain.');
+          }
+          throw err;
+        }
       },
     });
     ocrCacheRef.current.set(file.name, text);
@@ -239,6 +251,11 @@ export default function ComplaintPdfImport() {
           PDF select karein → browser OCR (30–90 sec) → preview mein CNIC check → phir upload.
           Filename <code>261-26.PDF</code> → inquiry <code>E/261/26</code>.
         </p>
+        {serverCaps && !serverCaps.imagick && !serverCaps.ghostscript && !serverCaps.pdftoppm && (
+          <p style={{ color: '#b45309', fontSize: 12, marginTop: 8 }}>
+            Server par Imagick/Ghostscript missing — scanned PDF ke liye hosting se <strong>Imagick PHP extension</strong> enable karwain.
+          </p>
+        )}
       </div>
 
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>

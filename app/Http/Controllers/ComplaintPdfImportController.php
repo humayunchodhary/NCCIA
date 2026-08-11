@@ -37,6 +37,16 @@ class ComplaintPdfImportController extends Controller
         ]);
     }
 
+    public function capabilities()
+    {
+        return response()->json([
+            'imagick'   => extension_loaded('imagick'),
+            'ghostscript' => $this->findBinary(['gs', 'ghostscript']) !== null,
+            'pdftoppm'  => $this->findBinary(['pdftoppm']) !== null,
+            'mutool'    => $this->findBinary(['mutool']) !== null,
+        ]);
+    }
+
     public function store(Request $request, ComplaintPdfImportService $service)
     {
         @set_time_limit(300);
@@ -242,7 +252,13 @@ class ComplaintPdfImportController extends Controller
             $image = $this->renderPdfPageImage($absolute, $page);
             if (!$image) {
                 return response()->json([
-                    'error' => 'Could not render PDF page on server (Imagick/Ghostscript missing).',
+                    'error'        => 'Could not render PDF page on server. Enable Imagick PHP extension or install Ghostscript (gs).',
+                    'capabilities' => [
+                        'imagick'     => extension_loaded('imagick'),
+                        'ghostscript' => $this->findBinary(['gs', 'ghostscript']) !== null,
+                        'pdftoppm'    => $this->findBinary(['pdftoppm']) !== null,
+                        'mutool'      => $this->findBinary(['mutool']) !== null,
+                    ],
                 ], 422);
             }
 
@@ -275,24 +291,100 @@ class ComplaintPdfImportController extends Controller
             }
         }
 
-        $pdftoppm = trim((string) shell_exec('which pdftoppm 2>/dev/null'));
-        if ($pdftoppm !== '') {
-            $outDir = sys_get_temp_dir() . '/nccia-pdf-' . uniqid();
-            @mkdir($outDir, 0755, true);
-            $prefix = $outDir . '/page';
-            $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . ($page + 1) . ' -l ' . ($page + 1)
-                . ' -r 220 ' . escapeshellarg($pdfPath) . ' ' . escapeshellarg($prefix);
-            @exec($cmd, $output, $code);
-            $png = $prefix . '-1.png';
-            if ($code === 0 && is_file($png)) {
-                $data = file_get_contents($png);
-                @unlink($png);
-                @rmdir($outDir);
+        return $this->renderWithPdftoppm($pdfPath, $page)
+            ?? $this->renderWithGhostscript($pdfPath, $page)
+            ?? $this->renderWithMutool($pdfPath, $page);
+    }
 
-                return $data ? 'data:image/png;base64,' . base64_encode($data) : null;
+    private function findBinary(array $names): ?string
+    {
+        foreach ($names as $name) {
+            $path = trim((string) shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null'));
+            if ($path !== '' && is_executable($path)) {
+                return $path;
+            }
+        }
+
+        foreach (['/usr/bin/gs', '/usr/local/bin/gs', '/usr/bin/pdftoppm', '/usr/bin/mutool'] as $path) {
+            if (is_executable($path)) {
+                return $path;
             }
         }
 
         return null;
+    }
+
+    private function renderWithPdftoppm(string $pdfPath, int $page): ?string
+    {
+        $pdftoppm = $this->findBinary(['pdftoppm']);
+        if (!$pdftoppm) {
+            return null;
+        }
+
+        $outDir = sys_get_temp_dir() . '/nccia-pdf-' . uniqid();
+        @mkdir($outDir, 0755, true);
+        $prefix = $outDir . '/page';
+        $cmd = escapeshellcmd($pdftoppm) . ' -png -f ' . ($page + 1) . ' -l ' . ($page + 1)
+            . ' -r 220 ' . escapeshellarg($pdfPath) . ' ' . escapeshellarg($prefix);
+        @exec($cmd, $output, $code);
+        $png = $prefix . '-' . str_pad((string) ($page + 1), strlen((string) ($page + 1)), '0', STR_PAD_LEFT) . '.png';
+        if (!is_file($png)) {
+            $png = $prefix . '-1.png';
+        }
+        if ($code === 0 && is_file($png)) {
+            $data = file_get_contents($png);
+            @unlink($png);
+            @rmdir($outDir);
+
+            return $data ? 'data:image/png;base64,' . base64_encode($data) : null;
+        }
+
+        return null;
+    }
+
+    private function renderWithGhostscript(string $pdfPath, int $page): ?string
+    {
+        $gs = $this->findBinary(['gs', 'ghostscript']);
+        if (!$gs) {
+            return null;
+        }
+
+        $outFile = sys_get_temp_dir() . '/nccia-' . uniqid() . '.png';
+        $pageNum = $page + 1;
+        $cmd = escapeshellcmd($gs)
+            . ' -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -r220'
+            . ' -dFirstPage=' . $pageNum . ' -dLastPage=' . $pageNum
+            . ' -sOutputFile=' . escapeshellarg($outFile)
+            . ' ' . escapeshellarg($pdfPath);
+        @exec($cmd, $output, $code);
+        if ($code !== 0 || !is_file($outFile)) {
+            return null;
+        }
+
+        $data = file_get_contents($outFile);
+        @unlink($outFile);
+
+        return $data ? 'data:image/png;base64,' . base64_encode($data) : null;
+    }
+
+    private function renderWithMutool(string $pdfPath, int $page): ?string
+    {
+        $mutool = $this->findBinary(['mutool']);
+        if (!$mutool) {
+            return null;
+        }
+
+        $outFile = sys_get_temp_dir() . '/nccia-' . uniqid() . '.png';
+        $cmd = escapeshellcmd($mutool) . ' draw -o ' . escapeshellarg($outFile)
+            . ' -r 220 ' . escapeshellarg($pdfPath) . ' ' . ($page + 1);
+        @exec($cmd, $output, $code);
+        if ($code !== 0 || !is_file($outFile)) {
+            return null;
+        }
+
+        $data = file_get_contents($outFile);
+        @unlink($outFile);
+
+        return $data ? 'data:image/png;base64,' . base64_encode($data) : null;
     }
 }

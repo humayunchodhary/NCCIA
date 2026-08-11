@@ -117,6 +117,58 @@ function canvasHasInk(canvas) {
   return dark > 80;
 }
 
+function imgDataToCanvas(imgData) {
+  if (!imgData?.width || !imgData?.height) return null;
+  const { width, height, bitmap, data } = imgData;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  if (bitmap) {
+    ctx.drawImage(bitmap, 0, 0);
+    return canvas;
+  }
+
+  if (data) {
+    const imageData = ctx.createImageData(width, height);
+    if (data.length === width * height * 4) {
+      imageData.data.set(data);
+    } else if (data.length === width * height * 3) {
+      for (let i = 0, j = 0; i < data.length; i += 3, j += 4) {
+        imageData.data[j] = data[i];
+        imageData.data[j + 1] = data[i + 1];
+        imageData.data[j + 2] = data[i + 2];
+        imageData.data[j + 3] = 255;
+      }
+    } else {
+      return null;
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+  }
+
+  return null;
+}
+
+function collectEmbeddedImageCanvases(page) {
+  const canvases = [];
+  try {
+    if (page.objs && typeof page.objs[Symbol.iterator] === 'function') {
+      for (const [, imgData] of page.objs) {
+        const canvas = imgDataToCanvas(imgData);
+        if (canvas && canvas.width > 200 && canvas.height > 200) {
+          enhanceForOcr(canvas);
+          canvases.push(canvas);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Embedded image extraction failed', err);
+  }
+  return canvases.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+}
+
 function cropCanvasTop(canvas, ratio = 0.6) {
   const h = Math.max(1, Math.floor(canvas.height * ratio));
   const cropped = document.createElement('canvas');
@@ -201,7 +253,28 @@ async function ocrFromCanvas(worker, canvas, onStatus) {
 
 async function ocrPageWithPdfJs(page, worker, onStatus) {
   for (const scale of RENDER_SCALES) {
-    const canvas = await renderPageToCanvas(page, scale);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({
+      canvasContext: ctx,
+      viewport,
+      intent: 'print',
+    }).promise;
+
+    const embedded = collectEmbeddedImageCanvases(page);
+    for (const embeddedCanvas of embedded) {
+      onStatus?.('OCR embedded scan…');
+      const text = await ocrFromCanvas(worker, embeddedCanvas, onStatus);
+      if (text) return text;
+    }
+
+    enhanceForOcr(canvas);
     const text = await ocrFromCanvas(worker, canvas, onStatus);
     if (text) return text;
   }

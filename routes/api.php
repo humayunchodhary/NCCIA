@@ -46,6 +46,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
 
     Route::get('/complaint-pdf-imports', [ComplaintPdfImportController::class, 'index']);
     Route::get('/complaint-pdf-imports/stats', [ComplaintPdfImportController::class, 'stats']);
+    Route::get('/complaint-pdf-imports/capabilities', [ComplaintPdfImportController::class, 'capabilities']);
     Route::post('/complaint-pdf-imports', [ComplaintPdfImportController::class, 'store'])
         ->middleware('role:operator,admin,circle_incharge');
     Route::post('/complaint-pdf-imports/preview', [ComplaintPdfImportController::class, 'preview'])
