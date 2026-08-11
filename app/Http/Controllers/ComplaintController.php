@@ -99,6 +99,12 @@ class ComplaintController extends Controller
 
         $data['laws'] = $request->has('laws') ? $request->laws : null;
         $data['evidence'] = $request->has('evidence') ? $request->evidence : null;
+        $data['platforms'] = $request->has('platforms') ? $request->platforms : null;
+        $data['crime_mediums'] = $request->has('crime_mediums') ? $request->crime_mediums : null;
+        if ($request->has('initial_accused')) {
+            $accused = $request->input('initial_accused');
+            $data['initial_accused'] = is_string($accused) ? (json_decode($accused, true) ?: []) : $accused;
+        }
         $data['user_id'] = Auth::id();
         $data['operator_id'] = $data['operator_id'] ?? Auth::id();
         // Bind complaint to operator's circle so same-circle CI (e.g. Lahore) receives work
@@ -184,6 +190,12 @@ class ComplaintController extends Controller
 
         $data['laws']     = $request->has('laws') ? $request->laws : $complaint->laws;
         $data['evidence'] = $request->has('evidence') ? $request->evidence : $complaint->evidence;
+        $data['platforms'] = $request->has('platforms') ? $request->platforms : $complaint->platforms;
+        $data['crime_mediums'] = $request->has('crime_mediums') ? $request->crime_mediums : $complaint->crime_mediums;
+        if ($request->has('initial_accused')) {
+            $accused = $request->input('initial_accused');
+            $data['initial_accused'] = is_string($accused) ? (json_decode($accused, true) ?: []) : $accused;
+        }
         $data['attachment'] = $request->hasFile('attachment') ? $this->uploadAttachment($request, $complaint) : ($request->has('attachment') ? $request->input('attachment') : $complaint->attachment);
 
         $scrutinyResult = $data['scrutiny_result'] ?? $complaint->scrutiny_result;

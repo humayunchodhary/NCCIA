@@ -30,6 +30,20 @@
         Header always set X-Content-Type-Options "nosniff"
         Header always set X-XSS-Protection "1; mode=block"
         Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Never cache SPA shell / version (so deploys appear without Ctrl+F5)
+        <FilesMatch "(index\.html|version\.json)$">
+            Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+            Header set Pragma "no-cache"
+            Header set Expires "0"
+        </FilesMatch>
+    </IfModule>
+
+    # Long-cache hashed Vite assets (filename changes on every build)
+    <IfModule mod_headers.c>
+        <FilesMatch "\.(?:js|css|woff2?|png|jpe?g|gif|webp|svg)$">
+            Header set Cache-Control "public, max-age=31536000, immutable"
+        </FilesMatch>
     </IfModule>
 
     # Send Requests To Front Controller...

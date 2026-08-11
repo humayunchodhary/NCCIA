@@ -5,22 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class EnquiryActivity extends Model
+class EnquiryAttachment extends Model
 {
     protected $fillable = [
         'enquiry_id',
-        'type',
-        'diary_no',
-        'description',
-        'activity_date',
-        'attachment_path',
-        'created_by',
+        'enquiry_number',
+        'attachment_date',
+        'title',
+        'file_path',
+        'original_name',
+        'uploaded_by',
     ];
 
     protected function casts(): array
     {
         return [
-            'activity_date' => 'date:Y-m-d',
+            'attachment_date' => 'date:Y-m-d',
         ];
     }
 
@@ -29,8 +29,8 @@ class EnquiryActivity extends Model
         return $this->belongsTo(Enquiry::class);
     }
 
-    public function creator(): BelongsTo
+    public function uploader(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'uploaded_by');
     }
 }

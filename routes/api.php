@@ -103,6 +103,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->middleware('role:admin')
         ->name('api.enquiries.destroy');
     Route::get('/enquiries/{enquiry}/notice-print', [EnquiryController::class, 'noticePrint'])->name('api.enquiries.notice-print');
+    Route::get('/enquiries/{enquiry}/diary-print', [EnquiryController::class, 'diaryPrint'])->name('api.enquiries.diary-print');
     Route::get('/enquiries/stats', [EnquiryController::class, 'stats']);
     Route::post('/enquiries/{enquiry}/assign', [EnquiryController::class, 'assign'])
         ->middleware('role:admin,circle_incharge');

@@ -30,6 +30,14 @@ class Enquiry extends Model
         'transfer_circle',
         'merge_complaint_id',
         'cfr_summary',
+        'cfr_type',
+        'cfr_date',
+        'charge_against',
+        'oral_evidence',
+        'documentary_evidence',
+        'plea',
+        'conclusion',
+        'cfr_remarks',
         'reg_date',
         'assignment_date',
         'submitted_at',
@@ -74,6 +82,7 @@ class Enquiry extends Model
             'assignment_date'       => 'datetime',
             'submitted_at'          => 'datetime',
             'approved_at'           => 'datetime',
+            'cfr_date'              => 'date:Y-m-d',
             'notice_date'           => 'date:Y-m-d',
             'notice_served_at'      => 'datetime',
             'notice_served'         => 'boolean',
@@ -131,6 +140,21 @@ class Enquiry extends Model
         }
 
         return CaseFile::where('enquiry_id', $this->id)->exists();
+    }
+
+    public function accusedPersons(): HasMany
+    {
+        return $this->hasMany(EnquiryAccused::class);
+    }
+
+    public function enquiryAttachments(): HasMany
+    {
+        return $this->hasMany(EnquiryAttachment::class);
+    }
+
+    public function requisitions(): HasMany
+    {
+        return $this->hasMany(EnquiryRequisition::class);
     }
 
     /**

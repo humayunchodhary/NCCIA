@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Complaint;
 use App\Models\Enquiry;
+use App\Models\EnquiryActivity;
 use App\Models\EnquiryNotice;
 use Illuminate\Support\Facades\URL;
 
@@ -238,6 +239,58 @@ class PrintService
              .qr { width:110px; height:110px; }
              .verify { font-size:10px; color:#333; word-break:break-all; }
              hr { border:none; border-top:1px solid #000; margin:8px 0; }'
+        );
+    }
+
+    public function diaryPrintDocument(Enquiry $enquiry, EnquiryActivity $activity): string
+    {
+        $enquiry->loadMissing('complaint.circle');
+        $logo = url('images/NCCIA.webp');
+        $enquiryNo = e($enquiry->enquiry_number ?: ('#' . $enquiry->id));
+        $tracking = e($enquiry->complaint?->tracking_no ?? '—');
+        $circle = e($enquiry->complaint?->circle?->name ?? '—');
+        $diaryNo = e($activity->diary_no ?: ('D-' . $activity->id));
+        $date = $activity->activity_date ? $activity->activity_date->format('d/m/Y') : '—';
+        $desc = e($activity->description ?? '');
+        $issuedAt = now()->format('d/m/Y h:i A');
+
+        $body = <<<HTML
+        <div class="diary">
+          <div class="center">
+            <img src="{$logo}" alt="NCCIA" class="logo" />
+            <div class="org">National Compliance &amp; Integrity Authority (NCCIA)</div>
+            <div class="tag">CASE DIARY</div>
+          </div>
+          <hr/>
+          <div class="mrow"><span class="k">Diary No:</span><span>{$diaryNo}</span></div>
+          <div class="mrow"><span class="k">Diary Date:</span><span>{$date}</span></div>
+          <div class="mrow"><span class="k">Enquiry No:</span><span>{$enquiryNo}</span></div>
+          <div class="mrow"><span class="k">Complaint No:</span><span>{$tracking}</span></div>
+          <div class="mrow"><span class="k">Circle:</span><span>{$circle}</span></div>
+          <hr/>
+          <div class="body"><strong>Description</strong><p class="desc">{$desc}</p></div>
+          <div class="sign center"><div class="sign-line"></div><div class="small">Enquiry Officer</div></div>
+          <div class="small center">Printed: {$issuedAt}</div>
+        </div>
+        HTML;
+
+        return $this->document(
+            $body,
+            '@page { size: A4; margin: 14mm; }
+             body { margin:0; font-family: Arial, Helvetica, sans-serif; color:#000; }
+             .diary { max-width: 170mm; margin: 0 auto; font-size: 13px; line-height:1.5; }
+             .center { text-align:center; }
+             .logo { width:70px; height:70px; object-fit:contain; }
+             .org { font-size:15px; font-weight:700; margin-top:4px; }
+             .tag { font-size:16px; font-weight:800; letter-spacing:1px; margin-top:6px; }
+             .mrow { margin:4px 0; }
+             .mrow .k { display:inline-block; width:120px; font-weight:700; }
+             .body { margin-top:12px; }
+             .desc { white-space:pre-wrap; margin-top:6px; }
+             .sign { margin-top:40px; width:180px; }
+             .sign-line { border-top:1px solid #000; margin-bottom:4px; }
+             .small { font-size:11px; }
+             hr { border:none; border-top:1px solid #000; margin:10px 0; }'
         );
     }
 

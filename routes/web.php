@@ -8,12 +8,41 @@ use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\VerificationController;
 
+if (! function_exists('spaHtmlResponse')) {
+    /**
+     * Serve React SPA HTML without browser/proxy caching so deploys show up
+     * without requiring Ctrl+F5.
+     */
+    function spaHtmlResponse()
+    {
+        $path = public_path('react/index.html');
+        abort_unless(is_file($path), 500, 'Frontend build missing. Run npm run build.');
+
+        $html = file_get_contents($path);
+        $bust = (string) filemtime($path);
+
+        // Bust non-hashed CSS so style updates also appear without hard refresh
+        $html = preg_replace(
+            '#(href=")(/css/[^"?]+)(")#',
+            '$1$2?v=' . $bust . '$3',
+            $html
+        ) ?? $html;
+
+        return response($html, 200, [
+            'Content-Type'  => 'text/html; charset=UTF-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma'        => 'no-cache',
+            'Expires'       => '0',
+        ]);
+    }
+}
+
 Route::get('/', function () {
-    return file_get_contents(public_path('react/index.html'));
+    return spaHtmlResponse();
 })->name('dashboard');
 
 Route::get('/login', function () {
-    return file_get_contents(public_path('react/index.html'));
+    return spaHtmlResponse();
 })->name('login');
 
 Route::post('/login', [LoginController::class, 'login']);
@@ -79,5 +108,5 @@ Route::get('/verify/complaint/{id}/{token}', [ComplaintController::class, 'verif
 
 // React SPA - serve React app for all frontend routes
 Route::get('/{any?}', function () {
-    return file_get_contents(public_path('react/index.html'));
+    return spaHtmlResponse();
 })->where('any', '^(?!api/|sanctum/).*');

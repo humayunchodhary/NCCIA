@@ -20,6 +20,10 @@ const RECEIVED_VIA_OPTIONS = [
   { value: 'Individually', name: 'Individually' },
   { value: 'Mobile Apps', name: 'Mobile Apps' },
   { value: 'Online Form', name: 'Online Form' },
+  { value: 'In person', name: 'In person' },
+  { value: 'Online Platform', name: 'Online Platform' },
+  { value: 'Government Department', name: 'Government Department' },
+  { value: 'Source Report', name: 'Source Report' },
 ];
 
 const RECEIVED_FROM_OPTIONS = [
@@ -47,29 +51,71 @@ const CMU_OPTIONS = [
   { value: 'CCRC', name: 'CCRC' },
 ];
 
+const GENDER_OPTIONS = [
+  { value: 'Male', name: 'Male' },
+  { value: 'Female', name: 'Female' },
+  { value: 'Other', name: 'Other' },
+];
+
+const PLATFORM_OPTIONS = [
+  'Facebook', 'Instagram', 'WhatsApp', 'TikTok', 'Twitter', 'Youtube', 'Telegram', 'Website Address',
+];
+
+const CRIME_MEDIUM_OPTIONS = [
+  'Social Media Accounts', 'Gmail', 'ATM', 'Credit Card', 'IBFT', 'Online Banking',
+  'Jazz Cash', 'Easy Paisa', 'Upaisa', 'UBL Omni', 'Bitcoin', 'Crypto Currency',
+  'Email', 'Website', 'OLX', 'Others',
+];
+
+const EVIDENCE_OPTIONS = [
+  'Application', 'CNIC', 'Screenshots', 'Chat / Conversation', 'Email',
+  'Transaction Receipt', 'Bank Statement', 'Others',
+];
+
+const EMPTY_ACCUSED = {
+  name: '', mobile_no: '', cnic: '', email: '', social_media_url: '', other_info: '',
+};
+
 const initialForm = {
   complainant_name: '',
+  father_name: '',
   cnic: '',
   contact_no: '',
+  whatsapp_no: '',
+  gender: '',
   email: '',
   contact_country_code: '+92',
   nationality: 'Pakistani',
   passport_no: '',
   address: '',
   post_address: '',
+  district: '',
   profession: '',
   report_date: '',
+  reporting_time: '',
   diary_no: '',
   received_via: '',
   received_from: '',
   cmu: '',
   priority_type: 'regular',
   offence_type: '',
+  crime_mediums: [],
   amount_involved: '',
+  bank_name_sender: '',
+  bank_name_receiver: '',
+  account_no_sender: '',
+  account_no_receiver: '',
+  transaction_date: '',
   occurrence_date: '',
   laws: [],
   description: '',
+  platforms: [],
+  platform_profile_page: '',
+  platform_username: '',
+  platform_email_involved: '',
+  platform_mobile_involved: '',
   evidence: [],
+  initial_accused: [],
   operator_name: '',
   operator_designation: '',
   entry_time: '',
@@ -85,6 +131,8 @@ const PRIORITY_OPTIONS = [
   { value: 'high', name: 'High' },
   { value: 'critical', name: 'Critical' },
 ];
+
+const ARRAY_FORM_FIELDS = ['laws', 'evidence', 'platforms', 'crime_mediums'];
 
 export default function ComplaintForm() {
   const { id } = useParams();
@@ -107,27 +155,85 @@ export default function ComplaintForm() {
 
   const setCNIC = (e) => {
     let val = e.target.value.replace(/\D/g, '');
-    if (val.length > 5) val = val.slice(0,5) + '-' + val.slice(5);
-    if (val.length > 13) val = val.slice(0,13) + '-' + val.slice(13);
+    if (val.length > 5) val = val.slice(0, 5) + '-' + val.slice(5);
+    if (val.length > 13) val = val.slice(0, 13) + '-' + val.slice(13);
     setForm(f => ({ ...f, cnic: val }));
   };
 
   const setPhone = (e) => {
     let val = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
-    if (val.length > 10) val = val.slice(0,10);
+    if (val.length > 10) val = val.slice(0, 10);
     setForm(f => ({ ...f, contact_no: val }));
+  };
+
+  const setWhatsApp = (e) => {
+    let val = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
+    if (val.length > 10) val = val.slice(0, 10);
+    setForm(f => ({ ...f, whatsapp_no: val }));
+  };
+
+  const toggleArray = (field, value) => {
+    setForm(f => {
+      const arr = f[field] || [];
+      return {
+        ...f,
+        [field]: arr.includes(value) ? arr.filter(x => x !== value) : [...arr, value],
+      };
+    });
+  };
+
+  const addInitialAccused = () => {
+    setForm(f => ({ ...f, initial_accused: [...(f.initial_accused || []), { ...EMPTY_ACCUSED }] }));
+  };
+
+  const removeInitialAccused = (index) => {
+    setForm(f => ({ ...f, initial_accused: f.initial_accused.filter((_, i) => i !== index) }));
+  };
+
+  const updateInitialAccused = (index, field, value) => {
+    setForm(f => ({
+      ...f,
+      initial_accused: f.initial_accused.map((a, i) => (i === index ? { ...a, [field]: value } : a)),
+    }));
+  };
+
+  const formatAccusedCnic = (index, raw) => {
+    let val = raw.replace(/\D/g, '');
+    if (val.length > 5) val = val.slice(0, 5) + '-' + val.slice(5);
+    if (val.length > 13) val = val.slice(0, 13) + '-' + val.slice(13);
+    updateInitialAccused(index, 'cnic', val);
+  };
+
+  const formatAccusedMobile = (index, raw) => {
+    let val = raw.replace(/\D/g, '').replace(/^0+/, '');
+    if (val.length > 10) val = val.slice(0, 10);
+    updateInitialAccused(index, 'mobile_no', val);
+  };
+
+  const parseInitialAccused = (value) => {
+    if (!value) return [];
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(value) ? value : [];
   };
 
   useEffect(() => {
     if (!id && user) {
       const now = new Date();
       const pad = n => String(n).padStart(2, '0');
-      const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      const local = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
       setForm(f => ({
         ...f,
         operator_name: user.name || '',
         operator_designation: user.designation || '',
         entry_time: local,
+        reporting_time: local,
       }));
     }
   }, [id, user]);
@@ -144,6 +250,7 @@ export default function ComplaintForm() {
       api.get(`/complaints/${id}`).then(r => {
         const d = r.data.data || r.data;
         if (d.contact_no) d.contact_no = d.contact_no.replace(/\D/g, '').replace(/^0+/, '');
+        if (d.whatsapp_no) d.whatsapp_no = d.whatsapp_no.replace(/\D/g, '').replace(/^0+/, '');
         if (!d.contact_country_code) d.contact_country_code = '+92';
         setHasVerification(!!d.verification);
         setForm({
@@ -151,6 +258,9 @@ export default function ComplaintForm() {
           ...d,
           laws: d.laws || [],
           evidence: d.evidence || [],
+          platforms: d.platforms || [],
+          crime_mediums: d.crime_mediums || [],
+          initial_accused: parseInitialAccused(d.initial_accused),
           verification_officer_id: d.verification?.verification_officer_id || '',
           assign_priority_type: d.verification?.priority_type || d.priority_type || 'normal',
         });
@@ -184,12 +294,14 @@ export default function ComplaintForm() {
         delete payload.assign_priority_type;
       }
       Object.entries(payload).forEach(([k, v]) => {
-        if (k === 'laws' && Array.isArray(v)) {
-          v.forEach(item => fd.append('laws[]', item));
+        if (ARRAY_FORM_FIELDS.includes(k) && Array.isArray(v)) {
+          v.forEach(item => fd.append(`${k}[]`, item));
           return;
         }
-        if (k === 'evidence' && Array.isArray(v)) {
-          v.forEach(item => fd.append('evidence[]', item));
+        if (k === 'initial_accused') {
+          if (Array.isArray(v) && v.length > 0) {
+            fd.append('initial_accused', JSON.stringify(v));
+          }
           return;
         }
         if (v !== null && v !== undefined && v !== '') {
@@ -244,10 +356,33 @@ export default function ComplaintForm() {
             labelKey="name"
           />
         ) : rows ? (
-          <textarea className="cf-input" value={form[field]} onChange={set(field)} placeholder={placeholder} rows={rows} required={required} style={fieldErr ? {borderColor:'#e53e3e'} : {}} />
+          <textarea className="cf-input" value={form[field]} onChange={set(field)} placeholder={placeholder} rows={rows} required={required} style={fieldErr ? { borderColor: '#e53e3e' } : {}} />
         ) : (
-          <input type={type} className="cf-input" value={form[field]} onChange={set(field)} placeholder={placeholder} required={required} style={fieldErr ? {borderColor:'#e53e3e'} : {}} />
+          <input type={type} className="cf-input" value={form[field]} onChange={set(field)} placeholder={placeholder} required={required} style={fieldErr ? { borderColor: '#e53e3e' } : {}} />
         )}
+        {fieldErr && <div className="cf-error">{fieldErr}</div>}
+      </div>
+    );
+  };
+
+  const renderCheckboxGroup = (label, field, options) => {
+    const fieldErr = errors[field];
+    return (
+      <div className="cf-field">
+        <label className="cf-label">{label}</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px 16px' }}>
+          {options.map(opt => (
+            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: 13 }}>
+              <input
+                type="checkbox"
+                checked={(form[field] || []).includes(opt)}
+                onChange={() => toggleArray(field, opt)}
+                style={{ accentColor: '#264078' }}
+              />
+              {opt}
+            </label>
+          ))}
+        </div>
         {fieldErr && <div className="cf-error">{fieldErr}</div>}
       </div>
     );
@@ -275,34 +410,48 @@ export default function ComplaintForm() {
           <div className="cf-body">
             <div className="cf-row-2">
               {renderField('Complainant Name', 'complainant_name', { required: true })}
+              {renderField('Father Name', 'father_name')}
+            </div>
+            <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label required">CNIC</label>
                 <input type="text" className="cf-input" value={form.cnic} onChange={setCNIC} placeholder="XXXXX-XXXXXXX-X" required maxLength={15} />
                 {errors.cnic && <div className="cf-error">{errors.cnic}</div>}
               </div>
+              {renderField('Gender', 'gender', { options: GENDER_OPTIONS })}
             </div>
             <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label required">Contact No</label>
-                <div style={{display:'flex',gap:'8px'}}>
-                  <select className="cf-input" value={form.contact_country_code} onChange={set('contact_country_code')} style={{width:'190px'}}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select className="cf-input" value={form.contact_country_code} onChange={set('contact_country_code')} style={{ width: '190px' }}>
                     {countryCodes.map(c => <option key={c.code + c.name} value={c.code}>{c.code} — {c.name}</option>)}
                   </select>
-                  <input type="text" className="cf-input" value={form.contact_no} onChange={setPhone} placeholder="3XXXXXXXXX" required maxLength={12} style={{flex:1}} />
+                  <input type="text" className="cf-input" value={form.contact_no} onChange={setPhone} placeholder="3XXXXXXXXX" required maxLength={12} style={{ flex: 1 }} />
                 </div>
                 {errors.contact_no && <div className="cf-error">{errors.contact_no}</div>}
               </div>
-              {renderField('Profession', 'profession')}
+              <div className="cf-field">
+                <label className="cf-label">WhatsApp No</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select className="cf-input" value={form.contact_country_code} onChange={set('contact_country_code')} style={{ width: '190px' }}>
+                    {countryCodes.map(c => <option key={c.code + c.name} value={c.code}>{c.code} — {c.name}</option>)}
+                  </select>
+                  <input type="text" className="cf-input" value={form.whatsapp_no} onChange={setWhatsApp} placeholder="3XXXXXXXXX" maxLength={12} style={{ flex: 1 }} />
+                </div>
+                {errors.whatsapp_no && <div className="cf-error">{errors.whatsapp_no}</div>}
+              </div>
             </div>
             <div className="cf-row-2">
               <div className="cf-field">
-                <label className="cf-label required">Email</label>
+                <label className="cf-label">Email</label>
                 <input type="email" className="cf-input" value={form.email} onChange={set('email')} placeholder="example@domain.com" />
                 {errors.email && <div className="cf-error">{errors.email}</div>}
               </div>
               {renderField('Profession', 'profession')}
             </div>
             <div className="cf-row-2">
+              {renderField('District', 'district')}
               <div className="cf-field">
                 <label className="cf-label">Nationality</label>
                 <select className="cf-input" value={form.nationality || 'Pakistani'} onChange={set('nationality')}>
@@ -312,9 +461,11 @@ export default function ComplaintForm() {
                 </select>
                 {errors.nationality && <div className="cf-error">{errors.nationality}</div>}
               </div>
+            </div>
+            <div className="cf-row-2">
               <div className="cf-field">
-                <label className="cf-label">Passport No {(['Dual Nationality Holder','Foreigner'].includes(form.nationality)) && <span style={{color:'#e53e3e'}}>*</span>}</label>
-                <input type="text" className="cf-input" value={form.passport_no} onChange={set('passport_no')} placeholder={(['Dual Nationality Holder','Foreigner'].includes(form.nationality)) ? 'Passport number required' : 'Optional for Pakistani nationals'} required={['Dual Nationality Holder','Foreigner'].includes(form.nationality)} />
+                <label className="cf-label">Passport No {(['Dual Nationality Holder', 'Foreigner'].includes(form.nationality)) && <span style={{ color: '#e53e3e' }}>*</span>}</label>
+                <input type="text" className="cf-input" value={form.passport_no} onChange={set('passport_no')} placeholder={(['Dual Nationality Holder', 'Foreigner'].includes(form.nationality)) ? 'Passport number required' : 'Optional for Pakistani nationals'} required={['Dual Nationality Holder', 'Foreigner'].includes(form.nationality)} />
                 {errors.passport_no && <div className="cf-error">{errors.passport_no}</div>}
               </div>
             </div>
@@ -327,15 +478,37 @@ export default function ComplaintForm() {
 
         <div className="cf-section">
           <div className="cf-section-header">
+            <div className="cf-section-icon" style={{ background: '#264078' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
+            <div><div className="cf-section-title">Digital / Online Identity</div><div className="cf-section-sub">Platforms and online accounts involved</div></div>
+            <div className="cf-section-badge">Step 2</div>
+          </div>
+          <div className="cf-body">
+            {renderCheckboxGroup('Platforms Used', 'platforms', PLATFORM_OPTIONS)}
+            <div className="cf-row-2">
+              {renderField('Profile Page', 'platform_profile_page', { placeholder: 'URL or profile link' })}
+              {renderField('User Name', 'platform_username')}
+            </div>
+            <div className="cf-row-2">
+              {renderField('Email ID Involved', 'platform_email_involved', { type: 'email' })}
+              {renderField('Mobile No. Involved', 'platform_mobile_involved', { placeholder: 'Mobile number on platform' })}
+            </div>
+          </div>
+        </div>
+
+        <div className="cf-section">
+          <div className="cf-section-header">
             <div className="cf-section-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             </div>
             <div><div className="cf-section-title">Complaint Details</div><div className="cf-section-sub">Receipt and nature of the complaint</div></div>
-            <div className="cf-section-badge">Step 2</div>
+            <div className="cf-section-badge">Step 3</div>
           </div>
           <div className="cf-body">
-            <div className="cf-row-2">
+            <div className="cf-row-3">
               {renderField('Report Date', 'report_date', { type: 'date', required: true })}
+              {renderField('Reporting Time', 'reporting_time', { type: 'datetime-local' })}
               {renderField('Diary No', 'diary_no', { required: true })}
             </div>
             <div className="cf-row-2">
@@ -345,13 +518,106 @@ export default function ComplaintForm() {
             <div className="cf-row-3">
               {renderField('CMU', 'cmu', { options: CMU_OPTIONS })}
               {renderField('Priority', 'priority_type', { options: PRIORITY_OPTIONS })}
-              {renderField('Amount Involved', 'amount_involved', { type: 'number' })}
+              {renderField('Occurrence Date', 'occurrence_date', { type: 'date', required: true })}
             </div>
             <div className="cf-row-2">
               {renderField('Offence Type', 'offence_type', { required: true, options: offenceTypes })}
-              {renderField('Occurrence Date', 'occurrence_date', { type: 'date', required: true })}
             </div>
+            {renderCheckboxGroup('Crime Medium', 'crime_mediums', CRIME_MEDIUM_OPTIONS)}
             {renderField('Description', 'description', { rows: 4, required: true })}
+          </div>
+        </div>
+
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon" style={{ background: '#0E7C7B' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div><div className="cf-section-title">Financial Details</div><div className="cf-section-sub">Amount and transaction information</div></div>
+            <div className="cf-section-badge">Step 4</div>
+          </div>
+          <div className="cf-body">
+            <div className="cf-row-3">
+              {renderField('Amount Involved', 'amount_involved', { type: 'number' })}
+              {renderField('Transaction Date', 'transaction_date', { type: 'date' })}
+            </div>
+            <div className="cf-row-2">
+              {renderField('Bank Name (Sender)', 'bank_name_sender')}
+              {renderField('Bank Name (Receiver)', 'bank_name_receiver')}
+            </div>
+            <div className="cf-row-2">
+              {renderField('Account No (Sender)', 'account_no_sender')}
+              {renderField('Account No (Receiver)', 'account_no_receiver')}
+            </div>
+          </div>
+        </div>
+
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon" style={{ background: '#015C94' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div><div className="cf-section-title">Accused Information (Initial Stage)</div><div className="cf-section-sub">Known accused details at registration</div></div>
+            <div className="cf-section-badge">Step 5</div>
+          </div>
+          <div className="cf-body">
+            <p style={{ fontSize: 13, color: '#6c757d', marginTop: 0, marginBottom: 16 }}>Add accused details if known at this stage. You can add more during verification.</p>
+            <div className="cf-repeater">
+              {(form.initial_accused || []).map((a, i) => (
+                <div key={i} style={{ padding: '12px', marginBottom: '12px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field">
+                      <label className="cf-label">Name</label>
+                      <input type="text" className="cf-input" value={a.name} onChange={e => updateInitialAccused(i, 'name', e.target.value)} placeholder="Accused name" />
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Mobile No</label>
+                      <input type="text" className="cf-input" value={a.mobile_no} onChange={e => formatAccusedMobile(i, e.target.value)} placeholder="3XXXXXXXXX" maxLength={10} />
+                    </div>
+                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeInitialAccused(i)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field">
+                      <label className="cf-label">CNIC</label>
+                      <input type="text" className="cf-input font-mono" value={a.cnic} onChange={e => formatAccusedCnic(i, e.target.value)} maxLength={15} placeholder="00000-0000000-0" />
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Email</label>
+                      <input type="email" className="cf-input" value={a.email} onChange={e => updateInitialAccused(i, 'email', e.target.value)} placeholder="email@example.com" />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="cf-field">
+                      <label className="cf-label">Social Media URL</label>
+                      <input type="text" className="cf-input" value={a.social_media_url} onChange={e => updateInitialAccused(i, 'social_media_url', e.target.value)} placeholder="Profile or page URL" />
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Other Info</label>
+                      <input type="text" className="cf-input" value={a.other_info} onChange={e => updateInitialAccused(i, 'other_info', e.target.value)} placeholder="Any other details" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <button type="button" className="btn btn-outline btn-sm" onClick={addInitialAccused}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Accused
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon" style={{ background: '#805ad5' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div><div className="cf-section-title">Supporting Documents</div><div className="cf-section-sub">Evidence types available with the complaint</div></div>
+            <div className="cf-section-badge">Step 6</div>
+          </div>
+          <div className="cf-body">
+            {renderCheckboxGroup('Evidence Available', 'evidence', EVIDENCE_OPTIONS)}
           </div>
         </div>
 
@@ -361,7 +627,7 @@ export default function ComplaintForm() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <div><div className="cf-section-title">Operator / Scrutiny</div><div className="cf-section-sub">Entry and scrutiny details</div></div>
-            <div className="cf-section-badge">Step 3</div>
+            <div className="cf-section-badge">Step 7</div>
           </div>
           <div className="cf-body">
             <div className="cf-row-2">

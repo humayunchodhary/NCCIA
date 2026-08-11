@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
-import SearchableSelect from '../components/SearchableSelect';
 import VerificationReportPanel from '../components/VerificationReportPanel';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
+import { toLocalInput } from '../utils/datetime';
 
 const ENQUIRY_STATUS = [
   { value: 'registered', name: 'Registered (Reader Branch)' },
@@ -38,9 +38,61 @@ const ACTIVITY_TYPES = [
 ];
 
 const RECOMMENDATIONS = [
-  { value: 'closure', name: 'Closure' },
+  { value: 'convert_to_case', name: 'FIR / Convert to Case' },
+  { value: 'irrelevant', name: 'Irrelevant' },
+  { value: 'lack_of_documents', name: 'Lack of Documents' },
   { value: 'transfer', name: 'Transfer' },
-  { value: 'convert_to_case', name: 'Convert to Case' },
+  { value: 'closure', name: 'Closure' },
+];
+
+const CFR_TYPES = [
+  { value: 'CFR', name: 'CFR' },
+  { value: 'SCFR', name: 'SCFR' },
+];
+
+const GENDER_OPTIONS = [
+  { value: 'male', name: 'Male' },
+  { value: 'female', name: 'Female' },
+  { value: 'other', name: 'Other' },
+];
+
+const APPEARANCE_REMARKS_OPTIONS = [
+  { value: 'appeared', name: 'Appeared' },
+  { value: 'did_not_appear', name: 'Did Not Appear' },
+];
+
+const REQUISITION_TYPES = [
+  { value: 'bank', name: 'Bank' },
+  { value: 'telecom', name: 'Telecom' },
+  { value: 'nadra', name: 'NADRA' },
+  { value: 'travel', name: 'Travel History' },
+];
+
+const EMPTY_ACCUSED = {
+  name: '', cnic: '', father_name: '', gender: '', contact_no: '', whatsapp_no: '',
+  email: '', postal_address: '', permanent_address: '', religion: '', district_domicile: '',
+  identification_mark: '', occupation: '', is_government: false, department_name: '', designation: '',
+  cnic_attachment: null, passport_attachment: null, nadra_verisys_attachment: null,
+};
+
+const EMPTY_WITNESS = {
+  name: '', father_name: '', relation: '', gender: '', cnic: '', domicile_district: '',
+  nationality: '', passport: '', occupation: '', is_government: false, department_name: '',
+  designation: '', scale: '', contact_no: '', whatsapp_no: '', mailing_address: '',
+  permanent_address: '', address: '', attachment: null, picture: null, statement_attachment: null,
+};
+
+const EMPTY_ATTACHMENT = {
+  title: '', attachment_date: new Date().toISOString().split('T')[0], file: null, file_path: '',
+};
+
+const EMPTY_REQUISITION = {
+  type: '', email_to: '', subject: '', body: '', status: '', authorized_by: null, authorized_by_name: '',
+};
+
+const BASE_TAB_ORDER = [
+  'details', 'accused', 'witnesses', 'notices', 'attachments', 'reports',
+  'activities', 'requisitions', 'legal', 'approvals', 'outcome',
 ];
 
 const CLOSURE_REASONS = [
@@ -86,6 +138,7 @@ const initialForm = {
   complaint_id: '',
   tracking_no: '',
   enquiry_number: '',
+  reg_date: new Date().toISOString().split('T')[0],
   status: 'registered',
   enquiry_officer_id: '',
   recommendation: '',
@@ -93,11 +146,22 @@ const initialForm = {
   transfer_department: '',
   transfer_circle: '',
   merge_complaint_id: '',
+  cfr_type: '',
+  cfr_date: '',
+  charge_against: '',
+  oral_evidence: '',
+  documentary_evidence: '',
+  plea: '',
+  conclusion: '',
+  cfr_remarks: '',
   activities: [],
   legal_opinions: [],
   approvals: [],
+  accused: [],
   witnesses: [],
   notices: [],
+  attachments: [],
+  requisitions: [],
   technical_report: '',
   forensic_report: '',
 };
@@ -108,6 +172,7 @@ export default function EnquiryForm() {
   const { user } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [complaints, setComplaints] = useState([]);
+  const [complaintDetail, setComplaintDetail] = useState(null);
   const [officers, setOfficers] = useState([]);
   const [legalOfficers, setLegalOfficers] = useState([]);
   const [circles, setCircles] = useState([]);
@@ -131,12 +196,22 @@ export default function EnquiryForm() {
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
+  const canEditCfrRemarks = roleNames.some(r => ['admin', 'additional_director'].includes(r));
+  const canAuthorizeRequisitions = roleNames.some(r => ['admin', 'director_general', 'additional_director'].includes(r));
   const canRegisterCase = canRegisterCaseFromEnquiry(user);
   const canSubmitCfr = !!id
     && ['registered', 'assigned', 'in_progress'].includes(form.status)
     && roleNames.some(r => ['admin', 'circle_incharge', 'enquiry_officer'].includes(r));
   const showRegisterCase = !!id && canRegisterCase && enquiryReadyForCaseRegistration({ status: form.status, case_file_id: caseFileId });
   const showVerificationReport = !!id && canViewVerificationReportInEnquiry(user);
+
+  const tabOrder = useMemo(() => {
+    if (!showVerificationReport) return BASE_TAB_ORDER;
+    const order = [...BASE_TAB_ORDER];
+    const detailsIdx = order.indexOf('details');
+    order.splice(detailsIdx + 1, 0, 'verification');
+    return order;
+  }, [showVerificationReport]);
 
   const applyEnquiryPayload = (d) => {
     if (d.technical_report_attachment) setTechnicalReportUrl(d.technical_report_attachment);
@@ -150,6 +225,7 @@ export default function EnquiryForm() {
       complaint_id: d.complaint_id || d.complaint?.id || '',
       tracking_no: d.complaint?.tracking_no || d.tracking_no || '',
       enquiry_number: d.enquiry_number || '',
+      reg_date: toDate(d.reg_date) || toDate(d.created_at),
       status: d.status || 'registered',
       enquiry_officer_id: d.enquiry_officer_id || '',
       recommendation: d.recommendation || '',
@@ -158,11 +234,59 @@ export default function EnquiryForm() {
       transfer_circle: d.transfer_circle || '',
       merge_complaint_id: d.merge_complaint?.tracking_no || d.merge_complaint_id || '',
       cfr_summary: d.cfr_summary || '',
+      cfr_type: d.cfr_type || '',
+      cfr_date: toDate(d.cfr_date),
+      charge_against: d.charge_against || '',
+      oral_evidence: d.oral_evidence || '',
+      documentary_evidence: d.documentary_evidence || '',
+      plea: d.plea || '',
+      conclusion: d.conclusion || '',
+      cfr_remarks: d.cfr_remarks || '',
       technical_report: d.technical_report || '',
       forensic_report: d.forensic_report || '',
+      accused: (d.accused_persons || d.accused || []).map(a => ({
+        id: a.id,
+        name: a.name || '',
+        cnic: a.cnic || '',
+        father_name: a.father_name || '',
+        gender: a.gender || '',
+        contact_no: a.contact_no || '',
+        whatsapp_no: a.whatsapp_no || '',
+        email: a.email || '',
+        postal_address: a.postal_address || '',
+        permanent_address: a.permanent_address || '',
+        religion: a.religion || '',
+        district_domicile: a.district_domicile || '',
+        identification_mark: a.identification_mark || '',
+        occupation: a.occupation || '',
+        is_government: !!a.is_government,
+        department_name: a.department_name || '',
+        designation: a.designation || '',
+        cnic_attachment: a.cnic_attachment || null,
+        passport_attachment: a.passport_attachment || null,
+        nadra_verisys_attachment: a.nadra_verisys_attachment || null,
+      })),
+      attachments: (d.enquiry_attachments || d.attachments || []).map(at => ({
+        id: at.id,
+        title: at.title || '',
+        attachment_date: toDate(at.attachment_date),
+        file: null,
+        file_path: at.file_path || '',
+      })),
+      requisitions: (d.requisitions || []).map(rq => ({
+        id: rq.id,
+        type: rq.type || '',
+        email_to: rq.email_to || '',
+        subject: rq.subject || '',
+        body: rq.body || '',
+        status: rq.status || '',
+        authorized_by: rq.authorized_by || null,
+        authorized_by_name: rq.authorizer?.name || rq.authorized_by_name || '',
+      })),
       activities: (d.activities || []).map(a => ({
         id: a.id,
         type: a.type || '',
+        diary_no: a.diary_no || '',
         description: a.description || '',
         activity_date: toDate(a.activity_date),
         attachment_path: a.attachment_path || '',
@@ -170,11 +294,26 @@ export default function EnquiryForm() {
       witnesses: (d.witnesses || []).map(w => ({
         id: w.id,
         name: w.name || '',
+        father_name: w.father_name || '',
+        relation: w.relation || '',
+        gender: w.gender || '',
         cnic: w.cnic || '',
+        domicile_district: w.domicile_district || '',
         nationality: w.nationality || '',
         passport: w.passport || '',
+        occupation: w.occupation || '',
+        is_government: !!w.is_government,
+        department_name: w.department_name || '',
+        designation: w.designation || '',
+        scale: w.scale || '',
+        contact_no: w.contact_no || '',
+        whatsapp_no: w.whatsapp_no || '',
+        mailing_address: w.mailing_address || '',
+        permanent_address: w.permanent_address || '',
         address: w.address || '',
-        attachment: w.attachment || '',
+        attachment: w.attachment || null,
+        picture: w.picture || null,
+        statement_attachment: w.statement_attachment || null,
       })),
       notices: (d.notices || []).map(n => ({
         id: n.id,
@@ -184,6 +323,8 @@ export default function EnquiryForm() {
         person_type: n.person_type || '',
         notice_via: n.notice_via || '',
         notice_date: toDate(n.notice_date),
+        appearance_date: toLocalInput(n.appearance_date),
+        appearance_remarks: n.appearance_remarks || '',
         address: n.address || '',
         phone: n.phone || '',
         description: n.description || '',
@@ -199,10 +340,14 @@ export default function EnquiryForm() {
       approvals: (d.approvals || []).map(ap => ({
         id: ap.id,
         circle_incharge_id: ap.circle_incharge_id || '',
-        decision: ap.decision || '',
+        decision: ap.decision || 'agree',
         remarks: ap.remarks || '',
       })),
     }));
+    if (d.complaint) setComplaintDetail(d.complaint);
+    else if (d.complaint_id) {
+      api.get(`/complaints/${d.complaint_id}`).then(cr => setComplaintDetail(cr.data.data || cr.data)).catch(() => {});
+    }
   };
 
   const reloadEnquiry = () => {
@@ -211,6 +356,11 @@ export default function EnquiryForm() {
       applyEnquiryPayload(r.data.data || r.data);
     }).catch(() => {});
   };
+
+  const selectedComplaint = useMemo(() => {
+    if (complaintDetail) return complaintDetail;
+    return complaints.find(c => String(c.id) === String(form.complaint_id)) || null;
+  }, [complaintDetail, complaints, form.complaint_id]);
 
   const officerName = officers.find(o => String(o.value) === String(form.enquiry_officer_id))?.name || '';
   const recName = RECOMMENDATIONS.find(o => o.value === form.recommendation)?.name || '';
@@ -241,13 +391,22 @@ export default function EnquiryForm() {
 
   useAutoRefresh(() => reloadEnquiry(), [id], 30000);
 
+  useEffect(() => {
+    if (!form.complaint_id) {
+      setComplaintDetail(null);
+      return;
+    }
+    api.get(`/complaints/${form.complaint_id}`).then(r => setComplaintDetail(r.data.data || r.data)).catch(() => {});
+  }, [form.complaint_id]);
+
   const handleTrackingChange = (e) => {
     const tracking = e.target.value;
-    setForm(f => ({ ...f, tracking_no: tracking }));
     const comp = complaints.find(c => c.tracking_no === tracking);
-    if (comp) {
-      setForm(f => ({ ...f, complaint_id: comp.id }));
-    }
+    setForm(f => ({
+      ...f,
+      tracking_no: tracking,
+      complaint_id: comp ? comp.id : '',
+    }));
   };
 
   const setF = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
@@ -260,8 +419,25 @@ export default function EnquiryForm() {
     setForm(f => ({ ...f, [field]: val }));
   };
 
+  // Accused
+  const addAccused = () => setForm(f => ({ ...f, accused: [...f.accused, { ...EMPTY_ACCUSED }] }));
+  const removeAccused = (i) => setForm(f => ({ ...f, accused: f.accused.filter((_, idx) => idx !== i) }));
+  const updateAccused = (i, field, value) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const updateAccusedFile = (i, field, file) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
+
+  // Attachments
+  const addAttachment = () => setForm(f => ({ ...f, attachments: [...f.attachments, { ...EMPTY_ATTACHMENT, attachment_date: new Date().toISOString().split('T')[0] }] }));
+  const removeAttachment = (i) => setForm(f => ({ ...f, attachments: f.attachments.filter((_, idx) => idx !== i) }));
+  const updateAttachment = (i, field, value) => setForm(f => ({ ...f, attachments: f.attachments.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const updateAttachmentFile = (i, file) => setForm(f => ({ ...f, attachments: f.attachments.map((a, idx) => idx === i ? { ...a, file } : a) }));
+
+  // Requisitions
+  const addRequisition = () => setForm(f => ({ ...f, requisitions: [...f.requisitions, { ...EMPTY_REQUISITION }] }));
+  const removeRequisition = (i) => setForm(f => ({ ...f, requisitions: f.requisitions.filter((_, idx) => idx !== i) }));
+  const updateRequisition = (i, field, value) => setForm(f => ({ ...f, requisitions: f.requisitions.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null }] }));
   const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
   const updateActivity = (i, field, value) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
   const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
@@ -277,13 +453,13 @@ export default function EnquiryForm() {
   const updateApproval = (i, field, value) => setForm(f => ({ ...f, approvals: f.approvals.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Witnesses
-  const addWitness = () => setForm(f => ({ ...f, witnesses: [...f.witnesses, { name: '', cnic: '', nationality: '', passport: '', address: '', attachment: null }] }));
+  const addWitness = () => setForm(f => ({ ...f, witnesses: [...f.witnesses, { ...EMPTY_WITNESS }] }));
   const removeWitness = (i) => setForm(f => ({ ...f, witnesses: f.witnesses.filter((_, idx) => idx !== i) }));
   const updateWitness = (i, field, value) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
-  const updateWitnessFile = (i, file) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
+  const updateWitnessFile = (i, field, file) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
 
   // Notices
-  const addNotice = () => setForm(f => ({ ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', person_type: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], address: '', phone: '', description: '', status: 'issued' }] }));
+  const addNotice = () => setForm(f => ({ ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', person_type: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] }));
   const removeNotice = (i) => setForm(f => ({ ...f, notices: f.notices.filter((_, idx) => idx !== i) }));
   const updateNotice = (i, field, value) => setForm(f => ({ ...f, notices: f.notices.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
@@ -296,6 +472,32 @@ export default function EnquiryForm() {
       openPrintWindow(r.data.html);
     } catch (e) {
       alert(e.response?.data?.message || 'Could not print notice.');
+    }
+  };
+
+  const printDiary = async (a) => {
+    if (!id) { alert('Save the enquiry first, then you can print diaries.'); return; }
+    if (!a.id) { alert('Save the enquiry first, then you can print diaries.'); return; }
+    try {
+      const r = await api.get(`/enquiries/${id}/diary-print`, { params: { activity_id: a.id } });
+      const { openPrintWindow } = await import('../utils/print');
+      openPrintWindow(r.data.html);
+    } catch (e) {
+      alert(e.response?.data?.message || 'Could not print diary.');
+    }
+  };
+
+  const handleAuthorizeRequisitions = async () => {
+    setSaving(true);
+    setServerError('');
+    try {
+      await saveEnquiry({ navigateAway: false });
+      alert('Requisitions saved. Authorization & send will be processed by the backend.');
+    } catch (err) {
+      const res = err.response?.data;
+      setServerError(res?.message || 'Could not save requisitions.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -320,10 +522,64 @@ export default function EnquiryForm() {
       return JSON.stringify(clean);
     };
 
+    const serializeWitnesses = (items) => {
+      const clean = items.map((it, i) => {
+        const o = { ...it };
+        if (o.attachment instanceof File) {
+          fd.append(`witness_attachments[${i}]`, o.attachment);
+          delete o.attachment;
+        }
+        if (o.picture instanceof File) {
+          fd.append(`witness_pictures[${i}]`, o.picture);
+          delete o.picture;
+        }
+        if (o.statement_attachment instanceof File) {
+          fd.append(`witness_statements[${i}]`, o.statement_attachment);
+          delete o.statement_attachment;
+        }
+        return o;
+      });
+      return JSON.stringify(clean);
+    };
+
+    const serializeAccused = (items) => {
+      const clean = items.map((it, i) => {
+        const o = { ...it };
+        if (o.cnic_attachment instanceof File) {
+          fd.append(`accused_cnic_attachments[${i}]`, o.cnic_attachment);
+          delete o.cnic_attachment;
+        }
+        if (o.passport_attachment instanceof File) {
+          fd.append(`accused_passport_attachments[${i}]`, o.passport_attachment);
+          delete o.passport_attachment;
+        }
+        if (o.nadra_verisys_attachment instanceof File) {
+          fd.append(`accused_nadra_attachments[${i}]`, o.nadra_verisys_attachment);
+          delete o.nadra_verisys_attachment;
+        }
+        return o;
+      });
+      return JSON.stringify(clean);
+    };
+
+    const serializeEnquiryAttachments = (items) => {
+      const clean = items.map((it, i) => {
+        const o = { ...it };
+        if (o.file instanceof File) {
+          fd.append(`enquiry_attachment_files[${i}]`, o.file);
+          delete o.file;
+        }
+        return o;
+      });
+      return JSON.stringify(clean);
+    };
+
     const scalarKeys = [
-      'complaint_id', 'tracking_no', 'enquiry_number', 'status', 'enquiry_officer_id',
+      'complaint_id', 'tracking_no', 'enquiry_number', 'reg_date', 'status', 'enquiry_officer_id',
       'recommendation', 'closure_reason', 'transfer_department', 'transfer_circle',
-      'merge_complaint_id', 'cfr_summary', 'technical_report', 'forensic_report',
+      'merge_complaint_id', 'cfr_summary', 'cfr_type', 'cfr_date', 'charge_against',
+      'oral_evidence', 'documentary_evidence', 'plea', 'conclusion', 'cfr_remarks',
+      'technical_report', 'forensic_report',
     ];
     scalarKeys.forEach((k) => {
       const v = form[k];
@@ -331,15 +587,18 @@ export default function EnquiryForm() {
     });
 
     fd.append('activities', serializeArr(form.activities || [], 'activity_attachments'));
-    fd.append('witnesses', serializeArr(form.witnesses || [], 'witness_attachments'));
+    fd.append('accused', serializeAccused(form.accused || []));
+    fd.append('witnesses', serializeWitnesses(form.witnesses || []));
     fd.append('notices', JSON.stringify(form.notices || []));
+    fd.append('attachments', serializeEnquiryAttachments(form.attachments || []));
+    fd.append('requisitions', JSON.stringify(form.requisitions || []));
     fd.append('legal_opinions', JSON.stringify(form.legal_opinions || []));
     fd.append('approvals', JSON.stringify(form.approvals || []));
 
     if (technicalFile) fd.append('technical_report_attachment', technicalFile);
     if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
 
-    // PHP does not populate multipart on real PUT — use method spoofing
+    // PHP does not populate multipart on real PUT ΓÇö use method spoofing
     if (id) {
       fd.append('_method', 'PUT');
       await api.post(`/enquiries/${id}`, fd);
@@ -371,9 +630,10 @@ export default function EnquiryForm() {
 
   const handleSubmitCfr = async () => {
     if (!id) return;
-    if (!form.recommendation || !['closure', 'transfer', 'convert_to_case'].includes(form.recommendation)) {
+    const cfrRecommendations = ['closure', 'transfer', 'convert_to_case', 'irrelevant', 'lack_of_documents'];
+    if (!form.recommendation || !cfrRecommendations.includes(form.recommendation)) {
       setActiveTab('outcome');
-      setServerError('Submit se pehle Outcome tab mein Recommendation select karein (Closure / Transfer / Convert to Case).');
+      setServerError('Submit se pehle Outcome tab mein Recommendation select karein.');
       return;
     }
     if (!form.cfr_summary?.trim()) {
@@ -467,21 +727,21 @@ export default function EnquiryForm() {
           </div>
         </div>
 
-        <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px' }}>
-          {(showVerificationReport
-            ? ['details', 'verification', 'witnesses', 'notices', 'reports', 'activities', 'legal', 'approvals', 'outcome']
-            : ['details', 'witnesses', 'notices', 'reports', 'activities', 'legal', 'approvals', 'outcome']
-          ).map(tab => (
+        <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px', flexWrap: 'wrap' }}>
+          {tabOrder.map(tab => (
             <button key={tab} type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 16px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
               {tab === 'details' && '📋 Details'}
               {tab === 'verification' && '📄 Verification Report'}
-              {tab === 'witnesses' && `🧑‍⚖️ Witnesses${form.witnesses?.length ? ` (${form.witnesses.length})` : ''}`}
-              {tab === 'notices' && `🔔 Notices${nonAppearanceCount ? ` ⭐` : ''}${form.notices?.length ? ` (${form.notices.length})` : ''}`}
-              {tab === 'reports' && '🧪 Reports'}
-              {tab === 'activities' && '📝 Activities'}
-              {tab === 'legal' && '⚖️ Legal Opinions'}
-              {tab === 'approvals' && '✅ Approvals'}
-              {tab === 'outcome' && '🎯 Outcome'}
+              {tab === 'accused' && `👤 Accused${form.accused?.length ? ` (${form.accused.length})` : ''}`}
+              {tab === 'witnesses' && `≡ƒºæΓÇìΓÜû∩╕Å Witnesses${form.witnesses?.length ? ` (${form.witnesses.length})` : ''}`}
+              {tab === 'notices' && `≡ƒöö Summons${nonAppearanceCount ? ` Γ¡É` : ''}${form.notices?.length ? ` (${form.notices.length})` : ''}`}
+              {tab === 'attachments' && `≡ƒôÄ Attachments${form.attachments?.length ? ` (${form.attachments.length})` : ''}`}
+              {tab === 'reports' && '≡ƒº¬ Reports'}
+              {tab === 'activities' && '≡ƒô¥ Activities'}
+              {tab === 'requisitions' && `≡ƒô¿ Requisitions${form.requisitions?.length ? ` (${form.requisitions.length})` : ''}`}
+              {tab === 'legal' && 'ΓÜû∩╕Å Legal Opinions'}
+              {tab === 'approvals' && 'Γ£à Approvals'}
+              {tab === 'outcome' && '≡ƒÄ» Outcome'}
             </button>
           ))}
         </div>
@@ -495,6 +755,47 @@ export default function EnquiryForm() {
         {/* DETAILS TAB */}
         {activeTab === 'details' && (
           <>
+            {selectedComplaint && (
+              <div className="cf-section" style={{ marginBottom: 16 }}>
+                <div className="cf-section-header">
+                  <div className="cf-section-icon" style={{ background: '#2d6a4f' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </div>
+                  <div><div className="cf-section-title">Complainant Details</div><div className="cf-section-sub">Read-only from linked complaint</div></div>
+                </div>
+                <div className="cf-body">
+                  <div className="cf-row-3" style={{ marginBottom: 12 }}>
+                    <div className="cf-field"><label className="cf-label">Complainant No</label><div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{selectedComplaint.tracking_no || form.tracking_no || 'ΓÇö'}</div></div>
+                    <div className="cf-field"><label className="cf-label">Enquiry No</label><div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{form.enquiry_number || 'ΓÇö'}</div></div>
+                    <div className="cf-field">
+                      <label className="cf-label">Date of Registration</label>
+                      {isPrivileged ? (
+                        <input type="date" className="cf-input" value={form.reg_date} onChange={setF('reg_date')} />
+                      ) : (
+                        <div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{form.reg_date || 'ΓÇö'}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, fontSize: 13 }}>
+                    {[
+                      ['Name', selectedComplaint.complainant_name],
+                      ['Father Name', selectedComplaint.father_name],
+                      ['CNIC', selectedComplaint.cnic],
+                      ['Contact', selectedComplaint.contact_no],
+                      ['WhatsApp', selectedComplaint.whatsapp_no],
+                      ['Gender', selectedComplaint.gender],
+                      ['Email', selectedComplaint.email],
+                      ['District', selectedComplaint.district],
+                      ['Offence', selectedComplaint.offence_type],
+                    ].map(([label, val]) => (
+                      <div key={label}><strong style={{ color: '#666', fontSize: 11, textTransform: 'uppercase' }}>{label}</strong><div style={{ marginTop: 2 }}>{val || 'ΓÇö'}</div></div>
+                    ))}
+                    <div style={{ gridColumn: '1 / -1' }}><strong style={{ color: '#666', fontSize: 11, textTransform: 'uppercase' }}>Address</strong><div style={{ marginTop: 2 }}>{selectedComplaint.address || 'ΓÇö'}</div></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="cf-section">
               <div className="cf-section-header">
                 <div className="cf-section-icon" style={{ background: '#015C94' }}>
@@ -510,8 +811,8 @@ export default function EnquiryForm() {
                     <div className="cf-input-wrap">
                       <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                       <select className="cf-input cf-select" value={form.tracking_no} onChange={handleTrackingChange} required>
-                        <option value="">— Select Tracking No. —</option>
-                        {complaints.map(c => <option key={c.id} value={c.tracking_no}>{c.tracking_no} — {c.complainant_name}</option>)}
+                        <option value="">ΓÇö Select Tracking No. ΓÇö</option>
+                        {complaints.map(c => <option key={c.id} value={c.tracking_no}>{c.tracking_no} ΓÇö {c.complainant_name}</option>)}
                       </select>
                     </div>
                     <input type="hidden" name="complaint_id" value={form.complaint_id} />
@@ -534,7 +835,7 @@ export default function EnquiryForm() {
               <div className="cf-body">
                 {!isPrivileged && (
                   <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
-                    🔒 This section is read-only. Only Circle Incharge / Admin can assign or change the Enquiry Officer.
+                    ≡ƒöÆ This section is read-only. Only Circle Incharge / Admin can assign or change the Enquiry Officer.
                   </div>
                 )}
                 {isPrivileged ? (
@@ -583,7 +884,7 @@ export default function EnquiryForm() {
           </>
         )}
 
-        {/* WITNESSES TAB */}
+        {/* VERIFICATION TAB */}
         {activeTab === 'verification' && showVerificationReport && (
           <div className="cf-section">
             <div className="cf-section-header">
@@ -598,14 +899,90 @@ export default function EnquiryForm() {
           </div>
         )}
 
+        {/* ACCUSED TAB */}
+        {activeTab === 'accused' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#9b2226' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              </div>
+              <div><div className="cf-section-title">Accused Persons</div><div className="cf-section-sub">Full accused details with document attachments</div></div>
+            </div>
+            <div className="cf-body">
+              <button type="button" className="btn btn-outline btn-sm" onClick={addAccused} style={{ marginBottom: 16 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Accused
+              </button>
+              {form.accused.map((a, i) => (
+                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Name</label><input type="text" className="cf-input" value={a.name} onChange={e => updateAccused(i, 'name', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={a.cnic} onChange={e => updateAccused(i, 'cnic', e.target.value)} placeholder="XXXXX-XXXXXXX-X" /></div>
+                    <div className="cf-field"><label className="cf-label">Father Name</label><input type="text" className="cf-input" value={a.father_name} onChange={e => updateAccused(i, 'father_name', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Gender</label>
+                      <select className="cf-input" value={a.gender} onChange={e => updateAccused(i, 'gender', e.target.value)}>
+                        <option value="">ΓÇö Select ΓÇö</option>
+                        {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeAccused(i)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Contact No</label><input type="text" className="cf-input" value={a.contact_no} onChange={e => updateAccused(i, 'contact_no', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">WhatsApp No</label><input type="text" className="cf-input" value={a.whatsapp_no} onChange={e => updateAccused(i, 'whatsapp_no', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Email</label><input type="email" className="cf-input" value={a.email} onChange={e => updateAccused(i, 'email', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Religion</label><input type="text" className="cf-input" value={a.religion} onChange={e => updateAccused(i, 'religion', e.target.value)} /></div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Postal Address</label><textarea className="cf-input" rows={2} value={a.postal_address} onChange={e => updateAccused(i, 'postal_address', e.target.value)} style={{ width: '100%' }} /></div>
+                    <div className="cf-field"><label className="cf-label">Permanent Address</label><textarea className="cf-input" rows={2} value={a.permanent_address} onChange={e => updateAccused(i, 'permanent_address', e.target.value)} style={{ width: '100%' }} /></div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">District (Domicile)</label><input type="text" className="cf-input" value={a.district_domicile} onChange={e => updateAccused(i, 'district_domicile', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Identification Mark</label><input type="text" className="cf-input" value={a.identification_mark} onChange={e => updateAccused(i, 'identification_mark', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Occupation</label><input type="text" className="cf-input" value={a.occupation} onChange={e => updateAccused(i, 'occupation', e.target.value)} /></div>
+                    <div className="cf-field" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 24 }}>
+                      <input type="checkbox" id={`accused-gov-${i}`} checked={!!a.is_government} onChange={e => updateAccused(i, 'is_government', e.target.checked)} />
+                      <label htmlFor={`accused-gov-${i}`} className="cf-label" style={{ margin: 0 }}>Government Employee</label>
+                    </div>
+                  </div>
+                  {a.is_government && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                      <div className="cf-field"><label className="cf-label">Department</label><input type="text" className="cf-input" value={a.department_name} onChange={e => updateAccused(i, 'department_name', e.target.value)} /></div>
+                      <div className="cf-field"><label className="cf-label">Designation</label><input type="text" className="cf-input" value={a.designation} onChange={e => updateAccused(i, 'designation', e.target.value)} /></div>
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    {[
+                      ['cnic_attachment', 'CNIC Attachment'],
+                      ['passport_attachment', 'Passport Attachment'],
+                      ['nadra_verisys_attachment', 'NADRA Verisys Attachment'],
+                    ].map(([field, label]) => (
+                      <div key={field} className="cf-field">
+                        <label className="cf-label">{label}</label>
+                        <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateAccusedFile(i, field, e.target.files[0])} />
+                        {a[field] && typeof a[field] === 'string' && (
+                          <a href={a[field]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Existing file Γåù</a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {form.accused.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No accused added yet.</p>}
+            </div>
+          </div>
+        )}
+
+        {/* WITNESSES TAB */}
         {activeTab === 'witnesses' && (
           <div className="cf-section">
             <div className="cf-section-header">
               <div className="cf-section-icon" style={{ background: '#264078' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
-              <div><div className="cf-section-title">Witnesses</div><div className="cf-section-sub">Name, CNIC, nationality, passport, address &amp; attachment</div></div>
-              <div className="cf-section-badge">STEP 3</div>
+              <div><div className="cf-section-title">Witnesses</div><div className="cf-section-sub">Full witness details, picture &amp; statement attachments</div></div>
             </div>
             <div className="cf-body">
               <button type="button" className="btn btn-outline btn-sm" onClick={addWitness} style={{ marginBottom: 16 }}>
@@ -613,35 +990,63 @@ export default function EnquiryForm() {
               </button>
               {form.witnesses.map((w, i) => (
                 <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
-                    <div className="cf-field"><label className="cf-label">Witness Name</label>
-                      <input type="text" className="cf-input" value={w.name} onChange={e => updateWitness(i, 'name', e.target.value)} placeholder="Full name" />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Witness Name</label><input type="text" className="cf-input" value={w.name} onChange={e => updateWitness(i, 'name', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Father Name</label><input type="text" className="cf-input" value={w.father_name} onChange={e => updateWitness(i, 'father_name', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Relation</label><input type="text" className="cf-input" value={w.relation} onChange={e => updateWitness(i, 'relation', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Gender</label>
+                      <select className="cf-input" value={w.gender} onChange={e => updateWitness(i, 'gender', e.target.value)}>
+                        <option value="">ΓÇö Select ΓÇö</option>
+                        {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
                     </div>
-                    <div className="cf-field"><label className="cf-label">CNIC</label>
-                      <input type="text" className="cf-input" value={w.cnic} onChange={e => updateWitness(i, 'cnic', e.target.value)} placeholder="XXXXX-XXXXXXX-X" />
-                    </div>
-                    <div className="cf-field"><label className="cf-label">Nationality</label>
-                      <input type="text" className="cf-input" value={w.nationality} onChange={e => updateWitness(i, 'nationality', e.target.value)} placeholder="e.g. Pakistani" />
-                    </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeWitness(i)}>
+                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeWitness(i)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
-                    <div className="cf-field"><label className="cf-label">Passport No</label>
-                      <input type="text" className="cf-input" value={w.passport} onChange={e => updateWitness(i, 'passport', e.target.value)} placeholder="Passport (if foreigner)" />
-                    </div>
-                    <div className="cf-field"><label className="cf-label">Attachment</label>
-                      <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateWitnessFile(i, e.target.files[0])} />
-                    </div>
-                    <div className="cf-field" style={{ alignSelf: 'end' }}>
-                      {w.attachment && typeof w.attachment === 'string' && (
-                        <a href={w.attachment} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600 }}>Existing file ↗</a>
-                      )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={w.cnic} onChange={e => updateWitness(i, 'cnic', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Domicile District</label><input type="text" className="cf-input" value={w.domicile_district} onChange={e => updateWitness(i, 'domicile_district', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Nationality</label><input type="text" className="cf-input" value={w.nationality} onChange={e => updateWitness(i, 'nationality', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Passport No</label><input type="text" className="cf-input" value={w.passport} onChange={e => updateWitness(i, 'passport', e.target.value)} /></div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Occupation</label><input type="text" className="cf-input" value={w.occupation} onChange={e => updateWitness(i, 'occupation', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Contact No</label><input type="text" className="cf-input" value={w.contact_no} onChange={e => updateWitness(i, 'contact_no', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">WhatsApp No</label><input type="text" className="cf-input" value={w.whatsapp_no} onChange={e => updateWitness(i, 'whatsapp_no', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Scale</label><input type="text" className="cf-input" value={w.scale} onChange={e => updateWitness(i, 'scale', e.target.value)} /></div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 8 }}>
+                      <input type="checkbox" id={`witness-gov-${i}`} checked={!!w.is_government} onChange={e => updateWitness(i, 'is_government', e.target.checked)} />
+                      <label htmlFor={`witness-gov-${i}`} className="cf-label" style={{ margin: 0 }}>Government Employee</label>
                     </div>
                   </div>
-                  <div className="cf-field"><label className="cf-label">Address</label>
-                    <textarea className="cf-input" rows={2} value={w.address} onChange={e => updateWitness(i, 'address', e.target.value)} placeholder="Witness address" style={{ width: '100%' }}></textarea>
+                  {w.is_government && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                      <div className="cf-field"><label className="cf-label">Department</label><input type="text" className="cf-input" value={w.department_name} onChange={e => updateWitness(i, 'department_name', e.target.value)} /></div>
+                      <div className="cf-field"><label className="cf-label">Designation</label><input type="text" className="cf-input" value={w.designation} onChange={e => updateWitness(i, 'designation', e.target.value)} /></div>
+                    </div>
+                  )}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Mailing Address</label><textarea className="cf-input" rows={2} value={w.mailing_address} onChange={e => updateWitness(i, 'mailing_address', e.target.value)} style={{ width: '100%' }} /></div>
+                    <div className="cf-field"><label className="cf-label">Permanent Address</label><textarea className="cf-input" rows={2} value={w.permanent_address} onChange={e => updateWitness(i, 'permanent_address', e.target.value)} style={{ width: '100%' }} /></div>
+                  </div>
+                  <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Address</label><textarea className="cf-input" rows={2} value={w.address} onChange={e => updateWitness(i, 'address', e.target.value)} style={{ width: '100%' }} /></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    {[
+                      ['attachment', 'Attachment'],
+                      ['picture', 'Picture'],
+                      ['statement_attachment', 'Statement Attachment'],
+                    ].map(([field, label]) => (
+                      <div key={field} className="cf-field">
+                        <label className="cf-label">{label}</label>
+                        <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateWitnessFile(i, field, e.target.files[0])} />
+                        {w[field] && typeof w[field] === 'string' && (
+                          <a href={w[field]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Existing file Γåù</a>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -657,13 +1062,12 @@ export default function EnquiryForm() {
               <div className="cf-section-icon" style={{ background: '#B7791F' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
               </div>
-              <div><div className="cf-section-title">Notices</div><div className="cf-section-sub">Issue notices — after 3 non-appearances the matter is referred to court</div></div>
-              <div className="cf-section-badge">STEP 3</div>
+              <div><div className="cf-section-title">Summon Detail</div><div className="cf-section-sub">Issue summons ΓÇö after 3 non-appearances the matter is referred to court</div></div>
             </div>
             <div className="cf-body">
               {nonAppearanceCount > 0 && (
                 <div style={{ padding: '12px 16px', marginBottom: 16, background: 'rgba(255,193,7,0.14)', border: '1px solid #d69e2e', borderRadius: 8, fontSize: 13, color: '#7a5b00', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 20 }}>⭐</span>
+                  <span style={{ fontSize: 20 }}>Γ¡É</span>
                   <div>
                     <strong>Non-Appearance recorded ({nonAppearanceCount} of 3).</strong>
                     {referredToCourt
@@ -674,21 +1078,32 @@ export default function EnquiryForm() {
               )}
               {referredToCourt && (
                 <div style={{ padding: '12px 16px', marginBottom: 16, background: 'rgba(229,62,62,0.1)', border: '1px solid #e53e3e', borderRadius: 8, fontSize: 13, color: '#b42318', fontWeight: 600 }}>
-                  ⚠ This enquiry has been referred to court (3 non-appearances).
+                  ΓÜá This enquiry has been referred to court (3 non-appearances).
                 </div>
               )}
               <button type="button" className="btn btn-outline btn-sm" onClick={addNotice} style={{ marginBottom: 16 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Notice
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Summon
               </button>
               {form.notices.map((n, i) => (
                 <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  {i >= 1 && form.notices.slice(0, i).length > 0 && (
+                    <div style={{ padding: '10px 14px', marginBottom: 12, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 12 }}>
+                      <strong style={{ display: 'block', marginBottom: 6 }}>Previous Summon History</strong>
+                      {form.notices.slice(0, i).map((prev, pi) => (
+                        <div key={pi} style={{ marginBottom: 4 }}>
+                          #{pi + 1}: {prev.notice_date || 'ΓÇö'} ΓÇö {NOTICE_STATUS_OPTIONS.find(o => o.value === prev.status)?.name || prev.status || 'ΓÇö'}
+                          {prev.appearance_remarks && ` (${APPEARANCE_REMARKS_OPTIONS.find(o => o.value === prev.appearance_remarks)?.name || prev.appearance_remarks})`}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Notice No</label>
                       <input type="text" className="cf-input" value={n.notice_number} onChange={e => updateNotice(i, 'notice_number', e.target.value)} placeholder="e.g. NCCIA/N/25" />
                     </div>
                     <div className="cf-field"><label className="cf-label">Notice Type</label>
                       <select className="cf-input" value={n.notice_type} onChange={e => updateNotice(i, 'notice_type', e.target.value)}>
-                        <option value="">— Select —</option>
+                        <option value="">ΓÇö Select ΓÇö</option>
                         {NOTICE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -705,13 +1120,13 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Notice Via</label>
                       <select className="cf-input" value={n.notice_via} onChange={e => updateNotice(i, 'notice_via', e.target.value)}>
-                        <option value="">— Select —</option>
+                        <option value="">ΓÇö Select ΓÇö</option>
                         {NOTICE_VIA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Person Type</label>
                       <select className="cf-input" value={n.person_type} onChange={e => updateNotice(i, 'person_type', e.target.value)}>
-                        <option value="">— Select —</option>
+                        <option value="">ΓÇö Select ΓÇö</option>
                         {PERSON_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
@@ -721,6 +1136,17 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Status</label>
                       <select className="cf-input" value={n.status} onChange={e => updateNotice(i, 'status', e.target.value)}>
                         {NOTICE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Appearance Date</label>
+                      <input type="datetime-local" className="cf-input" value={n.appearance_date || ''} onChange={e => updateNotice(i, 'appearance_date', e.target.value)} />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Appearance Remarks</label>
+                      <select className="cf-input" value={n.appearance_remarks || ''} onChange={e => updateNotice(i, 'appearance_remarks', e.target.value)}>
+                        <option value="">ΓÇö Select ΓÇö</option>
+                        {APPEARANCE_REMARKS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
                   </div>
@@ -737,7 +1163,43 @@ export default function EnquiryForm() {
                   </div>
                 </div>
               ))}
-              {form.notices.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No notices added yet. Click "Add Notice" to start.</p>}
+              {form.notices.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No summons added yet. Click "Add Summon" to start.</p>}
+            </div>
+          </div>
+        )}
+
+        {/* ATTACHMENTS TAB */}
+        {activeTab === 'attachments' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#5a189a' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </div>
+              <div><div className="cf-section-title">Enquiry Attachments</div><div className="cf-section-sub">Supporting documents with title and date</div></div>
+            </div>
+            <div className="cf-body">
+              <button type="button" className="btn btn-outline btn-sm" onClick={addAttachment} style={{ marginBottom: 16 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Attachment
+              </button>
+              {form.attachments.map((at, i) => (
+                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+                    <div className="cf-field"><label className="cf-label">Title</label><input type="text" className="cf-input" value={at.title} onChange={e => updateAttachment(i, 'title', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Attachment Date</label><input type="date" className="cf-input" value={at.attachment_date} onChange={e => updateAttachment(i, 'attachment_date', e.target.value)} /></div>
+                    <div className="cf-field">
+                      <label className="cf-label">File</label>
+                      <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateAttachmentFile(i, e.target.files[0])} />
+                      {at.file_path && (
+                        <a href={at.file_path} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Download existing Γåù</a>
+                      )}
+                    </div>
+                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAttachment(i)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {form.attachments.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No attachments added yet.</p>}
             </div>
           </div>
         )}
@@ -756,13 +1218,13 @@ export default function EnquiryForm() {
               <div className="cf-field" style={{ marginBottom: 16 }}>
                 <label className="cf-label required">Technical Report</label>
                 <textarea className="cf-input" rows={4} required value={form.technical_report || ''} onChange={setF('technical_report')} placeholder="Technical analysis / report findings..." style={{ width: '100%' }}></textarea>
-                {technicalReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={technicalReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open ↗</a></div>}
+                {technicalReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={technicalReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open Γåù</a></div>}
                 <input type="file" className="cf-input" style={{ marginTop: 8 }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => setTechnicalFile(e.target.files[0] || null)} />
               </div>
               <div className="cf-field">
                 <label className="cf-label required">Forensic Report</label>
                 <textarea className="cf-input" rows={4} required value={form.forensic_report || ''} onChange={setF('forensic_report')} placeholder="Forensic analysis / report findings..." style={{ width: '100%' }}></textarea>
-                {forensicReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={forensicReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open ↗</a></div>}
+                {forensicReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={forensicReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open Γåù</a></div>}
                 <input type="file" className="cf-input" style={{ marginTop: 8 }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => setForensicFile(e.target.files[0] || null)} />
               </div>
             </div>
@@ -788,10 +1250,15 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Activity Type</label>
                       <select className="cf-input" value={a.type} onChange={e => updateActivity(i, 'type', e.target.value)}>
-                        <option value="">— Select Type —</option>
+                        <option value="">ΓÇö Select Type ΓÇö</option>
                         {ACTIVITY_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
+                    {a.type === 'diaries' && (
+                      <div className="cf-field"><label className="cf-label">Diary No</label>
+                        <input type="text" className="cf-input" value={a.diary_no || ''} onChange={e => updateActivity(i, 'diary_no', e.target.value)} placeholder="Diary number" />
+                      </div>
+                    )}
                     <div className="cf-field"><label className="cf-label">Date</label>
                       <input type="date" className="cf-input" value={a.activity_date} onChange={e => updateActivity(i, 'activity_date', e.target.value)} />
                     </div>
@@ -803,11 +1270,67 @@ export default function EnquiryForm() {
                     </button>
                   </div>
                   <div className="cf-field"><label className="cf-label">Description</label>
-                    <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity…" style={{ width: '100%' }}></textarea>
+                    <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activityΓÇª" style={{ width: '100%' }}></textarea>
                   </div>
+                  {a.type === 'diaries' && (
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => printDiary(a)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Diary
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               {form.activities.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No activities added yet. Click "Add Activity" to start.</p>}
+            </div>
+          </div>
+        )}
+
+        {/* REQUISITIONS TAB */}
+        {activeTab === 'requisitions' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#0077b6' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div><div className="cf-section-title">Requisitions</div><div className="cf-section-sub">Bank / Telecom / NADRA / Travel History requests</div></div>
+            </div>
+            <div className="cf-body">
+              <button type="button" className="btn btn-outline btn-sm" onClick={addRequisition} style={{ marginBottom: 16 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Requisition
+              </button>
+              {form.requisitions.map((rq, i) => (
+                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Type</label>
+                      <select className="cf-input" value={rq.type} onChange={e => updateRequisition(i, 'type', e.target.value)}>
+                        <option value="">ΓÇö Select ΓÇö</option>
+                        {REQUISITION_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Email To</label><input type="email" className="cf-input" value={rq.email_to} onChange={e => updateRequisition(i, 'email_to', e.target.value)} /></div>
+                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeRequisition(i)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                  <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Subject</label><input type="text" className="cf-input" value={rq.subject} onChange={e => updateRequisition(i, 'subject', e.target.value)} style={{ width: '100%' }} /></div>
+                  <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Body</label><textarea className="cf-input" rows={4} value={rq.body} onChange={e => updateRequisition(i, 'body', e.target.value)} style={{ width: '100%' }} /></div>
+                  {(rq.status || rq.authorized_by_name) && (
+                    <div style={{ fontSize: 12, color: '#555', marginBottom: 8 }}>
+                      {rq.status && <span style={{ marginRight: 16 }}><strong>Status:</strong> {rq.status}</span>}
+                      {rq.authorized_by_name && <span><strong>Authorized by:</strong> {rq.authorized_by_name}</span>}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {form.requisitions.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No requisitions added yet.</p>}
+              {canAuthorizeRequisitions && form.requisitions.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={handleAuthorizeRequisitions} style={{ background: '#0077b6', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600 }}>
+                    Request Authorization &amp; Send
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -819,13 +1342,13 @@ export default function EnquiryForm() {
               <div className="cf-section-icon" style={{ background: '#015C94' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
-              <div><div className="cf-section-title">Legal Opinion Chain</div><div className="cf-section-sub">DD Legal → AD Legal → DG Legal</div></div>
+              <div><div className="cf-section-title">Legal Opinion Chain</div><div className="cf-section-sub">DD Legal ΓåÆ AD Legal ΓåÆ DG Legal</div></div>
               <div className="cf-section-badge">STEP 4</div>
             </div>
             <div className="cf-body">
               {!isPrivileged && (
                 <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
-                  🔒 This section is read-only. Only Circle Incharge / Admin can add or modify legal opinions.
+                  ≡ƒöÆ This section is read-only. Only Circle Incharge / Admin can add or modify legal opinions.
                 </div>
               )}
               {isPrivileged && (
@@ -838,19 +1361,19 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Role</label>
                       <select className="cf-input" value={lo.role} onChange={e => updateLegalOpinion(i, 'role', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">— Select Role —</option>
+                        <option value="">ΓÇö Select Role ΓÇö</option>
                         {LEGAL_ROLES.map(r => <option key={r} value={r}>{r.toUpperCase().replace('_', ' ')}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Decision</label>
                       <select className="cf-input" value={lo.decision} onChange={e => updateLegalOpinion(i, 'decision', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">— Select —</option>
+                        <option value="">ΓÇö Select ΓÇö</option>
                         {LEGAL_DECISIONS.map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Officer</label>
                       <select className="cf-input" value={lo.created_by} onChange={e => updateLegalOpinion(i, 'created_by', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">— Select Officer —</option>
+                        <option value="">ΓÇö Select Officer ΓÇö</option>
                         {legalOfficers.map(o => <option key={o.id} value={o.id}>{o.name} ({o.designation})</option>)}
                       </select>
                     </div>
@@ -861,7 +1384,7 @@ export default function EnquiryForm() {
                     )}
                   </div>
                   <div className="cf-field"><label className="cf-label">Opinion Text</label>
-                    <textarea className="cf-input" rows={3} value={lo.opinion_text} onChange={e => updateLegalOpinion(i, 'opinion_text', e.target.value)} disabled={!isPrivileged} placeholder="Enter legal opinion…" style={{ width: '100%' }}></textarea>
+                    <textarea className="cf-input" rows={3} value={lo.opinion_text} onChange={e => updateLegalOpinion(i, 'opinion_text', e.target.value)} disabled={!isPrivileged} placeholder="Enter legal opinionΓÇª" style={{ width: '100%' }}></textarea>
                   </div>
                 </div>
               ))}
@@ -883,7 +1406,7 @@ export default function EnquiryForm() {
             <div className="cf-body">
               {!isPrivileged && (
                 <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
-                  🔒 This section is read-only. Only Circle Incharge / Admin can add or modify approvals.
+                  ≡ƒöÆ This section is read-only. Only Circle Incharge / Admin can add or modify approvals.
                 </div>
               )}
               {isPrivileged && (
@@ -896,13 +1419,13 @@ export default function EnquiryForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Circle Incharge</label>
                       <select className="cf-input" value={ap.circle_incharge_id} onChange={e => updateApproval(i, 'circle_incharge_id', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">— Select —</option>
+                        <option value="">ΓÇö Select ΓÇö</option>
                         {circleIncharges.map(o => <option key={o.id} value={o.id}>{o.name}{o.designation ? ' (' + o.designation + ')' : ''}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Decision</label>
                       <select className="cf-input" value={ap.decision} onChange={e => updateApproval(i, 'decision', e.target.value)} disabled={!isPrivileged}>
-                        <option value="">— Select —</option>
+                        <option value="">ΓÇö Select ΓÇö</option>
                         <option value="agree">Agree</option>
                         <option value="review">Review</option>
                       </select>
@@ -930,31 +1453,41 @@ export default function EnquiryForm() {
               <div className="cf-section-icon" style={{ background: '#015C94' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </div>
-              <div><div className="cf-section-title">Final Outcome</div><div className="cf-section-sub">Closure / Transfer / Convert to Case</div></div>
-              <div className="cf-section-badge">STEP 6</div>
+              <div><div className="cf-section-title">CFR / SCFR Outcome</div><div className="cf-section-sub">Final enquiry report and recommendation</div></div>
             </div>
             <div className="cf-body">
               <div className="cf-row-3">
+                {renderField('CFR Type', 'cfr_type', { options: CFR_TYPES })}
+                {renderField('CFR Date', 'cfr_date', { type: 'date' })}
                 {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS, required: true })}
-                {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
               </div>
+              {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
+              {renderField('Charge Against', 'charge_against', { rows: 3, placeholder: 'Charges framed against accusedΓÇª' })}
+              {renderField('Oral Evidence', 'oral_evidence', { rows: 3, placeholder: 'Summary of oral evidenceΓÇª' })}
+              {renderField('Documentary Evidence', 'documentary_evidence', { rows: 3, placeholder: 'List of documentary evidenceΓÇª' })}
+              {renderField('Plea', 'plea', { rows: 2, placeholder: 'Plea of accusedΓÇª' })}
+              {renderField('Conclusion', 'conclusion', { rows: 3, placeholder: 'Investigation conclusionΓÇª' })}
               {renderField('CFR Summary', 'cfr_summary', {
                 rows: 4,
                 required: true,
                 placeholder: 'Final enquiry findings / CFR summary for Circle Incharge review',
               })}
+              <div className="cf-field" style={{ marginBottom: 16 }}>
+                <label className="cf-label">CFR Remarks</label>
+                {canEditCfrRemarks ? (
+                  <textarea className="cf-input" rows={3} value={form.cfr_remarks || ''} onChange={setF('cfr_remarks')} placeholder="Additional Director / Admin remarksΓÇª" style={{ width: '100%' }} />
+                ) : (
+                  <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)', minHeight: 60 }}>
+                    {form.cfr_remarks || 'ΓÇö'}
+                  </div>
+                )}
+              </div>
               <div className="cf-row-2">
                 {renderField('Transfer Department', 'transfer_department')}
                 {renderField('Transfer Circle', 'transfer_circle', { options: circles.map(c => ({ value: c.name, name: c.name })) })}
               </div>
               {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
             </div>
-          </div>
-        )}
-
-        {canSubmitCfr && (
-          <div style={{ marginTop: 16, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e3a5f' }}>
-            Outcome tab mein <strong>Recommendation</strong> + <strong>CFR Summary</strong> complete karke <strong>Submit CFR</strong> dabayein — Circle Incharge ko review ke liye chala jayega.
           </div>
         )}
 
@@ -986,12 +1519,18 @@ export default function EnquiryForm() {
           </div>
         )}
 
+        {canSubmitCfr && (
+          <div style={{ marginTop: 16, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e3a5f' }}>
+            Outcome tab mein <strong>Recommendation</strong> + <strong>CFR Summary</strong> complete karke <strong>Submit CFR</strong> dabayein ΓÇö Circle Incharge ko review ke liye chala jayega.
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20, flexWrap: 'wrap' }}>
           <Link to="/enquiries" className="btn btn-outline">Cancel</Link>
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={saving || submittingCfr}
+            disabled={saving || submittingCfr || registerSaving}
             style={{ background: '#64748b', color: '#fff', padding: '12px 24px', fontWeight: 600, fontSize: '14px', borderRadius: '8px', border: 'none' }}
           >
             {saving ? 'Saving...' : (id ? 'Update Enquiry' : 'Register Enquiry')}

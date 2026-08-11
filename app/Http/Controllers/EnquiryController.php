@@ -11,6 +11,9 @@ use App\Models\EnquiryApproval;
 use App\Models\User;
 use App\Models\EnquiryWitness;
 use App\Models\EnquiryNotice;
+use App\Models\EnquiryAccused;
+use App\Models\EnquiryAttachment;
+use App\Models\EnquiryRequisition;
 use App\Notifications\EnquiryAssignedNotification;
 use App\Notifications\NoticeNonAppearanceNotification;
 use App\Notifications\CaseAssignedNotification;
@@ -42,7 +45,7 @@ class EnquiryController extends Controller
 
     private function decodeArrays(array &$data): void
     {
-        foreach (['activities', 'legal_opinions', 'approvals', 'witnesses', 'notices'] as $field) {
+        foreach (['activities', 'legal_opinions', 'approvals', 'witnesses', 'notices', 'accused', 'attachments', 'requisitions'] as $field) {
             if (!array_key_exists($field, $data)) {
                 continue;
             }
@@ -91,6 +94,7 @@ class EnquiryController extends Controller
 
             $attrs = [
                 'type'          => $type,
+                'diary_no'      => (is_array($action) && !empty($action['diary_no'])) ? $action['diary_no'] : null,
                 'description'   => (is_array($action) && !empty($action['description'])) ? $action['description'] : $label,
                 'activity_date' => $this->normalizeDate(
                     (is_array($action) && !empty($action['activity_date'])) ? $action['activity_date'] : now()
@@ -178,18 +182,33 @@ class EnquiryController extends Controller
     private function syncWitnesses(Enquiry $enquiry, array $witnesses, Request $request): void
     {
         $files = $request->file('witness_attachments', []);
+        $pictures = $request->file('witness_pictures', []);
+        $statements = $request->file('witness_statements', []);
         $keep  = [];
 
         foreach ($witnesses as $i => $w) {
-            if (empty($w['name']) && empty($w['cnic']) && empty($w['address'])) {
+            if (empty($w['name']) && empty($w['cnic']) && empty($w['address']) && empty($w['mailing_address'])) {
                 continue;
             }
             $attrs = [
-                'name'        => $w['name'] ?? null,
-                'cnic'        => $w['cnic'] ?? null,
-                'nationality' => $w['nationality'] ?? null,
-                'passport'    => $w['passport'] ?? null,
-                'address'     => $w['address'] ?? null,
+                'name'               => $w['name'] ?? null,
+                'father_name'        => $w['father_name'] ?? null,
+                'relation'           => $w['relation'] ?? null,
+                'gender'             => $w['gender'] ?? null,
+                'cnic'               => $w['cnic'] ?? null,
+                'domicile_district'  => $w['domicile_district'] ?? null,
+                'nationality'        => $w['nationality'] ?? null,
+                'passport'           => $w['passport'] ?? null,
+                'occupation'         => $w['occupation'] ?? null,
+                'is_government'      => filter_var($w['is_government'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'department_name'    => $w['department_name'] ?? null,
+                'designation'        => $w['designation'] ?? null,
+                'scale'              => $w['scale'] ?? null,
+                'contact_no'         => $w['contact_no'] ?? null,
+                'whatsapp_no'        => $w['whatsapp_no'] ?? null,
+                'mailing_address'    => $w['mailing_address'] ?? null,
+                'permanent_address'  => $w['permanent_address'] ?? null,
+                'address'            => $w['address'] ?? ($w['mailing_address'] ?? null),
             ];
 
             $file = $files[$i] ?? null;
@@ -197,6 +216,20 @@ class EnquiryController extends Controller
                 $attrs['attachment'] = $this->moveFile($file, 'witnesses');
             } elseif (!empty($w['attachment']) && is_string($w['attachment'])) {
                 $attrs['attachment'] = $w['attachment'];
+            }
+
+            $pic = $pictures[$i] ?? null;
+            if ($pic instanceof UploadedFile) {
+                $attrs['picture'] = $this->moveFile($pic, 'witnesses');
+            } elseif (!empty($w['picture']) && is_string($w['picture'])) {
+                $attrs['picture'] = $w['picture'];
+            }
+
+            $stmt = $statements[$i] ?? null;
+            if ($stmt instanceof UploadedFile) {
+                $attrs['statement_attachment'] = $this->moveFile($stmt, 'witnesses');
+            } elseif (!empty($w['statement_attachment']) && is_string($w['statement_attachment'])) {
+                $attrs['statement_attachment'] = $w['statement_attachment'];
             }
 
             $existing = !empty($w['id']) ? EnquiryWitness::find($w['id']) : null;
@@ -216,22 +249,25 @@ class EnquiryController extends Controller
     {
         $keep = [];
 
-        foreach ($notices as $n) {
+        foreach ($notices as $idx => $n) {
             if (empty($n['receiver_name']) && empty($n['notice_type']) && empty($n['notice_number']) && empty($n['description'])) {
                 continue;
             }
 
             $attrs = [
-                'notice_number'   => $n['notice_number'] ?? null,
-                'notice_type'     => $n['notice_type'] ?? null,
-                'receiver_name'   => $n['receiver_name'] ?? null,
-                'person_type'     => $n['person_type'] ?? null,
-                'notice_via'      => !empty($n['notice_via']) ? $n['notice_via'] : null,
-                'address'         => $n['address'] ?? null,
-                'phone'           => $n['phone'] ?? null,
-                'notice_date'     => $this->normalizeDate($n['notice_date'] ?? null),
-                'description'     => $n['description'] ?? null,
-                'status'          => $n['status'] ?? 'issued',
+                'sequence_no'         => $n['sequence_no'] ?? ($idx + 1),
+                'notice_number'       => $n['notice_number'] ?? null,
+                'notice_type'         => $n['notice_type'] ?? null,
+                'receiver_name'       => $n['receiver_name'] ?? null,
+                'person_type'         => $n['person_type'] ?? null,
+                'notice_via'          => !empty($n['notice_via']) ? $n['notice_via'] : null,
+                'address'             => $n['address'] ?? null,
+                'phone'               => $n['phone'] ?? null,
+                'notice_date'         => $this->normalizeDate($n['notice_date'] ?? null),
+                'description'         => $n['description'] ?? null,
+                'status'              => $n['status'] ?? 'issued',
+                'appearance_date'     => !empty($n['appearance_date']) ? $n['appearance_date'] : null,
+                'appearance_remarks'  => $n['appearance_remarks'] ?? null,
             ];
 
             if (in_array($attrs['status'], ['served', 'non_appearance'], true) && empty($n['served_at'])) {
@@ -255,6 +291,155 @@ class EnquiryController extends Controller
 
         $enquiry->notices()->whereNotIn('id', $keep ?: [0])->delete();
         $this->recomputeNoticeFlags($enquiry, $request);
+    }
+
+    private function syncAccused(Enquiry $enquiry, array $accused, Request $request): void
+    {
+        $cnicFiles = $request->file('accused_cnic_attachments', []);
+        $passportFiles = $request->file('accused_passport_attachments', []);
+        $nadraFiles = $request->file('accused_nadra_attachments', []);
+        $keep = [];
+
+        foreach ($accused as $i => $a) {
+            if (empty($a['name']) && empty($a['cnic'])) {
+                continue;
+            }
+            $attrs = [
+                'name'                => $a['name'] ?? null,
+                'cnic'                => $a['cnic'] ?? null,
+                'father_name'         => $a['father_name'] ?? null,
+                'gender'              => $a['gender'] ?? null,
+                'contact_no'          => $a['contact_no'] ?? null,
+                'whatsapp_no'         => $a['whatsapp_no'] ?? null,
+                'email'               => $a['email'] ?? null,
+                'postal_address'       => $a['postal_address'] ?? null,
+                'permanent_address'   => $a['permanent_address'] ?? null,
+                'religion'            => $a['religion'] ?? null,
+                'district_domicile'   => $a['district_domicile'] ?? null,
+                'identification_mark' => $a['identification_mark'] ?? null,
+                'occupation'          => $a['occupation'] ?? null,
+                'is_government'       => filter_var($a['is_government'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'department_name'     => $a['department_name'] ?? null,
+                'designation'         => $a['designation'] ?? null,
+            ];
+
+            foreach ([
+                'cnic_attachment' => [$cnicFiles[$i] ?? null, $a['cnic_attachment'] ?? null],
+                'passport_attachment' => [$passportFiles[$i] ?? null, $a['passport_attachment'] ?? null],
+                'nadra_verisys_attachment' => [$nadraFiles[$i] ?? null, $a['nadra_verisys_attachment'] ?? null],
+            ] as $key => [$file, $existingPath]) {
+                if ($file instanceof UploadedFile) {
+                    $attrs[$key] = $this->moveFile($file, 'accused');
+                } elseif (is_string($existingPath) && $existingPath !== '') {
+                    $attrs[$key] = $existingPath;
+                }
+            }
+
+            $existing = !empty($a['id']) ? EnquiryAccused::find($a['id']) : null;
+            if ($existing && $existing->enquiry_id === $enquiry->id) {
+                $existing->update($attrs);
+                $keep[] = $existing->id;
+            } else {
+                $model = $enquiry->accusedPersons()->create($attrs);
+                $keep[] = $model->id;
+            }
+        }
+
+        $enquiry->accusedPersons()->whereNotIn('id', $keep ?: [0])->delete();
+    }
+
+    private function syncEnquiryAttachments(Enquiry $enquiry, array $attachments, Request $request): void
+    {
+        $files = $request->file('enquiry_attachment_files', []);
+        $keep = [];
+
+        foreach ($attachments as $i => $att) {
+            if (empty($att['title']) && empty($att['file_path']) && empty($files[$i])) {
+                continue;
+            }
+            $attrs = [
+                'enquiry_number'  => $att['enquiry_number'] ?? $enquiry->enquiry_number,
+                'attachment_date' => $this->normalizeDate($att['attachment_date'] ?? now()),
+                'title'           => $att['title'] ?? null,
+                'uploaded_by'     => $request->user()->id,
+            ];
+
+            $file = $files[$i] ?? null;
+            if ($file instanceof UploadedFile) {
+                $attrs['file_path'] = $this->moveFile($file, 'enquiry-attachments');
+                $attrs['original_name'] = $file->getClientOriginalName();
+            } elseif (!empty($att['file_path']) && is_string($att['file_path'])) {
+                $attrs['file_path'] = $att['file_path'];
+                $attrs['original_name'] = $att['original_name'] ?? null;
+            }
+
+            $existing = !empty($att['id']) ? EnquiryAttachment::find($att['id']) : null;
+            if ($existing && $existing->enquiry_id === $enquiry->id) {
+                $existing->update($attrs);
+                $keep[] = $existing->id;
+            } else {
+                $model = $enquiry->enquiryAttachments()->create($attrs);
+                $keep[] = $model->id;
+            }
+        }
+
+        $enquiry->enquiryAttachments()->whereNotIn('id', $keep ?: [0])->delete();
+    }
+
+    private function syncRequisitions(Enquiry $enquiry, array $requisitions, Request $request): void
+    {
+        $keep = [];
+        $canAuthorize = $request->user()->hasAnyRole(['admin', 'additional_director', 'director_general']);
+
+        foreach ($requisitions as $r) {
+            if (empty($r['type']) && empty($r['email_to']) && empty($r['body'])) {
+                continue;
+            }
+
+            $attrs = [
+                'type'         => $r['type'] ?? 'bank',
+                'email_to'     => $r['email_to'] ?? null,
+                'subject'      => $r['subject'] ?? null,
+                'body'         => $r['body'] ?? null,
+                'status'       => $r['status'] ?? 'draft',
+                'requested_by' => $r['requested_by'] ?? $request->user()->id,
+            ];
+
+            $shouldSend = !empty($r['send_now']) || ($r['status'] ?? '') === 'send';
+            if ($shouldSend && $canAuthorize) {
+                $attrs['status'] = 'sent';
+                $attrs['authorized_by'] = $request->user()->id;
+                $attrs['authorized_at'] = now();
+                $attrs['sent_at'] = now();
+                try {
+                    if (!empty($attrs['email_to'])) {
+                        \Illuminate\Support\Facades\Mail::raw(
+                            (string) ($attrs['body'] ?: 'Requisition from NCCIA CMS'),
+                            function ($message) use ($attrs, $enquiry) {
+                                $message->to($attrs['email_to'])
+                                    ->subject($attrs['subject'] ?: ('NCCIA Requisition — ' . ($enquiry->enquiry_number ?: $enquiry->id)));
+                            }
+                        );
+                    }
+                } catch (\Throwable $e) {
+                    report($e);
+                    $attrs['status'] = 'failed';
+                }
+            } elseif ($shouldSend && !$canAuthorize) {
+                $attrs['status'] = 'draft';
+            }
+
+            $existing = !empty($r['id']) ? EnquiryRequisition::find($r['id']) : null;
+            if ($existing && $existing->enquiry_id === $enquiry->id) {
+                $existing->update($attrs);
+                $keep[] = $existing->id;
+            } else {
+                $model = $enquiry->requisitions()->create($attrs);
+                $keep[] = $model->id;
+            }
+        }
+
+        $enquiry->requisitions()->whereNotIn('id', $keep ?: [0])->delete();
     }
 
     private function recomputeNoticeFlags(Enquiry $enquiry, Request $request): void
@@ -342,6 +527,9 @@ class EnquiryController extends Controller
             'witnesses'               => 'nullable|string',
             // Notices
             'notices'                 => 'nullable|string',
+            'accused'                 => 'nullable|string',
+            'attachments'             => 'nullable|string',
+            'requisitions'            => 'nullable|string',
             // Technical & Forensic reports
             'technical_report'        => 'nullable|string',
             'forensic_report'         => 'nullable|string',
@@ -401,6 +589,9 @@ class EnquiryController extends Controller
             }
             $this->syncWitnesses($enquiry, $data['witnesses'] ?? [], $request);
             $this->syncNotices($enquiry, $data['notices'] ?? [], $request);
+            $this->syncAccused($enquiry, $data['accused'] ?? [], $request);
+            $this->syncEnquiryAttachments($enquiry, $data['attachments'] ?? [], $request);
+            $this->syncRequisitions($enquiry, $data['requisitions'] ?? [], $request);
 
             return $enquiry;
         });
@@ -480,11 +671,18 @@ class EnquiryController extends Controller
             'legalOpinions.creator',
             'approvals.circleIncharge',
             'witnesses',
-            'notices'
+            'notices',
+            'accusedPersons',
+            'enquiryAttachments',
+            'requisitions.requester',
+            'requisitions.authorizer'
         );
 
-        return response()->json($enquiry);
-    }
+        $payload = $enquiry->toArray();
+        $payload['accused'] = $enquiry->accusedPersons;
+        $payload['attachments'] = $enquiry->enquiryAttachments;
+
+        return response()->json($payload);
 
     public function update(Request $request, Enquiry $enquiry)
     {
@@ -504,6 +702,14 @@ class EnquiryController extends Controller
                 'merge_complaint_id'      => 'nullable|string|max:255',
                 'reg_date'                => 'nullable|date',
                 'cfr_summary'             => 'nullable|string',
+                'cfr_type'                => 'nullable|string|in:CFR,SCFR',
+                'cfr_date'                => 'nullable|date',
+                'charge_against'          => 'nullable|string',
+                'oral_evidence'           => 'nullable|string',
+                'documentary_evidence'    => 'nullable|string',
+                'plea'                    => 'nullable|string',
+                'conclusion'              => 'nullable|string',
+                'cfr_remarks'             => 'nullable|string',
                 'technical_report'        => 'nullable|string',
                 'forensic_report'         => 'nullable|string',
 
@@ -512,6 +718,9 @@ class EnquiryController extends Controller
                 'approvals'               => 'nullable',
                 'witnesses'               => 'nullable',
                 'notices'                 => 'nullable',
+                'accused'                 => 'nullable',
+                'attachments'             => 'nullable',
+                'requisitions'            => 'nullable',
 
                 'technical_report_attachment' => 'nullable|file|max:20480',
                 'forensic_report_attachment'  => 'nullable|file|max:20480',
@@ -520,6 +729,7 @@ class EnquiryController extends Controller
             $this->decodeArrays($data);
 
             $privileged = $request->user()->hasAnyRole(['admin', 'circle_incharge']);
+            $canEditCfrRemarks = $request->user()->hasAnyRole(['admin', 'additional_director']);
 
             $updateData = array_filter([
                 'status'              => $data['status'] ?? null,
@@ -530,9 +740,20 @@ class EnquiryController extends Controller
                 'enquiry_number'      => $data['enquiry_number'] ?? null,
                 'reg_date'            => isset($data['reg_date']) ? $this->normalizeDate($data['reg_date']) : null,
                 'cfr_summary'         => $data['cfr_summary'] ?? null,
+                'cfr_type'            => $data['cfr_type'] ?? null,
+                'cfr_date'            => isset($data['cfr_date']) ? $this->normalizeDate($data['cfr_date']) : null,
+                'charge_against'      => $data['charge_against'] ?? null,
+                'oral_evidence'       => $data['oral_evidence'] ?? null,
+                'documentary_evidence'=> $data['documentary_evidence'] ?? null,
+                'plea'                => $data['plea'] ?? null,
+                'conclusion'          => $data['conclusion'] ?? null,
                 'technical_report'    => $data['technical_report'] ?? null,
                 'forensic_report'     => $data['forensic_report'] ?? null,
             ], fn ($v) => $v !== null);
+
+            if ($canEditCfrRemarks && array_key_exists('cfr_remarks', $data)) {
+                $updateData['cfr_remarks'] = $data['cfr_remarks'];
+            }
 
             if ($privileged && array_key_exists('enquiry_officer_id', $data)) {
                 $updateData['enquiry_officer_id'] = $data['enquiry_officer_id'] ?: null;
@@ -585,6 +806,15 @@ class EnquiryController extends Controller
                 if (array_key_exists('notices', $data)) {
                     $this->syncNotices($enquiry, $data['notices'] ?? [], $request);
                 }
+                if (array_key_exists('accused', $data)) {
+                    $this->syncAccused($enquiry, $data['accused'] ?? [], $request);
+                }
+                if (array_key_exists('attachments', $data)) {
+                    $this->syncEnquiryAttachments($enquiry, $data['attachments'] ?? [], $request);
+                }
+                if (array_key_exists('requisitions', $data)) {
+                    $this->syncRequisitions($enquiry, $data['requisitions'] ?? [], $request);
+                }
             });
 
             if ($officerChanged) {
@@ -601,7 +831,10 @@ class EnquiryController extends Controller
                         'legalOpinions.creator',
                         'approvals.circleIncharge',
                         'witnesses',
-                        'notices'
+                        'notices',
+                        'accusedPersons',
+                        'enquiryAttachments',
+                        'requisitions'
                     ),
                 ]);
             }
@@ -640,6 +873,28 @@ class EnquiryController extends Controller
 
         return response()->json([
             'html' => $print->noticePrintDocument($notice),
+        ]);
+    }
+
+    /**
+     * Printable case diary HTML.
+     */
+    public function diaryPrint(Request $request, Enquiry $enquiry, PrintService $print)
+    {
+        abort_unless(
+            Enquiry::visibleTo(request()->user())->whereKey($enquiry->id)->exists(),
+            404
+        );
+
+        $activityId = $request->integer('activity_id');
+        $activity = $activityId
+            ? EnquiryActivity::where('enquiry_id', $enquiry->id)->findOrFail($activityId)
+            : $enquiry->activities()->where('type', 'diaries')->latest('id')->first();
+
+        abort_if(!$activity, 404, 'No diary entry found to print.');
+
+        return response()->json([
+            'html' => $print->diaryPrintDocument($enquiry, $activity),
         ]);
     }
 
@@ -706,16 +961,45 @@ class EnquiryController extends Controller
     public function submitCfr(Request $request, Enquiry $enquiry)
     {
         $data = $request->validate([
-            'cfr_summary'   => 'required|string',
-            'recommendation' => 'required|string|in:closure,transfer,convert_to_case',
+            'cfr_summary'    => 'required|string',
+            'recommendation' => 'required|string|in:closure,transfer,convert_to_case,fir,irrelevant,lack_of_documents',
+            'cfr_type'       => 'nullable|string|in:CFR,SCFR',
+            'cfr_date'       => 'nullable|date',
+            'charge_against' => 'nullable|string',
+            'oral_evidence'  => 'nullable|string',
+            'documentary_evidence' => 'nullable|string',
+            'plea'           => 'nullable|string',
+            'conclusion'     => 'nullable|string',
+            'cfr_remarks'    => 'nullable|string',
         ]);
 
-        $enquiry->update([
+        $rec = $data['recommendation'];
+        if ($rec === 'fir') {
+            $rec = 'convert_to_case';
+        }
+        if ($rec === 'irrelevant' || $rec === 'lack_of_documents') {
+            $rec = 'closure';
+        }
+
+        $update = [
             'status'         => 'cfr_submitted',
-            'recommendation' => $data['recommendation'],
+            'recommendation' => $rec,
             'cfr_summary'    => $data['cfr_summary'],
             'submitted_at'   => now(),
-        ]);
+        ];
+        foreach (['cfr_type', 'charge_against', 'oral_evidence', 'documentary_evidence', 'plea', 'conclusion'] as $f) {
+            if (!empty($data[$f])) {
+                $update[$f] = $data[$f];
+            }
+        }
+        if (!empty($data['cfr_date'])) {
+            $update['cfr_date'] = $this->normalizeDate($data['cfr_date']);
+        }
+        if ($request->user()->hasAnyRole(['admin', 'additional_director']) && array_key_exists('cfr_remarks', $data)) {
+            $update['cfr_remarks'] = $data['cfr_remarks'];
+        }
+
+        $enquiry->update($update);
 
         EnquiryActivity::create([
             'enquiry_id'    => $enquiry->id,

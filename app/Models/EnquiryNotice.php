@@ -10,6 +10,7 @@ class EnquiryNotice extends Model
 {
     protected $fillable = [
         'enquiry_id',
+        'sequence_no',
         'notice_number',
         'notice_type',
         'receiver_name',
@@ -22,15 +23,18 @@ class EnquiryNotice extends Model
         'status',
         'served_at',
         'appeared_at',
+        'appearance_date',
+        'appearance_remarks',
         'verification_token',
     ];
 
     protected function casts(): array
     {
         return [
-            'notice_date'  => 'date:Y-m-d',
-            'served_at'    => 'datetime',
-            'appeared_at'  => 'datetime',
+            'notice_date'      => 'date:Y-m-d',
+            'served_at'        => 'datetime',
+            'appeared_at'      => 'datetime',
+            'appearance_date'  => 'datetime',
         ];
     }
 

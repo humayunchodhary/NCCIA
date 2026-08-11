@@ -5,31 +5,31 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class EnquiryWitness extends Model
+class EnquiryAccused extends Model
 {
+    protected $table = 'enquiry_accused';
+
     protected $fillable = [
         'enquiry_id',
         'name',
-        'father_name',
-        'relation',
-        'gender',
         'cnic',
-        'domicile_district',
-        'nationality',
-        'passport',
+        'father_name',
+        'gender',
+        'contact_no',
+        'whatsapp_no',
+        'email',
+        'postal_address',
+        'permanent_address',
+        'religion',
+        'district_domicile',
+        'identification_mark',
         'occupation',
         'is_government',
         'department_name',
         'designation',
-        'scale',
-        'contact_no',
-        'whatsapp_no',
-        'mailing_address',
-        'permanent_address',
-        'address',
-        'attachment',
-        'picture',
-        'statement_attachment',
+        'cnic_attachment',
+        'passport_attachment',
+        'nadra_verisys_attachment',
     ];
 
     protected function casts(): array
