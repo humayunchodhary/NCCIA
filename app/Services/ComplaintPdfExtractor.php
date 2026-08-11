@@ -113,6 +113,8 @@ class ComplaintPdfExtractor
      */
     public function parseVerificationReportText(string $text, string $originalFilename): array
     {
+        $text = $this->normalizeOcrText($text);
+
         $pick = function (array $patterns) use ($text): ?string {
             foreach ($patterns as $pattern) {
                 if (preg_match($pattern, $text, $m)) {
@@ -138,6 +140,10 @@ class ComplaintPdfExtractor
             '/Name\.?\s*(.+?)\s+Gender\.?\s*(?:Male|Female)/is',
             '/(?:^|\s)Name\.?\s+([A-Za-z][A-Za-z\s\/\.]+?)\s+Gender/is',
         ]);
+        if (!$fullName) {
+            $fullName = $this->findNameFromSoPattern($text);
+        }
+
         [$victimName, $fatherName] = $this->splitNameFather($fullName);
         $cnicRaw = $pick([
             '/CNIC\s*No\.?\s*:?\s*([\d\-]+)/i',
@@ -332,13 +338,59 @@ class ComplaintPdfExtractor
         return [trim($fullName), null];
     }
 
+    private function normalizeOcrText(string $text): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $text);
+        $text = preg_replace('/CN1C/i', 'CNIC', $text) ?? $text;
+        $text = preg_replace('/\bNarne\b/i', 'Name', $text) ?? $text;
+        $text = preg_replace('/\bNarn e\b/i', 'Name', $text) ?? $text;
+        $text = preg_replace('/Trackin\s*g/i', 'Tracking', $text) ?? $text;
+        $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+
+        return trim($text);
+    }
+
+    private function ocrToDigits(string $raw): string
+    {
+        return strtr($raw, [
+            'O' => '0', 'o' => '0', 'Q' => '0',
+            'I' => '1', 'l' => '1', '|' => '1',
+            'S' => '5', 's' => '5',
+            'B' => '8', 'Z' => '2',
+        ]);
+    }
+
+    private function findNameFromSoPattern(string $text): ?string
+    {
+        if (preg_match('/([A-Za-z][A-Za-z\s\.]{2,40}?)\s+S\s*\/\s*O\s+([A-Za-z][A-Za-z\s\.]{2,40})/i', $text, $m)) {
+            return trim(preg_replace('/\s+/', ' ', $m[1] . ' S/O ' . $m[2]) ?? '');
+        }
+
+        return null;
+    }
+
     private function findCnicInText(string $text): ?string
     {
-        if (preg_match('/CNIC[^\d]{0,20}(\d{13})/is', $text, $m)) {
+        if (preg_match('/CNIC[^\dOIlS]{0,30}(\d{13})/is', $text, $m)) {
             return $m[1];
         }
+
+        if (preg_match('/CNIC[^\dOIlS]{0,30}([\dOIlS\-\s]{13,17})/is', $text, $m)) {
+            $digits = $this->ocrToDigits(preg_replace('/\D/', '', $m[1]) ?? '');
+            if (strlen($digits) === 13) {
+                return $digits;
+            }
+        }
+
         if (preg_match('/\b(\d{5})[\s\-]?(\d{7})[\s\-]?(\d)\b/', $text, $m)) {
             return $m[1] . $m[2] . $m[3];
+        }
+
+        if (preg_match('/\b([\dOIlS]{5})[\s\-]?([\dOIlS]{7})[\s\-]?([\dOIlS])\b/', $text, $m)) {
+            $digits = $this->ocrToDigits($m[1] . $m[2] . $m[3]);
+            if (strlen($digits) === 13) {
+                return $digits;
+            }
         }
 
         return null;

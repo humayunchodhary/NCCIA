@@ -185,16 +185,29 @@ class ComplaintPdfImportController extends Controller
 
         $extractor = app(\App\Services\ComplaintPdfExtractor::class);
 
-        if ($request->filled('ocr_text')) {
+        if ($request->has('ocr_text')) {
+            $ocrText = trim((string) $request->input('ocr_text', ''));
             $filename = $request->input('filename', 'preview.pdf');
-            $data = $extractor->parseVerificationReportText($request->input('ocr_text'), $filename);
+
+            if ($ocrText === '') {
+                return response()->json([
+                    'extracted'  => [],
+                    'fields_ok'  => false,
+                    'used_ocr'   => true,
+                    'error'      => 'OCR returned empty text — try Re-run OCR',
+                ]);
+            }
+
+            $data = $extractor->parseVerificationReportText($ocrText, $filename);
             $data['used_ocr'] = true;
+            $fieldsOk = $extractor->hasMinimumFields($data);
 
             return response()->json([
-                'extracted' => $data,
-                'used_ocr'  => true,
-                'error'     => $extractor->hasMinimumFields($data) ? null : 'CNIC/name not detected — try again',
-            ], $extractor->hasMinimumFields($data) ? 200 : 422);
+                'extracted'  => $data,
+                'fields_ok'  => $fieldsOk,
+                'used_ocr'   => true,
+                'error'      => $fieldsOk ? null : 'CNIC/name not detected — try Re-run OCR or check PDF scan quality',
+            ]);
         }
 
         $request->validate(['file' => 'required|file|mimes:pdf|max:51200']);

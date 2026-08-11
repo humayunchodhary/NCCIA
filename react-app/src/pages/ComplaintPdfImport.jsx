@@ -70,7 +70,11 @@ export default function ComplaintPdfImport() {
       ocr_text: text,
       filename,
     });
-    return r.data?.extracted || null;
+    return {
+      extracted: r.data?.extracted || null,
+      fieldsOk: r.data?.fields_ok !== false,
+      error: r.data?.error || null,
+    };
   };
 
   const ensureOcrForFile = async (filename) => {
@@ -98,12 +102,18 @@ export default function ComplaintPdfImport() {
     setMessage('Reading PDF in browser…');
     try {
       const text = await runBrowserOcr(file);
-      const extracted = await parseOcrText(text, file.name);
+      if (!text || text.trim().length < 20) {
+        setPreviewError('OCR ne kuch text nahi parha — Re-run OCR try karein.');
+        return;
+      }
+      const { extracted, fieldsOk, error } = await parseOcrText(text, file.name);
       setPreview(extracted);
-      if (!extracted?.victim_cnic || !extracted?.victim_name) {
-        setPreviewError('CNIC/name not detected — wait for OCR to finish or try again.');
+      if (!fieldsOk) {
+        setPreviewError(error || 'CNIC/name not detected — Re-run OCR try karein.');
       }
     } catch (err) {
+      const partial = err.response?.data?.extracted;
+      if (partial) setPreview(partial);
       setPreviewError(err.response?.data?.error || err.message || 'Preview failed');
     } finally {
       setPreviewLoading(false);

@@ -10,21 +10,14 @@ function preprocessCanvas(canvas) {
   const d = img.data;
   for (let i = 0; i < d.length; i += 4) {
     const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    const v = gray > 180 ? 255 : gray < 80 ? 0 : gray;
-    d[i] = d[i + 1] = d[i + 2] = v;
+    const v = gray > 175 ? 255 : gray < 95 ? 0 : gray * 1.15;
+    d[i] = d[i + 1] = d[i + 2] = Math.min(255, v);
   }
   ctx.putImageData(img, 0, 0);
 }
 
-/**
- * OCR first page of a PDF in the browser (no server Python required).
- */
-export async function extractTextFromPdf(file, onStatus) {
-  onStatus?.('Loading PDF…');
-  const data = new Uint8Array(await file.arrayBuffer());
-  const pdf = await pdfjsLib.getDocument({ data }).promise;
-  const page = await pdf.getPage(1);
-  const scale = 3;
+async function ocrPage(page, onStatus) {
+  const scale = 3.5;
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
@@ -35,8 +28,8 @@ export async function extractTextFromPdf(file, onStatus) {
   await page.render({ canvasContext: ctx, viewport }).promise;
   preprocessCanvas(canvas);
 
-  onStatus?.('Running OCR (30–90 sec)…');
   const result = await Tesseract.recognize(canvas, 'eng', {
+    tessedit_pageseg_mode: '6',
     logger: (m) => {
       if (m.status === 'recognizing text' && onStatus) {
         onStatus(`OCR ${Math.round((m.progress || 0) * 100)}%…`);
@@ -45,6 +38,25 @@ export async function extractTextFromPdf(file, onStatus) {
   });
 
   return result.data.text || '';
+}
+
+/**
+ * OCR first pages of a PDF in the browser (no server Python required).
+ */
+export async function extractTextFromPdf(file, onStatus) {
+  onStatus?.('Loading PDF…');
+  const data = new Uint8Array(await file.arrayBuffer());
+  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  const pageCount = Math.min(pdf.numPages, 2);
+  const parts = [];
+
+  for (let i = 1; i <= pageCount; i += 1) {
+    onStatus?.(`OCR page ${i}/${pageCount}…`);
+    const page = await pdf.getPage(i);
+    parts.push(await ocrPage(page, onStatus));
+  }
+
+  return parts.join('\n\n');
 }
 
 /** Prompt user to pick a PDF file (for re-process). */
