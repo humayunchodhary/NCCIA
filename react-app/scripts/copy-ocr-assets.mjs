@@ -4,26 +4,22 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
+const coreSrcDir = path.join(root, 'node_modules/tesseract.js-core');
 const outDir = path.join(root, '../public/react/tesseract');
 const langDir = path.join(outDir, 'lang');
 
 fs.mkdirSync(langDir, { recursive: true });
 
-const copies = [
-  ['node_modules/tesseract.js/dist/worker.min.js', 'worker.min.js'],
-  ['node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js'],
-  ['node_modules/tesseract.js-core/tesseract-core-lstm.wasm.js', 'tesseract-core-lstm.wasm.js'],
-  ['node_modules/tesseract.js-core/tesseract-core.wasm.js', 'tesseract-core.wasm.js'],
-];
+fs.copyFileSync(
+  path.join(root, 'node_modules/tesseract.js/dist/worker.min.js'),
+  path.join(outDir, 'worker.min.js'),
+);
+console.log('Copied worker.min.js');
 
-for (const [relSrc, destName] of copies) {
-  const src = path.join(root, relSrc);
-  if (!fs.existsSync(src)) {
-    console.warn('Skip missing OCR asset:', relSrc);
-    continue;
-  }
-  fs.copyFileSync(src, path.join(outDir, destName));
-  console.log('Copied', destName);
+const coreFiles = fs.readdirSync(coreSrcDir).filter((f) => /^tesseract-core.*\.wasm\.js$/.test(f));
+for (const name of coreFiles) {
+  fs.copyFileSync(path.join(coreSrcDir, name), path.join(outDir, name));
+  console.log('Copied', name);
 }
 
 async function download(url, dest) {
@@ -53,4 +49,4 @@ AddType application/wasm .wasm
 `;
 fs.writeFileSync(path.join(outDir, '.htaccess'), htaccess);
 
-console.log('OCR assets ready in public/react/tesseract/');
+console.log(`OCR assets ready (${coreFiles.length} core variants) in public/react/tesseract/`);

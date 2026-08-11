@@ -22,6 +22,8 @@ function asError(err, fallback) {
 async function verifyOcrAssets(onStatus) {
   const checks = [
     `${TESS_BASE}/worker.min.js`,
+    `${TESS_BASE}/tesseract-core-relaxedsimd-lstm.wasm.js`,
+    `${TESS_BASE}/tesseract-core-relaxedsimd.wasm.js`,
     `${TESS_BASE}/tesseract-core-simd-lstm.wasm.js`,
     `${TESS_BASE}/lang/eng.traineddata.gz`,
   ];
