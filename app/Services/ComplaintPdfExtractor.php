@@ -135,13 +135,16 @@ class ComplaintPdfExtractor
             '/COMPLAINANT\s*DETAILS.*?Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)/is',
             '/Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)/is',
             '/Name\s*:?\s*(.+?)\s+Gender\s*:/is',
+            '/Name\.?\s*(.+?)\s+Gender\.?\s*(?:Male|Female)/is',
+            '/(?:^|\s)Name\.?\s+([A-Za-z][A-Za-z\s\/\.]+?)\s+Gender/is',
         ]);
         [$victimName, $fatherName] = $this->splitNameFather($fullName);
         $cnicRaw = $pick([
             '/CNIC\s*No\.?\s*:?\s*([\d\-]+)/i',
             '/CNIC\s*No\.?\s*([\d]{13})/i',
+            '/CNIC\s*No\.?\s*([\d]{5}[\s\-]?\d{7}[\s\-]?\d)/i',
             '/CNIC\s*:?\s*([\d\-]+)/i',
-        ]);
+        ]) ?? $this->findCnicInText($text);
         $phoneRaw = $pick([
             '/Mobile\s*Number\s*:?\s*([\d\-]+)/i',
             '/Details\.?\s*Mobile\s*Number\s*:?\s*([\d\-]+)/i',
@@ -327,6 +330,18 @@ class ComplaintPdfExtractor
         }
 
         return [trim($fullName), null];
+    }
+
+    private function findCnicInText(string $text): ?string
+    {
+        if (preg_match('/CNIC[^\d]{0,20}(\d{13})/is', $text, $m)) {
+            return $m[1];
+        }
+        if (preg_match('/\b(\d{5})[\s\-]?(\d{7})[\s\-]?(\d)\b/', $text, $m)) {
+            return $m[1] . $m[2] . $m[3];
+        }
+
+        return null;
     }
 
     private function mapRecommendation(string $text): ?string

@@ -4,7 +4,7 @@ import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { useAuth } from '../contexts/AuthContext';
 import { canCreateComplaint } from '../utils/permissions';
-import { extractTextFromPdf } from '../utils/pdfOcr';
+import { extractTextFromPdf, pickPdfFile } from '../utils/pdfOcr';
 
 const STATUS_COLORS = {
   pending: '#f59e0b',
@@ -33,6 +33,7 @@ export default function ComplaintPdfImport() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
   const [previewError, setPreviewError] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -40,6 +41,7 @@ export default function ComplaintPdfImport() {
   const [processingId, setProcessingId] = useState(null);
 
   const canUpload = canCreateComplaint(user);
+  const previewReady = Boolean(preview?.victim_cnic && preview?.victim_name);
 
   const fetchData = useCallback(() => {
     Promise.all([
@@ -71,9 +73,26 @@ export default function ComplaintPdfImport() {
     return r.data?.extracted || null;
   };
 
+  const ensureOcrForFile = async (filename) => {
+    let ocrText = ocrCacheRef.current.get(filename);
+    if (ocrText) return ocrText;
+
+    const fromInput = Array.from(fileRef.current?.files || []).find(f => f.name === filename);
+    if (fromInput) {
+      setMessage(`OCR: ${filename}…`);
+      return runBrowserOcr(fromInput);
+    }
+
+    setMessage(`Select ${filename} for browser OCR…`);
+    const picked = await pickPdfFile(filename);
+    setMessage(`OCR: ${filename}…`);
+    return runBrowserOcr(picked);
+  };
+
   const handlePreview = async (file) => {
     if (!file) return;
     setPreview(null);
+    setPreviewFile(file);
     setPreviewError('');
     setPreviewLoading(true);
     setMessage('Reading PDF in browser…');
@@ -81,8 +100,8 @@ export default function ComplaintPdfImport() {
       const text = await runBrowserOcr(file);
       const extracted = await parseOcrText(text, file.name);
       setPreview(extracted);
-      if (!extracted?.victim_cnic) {
-        setPreviewError('CNIC not detected — check PDF quality and try again.');
+      if (!extracted?.victim_cnic || !extracted?.victim_name) {
+        setPreviewError('CNIC/name not detected — wait for OCR to finish or try again.');
       }
     } catch (err) {
       setPreviewError(err.response?.data?.error || err.message || 'Preview failed');
@@ -93,13 +112,9 @@ export default function ComplaintPdfImport() {
   };
 
   const processWithOcr = async (importId, filename) => {
-    let ocrText = ocrCacheRef.current.get(filename);
-    if (!ocrText && fileRef.current?.files?.[0]?.name === filename) {
-      setMessage(`OCR ${filename}…`);
-      ocrText = await runBrowserOcr(fileRef.current.files[0]);
-    }
-    if (!ocrText) {
-      throw new Error('OCR text missing. Select the PDF again so browser can read it.');
+    const ocrText = await ensureOcrForFile(filename);
+    if (!ocrText || ocrText.length < 20) {
+      throw new Error('OCR returned empty text. Select the PDF and try again.');
     }
     return api.post(`/complaint-pdf-imports/${importId}/process`, {
       auto_apply: 1,
@@ -111,30 +126,46 @@ export default function ComplaintPdfImport() {
     e.preventDefault();
     const files = fileRef.current?.files;
     if (!files?.length) return;
+
+    if (!previewReady) {
+      setMessage('Pehle preview mein CNIC/name check karein — OCR complete hone ka wait karein.');
+      return;
+    }
+
     setUploading(true);
     setMessage('');
     try {
-      const first = files[0];
-      if (!ocrCacheRef.current.has(first.name)) {
-        setMessage('Running browser OCR first…');
-        await runBrowserOcr(first);
+      for (const f of Array.from(files)) {
+        if (!ocrCacheRef.current.has(f.name)) {
+          setMessage(`OCR: ${f.name}…`);
+          await runBrowserOcr(f);
+        }
       }
 
       const fd = new FormData();
       Array.from(files).forEach(f => fd.append('files[]', f));
-      fd.append('auto_apply', '0');
+      Array.from(files).forEach(f => {
+        const text = ocrCacheRef.current.get(f.name);
+        if (text) fd.append(`ocr_texts[${f.name}]`, text);
+      });
+      fd.append('auto_apply', '1');
       fd.append('sync', '0');
-      const r = await api.post('/complaint-pdf-imports', fd, { timeout: 120000 });
+
+      const r = await api.post('/complaint-pdf-imports', fd, { timeout: 300000 });
       const uploaded = r.data?.imports || [];
 
       for (const imp of uploaded) {
-        setMessage(`Importing ${imp.original_filename}…`);
-        await processWithOcr(imp.id, imp.original_filename);
+        if (imp.status === 'imported' || imp.status === 'extracted') continue;
+        if (imp.status === 'failed') {
+          setMessage(`Retrying ${imp.original_filename}…`);
+          await processWithOcr(imp.id, imp.original_filename);
+        }
       }
 
-      setMessage('Import complete — check complaint for CNIC & attachment.');
+      setMessage('Import complete — complaint mein CNIC & PDF attachment check karein.');
       if (fileRef.current) fileRef.current.value = '';
       setPreview(null);
+      setPreviewFile(null);
       ocrCacheRef.current.clear();
       fetchData();
     } catch (err) {
@@ -151,16 +182,11 @@ export default function ComplaintPdfImport() {
 
   const processImport = async (row) => {
     setProcessingId(row.id);
-    setMessage(`Processing ${row.original_filename}…`);
+    setMessage(`Re-processing ${row.original_filename}…`);
     try {
-      const input = fileRef.current;
-      if (input && !ocrCacheRef.current.has(row.original_filename)) {
-        const picked = Array.from(input.files || []).find(f => f.name === row.original_filename);
-        if (picked) await runBrowserOcr(picked);
-      }
       await processWithOcr(row.id, row.original_filename);
       fetchData();
-      setMessage('Done.');
+      setMessage('Done — complaint updated.');
     } catch (err) {
       alert(err.response?.data?.message || err.response?.data?.import?.error_message || err.message || 'Process failed');
       fetchData();
@@ -187,7 +213,8 @@ export default function ComplaintPdfImport() {
       <div className="page-header">
         <h1>Complaint PDF Import</h1>
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-          Scanned PDF? Browser OCR reads CNIC, name, tracking no — no server Python needed. Filename <code>261-26.PDF</code> → inquiry <code>E/261/26</code>.
+          PDF select karein → browser OCR (30–90 sec) → preview mein CNIC check → phir upload.
+          Filename <code>261-26.PDF</code> → inquiry <code>E/261/26</code>.
         </p>
       </div>
 
@@ -207,12 +234,23 @@ export default function ComplaintPdfImport() {
             }}
           />
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button type="submit" className="btn btn-primary" disabled={uploading || previewLoading}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={uploading || previewLoading || !previewReady}
+              title={!previewReady ? 'Wait for OCR preview with CNIC' : ''}
+            >
               {uploading ? 'Importing…' : previewLoading ? 'OCR running…' : 'Upload & Import'}
             </button>
-            <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center' }}>
-              Preview pehle CNIC check karein, phir upload karein
-            </span>
+            {previewFile && !previewLoading && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => handlePreview(previewFile)}
+              >
+                Re-run OCR
+              </button>
+            )}
           </div>
         </form>
         {message && <div style={{ marginTop: 12, color: '#015C94', fontSize: 13 }}>{message}</div>}
@@ -221,10 +259,10 @@ export default function ComplaintPdfImport() {
       {(preview || previewError || previewLoading) && (
         <div className="card" style={{ padding: 20, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>Preview — browser OCR</h3>
-          {previewLoading && <div style={{ color: '#64748b', fontSize: 13 }}>OCR chal raha hai… 30–90 sec</div>}
+          {previewLoading && <div style={{ color: '#64748b', fontSize: 13 }}>OCR chal raha hai… 30–90 sec (page band na karein)</div>}
           {previewError && <div style={{ color: '#ef4444', fontSize: 13 }}>{previewError}</div>}
           {preview && (
-            <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16 }}>
+            <div style={{ background: previewReady ? '#ecfdf5' : '#fef2f2', borderRadius: 10, padding: 16 }}>
               <FieldRow label="Tracking No" value={preview.tracking_no} />
               <FieldRow label="Inquiry No" value={preview.inquiry_no} />
               <FieldRow label="Complainant" value={preview.complainant_full_name || preview.victim_name} />
@@ -287,7 +325,7 @@ export default function ComplaintPdfImport() {
                       <button type="button" className="btn btn-sm btn-outline" onClick={() => setSelected(row)} style={{ marginRight: 6 }}>View</button>
                       {(row.status === 'pending' || row.status === 'failed' || row.status === 'processing' || row.status === 'imported') && (
                         <button type="button" className="btn btn-sm btn-primary" disabled={processingId === row.id} onClick={() => processImport(row)} style={{ marginRight: 6 }}>
-                          {processingId === row.id ? 'Processing…' : 'Re-process'}
+                          {processingId === row.id ? 'OCR…' : 'Re-process'}
                         </button>
                       )}
                       {row.status === 'extracted' && (
@@ -297,7 +335,12 @@ export default function ComplaintPdfImport() {
                         <Link to={`/complaints/${row.complaint_id}/edit`} className="btn btn-sm btn-outline" style={{ marginLeft: 6 }}>Complaint</Link>
                       )}
                       {row.error_message && (
-                        <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4, maxWidth: 220 }}>{row.error_message}</div>
+                        <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4, maxWidth: 260 }}>
+                          {row.error_message}
+                          {row.status === 'failed' && (
+                            <div style={{ color: '#64748b', marginTop: 2 }}>Re-process → PDF select karein → OCR</div>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>

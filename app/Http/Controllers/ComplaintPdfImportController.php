@@ -47,30 +47,45 @@ class ComplaintPdfImportController extends Controller
             'batch_id'   => 'nullable|string|max:64',
             'auto_apply' => 'nullable|boolean',
             'sync'       => 'nullable|boolean',
+            'ocr_texts'  => 'nullable|array',
+            'ocr_texts.*'=> 'nullable|string|max:500000',
         ]);
 
-        $autoApply = $request->boolean('auto_apply', true);
-        $sync = $request->boolean('sync', $this->shouldProcessSync());
         $result = $service->storeUploads($request->file('files'), $request->user(), $request->input('batch_id'));
+        $ocrTexts = $request->input('ocr_texts', []);
+        $autoApply = $request->boolean('auto_apply', false);
+        $runServerExtract = $request->boolean('sync', false) && $this->shouldProcessSync();
 
         $processed = [];
         foreach ($result['imports'] as $import) {
-            $processed[] = $this->runImportJob($import->id, $request->user()->id, $autoApply, $sync);
+            $ocrText = $ocrTexts[$import->original_filename] ?? null;
+
+            if ($ocrText && trim($ocrText) !== '') {
+                $import = $service->process($import, $ocrText);
+                if ($autoApply && $import->status === ComplaintPdfImport::STATUS_EXTRACTED) {
+                    $import = $service->applyToSystem($import, $request->user(), true);
+                }
+                $processed[] = $import->load(['complaint', 'verificationReport']);
+            } elseif ($runServerExtract) {
+                $processed[] = $this->runImportJob($import->id, $request->user()->id, $autoApply, true);
+            } else {
+                $processed[] = $import->load(['complaint', 'verificationReport']);
+            }
         }
 
-        $synced = collect($processed)->every(fn ($i) => in_array($i->status, [
+        $allDone = collect($processed)->every(fn ($i) => in_array($i->status, [
             ComplaintPdfImport::STATUS_IMPORTED,
             ComplaintPdfImport::STATUS_EXTRACTED,
             ComplaintPdfImport::STATUS_FAILED,
         ], true));
 
         return response()->json([
-            'message'  => $synced
+            'message'  => $allDone
                 ? count($processed) . ' PDF(s) processed.'
-                : count($processed) . ' PDF(s) queued for import.',
+                : count($processed) . ' PDF(s) uploaded — call /process with browser OCR text.',
             'batch_id' => $result['batch_id'],
             'imports'  => $processed,
-        ], $synced ? 200 : 202);
+        ], 200);
     }
 
     public function process(Request $request, ComplaintPdfImport $complaintPdfImport, ComplaintPdfImportService $service)
@@ -79,7 +94,7 @@ class ComplaintPdfImportController extends Controller
 
         $request->validate([
             'auto_apply' => 'nullable|boolean',
-            'ocr_text'   => 'nullable|string|max:500000',
+            'ocr_text'   => 'required|string|min:20|max:500000',
         ]);
 
         $import = $service->process($complaintPdfImport, $request->input('ocr_text'));
