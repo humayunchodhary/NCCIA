@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Login() {
   const { login, error, remaining, retryAfter, clearError, user } = useAuth();
@@ -162,7 +162,7 @@ export default function Login() {
               <label className="checkbox-wrap" style={{display:'flex',alignItems:'center',gap:'7px',cursor:'pointer',color:'#2B2B2B'}}>
                 <input type="checkbox" name="remember" style={{accentColor:'#264078'}} /> Remember this device
               </label>
-              <a href="#" className="forgot-link" style={{color:'#264078',textDecoration:'none',fontWeight:500}}>Forgot password?</a>
+              <Link to="/forgot-password" className="forgot-link" style={{color:'#264078',textDecoration:'none',fontWeight:500}}>Forgot password?</Link>
             </div>
             <button type="submit" className="btn-login" style={{width:'100%',padding:'13px',background:'#015C94',border:'none',borderRadius:'12px',color:'#fff',fontFamily:"'DM Sans', sans-serif",fontSize:'.92rem',fontWeight:600,letterSpacing:'.04em',cursor:'pointer',boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}>Sign In to Portal</button>
           </form>

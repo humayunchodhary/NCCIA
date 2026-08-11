@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\VerificationController;
@@ -20,6 +21,8 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Sanctum SPA auth routes (need session middleware from web group)
 Route::post('/api/login', [LoginController::class, 'apiLogin']);
+Route::post('/api/forgot-password', [PasswordResetController::class, 'forgot']);
+Route::post('/api/reset-password', [PasswordResetController::class, 'reset']);
 Route::post('/api/logout', [LoginController::class, 'apiLogout'])->middleware('auth:sanctum');
 Route::get('/api/user', function (Request $r) {
     return $r->user()->load('roles', 'zone', 'circle', 'permissions');
