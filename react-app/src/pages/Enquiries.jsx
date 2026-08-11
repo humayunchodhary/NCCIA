@@ -6,7 +6,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import SearchableSelect from '../components/SearchableSelect';
 import WorkflowProgress, { enquiryProgress } from '../components/WorkflowProgress';
-import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration } from '../utils/permissions';
+import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateEnquiry } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 
 const STATUS_COLORS = {
@@ -218,9 +218,11 @@ export default function Enquiries() {
           <div className="title-underline"></div>
         </div>
         <div className="page-actions">
-          <Link to="/enquiries/create" className="btn btn-primary btn-sm">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> New Enquiry
-          </Link>
+          {canCreateEnquiry(user) && (
+            <Link to="/enquiries/create" className="btn btn-primary btn-sm">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> New Enquiry
+            </Link>
+          )}
         </div>
       </div>
 

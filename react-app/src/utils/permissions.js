@@ -115,6 +115,13 @@ export function canCreateComplaint(user) {
   return hasAnyRole(user, ['admin', 'circle_incharge', 'operator', 'director_general']);
 }
 
+export function canCreateEnquiry(user) {
+  return hasAnyRole(user, [
+    'admin', 'circle_incharge', 'operator', 'reader_branch', 'moharrar',
+    'enquiry_officer', 'director_general', 'ad_legal', 'dd_legal', 'additional_director',
+  ]) || canView('enquiries', user);
+}
+
 export function canAssignVerification(user) {
   return hasAnyRole(user, ['admin', 'circle_incharge', 'operator']);
 }

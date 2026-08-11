@@ -96,7 +96,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     // Enquiries — Verification Officer has no access (flowchart: separate Enquiry stage)
     Route::get('/enquiries', [EnquiryController::class, 'index'])->name('api.enquiries.index');
     Route::post('/enquiries', [EnquiryController::class, 'store'])
-        ->middleware('role:admin,circle_incharge,operator,reader_branch,moharrar')
+        ->middleware('role:admin,circle_incharge,operator,reader_branch,moharrar,enquiry_officer,director_general,ad_legal,dd_legal,additional_director')
         ->name('api.enquiries.store');
     Route::get('/enquiries/{enquiry}', [EnquiryController::class, 'show'])->name('api.enquiries.show');
     Route::put('/enquiries/{enquiry}', [EnquiryController::class, 'update'])->name('api.enquiries.update');

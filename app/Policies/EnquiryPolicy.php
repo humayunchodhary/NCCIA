@@ -29,6 +29,23 @@ class EnquiryPolicy
         ]) || $user->can('enquiries');
     }
 
+    /** Who may register / create a new enquiry (matches enquiries UI access). */
+    private function canCreateEnquiry(User $user): bool
+    {
+        return $user->hasAnyRole([
+            'admin',
+            'circle_incharge',
+            'operator',
+            'reader_branch',
+            'moharrar',
+            'enquiry_officer',
+            'director_general',
+            'ad_legal',
+            'dd_legal',
+            'additional_director',
+        ]) || $user->can('enquiries');
+    }
+
     public function viewAny(User $user): bool
     {
         return $this->canAccessEnquiryModule($user);
@@ -40,7 +57,7 @@ class EnquiryPolicy
             return false;
         }
 
-        if ($user->hasRole('enquiry_officer') && !$user->hasAnyRole(['admin', 'circle_incharge'])) {
+        if ($user->hasRole('enquiry_officer') && !$user->hasAnyRole(['admin', 'circle_incharge', 'director_general'])) {
             return (int) $enquiry->enquiry_officer_id === (int) $user->id;
         }
 
@@ -49,24 +66,13 @@ class EnquiryPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['admin', 'circle_incharge', 'operator', 'reader_branch', 'moharrar']);
+        return $this->canCreateEnquiry($user);
     }
 
     public function update(User $user, Enquiry $enquiry): bool
     {
-        if (!$this->canAccessEnquiryModule($user)) {
-            return false;
-        }
-
-        if ($user->hasRole('admin') || $user->hasRole('circle_incharge')) {
-            return true;
-        }
-
-        if ($user->hasRole('enquiry_officer')) {
-            return (int) $enquiry->enquiry_officer_id === (int) $user->id;
-        }
-
-        return false;
+        // Same visibility as view: if you can open it, you can save workflow fields.
+        return $this->view($user, $enquiry);
     }
 
     public function delete(User $user, Enquiry $enquiry): bool
