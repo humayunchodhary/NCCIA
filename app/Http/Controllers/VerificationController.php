@@ -423,6 +423,18 @@ class VerificationController extends Controller
             ], 422);
         }
 
+        $user = $request->user();
+        // Verification officers may only create VIP/direct cases assigned to themselves
+        if ($user->hasRole('verification_officer')
+            && !$user->hasAnyRole(['admin', 'circle_incharge', 'operator', 'director_general'])) {
+            if (empty($data['direct_info']['reference_no'] ?? null)) {
+                return response()->json([
+                    'message' => 'Verification officers can only create VIP / Direct verifications.',
+                ], 403);
+            }
+            $data['verification_officer_id'] = $user->id;
+        }
+
         $data['status']      = 'assigned';
         $data['assigned_by'] = auth()->id();
         $data['assigned_at'] = now();

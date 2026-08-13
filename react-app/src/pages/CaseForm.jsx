@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
+import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import {
   HIGH_PROFILE_TYPES,
   DEPARTMENT_TYPES,
@@ -461,6 +462,7 @@ export default function CaseForm() {
                 {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
               </div>
             </div>
+            {id && <OfficerHistoryPanel endpoint={`/cases/${id}/officer-history`} />}
           </>
         )}
 

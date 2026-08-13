@@ -23,7 +23,7 @@ class CaseFilePolicy
     public function create(User $user): bool
     {
         return $user->hasAnyRole([
-            'admin', 'circle_incharge', 'moharrar',
+            'admin', 'circle_incharge', 'moharrar', 'investigation_officer', 'enquiry_officer',
             'ad_legal', 'dd_legal', 'additional_director', 'director_general',
         ]);
     }

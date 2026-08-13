@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
-import { canView, hasRole, canCreateComplaint, canAssignVerification, canSeeDirectVerification, canSeeDirectEnquiry, canSeeDirectFir } from '../utils/permissions';
+import { canView, hasRole, canCreateComplaint, canSeeDirectVerification, canSeeDirectEnquiry, canSeeDirectFir } from '../utils/permissions';
 
 function getBreadcrumb(pathname) {
   const map = {

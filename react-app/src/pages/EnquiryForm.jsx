@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import VerificationReportPanel from '../components/VerificationReportPanel';
+import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 import { toLocalInput } from '../utils/datetime';
@@ -1000,6 +1001,7 @@ export default function EnquiryForm() {
                 )}
               </div>
             </div>
+            {id && <OfficerHistoryPanel endpoint={`/enquiries/${id}/officer-history`} />}
           </>
         )}
 

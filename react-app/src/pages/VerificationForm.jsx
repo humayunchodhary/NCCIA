@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
+import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDisplayDateTime, toLocalInput } from '../utils/datetime';
+import { hasRole } from '../utils/permissions';
 import {
   HIGH_PROFILE_TYPES,
   DEPARTMENT_TYPES,
@@ -76,6 +78,9 @@ export default function VerificationForm() {
            setDirect(normalizeDirectInfo(d.direct_info));
          }
       }).catch(() => navigate('/verifications'));
+    } else if (directMode && hasRole(user, 'verification_officer') && user?.id) {
+      // VO opening VIP verification: assign to self by default
+      setForm(f => ({ ...f, verification_officer_id: f.verification_officer_id || String(user.id) }));
     }
   }, [id]);
 
@@ -528,6 +533,8 @@ export default function VerificationForm() {
             </div>
           </div>
         )}
+
+        {isEdit && <OfficerHistoryPanel endpoint={`/verifications/${id}/officer-history`} />}
 
         {canSubmitToCi && (
           <div style={{marginTop:16,padding:'12px 14px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,fontSize:13,color:'#1e3a5f'}}>

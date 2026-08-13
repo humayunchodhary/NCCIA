@@ -22,7 +22,7 @@ class VerificationPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasAnyRole(['admin', 'circle_incharge', 'operator']);
+        return $user->hasAnyRole(['admin', 'circle_incharge', 'operator', 'verification_officer', 'director_general']);
     }
 
     public function update(User $user, Verification $verification): bool

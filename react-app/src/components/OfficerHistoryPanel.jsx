@@ -97,10 +97,10 @@ export default function OfficerHistoryPanel({ endpoint }) {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, marginTop: 10, fontSize: 12 }}>
                 <div><strong style={{ color: '#64748b' }}>Assigned</strong><div>{formatDisplayDateTime(h.assigned_at)}</div>
-                  {h.assigned_by_user?.name && <div style={{ color: '#94a3b8' }}>by {h.assigned_by_user.name}</div>}
+                  {(h.assigned_by_user?.name || h.assignedByUser?.name) && <div style={{ color: '#94a3b8' }}>by {h.assigned_by_user?.name || h.assignedByUser?.name}</div>}
                 </div>
                 <div><strong style={{ color: '#64748b' }}>Unassigned</strong><div>{h.unassigned_at ? formatDisplayDateTime(h.unassigned_at) : '—'}</div>
-                  {h.unassigned_by_user?.name && <div style={{ color: '#94a3b8' }}>by {h.unassigned_by_user.name}</div>}
+                  {(h.unassigned_by_user?.name || h.unassignedByUser?.name) && <div style={{ color: '#94a3b8' }}>by {h.unassigned_by_user?.name || h.unassignedByUser?.name}</div>}
                 </div>
                 <div><strong style={{ color: '#64748b' }}>Reason</strong><div>{h.change_reason || '—'}</div></div>
               </div>

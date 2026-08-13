@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\CaseFile;
 use App\Models\Enquiry;
 use App\Models\OfficerAssignmentHistory;
-use App\Models\User;
 use App\Models\Verification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
