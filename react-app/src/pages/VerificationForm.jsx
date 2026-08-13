@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,9 +35,10 @@ function buildAppearanceMessage({ trackingNo, officerName, appearAt }) {
 export default function VerificationForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', complainant_message: '', appeared_at: '', message_via: '' });
-  const [directMode, setDirectMode] = useState(false);
+  const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
   const [officers, setOfficers] = useState([]);
   const [complaints, setComplaints] = useState([]);

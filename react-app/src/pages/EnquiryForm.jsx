@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import VerificationReportPanel from '../components/VerificationReportPanel';
@@ -176,6 +176,7 @@ const initialForm = {
 export default function EnquiryForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [complaints, setComplaints] = useState([]);
@@ -200,7 +201,7 @@ export default function EnquiryForm() {
   const [registerSaving, setRegisterSaving] = useState(false);
   const [verificationReport, setVerificationReport] = useState(null);
   const [linkedVerification, setLinkedVerification] = useState(null);
-  const [directMode, setDirectMode] = useState(false);
+  const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);

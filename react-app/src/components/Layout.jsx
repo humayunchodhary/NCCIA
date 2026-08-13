@@ -2,19 +2,22 @@ import { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
-import { canView, hasRole, canCreateComplaint } from '../utils/permissions';
+import { canView, hasRole, canCreateComplaint, canAssignVerification } from '../utils/permissions';
 
 function getBreadcrumb(pathname) {
   const map = {
     '/': 'Dashboard',
     '/complaints': 'Complaints',
     '/verifications': 'Verifications',
+    '/verifications/create': 'New Verification',
     '/verifications/reports': 'Verification Reports',
     '/enquiries': 'Enquiries',
+    '/enquiries/create': 'New Enquiry',
     '/messages': 'Messages',
     '/investigation-officers': 'IO Records',
     '/offence-types': 'Crime Categories',
     '/cases': 'DAC Cases',
+    '/cases/create': 'New Case / FIR',
     '/users': 'Users',
     '/circles': 'Circles',
   };
@@ -46,6 +49,7 @@ export default function Layout() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [dacOpen, setDacOpen] = useState(false);
+  const [vipOpen, setVipOpen] = useState(false);
   const [counts, setCounts] = useState({ verifications: 0, reports: 0, enquiries: 0, messages: 0 });
   const [notifications, setNotifications] = useState({ unread_count: 0, notifications: [] });
   const [pendingTasks, setPendingTasks] = useState({ tasks: [], count: 0 });
@@ -151,6 +155,16 @@ export default function Layout() {
   useEffect(() => {
     document.body.classList.toggle('sidebar-collapsed', collapsed);
   }, [collapsed]);
+
+  useEffect(() => {
+    const p = location.pathname + location.search;
+    if (p.includes('direct=1') || p.includes('/verifications/create') || p.includes('/enquiries/create') || p.includes('/cases/create')) {
+      if (location.search.includes('direct=1')) setVipOpen(true);
+    }
+    if (location.pathname.startsWith('/cases') || location.pathname.startsWith('/court-cases')) {
+      setDacOpen(true);
+    }
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -386,6 +400,51 @@ export default function Layout() {
                 </NavLink>
               </div>
             </>
+          )}
+          {(canAssignVerification(user) || canView('enquiries', user) || canView('dac_cases', user)) && (
+            <div className="nav-item">
+              <a
+                href="#vip-direct"
+                className={`nav-link parent-link${vipOpen ? ' active' : ''}`}
+                onClick={(e) => { e.preventDefault(); setVipOpen(!vipOpen); }}
+              >
+                <span className="nav-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="12 2 15 8.5 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 9 8.5 12 2"/>
+                  </svg>
+                </span>
+                <span>VIP / Direct Cases</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft:'auto',transition:'transform 0.25s',transform:vipOpen?'rotate(180deg)':''}}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </a>
+              <div className={`nav-submenu${vipOpen ? ' open' : ''}`}>
+                {canAssignVerification(user) && (
+                  <div className="nav-item">
+                    <NavLink to="/verifications/create?direct=1" className="nav-link" data-page="direct-verification">
+                      <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+                      <span>Direct Verification</span>
+                    </NavLink>
+                  </div>
+                )}
+                {canView('enquiries', user) && (
+                  <div className="nav-item">
+                    <NavLink to="/enquiries/create?direct=1" className="nav-link" data-page="direct-enquiry">
+                      <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                      <span>Direct Enquiry</span>
+                    </NavLink>
+                  </div>
+                )}
+                {canView('dac_cases', user) && (
+                  <div className="nav-item">
+                    <NavLink to="/cases/create?direct=1" className="nav-link" data-page="direct-fir">
+                      <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+                      <span>Direct FIR</span>
+                    </NavLink>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
           {canView('io_records', user) && <div className="nav-item">
             <NavLink to="/investigation-officers" className="nav-link" data-page="io-records">

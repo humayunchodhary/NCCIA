@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
@@ -65,6 +65,7 @@ const initialForm = {
 export default function CaseForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [enquiries, setEnquiries] = useState([]);
@@ -77,7 +78,7 @@ export default function CaseForm() {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [activeTab, setActiveTab] = useState('details');
-  const [directMode, setDirectMode] = useState(false);
+  const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
 
   useEffect(() => {

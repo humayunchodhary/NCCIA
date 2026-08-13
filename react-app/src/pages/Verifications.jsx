@@ -30,6 +30,7 @@ export default function Verifications() {
   const [stats, setStats] = useState({ total: 0, pending: 0, progress: 0, approved: 0 });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [recFilter, setRecFilter] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Bulk selection + bulk actions (closure / merge / transfer / delete)
@@ -323,7 +324,8 @@ export default function Verifications() {
       v.complaint?.complainant_name?.toLowerCase().includes(search.toLowerCase()) ||
       v.direct_info?.complainant_name?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = !statusFilter || v.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesRec = !recFilter || v.recommendation === recFilter;
+    return matchesSearch && matchesStatus && matchesRec;
   });
 
   if (loading) return <div className="page-content"><LoadingSkeleton type="table" columns={8} rows={10} /></div>;
@@ -418,6 +420,13 @@ export default function Verifications() {
             <option value="approved">Approved</option>
             <option value="sent_back">Sent Back</option>
             <option value="closed">Closed</option>
+          </select>
+          <select className="filter-select" id="recFilter" style={{height:'34px',padding:'0 12px',border:'1.5px solid #264078',borderRadius:'8px',fontSize:'13px',background:'#fff',color:'#2b2b2b',minWidth:'200px'}} value={recFilter} onChange={e => setRecFilter(e.target.value)}>
+            <option value="">All Outcomes / Actions</option>
+            <option value="enquiry_registration">Proceed to Verification (Enquiry)</option>
+            <option value="closure">Closure</option>
+            <option value="merge">Merge</option>
+            <option value="transfer">Transfer</option>
           </select>
           <div className="filter-spacer" style={{flex:1}}></div>
         </div>
