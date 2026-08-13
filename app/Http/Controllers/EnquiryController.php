@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaseFile;
+use App\Models\Circle;
 use App\Models\Complaint;
 use App\Models\Enquiry;
 use App\Models\EnquiryActivity;
@@ -510,6 +511,7 @@ class EnquiryController extends Controller
         $data = $request->validate([
             'tracking_no'             => 'nullable|string|max:255',
             'complaint_id'            => 'nullable|integer|exists:complaints,id',
+            'direct_info'             => 'nullable|array',
             'enquiry_number'          => 'nullable|string|max:255',
             'reg_date'                => 'nullable|date',
             'assignment_date'         => 'nullable|date',
@@ -558,6 +560,7 @@ class EnquiryController extends Controller
         $enquiry = DB::transaction(function () use ($data, $complaint, $request, $officerId, $privileged) {
             $enquiry = Enquiry::create([
                 'complaint_id'    => $complaint?->id,
+                'direct_info'     => $complaint ? null : ($data['direct_info'] ?? null),
                 'enquiry_number'  => $data['enquiry_number'] ?? null,
                 'enquiry_officer_id' => $officerId,
                 'status'          => $data['status'] ?? 'registered',
@@ -1055,7 +1058,7 @@ class EnquiryController extends Controller
 
                     switch ($recommendation) {
                         case 'closure':
-                            $complaint->update([
+                            $complaint?->update([
                                 'status'         => 'closed',
                                 'final_status'   => 'closed',
                                 'closure_reason' => $data['closure_reason'] ?? null,
@@ -1063,7 +1066,7 @@ class EnquiryController extends Controller
                             break;
 
                         case 'merge':
-                            $complaint->update([
+                            $complaint?->update([
                                 'status'         => 'merged',
                                 'final_status'   => 'merged',
                                 'merged_with_id' => $data['merge_complaint_id'] ?? null,
@@ -1071,7 +1074,7 @@ class EnquiryController extends Controller
                             break;
 
                         case 'transfer':
-                            $complaint->update([
+                            $complaint?->update([
                                 'status'                => 'transferred',
                                 'final_status'          => 'transferred',
                                 'transfer_to_department'=> $data['transfer_department'] ?? null,
@@ -1080,15 +1083,19 @@ class EnquiryController extends Controller
                             break;
 
                         case 'convert_to_case':
-                            $circleCode = $complaint?->circle?->code;
+                            $directInfo = $enquiry->direct_info;
+                            $circleCode = $complaint?->circle?->code
+                                ?: ($directInfo['circle_code'] ?? null)
+                                ?: ($directInfo['circle_id'] ? Circle::find($directInfo['circle_id'])?->code : null);
                             $gen = app(FirNumberGenerator::class);
                             $caseFile = CaseFile::create([
                                 'enquiry_id'   => $enquiry->id,
+                                'direct_info'  => $complaint ? null : $directInfo,
                                 'fir_no'       => $gen->generate($circleCode),
                                 'status'       => 'registered',
                             ]);
                             $updateData['case_file_id'] = $caseFile->id;
-                            $complaint->update([
+                            $complaint?->update([
                                 'status'       => 'case_registered',
                                 'final_status' => 'case_registered',
                             ]);
@@ -1132,12 +1139,16 @@ class EnquiryController extends Controller
 
         try {
             $caseFile = DB::transaction(function () use ($enquiry, $data, $request) {
+                $directInfo = $enquiry->direct_info;
                 $complaint  = $enquiry->complaint()->with('circle')->first();
-                $circleCode = $complaint?->circle?->code;
+                $circleCode = $complaint?->circle?->code
+                    ?: ($directInfo['circle_code'] ?? null)
+                    ?: ($directInfo['circle_id'] ? Circle::find($directInfo['circle_id'])?->code : null);
                 $gen        = app(FirNumberGenerator::class);
 
                 $caseFile = CaseFile::create([
                     'enquiry_id'               => $enquiry->id,
+                    'direct_info'              => $complaint ? null : $directInfo,
                     'fir_no'                   => $gen->generate($circleCode),
                     'investigation_officer_id' => $data['investigation_officer_id'] ?? null,
                     'status'                   => 'registered',

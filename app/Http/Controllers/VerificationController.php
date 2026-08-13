@@ -408,11 +408,18 @@ class VerificationController extends Controller
         $this->authorize('create', Verification::class);
 
         $data = $request->validate([
-            'complaint_id'           => 'required|exists:complaints,id',
+            'complaint_id'           => 'nullable|exists:complaints,id',
+            'direct_info'            => 'nullable|array',
             'verification_officer_id'=> 'required|exists:users,id',
             'priority_type'          => 'required|in:normal,high,critical',
             'report_text'            => 'nullable|string|max:5000',
         ]);
+
+        if (empty($data['complaint_id']) && empty($data['direct_info'])) {
+            return response()->json([
+                'message' => 'Select a complaint or provide direct case details (reference no).',
+            ], 422);
+        }
 
         $data['status']      = 'assigned';
         $data['assigned_by'] = auth()->id();
@@ -729,6 +736,7 @@ class VerificationController extends Controller
     protected function notifyCircleInchargeAboutComplainantMessage(Verification $verification): void
     {
         $circleId = $verification->complaint?->circle_id
+            ?: ($verification->direct_info['circle_id'] ?? null)
             ?: $verification->officer?->circle_id;
 
         if (!$circleId) {
@@ -747,6 +755,7 @@ class VerificationController extends Controller
     protected function notifyCircleInchargesForVerification(Verification $verification): void
     {
         $circleId = $verification->complaint?->circle_id
+            ?: ($verification->direct_info['circle_id'] ?? null)
             ?: $verification->officer?->circle_id;
 
         if (!$circleId) {
@@ -890,7 +899,7 @@ class VerificationController extends Controller
             switch ($data['recommendation']) {
                 case 'closure':
                     DB::transaction(function () use ($complaint, $data) {
-                        $complaint->update([
+                        $complaint?->update([
                             'status'         => 'closed',
                             'final_status'   => 'closed',
                             'closure_reason' => $data['closure_reason'] ?? null,
@@ -900,7 +909,7 @@ class VerificationController extends Controller
 
                 case 'merge':
                     DB::transaction(function () use ($complaint, $data) {
-                        $complaint->update([
+                        $complaint?->update([
                             'status'         => 'merged',
                             'final_status'   => 'merged',
                             'merged_with_id' => $data['merge_complaint_id'] ?? null,
@@ -910,7 +919,7 @@ class VerificationController extends Controller
 
                 case 'transfer':
                     DB::transaction(function () use ($complaint, $data) {
-                        $complaint->update([
+                        $complaint?->update([
                             'status'                 => 'transferred',
                             'final_status'           => 'transferred',
                             'transfer_to_department' => $data['transfer_department'] ?? null,
@@ -921,23 +930,29 @@ class VerificationController extends Controller
 
                 case 'enquiry_registration':
                     try {
-                        DB::transaction(function () use ($complaint, $data) {
-                            $circle = $complaint->circle;
+                        DB::transaction(function () use ($complaint, $data, $verification) {
+                            $circleId = $complaint?->circle_id
+                                ?: ($verification->direct_info['circle_id'] ?? null)
+                                ?: $verification->officer?->circle_id;
+                            $circleCode = Circle::find($circleId)?->code;
                             $gen = app(EnquiryNumberGenerator::class);
                             $officerId = (int) $data['enquiry_officer_id'];
                             $enquiry = Enquiry::create([
-                                'complaint_id'       => $complaint->id,
-                                'enquiry_number'     => $gen->generate($circle?->code),
+                                'complaint_id'       => $complaint?->id,
+                                'direct_info'        => $complaint ? null : ($verification->direct_info ?? null),
+                                'enquiry_number'     => $gen->generate($circleCode),
                                 'status'             => 'assigned',
                                 'reg_date'           => now(),
                                 'assignment_date'    => now(),
                                 'enquiry_officer_id' => $officerId,
                             ]);
-                            $complaint->update([
-                                'status'       => 'enquiry_registered',
-                                'final_status' => 'enquiry_registered',
-                                'enquiry_id'   => $enquiry->id,
-                            ]);
+                            if ($complaint) {
+                                $complaint->update([
+                                    'status'       => 'enquiry_registered',
+                                    'final_status' => 'enquiry_registered',
+                                    'enquiry_id'   => $enquiry->id,
+                                ]);
+                            }
                         });
                     } catch (\Throwable $e) {
                         report($e);

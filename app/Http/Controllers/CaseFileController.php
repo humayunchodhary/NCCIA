@@ -145,6 +145,7 @@ class CaseFileController extends Controller
 
         $data = $request->validate([
             'enquiry_id'              => 'required|integer|exists:enquiries,id',
+            'direct_info'             => 'nullable|array',
             'fir_no'                  => 'nullable|string|unique:cases,fir_no',
             'investigation_officer_id' => 'nullable|integer|exists:users,id',
             'status'                  => 'nullable|string|max:50',
@@ -171,9 +172,11 @@ class CaseFileController extends Controller
 
         $caseFile = DB::transaction(function () use ($data, $request, $gen) {
             $enquiry = Enquiry::findOrFail($data['enquiry_id']);
+            $directInfo = $enquiry->direct_info ?? ($data['direct_info'] ?? null);
 
             $caseFile = CaseFile::create([
                 'enquiry_id'              => $data['enquiry_id'],
+                'direct_info'             => $directInfo,
                 'fir_no'                  => $data['fir_no'] ?? $gen->generate(),
                 'investigation_officer_id' => $data['investigation_officer_id'] ?? null,
                 'status'                  => 'registered',

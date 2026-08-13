@@ -254,7 +254,7 @@ export default function Enquiries() {
                   {filteredList.map((e, i) => (
                     <tr key={e.id}>
                       <td><span className="table-id">#{e.enquiry_number || e.id}</span></td>
-                      <td><span style={{fontSize:13,fontWeight:500}}>{e.complaint?.complainant_name || e.complaint_id}</span></td>
+                      <td><span style={{fontSize:13,fontWeight:500}}>{e.complaint?.complainant_name || e.direct_info?.complainant_name || e.complaint_id}</span><br /><span style={{fontSize:11,color:'#6c757d'}}>{e.complaint?.tracking_no || e.direct_info?.reference_no || ''}</span></td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span className={`badge ${STATUS_COLORS[e.status] || 'badge-pending'}`}>{STATUS_LABELS[e.status] || e.status?.replace('_', ' ')}</span>

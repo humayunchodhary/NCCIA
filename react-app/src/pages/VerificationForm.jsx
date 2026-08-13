@@ -30,6 +30,8 @@ export default function VerificationForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', complainant_message: '', appeared_at: '', message_via: '' });
+  const [directMode, setDirectMode] = useState(false);
+  const [direct, setDirect] = useState({ reference_no: '', complainant_name: '', circle_id: '', circle_code: '' });
   const [officers, setOfficers] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [allComplaints, setAllComplaints] = useState([]);
@@ -61,6 +63,15 @@ export default function VerificationForm() {
          else if (d.complaint_id) {
            api.get(`/complaints/${d.complaint_id}`).then(cr => setComplaintDetail(cr.data.data || cr.data)).catch(() => {});
          }
+         if (!d.complaint_id && d.direct_info) {
+           setDirectMode(true);
+           setDirect({
+             reference_no: d.direct_info.reference_no || '',
+             complainant_name: d.direct_info.complainant_name || '',
+             circle_id: d.direct_info.circle_id || '',
+             circle_code: d.direct_info.circle_code || '',
+           });
+         }
       }).catch(() => navigate('/verifications'));
     }
   }, [id]);
@@ -77,7 +88,7 @@ export default function VerificationForm() {
 
   const fillAppearanceMessage = () => {
     const msg = buildAppearanceMessage({
-      trackingNo: selectedComplaint?.tracking_no,
+      trackingNo: selectedComplaint?.tracking_no || direct.reference_no,
       officerName,
       appearAt: form.appeared_at,
     });
@@ -85,6 +96,10 @@ export default function VerificationForm() {
   };
 
   const openWhatsApp = async () => {
+    if (directMode && !selectedComplaint) {
+      alert('Direct case mein complainant ka phone number available nahi hai. Message ko record/send manually karein.');
+      return;
+    }
     const phoneRaw = `${selectedComplaint?.contact_country_code || '+92'}${selectedComplaint?.contact_no || ''}`.replace(/\D/g, '');
     if (!phoneRaw) {
       alert('Complainant phone number not found on complaint.');
@@ -93,7 +108,7 @@ export default function VerificationForm() {
     let message = form.complainant_message;
     if (!message?.trim()) {
       message = buildAppearanceMessage({
-        trackingNo: selectedComplaint?.tracking_no,
+        trackingNo: selectedComplaint?.tracking_no || direct.reference_no,
         officerName,
         appearAt: form.appeared_at,
       });
@@ -120,10 +135,20 @@ export default function VerificationForm() {
     setSaving(true);
     setErrors({});
     try {
+      const payload = { ...form, complaint_id: form.complaint_id || null };
+      if (directMode && !payload.complaint_id) {
+        const circle = circles.find(c => String(c.id) === String(direct.circle_id));
+        payload.direct_info = {
+          reference_no: direct.reference_no,
+          complainant_name: direct.complainant_name,
+          circle_id: direct.circle_id || null,
+          circle_code: circle?.code || direct.circle_code || null,
+        };
+      }
       if (isEdit) {
-        await api.put(`/verifications/${id}`, form);
+        await api.put(`/verifications/${id}`, payload);
       } else {
-        await api.post('/verifications', form);
+        await api.post('/verifications', payload);
       }
       navigate('/verifications');
     } catch (err) {
@@ -191,17 +216,32 @@ export default function VerificationForm() {
           <div className="cf-body">
             <div className="cf-row-2">
               <div className="cf-field">
-                <label className="cf-label required">Complaint</label>
-                <div className="cf-input-wrap">
-                  <SearchableSelect
-                    value={form.complaint_id}
-                    onChange={v => setForm(f => ({ ...f, complaint_id: v }))}
-                    options={complaints}
-                    placeholder="Select Complaint"
-                    valueKey="id"
-                    formatLabel={o => o.tracking_no + ' — ' + o.complainant_name}
-                  />
-                </div>
+                <label className="cf-label">{directMode ? '' : 'Complaint'}</label>
+                {directMode ? (
+                  <div className="cf-input-wrap" style={{background:'#F7F8FA',padding:'8px 10px',borderRadius:6,fontSize:13,color:'#015C94',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                    Direct Case (No Complaint)
+                    <span
+                      style={{color:'#015C94',cursor:'pointer',fontWeight:600,textDecoration:'underline'}}
+                      onClick={() => setDirectMode(false)}
+                    >Switch to Complaint</span>
+                  </div>
+                ) : (
+                  <div className="cf-input-wrap">
+                    <SearchableSelect
+                      value={form.complaint_id}
+                      onChange={v => setForm(f => ({ ...f, complaint_id: v }))}
+                      options={complaints}
+                      placeholder="Select Complaint"
+                      valueKey="id"
+                      formatLabel={o => o.tracking_no + ' — ' + o.complainant_name}
+                    />
+                    <div style={{marginTop:6}}>
+                      <span style={{color:'#015C94',cursor:'pointer',fontWeight:600,fontSize:12,textDecoration:'underline'}} onClick={() => setDirectMode(true)}>
+                        Complaint nahi hai? Direct case create karein
+                      </span>
+                    </div>
+                  </div>
+                )}
                 {errors.complaint_id && <span className="cf-error">{errors.complaint_id[0]}</span>}
               </div>
               <div className="cf-field">
@@ -243,6 +283,41 @@ export default function VerificationForm() {
                 </div>
               </div>
             </div>
+
+            {directMode && (
+              <div className="cf-section" style={{marginTop:16,borderTop:'1px dashed #dbe2ea',paddingTop:16}}>
+                <div className="cf-section-header">
+                  <div className="cf-section-icon" style={{background:'#0E7C7B'}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </div>
+                  <div><div className="cf-section-title">Direct Case Details</div><div className="cf-section-sub">VIP / direct case without complaint</div></div>
+                </div>
+                <div className="cf-row-2">
+                  <div className="cf-field">
+                    <label className="cf-label required">Reference No / Tracking No</label>
+                    <input type="text" className="cf-input" value={direct.reference_no} onChange={e => setDirect(d => ({ ...d, reference_no: e.target.value }))} placeholder="e.g. VIP-2026-0001" />
+                    {errors.direct_info && <span className="cf-error">{errors.direct_info[0]}</span>}
+                  </div>
+                  <div className="cf-field">
+                    <label className="cf-label required">Complainant Name</label>
+                    <input type="text" className="cf-input" value={direct.complainant_name} onChange={e => setDirect(d => ({ ...d, complainant_name: e.target.value }))} placeholder="Complainant / applicant name" />
+                  </div>
+                </div>
+                <div className="cf-row-2">
+                  <div className="cf-field">
+                    <label className="cf-label">Circle</label>
+                    <SearchableSelect
+                      value={direct.circle_id}
+                      onChange={v => setDirect(d => ({ ...d, circle_id: v }))}
+                      options={circles}
+                      placeholder="Select Circle"
+                      valueKey="id"
+                      formatLabel={o => o.name + (o.code ? ' (' + o.code + ')' : '')}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

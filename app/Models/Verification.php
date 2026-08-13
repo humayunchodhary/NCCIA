@@ -21,6 +21,7 @@ class Verification extends Model
 
     protected $fillable = [
         'complaint_id',
+        'direct_info',
         'verification_officer_id',
         'assigned_by',
         'status',
@@ -51,7 +52,26 @@ class Verification extends Model
             'completed_at'         => 'datetime',
             'appeared_at'          => 'datetime',
             'whatsapp_sent_at'     => 'datetime',
+            'direct_info'          => 'array',
         ];
+    }
+
+    /**
+     * Display reference: complaint tracking no, else direct reference.
+     */
+    public function reference(): ?string
+    {
+        return $this->complaint?->tracking_no
+            ?: ($this->direct_info['reference_no'] ?? null);
+    }
+
+    /**
+     * Display complainant name: from complaint, else direct snapshot.
+     */
+    public function complainantName(): ?string
+    {
+        return $this->complaint?->complainant_name
+            ?: ($this->direct_info['complainant_name'] ?? null);
     }
 
     public function complaint(): BelongsTo

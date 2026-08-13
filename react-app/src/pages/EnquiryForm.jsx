@@ -193,6 +193,8 @@ export default function EnquiryForm() {
   const [registerSaving, setRegisterSaving] = useState(false);
   const [verificationReport, setVerificationReport] = useState(null);
   const [linkedVerification, setLinkedVerification] = useState(null);
+  const [directMode, setDirectMode] = useState(false);
+  const [direct, setDirect] = useState({ reference_no: '', complainant_name: '', circle_id: '', circle_code: '' });
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
@@ -347,6 +349,15 @@ export default function EnquiryForm() {
     if (d.complaint) setComplaintDetail(d.complaint);
     else if (d.complaint_id) {
       api.get(`/complaints/${d.complaint_id}`).then(cr => setComplaintDetail(cr.data.data || cr.data)).catch(() => {});
+    }
+    if (!d.complaint_id && d.direct_info) {
+      setDirectMode(true);
+      setDirect({
+        reference_no: d.direct_info.reference_no || '',
+        complainant_name: d.direct_info.complainant_name || '',
+        circle_id: d.direct_info.circle_id || '',
+        circle_code: d.direct_info.circle_code || '',
+      });
     }
   };
 
@@ -586,6 +597,16 @@ export default function EnquiryForm() {
       if (v !== null && v !== undefined && v !== '') fd.append(k, v);
     });
 
+    if (directMode && !form.complaint_id) {
+      const circle = circles.find(c => String(c.id) === String(direct.circle_id));
+      fd.append('direct_info', JSON.stringify({
+        reference_no: direct.reference_no,
+        complainant_name: direct.complainant_name,
+        circle_id: direct.circle_id || null,
+        circle_code: circle?.code || direct.circle_code || null,
+      }));
+    }
+
     fd.append('activities', serializeArr(form.activities || [], 'activity_attachments'));
     fd.append('accused', serializeAccused(form.accused || []));
     fd.append('witnesses', serializeWitnesses(form.witnesses || []));
@@ -755,6 +776,32 @@ export default function EnquiryForm() {
         {/* DETAILS TAB */}
         {activeTab === 'details' && (
           <>
+            {directMode && !selectedComplaint && (
+              <div className="cf-section" style={{ marginBottom: 16 }}>
+                <div className="cf-section-header">
+                  <div className="cf-section-icon" style={{ background: '#0E7C7B' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </div>
+                  <div><div className="cf-section-title">Direct Case Complainant</div><div className="cf-section-sub">From direct case details (no complaint)</div></div>
+                </div>
+                <div className="cf-body">
+                  <div className="cf-row-3" style={{ marginBottom: 12 }}>
+                    <div className="cf-field"><label className="cf-label">Reference No</label><div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{direct.reference_no || '—'}</div></div>
+                    <div className="cf-field"><label className="cf-label">Enquiry No</label><div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)' }}>{form.enquiry_number || '—'}</div></div>
+                    <div className="cf-field">
+                      <label className="cf-label">Date of Registration</label>
+                      <input type="date" className="cf-input" value={form.reg_date} onChange={setF('reg_date')} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, fontSize: 13 }}>
+                    {[['Name', direct.complainant_name], ['Reference', direct.reference_no], ['Circle Code', direct.circle_code]].map(([label, val]) => (
+                      <div key={label}><strong style={{ color: '#666', fontSize: 11, textTransform: 'uppercase' }}>{label}</strong><div style={{ marginTop: 2 }}>{val || '—'}</div></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {selectedComplaint && (
               <div className="cf-section" style={{ marginBottom: 16 }}>
                 <div className="cf-section-header">
@@ -807,20 +854,63 @@ export default function EnquiryForm() {
               <div className="cf-body">
                 <div className="cf-row-3">
                   <div className="cf-field">
-                    <label className="cf-label required">Tracking No.</label>
-                    <div className="cf-input-wrap">
-                      <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-                      <select className="cf-input cf-select" value={form.tracking_no} onChange={handleTrackingChange} required>
-                        <option value="">— Select Tracking No. —</option>
-                        {complaints.map(c => <option key={c.id} value={c.tracking_no}>{c.tracking_no} — {c.complainant_name}</option>)}
-                      </select>
-                    </div>
+                    <label className="cf-label">{directMode ? '' : 'Tracking No.'}</label>
+                    {directMode ? (
+                      <div className="cf-input-wrap" style={{background:'#F7F8FA',padding:'8px 10px',borderRadius:6,fontSize:13,color:'#015C94',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                        Direct Enquiry (No Complaint)
+                        <span style={{color:'#015C94',cursor:'pointer',fontWeight:600,textDecoration:'underline'}} onClick={() => { setDirectMode(false); setComplaintDetail(null); }}>Switch to Complaint</span>
+                      </div>
+                    ) : (
+                      <div className="cf-input-wrap">
+                        <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                        <select className="cf-input cf-select" value={form.tracking_no} onChange={handleTrackingChange} required>
+                          <option value="">— Select Tracking No. —</option>
+                          {complaints.map(c => <option key={c.id} value={c.tracking_no}>{c.tracking_no} — {c.complainant_name}</option>)}
+                        </select>
+                        <span className="cf-hint">Auto-fills from complaint record</span>
+                      </div>
+                    )}
                     <input type="hidden" name="complaint_id" value={form.complaint_id} />
-                    <span className="cf-hint">Auto-fills from complaint record</span>
+                    {!directMode && (
+                      <span style={{color:'#015C94',cursor:'pointer',fontWeight:600,fontSize:12,textDecoration:'underline'}} onClick={() => setDirectMode(true)}>
+                        Complaint nahi hai? Direct enquiry create karein
+                      </span>
+                    )}
                   </div>
                   {renderField('Enquiry Number', 'enquiry_number', { placeholder: 'Manual entry (optional)' })}
                   {renderField('Status', 'status', { options: ENQUIRY_STATUS, required: true })}
                 </div>
+
+                {directMode && (
+                  <div className="cf-section" style={{marginTop:16,borderTop:'1px dashed #dbe2ea',paddingTop:16}}>
+                    <div className="cf-section-header">
+                      <div className="cf-section-icon" style={{background:'#0E7C7B'}}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      </div>
+                      <div><div className="cf-section-title">Direct Case Details</div><div className="cf-section-sub">VIP / direct enquiry without complaint</div></div>
+                    </div>
+                    <div className="cf-row-2">
+                      <div className="cf-field">
+                        <label className="cf-label required">Reference No / Tracking No</label>
+                        <input type="text" className="cf-input" value={direct.reference_no} onChange={e => setDirect(d => ({ ...d, reference_no: e.target.value }))} placeholder="e.g. VIP-2026-0001" />
+                        {errors.direct_info && <div className="cf-error">{errors.direct_info}</div>}
+                      </div>
+                      <div className="cf-field">
+                        <label className="cf-label required">Complainant Name</label>
+                        <input type="text" className="cf-input" value={direct.complainant_name} onChange={e => setDirect(d => ({ ...d, complainant_name: e.target.value }))} placeholder="Complainant / applicant name" />
+                      </div>
+                    </div>
+                    <div className="cf-row-2">
+                      <div className="cf-field">
+                        <label className="cf-label">Circle</label>
+                        <select className="cf-input" value={direct.circle_id} onChange={e => setDirect(d => ({ ...d, circle_id: e.target.value }))}>
+                          <option value="">— Select Circle —</option>
+                          {circles.map(c => <option key={c.id} value={c.id}>{c.name}{c.code ? ' (' + c.code + ')' : ''}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

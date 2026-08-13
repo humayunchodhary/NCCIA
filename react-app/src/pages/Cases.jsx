@@ -61,7 +61,9 @@ export default function Cases() {
                   <tr key={c.id}>
                     <td><span className="table-id">#{c.id}</span></td>
                     <td><span style={{fontSize:'13px',fontWeight:500}}>{c.fir_no || `CASE-${c.id}`}</span></td>
-                    <td><span style={{fontSize:12}}>{c.enquiry?.enquiry_number || c.enquiry_id || '-'}</span></td>
+                    <td>
+                      <span style={{fontSize:12}}>{c.direct_info?.complainant_name ? c.direct_info.complainant_name + ' · ' : ''}{c.enquiry?.enquiry_number || c.direct_info?.reference_no || c.enquiry_id || '-'}</span>
+                    </td>
                     <td><span style={{fontSize:12}}>{c.investigation_officer?.name || '-'}</span></td>
                     <td><span className={`badge ${c.status === 'closed' || c.status === 'approved' ? 'badge-finalized' : 'badge-pending'}`}>{c.status}</span></td>
                     <td style={{ minWidth: 180 }}>
