@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,8 +30,8 @@ export default function Verifications() {
   const [stats, setStats] = useState({ total: 0, pending: 0, progress: 0, approved: 0 });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [recFilter, setRecFilter] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [proceedConfirm, setProceedConfirm] = useState(false);
 
   // Bulk selection + bulk actions (closure / merge / transfer / delete)
   const [selected, setSelected] = useState([]);
@@ -324,9 +324,40 @@ export default function Verifications() {
       v.complaint?.complainant_name?.toLowerCase().includes(search.toLowerCase()) ||
       v.direct_info?.complainant_name?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = !statusFilter || v.status === statusFilter;
-    const matchesRec = !recFilter || v.recommendation === recFilter;
-    return matchesSearch && matchesStatus && matchesRec;
+    return matchesSearch && matchesStatus;
   });
+
+  const filteredIds = useMemo(() => filteredList.map(v => v.id), [filteredList]);
+
+  const operateOnFiltered = (action) => {
+    if (filteredIds.length === 0) {
+      alert('Pehle search ya filter lagayein taake records milein.');
+      return;
+    }
+    setSelected(filteredIds);
+    if (action === 'closure' || action === 'merge' || action === 'transfer') {
+      openBulkModal(action);
+    } else if (action === 'delete') {
+      setBulkDeleteOpen(true);
+    } else if (action === 'proceed_to_verification') {
+      setProceedConfirm(true);
+    }
+  };
+
+  const handleProceedToVerification = async () => {
+    if (!filteredIds.length) return;
+    setBulkSaving(true);
+    setProceedConfirm(false);
+    try {
+      await api.post('/verifications/bulk-action', { ids: filteredIds, action: 'proceed_to_verification' });
+      fetchData();
+      alert('Selected verification(s) proceeded to Circle Incharge for review.');
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to proceed verification(s)');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
 
   if (loading) return <div className="page-content"><LoadingSkeleton type="table" columns={8} rows={10} /></div>;
 
@@ -421,13 +452,12 @@ export default function Verifications() {
             <option value="sent_back">Sent Back</option>
             <option value="closed">Closed</option>
           </select>
-          <select className="filter-select" id="recFilter" style={{height:'34px',padding:'0 12px',border:'1.5px solid #264078',borderRadius:'8px',fontSize:'13px',background:'#fff',color:'#2b2b2b',minWidth:'200px'}} value={recFilter} onChange={e => setRecFilter(e.target.value)}>
-            <option value="">All Outcomes / Actions</option>
-            <option value="enquiry_registration">Proceed to Verification (Enquiry)</option>
-            <option value="closure">Closure</option>
-            <option value="merge">Merge</option>
-            <option value="transfer">Transfer</option>
-          </select>
+          <span style={{fontSize:'12px',fontWeight:600,color:'#2b2b2b'}}>Quick Actions (applied to current search results):</span>
+          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('closure')} style={{background:'#fff',color:'#015C94',border:'1.5px solid rgba(1,92,148,0.35)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Closure</button>
+          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('proceed_to_verification')} style={{background:'#fff',color:'#264078',border:'1.5px solid rgba(38,64,120,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Proceed to Verification</button>
+          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('transfer')} style={{background:'#fff',color:'#7c3aed',border:'1.5px solid rgba(124,58,237,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Transfer</button>
+          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('merge')} style={{background:'#fff',color:'#ea580c',border:'1.5px solid rgba(234,88,12,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Merge</button>
+          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('delete')} style={{background:'#fff',color:'#e53e3e',border:'1.5px solid rgba(229,62,62,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Delete</button>
           <div className="filter-spacer" style={{flex:1}}></div>
         </div>
 
@@ -570,6 +600,15 @@ export default function Verifications() {
         confirmLabel="Delete"
         onConfirm={handleBulkDelete}
         onCancel={() => setBulkDeleteOpen(false)}
+      />
+
+      <ConfirmModal
+        open={proceedConfirm}
+        title="Proceed to Verification"
+        message={`Mark all ${filteredIds.length} filtered verification(s) as 'Proceed to Verification' (status: Submitted, recommendation: Enquiry Registration). They will be sent to Circle Incharge for approval.`}
+        confirmLabel="Proceed"
+        onConfirm={handleProceedToVerification}
+        onCancel={() => setProceedConfirm(false)}
       />
 
       {/* ── Submit Report Modal ── */}
