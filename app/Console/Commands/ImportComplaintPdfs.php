@@ -167,7 +167,13 @@ class ImportComplaintPdfs extends Command
             if ($this->option('sync')) {
                 $import = $service->process($import);
                 if ($autoApply && $import->status === ComplaintPdfImport::STATUS_EXTRACTED) {
-                    $service->applyToSystem($import, $user, true, $copyAttachment);
+                    $import = $service->applyToSystem($import, $user, true, $copyAttachment);
+                }
+                $import = $import->fresh();
+                if ($import->status === ComplaintPdfImport::STATUS_FAILED) {
+                    $this->error("FAIL {$import->original_filename}: {$import->error_message}");
+                } else {
+                    $this->info("OK {$import->original_filename} → {$import->status}");
                 }
             } else {
                 ProcessComplaintPdfImport::dispatch($import->id, $user->id, $autoApply, $copyAttachment);

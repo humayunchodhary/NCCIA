@@ -28,12 +28,15 @@ class ComplaintPdfExtractor
 
         $python = $this->pythonBinary();
         $script = base_path('scripts/nccia_pdf_extract.py');
+        $pythonError = null;
 
         if (!is_file($script)) {
             return ['ok' => false, 'data' => [], 'used_ocr' => false, 'page_count' => null, 'error' => 'PDF extract script missing'];
         }
 
-        if ($python) {
+        if (!$python) {
+            $pythonError = 'Python not found. Server par install karein: python3, pymupdf, tesseract. .env mein PDF_EXTRACT_PYTHON=/usr/bin/python3';
+        } else {
             $result = Process::timeout(180)->run([
                 $python,
                 $script,
@@ -47,19 +50,29 @@ class ComplaintPdfExtractor
                     $decoded['inquiry_no'] = $decoded['inquiry_no']
                         ?? $this->inquiryRefFromFilename($originalFilename);
 
-                    return [
-                        'ok'         => true,
-                        'data'       => $decoded,
-                        'used_ocr'   => (bool) ($decoded['used_ocr'] ?? false),
-                        'page_count' => isset($decoded['page_count']) ? (int) $decoded['page_count'] : null,
-                        'error'      => null,
-                    ];
-                }
+                    if ($this->hasMinimumFields($decoded)) {
+                        return [
+                            'ok'         => true,
+                            'data'       => $decoded,
+                            'used_ocr'   => (bool) ($decoded['used_ocr'] ?? false),
+                            'page_count' => isset($decoded['page_count']) ? (int) $decoded['page_count'] : null,
+                            'error'      => null,
+                        ];
+                    }
 
-                if (is_array($decoded) && !empty($decoded['error'])) {
+                    $preview = Str::limit((string) ($decoded['raw_text_preview'] ?? ''), 180);
+                    $pythonError = 'OCR/text se CNIC ya naam nahi mila.'
+                        . ((empty($decoded['used_ocr'])) ? ' OCR nahi chala (tesseract missing?).' : ' OCR chala lekin fields weak hain.')
+                        . ($preview !== '' ? ' Preview: ' . $preview : '');
+                } elseif (is_array($decoded) && !empty($decoded['error'])) {
+                    $pythonError = 'Python extract error: ' . $decoded['error'];
                     Log::warning('PDF extract script error', ['error' => $decoded['error'], 'file' => $originalFilename]);
+                } else {
+                    $pythonError = 'Python extract ne JSON nahi diya: ' . Str::limit($result->output() . ' ' . $result->errorOutput(), 400);
                 }
             } else {
+                $pythonError = 'Python extract failed (' . $python . '): '
+                    . Str::limit(trim($result->errorOutput() . "\n" . $result->output()), 500);
                 Log::warning('PDF extract process failed', [
                     'file'   => $originalFilename,
                     'stderr' => Str::limit($result->errorOutput(), 500),
@@ -69,12 +82,22 @@ class ComplaintPdfExtractor
 
         $fallback = $this->extractWithPhpPatterns($absolutePdfPath, $originalFilename);
 
+        if ($this->hasMinimumFields($fallback)) {
+            return [
+                'ok'         => true,
+                'data'       => $fallback,
+                'used_ocr'   => false,
+                'page_count' => null,
+                'error'      => null,
+            ];
+        }
+
         return [
-            'ok'         => !empty($fallback),
+            'ok'         => false,
             'data'       => $fallback,
             'used_ocr'   => false,
             'page_count' => null,
-            'error'      => empty($fallback) ? 'Could not extract PDF text. Install Python + pymupdf + tesseract for scanned PDFs.' : null,
+            'error'      => $pythonError ?: 'Could not extract PDF text. Install Python + pymupdf + tesseract for scanned PDFs.',
         ];
     }
 
@@ -294,21 +317,31 @@ class ComplaintPdfExtractor
         return null;
     }
 
-    private function pythonBinary(): ?string
+    public function pythonBinary(): ?string
     {
-        $configured = env('PDF_EXTRACT_PYTHON');
-        if ($configured && is_executable($configured)) {
-            return $configured;
+        $configured = trim((string) env('PDF_EXTRACT_PYTHON', ''));
+        if ($configured !== '') {
+            if ((is_file($configured) && is_executable($configured)) || $this->pythonWorks($configured)) {
+                return $configured;
+            }
         }
 
         foreach (['python3', 'python', 'py'] as $bin) {
-            $probe = Process::run([$bin, '--version']);
-            if ($probe->successful()) {
+            if ($this->pythonWorks($bin)) {
                 return $bin;
             }
         }
 
         return null;
+    }
+
+    private function pythonWorks(string $bin): bool
+    {
+        try {
+            return Process::timeout(10)->run([$bin, '--version'])->successful();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function normalizeCnic(?string $raw): ?string

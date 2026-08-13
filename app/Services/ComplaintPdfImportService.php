@@ -179,15 +179,11 @@ class ComplaintPdfImportService
         }
 
         $extract = $this->extractor->extract($absolute, $import->original_filename, $ocrText);
-        if (!$extract['ok'] || empty($extract['data'])) {
-            return $this->fail($import, $extract['error'] ?? 'No data could be extracted from PDF. Try browser OCR preview first.');
+        if (!$extract['ok'] || empty($extract['data']) || !$this->extractor->hasMinimumFields($this->normalizeExtractedData($extract['data'] ?? []))) {
+            return $this->fail($import, $extract['error'] ?? 'CNIC and complainant name not found in PDF.');
         }
 
         $data = $this->normalizeExtractedData($extract['data']);
-
-        if (!$this->extractor->hasMinimumFields($data)) {
-            return $this->fail($import, 'CNIC and complainant name not found in PDF. Wait for browser OCR preview, then upload again.');
-        }
 
         $import->update([
             'extracted_data' => $data,

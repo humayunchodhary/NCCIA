@@ -42,6 +42,12 @@ class RetryFailedPdfImports extends Command
             if ($this->option('sync')) {
                 $job = new ProcessComplaintPdfImport($import->id, $import->user_id, true, true);
                 $job->handle(app(\App\Services\ComplaintPdfImportService::class));
+                $import = $import->fresh();
+                if ($import->status === ComplaintPdfImport::STATUS_FAILED) {
+                    $this->error("FAIL {$import->original_filename}: {$import->error_message}");
+                } else {
+                    $this->info("OK {$import->original_filename} → {$import->status}");
+                }
             } else {
                 ProcessComplaintPdfImport::dispatch($import->id, $import->user_id, true, true);
             }
