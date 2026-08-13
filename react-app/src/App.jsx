@@ -1,10 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
+import ForensicLayout from './components/ForensicLayout';
 import Login from './pages/Login';
+import ForensicLogin from './pages/ForensicLogin';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
+import ForensicDashboard from './pages/ForensicDashboard';
+import ForensicUsers from './pages/ForensicUsers';
 import Analytics from './pages/Analytics';
 import Complaints from './pages/Complaints';
 import ComplaintForm from './pages/ComplaintForm';
@@ -31,18 +35,45 @@ import Rules from './pages/Rules';
 import SOP from './pages/SOP';
 import UserManual from './pages/UserManual';
 import Chat from './pages/Chat';
-import { canAssignVerification, canCreateComplaint, canView } from './utils/permissions';
+import { canAssignVerification, canCreateComplaint, canView, isForensicUser } from './utils/permissions';
+
+const MAIN_ROLES = [
+  'admin', 'circle_incharge', 'operator', 'verification_officer',
+  'enquiry_officer', 'investigation_officer', 'moharrar', 'reader_branch',
+  'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+];
+
+function hasMainAccess(user) {
+  return !!user?.roles?.some(r => MAIN_ROLES.includes(r.name || r));
+}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
-  return user ? children : <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" />;
+  if (!hasMainAccess(user) && isForensicUser(user)) return <Navigate to="/forensic" />;
+  return children;
 }
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
   return user ? <Navigate to="/" /> : children;
+}
+
+function ForensicProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
+  if (!user) return <Navigate to="/forensic/login" />;
+  if (!isForensicUser(user)) return <Navigate to="/" />;
+  return children;
+}
+
+function ForensicPublicRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
+  if (user && isForensicUser(user)) return <Navigate to="/forensic" />;
+  return user && !isForensicUser(user) ? <Navigate to="/" /> : children;
 }
 
 function FeatureRoute({ feature, children, fallback = '/' }) {
@@ -73,8 +104,13 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/forensic/login" element={<ForensicPublicRoute><ForensicLogin /></ForensicPublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+      <Route element={<ForensicProtectedRoute><ForensicLayout /></ForensicProtectedRoute>}>
+        <Route path="forensic" element={<ForensicDashboard />} />
+        <Route path="forensic/users" element={<ForensicUsers />} />
+      </Route>
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="analytics" element={<FeatureRoute feature="analytics"><Analytics /></FeatureRoute>} />

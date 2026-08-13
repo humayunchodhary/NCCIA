@@ -20,6 +20,7 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SidebarCountsController;
+use App\Http\Controllers\Forensic\ForensicUserController;
 
 Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
@@ -250,6 +251,26 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::delete('/user-manuals/{manual}', [ReferenceController::class, 'manualsDestroy']);
 
     Route::get('/sidebar-counts', SidebarCountsController::class);
+
+    // Forensic portal — isolated from the main NCCIA modules
+    Route::get('/forensic/stats', [ForensicUserController::class, 'stats'])
+        ->middleware('role:admin_forensic,ad_forensic,desk_forensic,forensic_team');
+    Route::get('/forensic/roles', [ForensicUserController::class, 'rolesList'])
+        ->middleware('role:admin_forensic');
+    Route::get('/forensic/users', [ForensicUserController::class, 'index'])
+        ->middleware('role:admin_forensic');
+    Route::get('/forensic/users/{user}', [ForensicUserController::class, 'show'])
+        ->middleware('role:admin_forensic');
+    Route::post('/forensic/users', [ForensicUserController::class, 'store'])
+        ->middleware('role:admin_forensic');
+    Route::put('/forensic/users/{user}', [ForensicUserController::class, 'update'])
+        ->middleware('role:admin_forensic');
+    Route::delete('/forensic/users/{user}', [ForensicUserController::class, 'destroy'])
+        ->middleware('role:admin_forensic');
+    Route::post('/forensic/users/{user}/reset-password', [ForensicUserController::class, 'resetPassword'])
+        ->middleware('role:admin_forensic');
+    Route::post('/forensic/users/{user}/generate-password', [ForensicUserController::class, 'generatePassword'])
+        ->middleware('role:admin_forensic');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);

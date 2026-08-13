@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { isForensicUser } from '../utils/permissions';
 
 export default function Login() {
   const { login, error, remaining, retryAfter, clearError, user } = useAuth();
@@ -14,7 +15,7 @@ export default function Login() {
   const timerRef = useRef(null);
 
   useEffect(() => {
-    if (user) { navigate('/', { replace: true }); }
+    if (user) { navigate(isForensicUser(user) ? '/forensic' : '/', { replace: true }); }
   }, [user, navigate]);
 
   useEffect(() => {

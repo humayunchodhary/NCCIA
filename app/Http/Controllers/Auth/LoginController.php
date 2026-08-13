@@ -128,6 +128,61 @@ class LoginController extends Controller
         return $response;
     }
 
+    /**
+     * Login for the isolated Forensic portal — only accounts holding a
+     * forensic role are allowed to sign in here.
+     */
+    public function apiForensicLogin(Request $request)
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        $key = $this->throttleKey($request);
+
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $seconds = RateLimiter::availableIn($key);
+            return response()->json([
+                'message' => "Too many attempts. Try again in {$seconds} seconds.",
+                'retry_after' => $seconds,
+            ], 429);
+        }
+
+        if (!Auth::attempt($credentials, $request->filled('remember'))) {
+            RateLimiter::hit($key);
+            $attempts = RateLimiter::attempts($key);
+            $remaining = max(0, 3 - $attempts);
+            return response()->json([
+                'message' => 'Invalid email or password',
+                'remaining' => $remaining,
+            ], 401);
+        }
+
+        $user = $request->user();
+
+        if (!$user->roles()->count()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            return response()->json(['message' => 'Access revoked. Contact administrator.'], 403);
+        }
+
+        if (!$user->isForensic()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            return response()->json([
+                'message' => 'This account does not have Forensic Portal access.',
+            ], 403);
+        }
+
+        $request->session()->regenerate();
+        RateLimiter::clear($key);
+
+        return response()->json([
+            'user' => $user->load('roles', 'zone', 'circle', 'permissions'),
+        ]);
+    }
+
     private function throttleKey(Request $request): string
     {
         return 'login:' . strtolower($request->input('email')) . '|' . $request->ip();
