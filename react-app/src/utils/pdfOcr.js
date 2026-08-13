@@ -9,8 +9,8 @@ const BASE = import.meta.env.BASE_URL.endsWith('/')
   ? import.meta.env.BASE_URL
   : `${import.meta.env.BASE_URL}/`;
 const TESS_BASE = `${BASE}tesseract`;
-const MAX_OCR_PAGES = 4;
-const RENDER_SCALES = [2, 3, 3.5];
+const MAX_OCR_PAGES = 12;
+const RENDER_SCALES = [2, 2.5, 3.5];
 
 let workerInstance = null;
 let workerInitPromise = null;
@@ -225,8 +225,9 @@ async function extractPageText(page) {
 }
 
 async function ocrCanvas(worker, canvas, onStatus) {
-  const targets = [canvas, cropCanvasTop(canvas)];
+  const targets = [canvas, cropCanvasTop(canvas, 0.7), cropCanvasTop(canvas, 0.45)];
   const modes = [PSM.AUTO, PSM.SPARSE_TEXT, PSM.SINGLE_BLOCK];
+  let best = '';
 
   for (const target of targets) {
     for (const psm of modes) {
@@ -234,10 +235,10 @@ async function ocrCanvas(worker, canvas, onStatus) {
       await worker.setParameters({ tessedit_pageseg_mode: psm });
       const result = await worker.recognize(target);
       const text = (result.data.text || '').trim();
-      if (text.length > 15) return text;
+      if (text.length > best.length) best = text;
     }
   }
-  return '';
+  return best;
 }
 
 function looksLikeVerificationReport(text) {
@@ -252,6 +253,7 @@ async function ocrFromCanvas(worker, canvas, onStatus) {
 }
 
 async function ocrPageWithPdfJs(page, worker, onStatus) {
+  let best = '';
   for (const scale of RENDER_SCALES) {
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
@@ -271,14 +273,15 @@ async function ocrPageWithPdfJs(page, worker, onStatus) {
     for (const embeddedCanvas of embedded) {
       onStatus?.('OCR embedded scan…');
       const text = await ocrFromCanvas(worker, embeddedCanvas, onStatus);
-      if (text) return text;
+      if (text.length > best.length) best = text;
     }
 
     enhanceForOcr(canvas);
     const text = await ocrFromCanvas(worker, canvas, onStatus);
-    if (text) return text;
+    if (text.length > best.length) best = text;
+    if (best.length > 400 && looksLikeVerificationReport(best)) break;
   }
-  return '';
+  return best;
 }
 
 /**
@@ -316,7 +319,7 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
           const embedded = await extractPageText(page).catch(() => '');
           if (embedded.length > 40) {
             parts.push(embedded);
-            if (looksLikeVerificationReport(embedded)) break;
+            // Keep reading remaining pages — recommendations/justification often on page 2+
             continue;
           }
           ocrText = await ocrPageWithPdfJs(page, worker, onStatus);
@@ -341,7 +344,6 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
 
       if (ocrText) {
         parts.push(ocrText);
-        if (looksLikeVerificationReport(ocrText)) break;
       }
     }
 

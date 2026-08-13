@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
-import { useAutoRefresh } from '../utils/useAutoRefresh';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import {
@@ -149,56 +148,7 @@ export default function CaseForm() {
     }
   }, [id, navigate]);
 
-  const reloadCase = () => {
-    if (!id) return;
-    api.get(`/cases/${id}`).then(r => {
-      const d = r.data.data || r.data;
-      setForm(f => ({
-        ...f,
-        enquiry_id: d.enquiry_id || d.enquiry?.id || f.enquiry_id,
-        fir_no: d.fir_no || f.fir_no,
-        investigation_officer_id: d.investigation_officer_id || '',
-        status: d.status || f.status,
-        recommendation: d.recommendation || '',
-        transfer_department: d.transfer_department || '',
-        transfer_circle: d.transfer_circle || '',
-        merge_complaint_id: d.merge_complaint_id || '',
-        activities: (d.activities || []).map(a => ({
-          id: a.id,
-          type: a.type || '',
-          description: a.description || '',
-          activity_date: a.activity_date ? String(a.activity_date).slice(0, 10) : '',
-          attachment: null,
-        })),
-        arrests: (d.arrests || []).map(a => ({
-          id: a.id,
-          accused_name: a.accused_name || '',
-          cnic: a.cnic || '',
-          arrest_date: a.arrest_date ? String(a.arrest_date).slice(0, 10) : '',
-          remand_details: a.remand_details || '',
-        })),
-        legal_opinions: (d.legal_opinions || []).map(lo => ({
-          id: lo.id,
-          role: lo.role || '',
-          opinion_text: lo.opinion_text || '',
-          decision: lo.decision || '',
-          created_by: lo.created_by || '',
-        })),
-        approvals: (d.approvals || []).map(ap => ({
-          id: ap.id,
-          circle_incharge_id: ap.circle_incharge_id || '',
-          decision: ap.decision || '',
-          remarks: ap.remarks || '',
-        })),
-      }));
-      if (!d.enquiry_id && d.direct_info) {
-        setDirectMode(true);
-        setDirect(normalizeDirectInfo(d.direct_info));
-      }
-    }).catch(() => {});
-  };
-
-  useAutoRefresh(() => reloadCase(), [id], 30000);
+  // No auto-refresh on edit form — it was wiping unsaved work every 30s.
 
   const setF = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 

@@ -155,6 +155,8 @@ class ComplaintPdfExtractor
             '/Mobile\s*Number\s*:?\s*([\d\-]+)/i',
             '/Details\.?\s*Mobile\s*Number\s*:?\s*([\d\-]+)/i',
             '/Contact\s*Details\s*:?\s*([\d\-]+)/i',
+            '/Contact\s*(?:No\.?|Number)?\s*:?\s*(0?3\d{9})/i',
+            '/\b(0?3\d{2}[\-\s]?\d{7})\b/',
         ]);
 
         $gender = strtolower($pick(['/Gender\s*:?\s*(Male|Female|Other)/i']) ?? '') ?: null;
@@ -173,39 +175,74 @@ class ComplaintPdfExtractor
             'victim_father_name'   => $fatherName,
             'victim_gender'        => $gender,
             'victim_cnic'          => $this->normalizeCnic($cnicRaw),
-            'victim_occupation'    => $pick(['/Occupation\s*:?\s*(.+?)(?:Contact|Mobile|Address|Details|$)/is']),
+            'victim_occupation'    => $pick(['/Occupation\s*:?\s*(.+?)(?:Contact|Mobile|Address|Email|Details|$)/is']),
+            'victim_email'         => $pick([
+                '/E-?mail\s*(?:Address)?\s*:?\s*([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})/i',
+                '/\b([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})\b/i',
+            ]),
             'victim_phone'         => $this->normalizePhone($phoneRaw),
             'victim_address'       => $pick([
-                '/Current\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|Online|$)/is',
-                '/Addresses\s*Current\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|Online|$)/is',
+                '/Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|RECOMMEND|Online|$)/is',
+                '/Addresses\s*Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|Online|$)/is',
+            ]),
+            'victim_permanent_address' => $pick([
+                '/Permanent\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|Online|Contact|$)/is',
             ]),
             'crime_category'       => $pick([
+                '/BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE\s*:?\s*(.+?)(?:accuse|Accuse|During|Online|City|$)/is',
                 '/BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|Online|$)/is',
+                '/Crime\s*Categor(?:y|ies)\s*:?\s*(.+?)(?:accuse|City|Amount|$)/is',
                 '/Online\s+Job\s+Frauds/i',
             ]),
             'crime_description'    => $pick([
                 '/(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|$)/is',
+                '/BRIEF\s*DESCRIPTION[\s\S]{0,80}?((?:During|The|accuse).+?)(?:City\s*of|Amount\s*Involved|RECOMMEND|$)/is',
             ]),
+            'accused_name'         => $pick([
+                '/Accuse[d]?\s*(?:Name|Person)?\s*:?\s*(.+?)(?:CNIC|Mobile|Address|City|Amount|$)/is',
+                '/against\s+(?:the\s+)?accuse[d]?\s+([A-Za-z][A-Za-z\s\.\/]{2,60})/i',
+            ]),
+            'accused_cnic'         => $this->normalizeCnic($pick([
+                '/Accuse[d]?[^\n]{0,40}CNIC\s*(?:No\.?)?\s*:?\s*([\d\-]+)/i',
+            ])),
+            'accused_phone'        => $this->normalizePhone($pick([
+                '/Accuse[d]?[^\n]{0,60}(?:Mobile|Phone|Contact)\s*(?:No\.?|Number)?\s*:?\s*([\d\-]+)/i',
+            ])),
             'city'                 => trim($pick([
                 '/City\s*of\s*Occurrence\s*:?\s*(.+?)(?:Complaint|Amount|RECOMMEND|$)/is',
                 '/0f\s*Occurrence\s*(.+?)(?:working|Amount|RECOMMEND|$)/is',
             ]) ?? '', '"'),
             'amount_involved'      => $this->normalizeAmount($pick([
-                '/Amount\s*Involved\.?\s*:?\s*([\d,\.]+)/i',
-                '/Amount\s*Involved\s*:?\s*([\d,\.]+)/i',
+                '/Amount\s*Involved\.?\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)/i',
+                '/Amount\s*Involved\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)/i',
+                '/Rs\.?\s*([\d,]{3,}(?:\.\d+)?)/i',
             ])),
             'recommendation_short' => Str::limit($pick([
                 '/RECOMMENDATIONS?\s*:?\s*(.+?)(?:Justification|Reporting Officer|$)/is',
-            ]) ?? '', 500),
-            'recommendation_full'  => $pick(['/Justification\s*:?\s*(.+?)(?:Reporting Officer|$)/is']),
+            ]) ?? '', 800),
+            'recommendation_full'  => $pick([
+                '/Justification\s*:?\s*(.+?)(?:Reporting Officer|Assistant Sub|Signature|$)/is',
+            ]),
+            'reporting_officer'    => $pick([
+                '/Reporting\s*Officer\s*:?\s*(.+?)(?:Designation|Rank|Signature|$)/is',
+                '/(?:ASP|ASI|SI|Inspector)\s+([A-Za-z][A-Za-z\s\.]{2,40})/i',
+            ]),
             'recommendation'       => $this->mapRecommendation($text),
-            'inquiry_no'           => $this->inquiryRefFromFilename($originalFilename),
+            'inquiry_no'           => $pick([
+                '/Inquiry\s*No\.?\s*:?\s*(E[\/\-]?\s*\d+\s*[\/\-]\s*\d+)/i',
+                '/\b(E[\/\-]\s*\d+\s*[\/\-]\s*\d+)\b/i',
+            ]) ?? $this->inquiryRefFromFilename($originalFilename),
             'source_filename'      => $originalFilename,
-            'raw_text_preview'     => Str::limit($text, 2000),
+            'raw_text_preview'     => Str::limit($text, 8000),
         ], fn ($v) => $v !== null && $v !== '');
 
+        if (!empty($data['inquiry_no'])) {
+            $data['inquiry_no'] = preg_replace('/\s+/', '', (string) $data['inquiry_no']);
+            $data['inquiry_no'] = preg_replace('/^E[\-\/]?(\d+)[\-\/](\d+)$/i', 'E/$1/$2', $data['inquiry_no']);
+        }
+
         $score = 0;
-        foreach (['tracking_no', 'victim_name', 'victim_cnic', 'victim_phone', 'crime_category', 'city'] as $k) {
+        foreach (['tracking_no', 'victim_name', 'victim_cnic', 'victim_phone', 'crime_category', 'city', 'amount_involved', 'recommendation_short'] as $k) {
             if (!empty($data[$k])) {
                 $score++;
             }
@@ -345,7 +382,11 @@ class ComplaintPdfExtractor
         $text = preg_replace('/\bNarne\b/i', 'Name', $text) ?? $text;
         $text = preg_replace('/\bNarn e\b/i', 'Name', $text) ?? $text;
         $text = preg_replace('/Trackin\s*g/i', 'Tracking', $text) ?? $text;
-        $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+        $text = preg_replace('/Occurren[oc]e/i', 'Occurrence', $text) ?? $text;
+        $text = preg_replace('/Recommenda[tl]ions?/i', 'RECOMMENDATIONS', $text) ?? $text;
+        // Keep newlines — collapsing them drops multi-line address / brief description
+        $text = preg_replace('/[ \t]+/', ' ', $text) ?? $text;
+        $text = preg_replace('/\n{3,}/', "\n\n", $text) ?? $text;
 
         return trim($text);
     }

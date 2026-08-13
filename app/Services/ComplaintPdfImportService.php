@@ -221,11 +221,16 @@ class ComplaintPdfImportService
         }
 
         $address = $data['victim_address'] ?? $existing?->address ?? 'Imported from PDF';
+        $postAddress = $data['victim_permanent_address'] ?? $data['victim_address'] ?? $existing?->post_address ?? $address;
         $description = trim(implode("\n\n", array_filter([
             $data['crime_category'] ?? null,
             $data['crime_description'] ?? null,
+            !empty($data['accused_name']) ? 'Accused: ' . $data['accused_name'] : null,
             !empty($data['city']) ? 'City: ' . $data['city'] : null,
+            !empty($data['amount_involved']) ? 'Amount: ' . $data['amount_involved'] : null,
+            !empty($data['recommendation_short']) ? 'Recommendation: ' . $data['recommendation_short'] : null,
             !empty($data['recommendation_full']) ? $data['recommendation_full'] : null,
+            !empty($data['reporting_officer']) ? 'Reporting Officer: ' . $data['reporting_officer'] : null,
         ]))) ?: ($existing?->description ?? 'Imported verification report');
 
         $payload = [
@@ -233,9 +238,10 @@ class ComplaintPdfImportService
             'cnic'                 => $data['victim_cnic'] ?? $existing?->cnic,
             'contact_no'           => $this->contactDigits($data['victim_phone'] ?? $existing?->contact_no ?? '3000000000'),
             'contact_country_code' => '+92',
+            'email'                => $data['victim_email'] ?? $existing?->email,
             'nationality'          => 'Pakistani',
             'address'              => $address,
-            'post_address'         => $address,
+            'post_address'         => $postAddress,
             'profession'           => $data['victim_occupation'] ?? $existing?->profession,
             'report_date'          => $data['verification_date'] ?? $data['assignment_date'] ?? $existing?->report_date ?? now()->toDateString(),
             'diary_no'             => $data['inquiry_no'] ?? $data['tracking_no'] ?? $existing?->diary_no ?? pathinfo($import->original_filename, PATHINFO_FILENAME),
@@ -285,6 +291,15 @@ class ComplaintPdfImportService
 
         $fullName = $data['complainant_full_name'] ?? $data['victim_name'] ?? $complaint->complainant_name;
 
+        $accused = [];
+        if (!empty($data['accused_name']) || !empty($data['accused_cnic']) || !empty($data['accused_phone'])) {
+            $accused[] = array_filter([
+                'name'  => $data['accused_name'] ?? null,
+                'cnic'  => $data['accused_cnic'] ?? null,
+                'phone' => $data['accused_phone'] ?? null,
+            ]);
+        }
+
         $reportData = [
             'complaint_id'         => $complaint->id,
             'tracking_no'          => $trackingNo ?? ('IMPORT-' . $complaint->id),
@@ -297,13 +312,15 @@ class ComplaintPdfImportService
             'victim_cnic'          => $data['victim_cnic'] ?? $complaint->cnic,
             'victim_country_code'  => '+92',
             'victim_phone'         => $data['victim_phone'] ?? $this->formatPhoneDisplay($complaint->contact_no),
+            'victim_email'         => $data['victim_email'] ?? null,
             'crime_category'       => $data['crime_category'] ?? $complaint->offence_type,
             'crime_description'    => $data['crime_description'] ?? $complaint->description,
             'city'                 => $data['city'] ?? 'Unknown',
-            'accused_known'        => false,
+            'accused_known'        => !empty($accused),
+            'accused'              => $accused ?: null,
             'recommendation'       => $data['recommendation'] ?? 'enquiry_registration',
             'recommendation_short' => is_string($data['recommendation_short'] ?? null)
-                ? Str::limit($data['recommendation_short'], 500)
+                ? Str::limit($data['recommendation_short'], 800)
                 : null,
             'recommendation_full'  => $data['recommendation_full'] ?? null,
             'inquiry_no'           => $data['inquiry_no'] ?? null,

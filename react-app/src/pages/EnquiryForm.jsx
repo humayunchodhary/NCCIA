@@ -7,7 +7,6 @@ import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import SeizeForensicPanel from '../components/SeizeForensicPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
-import { useAutoRefresh } from '../utils/useAutoRefresh';
 import { toLocalInput } from '../utils/datetime';
 import {
   emptyDirectInfo,
@@ -365,13 +364,6 @@ export default function EnquiryForm() {
     }
   };
 
-  const reloadEnquiry = () => {
-    if (!id) return;
-    api.get(`/enquiries/${id}`).then(r => {
-      applyEnquiryPayload(r.data.data || r.data);
-    }).catch(() => {});
-  };
-
   const selectedComplaint = useMemo(() => {
     if (complaintDetail) return complaintDetail;
     return complaints.find(c => String(c.id) === String(form.complaint_id)) || null;
@@ -404,7 +396,7 @@ export default function EnquiryForm() {
     }
   }, [id, navigate]);
 
-  useAutoRefresh(() => reloadEnquiry(), [id], 30000);
+  // No auto-refresh on edit form — it was wiping unsaved work every 30s.
 
   useEffect(() => {
     if (!form.complaint_id) {

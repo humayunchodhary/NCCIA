@@ -54,6 +54,7 @@ export default function Layout() {
   const [notifications, setNotifications] = useState({ unread_count: 0, notifications: [] });
   const [pendingTasks, setPendingTasks] = useState({ tasks: [], count: 0 });
   const [toast, setToast] = useState(null);
+  const [appUpdateReady, setAppUpdateReady] = useState(() => !!sessionStorage.getItem('nccia_pending_update'));
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -114,6 +115,20 @@ export default function Layout() {
     const timer = setInterval(fetchNotifications, 45000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const onUpdate = () => setAppUpdateReady(true);
+    window.addEventListener('nccia:app-update', onUpdate);
+    if (sessionStorage.getItem('nccia_pending_update')) setAppUpdateReady(true);
+    return () => window.removeEventListener('nccia:app-update', onUpdate);
+  }, []);
+
+  const applyAppUpdate = () => {
+    const next = sessionStorage.getItem('nccia_pending_update');
+    if (next) localStorage.setItem('nccia_app_v', next);
+    sessionStorage.removeItem('nccia_pending_update');
+    window.location.reload();
+  };
 
   const markNotificationRead = (n) => {
     if (n.read_at) return;
@@ -231,6 +246,25 @@ export default function Layout() {
 
   return (
     <div className="app-wrapper">
+      {appUpdateReady && (
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 9999, background: '#015C94', color: '#fff',
+          padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap',
+          fontSize: 13, fontWeight: 600,
+        }}>
+          <span>New app version available — your form work is safe. Reload when ready.</span>
+          <button type="button" onClick={applyAppUpdate} style={{
+            background: '#fff', color: '#015C94', border: 'none', borderRadius: 6, padding: '6px 12px', fontWeight: 700, cursor: 'pointer',
+          }}>
+            Reload now
+          </button>
+          <button type="button" onClick={() => setAppUpdateReady(false)} style={{
+            background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, padding: '6px 12px', cursor: 'pointer',
+          }}>
+            Later
+          </button>
+        </div>
+      )}
       {toast && (
         <div style={{
           position: 'fixed', top: 16, right: 16, zIndex: 9999,

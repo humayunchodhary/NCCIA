@@ -4,6 +4,17 @@ import './index.css'
 import App from './App.jsx'
 
 const VERSION_KEY = 'nccia_app_v'
+const PENDING_UPDATE_KEY = 'nccia_pending_update'
+
+function isWorkingOnForm() {
+  const path = window.location.pathname || ''
+  if (/\/(create|edit)(\/|$)/.test(path)) return true
+  if (path.includes('import-pdf') || path.includes('/adp')) return true
+  if (path.includes('/forensic/requests/')) return true
+  const active = document.activeElement
+  if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return true
+  return false
+}
 
 async function checkForAppUpdate() {
   try {
@@ -15,8 +26,14 @@ async function checkForAppUpdate() {
 
     const prev = localStorage.getItem(VERSION_KEY)
     if (prev && prev !== next) {
+      // Never hard-reload while typing/editing — show banner instead
+      if (isWorkingOnForm()) {
+        sessionStorage.setItem(PENDING_UPDATE_KEY, next)
+        window.dispatchEvent(new CustomEvent('nccia:app-update', { detail: { v: next } }))
+        return
+      }
       localStorage.setItem(VERSION_KEY, next)
-      // Soft reload — picks up new hashed JS/CSS without Ctrl+F5
+      sessionStorage.removeItem(PENDING_UPDATE_KEY)
       window.location.reload()
       return
     }
@@ -30,7 +47,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') checkForAppUpdate()
 })
 window.addEventListener('focus', checkForAppUpdate)
-// First check shortly after boot, then periodically while tab is open
 setTimeout(checkForAppUpdate, 2500)
 setInterval(checkForAppUpdate, 60_000)
 

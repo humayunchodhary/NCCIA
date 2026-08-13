@@ -98,7 +98,7 @@ def ocr_page(page) -> str:
         return ""
 
 
-def extract_text_from_pdf(pdf_path: str, max_pages: int = 1) -> tuple[str, int, bool]:
+def extract_text_from_pdf(pdf_path: str, max_pages: int = 12) -> tuple[str, int, bool]:
     import fitz
 
     doc = fitz.open(pdf_path)
@@ -211,15 +211,29 @@ def parse_verification_report(text: str, filename: str) -> dict:
     address = first_match(
         text,
         [
-            r"Current\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|Online|$)",
-            r"Addresses\s*Current\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|Online|$)",
+            r"Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|RECOMMEND|Online|$)",
+            r"Addresses\s*Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|Online|$)",
+        ],
+    )
+    permanent_address = first_match(
+        text,
+        [r"Permanent\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|Online|Contact|$)"],
+    )
+
+    victim_email = first_match(
+        text,
+        [
+            r"E-?mail\s*(?:Address)?\s*:?\s*([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})",
+            r"\b([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})\b",
         ],
     )
 
     crime_category = first_match(
         text,
         [
+            r"BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE\s*:?\s*(.+?)(?:accuse|Accuse|During|Online|City|$)",
             r"BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|Online|$)",
+            r"Crime\s*Categor(?:y|ies)\s*:?\s*(.+?)(?:accuse|City|Amount|$)",
             r"Online\s+Job\s+Frauds",
         ],
     )
@@ -229,8 +243,30 @@ def parse_verification_report(text: str, filename: str) -> dict:
         [
             r"(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|$)",
             r"(accuse.+?investment.+?)(?:City|Amount|RECOMMEND|$)",
+            r"BRIEF\s*DESCRIPTION[\s\S]{0,80}?((?:During|The|accuse).+?)(?:City\s*of|Amount\s*Involved|RECOMMEND|$)",
         ],
     )
+
+    accused_name = first_match(
+        text,
+        [
+            r"Accuse[d]?\s*(?:Name|Person)?\s*:?\s*(.+?)(?:CNIC|Mobile|Address|City|Amount|$)",
+            r"against\s+(?:the\s+)?accuse[d]?\s+([A-Za-z][A-Za-z\s\./]{2,60})",
+        ],
+    )
+    accused_cnic = normalize_cnic(
+        first_match(text, [r"Accuse[d]?[^\n]{0,40}CNIC\s*(?:No\.?)?\s*:?\s*([\d\-]+)"])
+    )
+    accused_phone = first_match(
+        text,
+        [r"Accuse[d]?[^\n]{0,60}(?:Mobile|Phone|Contact)\s*(?:No\.?|Number)?\s*:?\s*([\d\-]+)"],
+    )
+    if accused_phone:
+        accused_phone = re.sub(r"\D", "", accused_phone)
+        if accused_phone.startswith("92") and len(accused_phone) > 10:
+            accused_phone = accused_phone[2:]
+        if len(accused_phone) == 10:
+            accused_phone = "0" + accused_phone
 
     city = first_match(
         text,
@@ -243,9 +279,9 @@ def parse_verification_report(text: str, filename: str) -> dict:
     amount_raw = first_match(
         text,
         [
-            r"Amount\s*Involved\.?\s*:?\s*([\d,\.]+)",
-            r"Amount\s*Involved\s*:?\s*([\d,\.]+)",
-            r"Rs\.?\s*([\d,\.]+)",
+            r"Amount\s*Involved\.?\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)",
+            r"Amount\s*Involved\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)",
+            r"Rs\.?\s*([\d,]{3,}(?:\.\d+)?)",
         ],
     )
     amount_involved = None
@@ -266,30 +302,43 @@ def parse_verification_report(text: str, filename: str) -> dict:
 
     recommendation_full = first_match(
         text,
-        [r"Justification\s*:?\s*(.+?)(?:Reporting Officer|Assistant Sub|$)"],
+        [r"Justification\s*:?\s*(.+?)(?:Reporting Officer|Assistant Sub|Signature|$)"],
+    )
+    reporting_officer = first_match(
+        text,
+        [
+            r"Reporting\s*Officer\s*:?\s*(.+?)(?:Designation|Rank|Signature|$)",
+            r"(?:ASP|ASI|SI|Inspector)\s+([A-Za-z][A-Za-z\s\.]{2,40})",
+        ],
     )
 
     city = clean_value(city)
     address = clean_value(address)
+    permanent_address = clean_value(permanent_address)
     crime_category = clean_value(crime_category)
     crime_description = clean_value(crime_description)
     victim_occupation = clean_value(victim_occupation)
-    if recommendation_text and len(recommendation_text) > 200:
-        recommendation_text = recommendation_text[:200] + "…"
+    accused_name = clean_value(accused_name)
+    reporting_officer = clean_value(reporting_officer)
+    if recommendation_text and len(recommendation_text) > 400:
+        recommendation_text = recommendation_text[:400] + "…"
 
     inquiry_no = first_match(
         text,
         [r"E[/\-]\s*(\d+)\s*[/\-]\s*(\d+)", r"Inquiry\s*No\.?\s*:?\s*([A-Z0-9/\-]+)"],
     )
-    if inquiry_no and not inquiry_no.startswith("E"):
+    if inquiry_no and not inquiry_no.upper().startswith("E"):
         m = re.match(r"(\d+)\s*[/\-]\s*(\d+)", inquiry_no)
         if m:
             inquiry_no = f"E/{m.group(1)}/{m.group(2)}"
+    if inquiry_no:
+        inquiry_no = re.sub(r"\s+", "", inquiry_no)
+        inquiry_no = re.sub(r"^E[\-/]?(\d+)[\-/](\d+)$", r"E/\1/\2", inquiry_no, flags=re.I)
     if not inquiry_no:
         inquiry_no = inquiry_ref_from_filename(filename)
 
     confidence = 0
-    for val in [tracking_no, victim_name, victim_cnic, victim_phone, crime_category, city]:
+    for val in [tracking_no, victim_name, victim_cnic, victim_phone, crime_category, city, amount_involved, recommendation_text]:
         if val:
             confidence += 1
 
@@ -303,18 +352,24 @@ def parse_verification_report(text: str, filename: str) -> dict:
         "victim_gender": victim_gender,
         "victim_cnic": victim_cnic,
         "victim_occupation": victim_occupation,
+        "victim_email": victim_email,
         "victim_phone": victim_phone,
         "victim_address": address,
+        "victim_permanent_address": permanent_address,
         "crime_category": crime_category,
         "crime_description": crime_description,
+        "accused_name": accused_name,
+        "accused_cnic": accused_cnic,
+        "accused_phone": accused_phone,
         "city": city,
         "amount_involved": amount_involved,
         "recommendation": recommendation,
         "recommendation_short": recommendation_text,
         "recommendation_full": recommendation_full,
+        "reporting_officer": reporting_officer,
         "inquiry_no": inquiry_no,
         "confidence_score": confidence,
-        "raw_text_preview": re.sub(r"\s+", " ", text)[:2000],
+        "raw_text_preview": text[:8000],
     }
 
 

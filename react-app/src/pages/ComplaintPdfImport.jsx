@@ -59,9 +59,11 @@ export default function ComplaintPdfImport() {
     api.get('/complaint-pdf-imports/capabilities').then(r => setServerCaps(r.data || null)).catch(() => {});
   }, []);
   useEffect(() => {
-    const t = setInterval(fetchData, 8000);
+    // Soft poll for status only — pause while OCR/upload is busy so UI doesn't jump
+    if (uploading || previewLoading || processingId) return undefined;
+    const t = setInterval(fetchData, 15000);
     return () => clearInterval(t);
-  }, [fetchData]);
+  }, [fetchData, uploading, previewLoading, processingId]);
 
   const runBrowserOcr = async (file) => {
     const text = await extractTextFromPdf(file, (s) => setMessage(s), {
