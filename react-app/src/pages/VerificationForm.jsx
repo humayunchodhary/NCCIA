@@ -12,6 +12,22 @@ import {
   normalizeDirectInfo,
   buildDirectInfoPayload,
 } from '../utils/directCaseOptions';
+
+const EMPTY_VIP_ACCUSED = {
+  name: '', father_name: '', cnic: '', contact_no: '', email: '', address: '',
+  nationality: 'Pakistani', passport_no: '', description: '',
+  cnic_front: '', cnic_back: '', passport_attachment: '', picture: '', other_attachment: '',
+  cnic_front_url: '', cnic_back_url: '', passport_attachment_url: '', picture_url: '', other_attachment_url: '',
+};
+
+const ACCUSED_DOC_FIELDS = [
+  { key: 'cnic_front', label: 'CNIC Front', accept: '.jpg,.jpeg,.png,.pdf' },
+  { key: 'cnic_back', label: 'CNIC Back', accept: '.jpg,.jpeg,.png,.pdf' },
+  { key: 'passport_attachment', label: 'Passport', accept: '.jpg,.jpeg,.png,.pdf' },
+  { key: 'picture', label: 'Picture / Photo', accept: 'image/*' },
+  { key: 'other_attachment', label: 'Other Document', accept: '.jpg,.jpeg,.png,.pdf,.doc,.docx' },
+];
+
 const RECOMMENDATION_OPTIONS = [
   { value: 'enquiry_registration', name: 'Enquiry Registration' },
   { value: 'closure', name: 'Closure' },
@@ -41,6 +57,7 @@ export default function VerificationForm() {
   const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', complainant_message: '', appeared_at: '', message_via: '' });
   const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
+  const [accused, setAccused] = useState([]);
   const [officers, setOfficers] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [allComplaints, setAllComplaints] = useState([]);
@@ -75,6 +92,9 @@ export default function VerificationForm() {
          if (!d.complaint_id && d.direct_info) {
            setDirectMode(true);
            setDirect(normalizeDirectInfo(d.direct_info));
+         }
+         if (Array.isArray(d.accused)) {
+           setAccused(d.accused.map(a => ({ ...EMPTY_VIP_ACCUSED, ...a })));
          }
       }).catch(() => navigate('/verifications'));
     } else if (directMode && hasRole(user, 'verification_officer') && user?.id) {
@@ -137,19 +157,49 @@ export default function VerificationForm() {
     window.open(`https://wa.me/${phoneRaw}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  const addAccused = () => setAccused(list => [...list, { ...EMPTY_VIP_ACCUSED }]);
+  const removeAccused = (i) => setAccused(list => list.filter((_, idx) => idx !== i));
+  const updateAccused = (i, field, value) => setAccused(list => list.map((a, idx) => idx === i ? { ...a, [field]: value } : a));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setErrors({});
     try {
-      const payload = { ...form, complaint_id: form.complaint_id || null };
-      if (directMode && !payload.complaint_id) {
-        payload.direct_info = buildDirectInfoPayload(direct, circles);
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && v !== '') fd.append(k, v);
+      });
+      if (directMode && !form.complaint_id) {
+        fd.append('direct_info', JSON.stringify(buildDirectInfoPayload(direct, circles)));
       }
+      const accusedClean = accused.map((a) => {
+        const o = { ...a };
+        ACCUSED_DOC_FIELDS.forEach(({ key }) => {
+          if (o[key] instanceof File) delete o[key];
+        });
+        return o;
+      });
+      fd.append('accused', JSON.stringify(accusedClean));
+      accused.forEach((a, i) => {
+        ACCUSED_DOC_FIELDS.forEach(({ key }) => {
+          if (a[key] instanceof File) {
+            const input = {
+              cnic_front: 'accused_cnic_front',
+              cnic_back: 'accused_cnic_back',
+              passport_attachment: 'accused_passport',
+              picture: 'accused_picture',
+              other_attachment: 'accused_other',
+            }[key];
+            if (input) fd.append(`${input}[${i}]`, a[key]);
+          }
+        });
+      });
       if (isEdit) {
-        await api.put(`/verifications/${id}`, payload);
+        fd.append('_method', 'PUT');
+        await api.post(`/verifications/${id}`, fd);
       } else {
-        await api.post('/verifications', payload);
+        await api.post('/verifications', fd);
       }
       navigate('/verifications');
     } catch (err) {
@@ -294,6 +344,86 @@ export default function VerificationForm() {
                 subtitle="Same fields as CMS Case / Enquiry Registration Form"
                 showCaseExtras
               />
+            )}
+
+            {directMode && (
+              <div style={{ marginTop: 20, borderTop: '1px dashed #dbe2ea', paddingTop: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <div className="cf-section-title" style={{ fontSize: 15 }}>Accused Information</div>
+                    <div className="cf-section-sub">Add accused with CNIC, passport, and picture attachments</div>
+                  </div>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={addAccused}>
+                    Add Accused
+                  </button>
+                </div>
+                {accused.map((a, i) => (
+                  <div key={i} style={{ padding: 14, marginBottom: 12, background: '#f8f8f8', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, marginBottom: 12 }}>
+                      <div className="cf-field"><label className="cf-label">Name</label>
+                        <input type="text" className="cf-input" value={a.name} onChange={e => updateAccused(i, 'name', e.target.value)} placeholder="Accused name" />
+                      </div>
+                      <div className="cf-field"><label className="cf-label">Father Name</label>
+                        <input type="text" className="cf-input" value={a.father_name} onChange={e => updateAccused(i, 'father_name', e.target.value)} />
+                      </div>
+                      <div className="cf-field"><label className="cf-label">CNIC</label>
+                        <input type="text" className="cf-input" value={a.cnic} onChange={e => {
+                          let v = e.target.value.replace(/\D/g, '').slice(0, 13);
+                          if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
+                          if (v.length > 13) v = v.slice(0, 13) + '-' + v.slice(13);
+                          updateAccused(i, 'cnic', v);
+                        }} maxLength={15} placeholder="00000-0000000-0" />
+                      </div>
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36, alignSelf: 'end' }} onClick={() => removeAccused(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+                      <div className="cf-field"><label className="cf-label">Contact No</label>
+                        <input type="text" className="cf-input" value={a.contact_no} onChange={e => updateAccused(i, 'contact_no', e.target.value)} />
+                      </div>
+                      <div className="cf-field"><label className="cf-label">Email</label>
+                        <input type="email" className="cf-input" value={a.email} onChange={e => updateAccused(i, 'email', e.target.value)} />
+                      </div>
+                      <div className="cf-field"><label className="cf-label">Nationality</label>
+                        <select className="cf-input" value={a.nationality || 'Pakistani'} onChange={e => updateAccused(i, 'nationality', e.target.value)}>
+                          <option value="Pakistani">Pakistani</option>
+                          <option value="Dual Nationality Holder">Dual Nationality Holder</option>
+                          <option value="Foreigner">Foreigner</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                      <div className="cf-field"><label className="cf-label">Passport No</label>
+                        <input type="text" className="cf-input" value={a.passport_no} onChange={e => updateAccused(i, 'passport_no', e.target.value)} />
+                      </div>
+                      <div className="cf-field"><label className="cf-label">Address</label>
+                        <input type="text" className="cf-input" value={a.address} onChange={e => updateAccused(i, 'address', e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="cf-field" style={{ marginBottom: 12 }}>
+                      <label className="cf-label">Description</label>
+                      <textarea className="cf-input" rows={2} value={a.description} onChange={e => updateAccused(i, 'description', e.target.value)} placeholder="Short remarks about this accused" style={{ width: '100%' }} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                      {ACCUSED_DOC_FIELDS.map(doc => (
+                        <div key={doc.key} className="cf-field">
+                          <label className="cf-label">{doc.label}</label>
+                          <input type="file" className="cf-input" accept={doc.accept} onChange={e => updateAccused(i, doc.key, e.target.files?.[0] || '')} />
+                          {a[doc.key] instanceof File ? (
+                            <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {a[doc.key].name}</span>
+                          ) : (a[`${doc.key}_url`] || (typeof a[doc.key] === 'string' && a[doc.key])) ? (
+                            <a href={a[`${doc.key}_url`] || a[doc.key]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Current file ↗</a>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {accused.length === 0 && (
+                  <p style={{ textAlign: 'center', color: '#999', padding: '8px 0 4px' }}>No accused added yet. Click Add Accused.</p>
+                )}
+              </div>
             )}
           </div>
         </div>

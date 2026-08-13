@@ -22,6 +22,80 @@ use Illuminate\Support\Facades\Storage;
 
 class VerificationController extends Controller
 {
+    private const ACCUSED_FILE_FIELDS = [
+        'photo'                => 'accused_photo',
+        'cnic_front'           => 'accused_cnic_front',
+        'cnic_back'            => 'accused_cnic_back',
+        'passport_attachment'  => 'accused_passport',
+        'picture'              => 'accused_picture',
+        'other_attachment'     => 'accused_other',
+    ];
+
+    private function parseAccusedInput(Request $request): ?array
+    {
+        $accused = $request->input('accused');
+        if (is_string($accused)) {
+            $decoded = json_decode($accused, true);
+            $accused = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        }
+        if (!is_array($accused)) {
+            return null;
+        }
+
+        return array_values(array_filter($accused, function ($row) {
+            if (!is_array($row)) {
+                return false;
+            }
+            return !empty($row['name']) || !empty($row['cnic']) || !empty($row['father_name']);
+        }));
+    }
+
+    private function applyAccusedIdentityFiles(Request $request, array $accusedData, string $directory): array
+    {
+        foreach ($accusedData as $index => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            foreach (self::ACCUSED_FILE_FIELDS as $attr => $input) {
+                $files = $request->file($input, []);
+                $file = is_array($files) ? ($files[$index] ?? null) : null;
+                if ($file) {
+                    $accusedData[$index][$attr] = $file->store($directory, 'public');
+                } elseif (!empty($row[$attr]) && is_string($row[$attr])) {
+                    $accusedData[$index][$attr] = $row[$attr];
+                } else {
+                    $accusedData[$index][$attr] = $row[$attr] ?? null;
+                }
+                if (isset($accusedData[$index][$attr]) && !is_string($accusedData[$index][$attr])) {
+                    unset($accusedData[$index][$attr]);
+                }
+            }
+        }
+
+        return $accusedData;
+    }
+
+    private function accusedWithUrls(?array $accused): ?array
+    {
+        if (!$accused) {
+            return $accused;
+        }
+
+        return array_map(function ($a) {
+            if (!is_array($a)) {
+                return $a;
+            }
+            foreach (array_keys(self::ACCUSED_FILE_FIELDS) as $field) {
+                if (!empty($a[$field]) && is_string($a[$field])) {
+                    $a[$field . '_url'] = str_starts_with($a[$field], 'http')
+                        ? $a[$field]
+                        : Storage::disk('public')->url($a[$field]);
+                }
+            }
+            return $a;
+        }, $accused);
+    }
+
     public function index()
     {
         $query = Verification::visibleTo(request()->user())->with(['complaint', 'officer', 'assignedBy']);
@@ -149,6 +223,12 @@ class VerificationController extends Controller
             'accused.*.nationality' => 'nullable|string|max:50',
             'accused.*.passport_no' => 'nullable|string|max:50|required_if:accused.*.nationality,Dual Nationality Holder|required_if:accused.*.nationality,Foreigner',
             'accused.*.photo'     => 'nullable|string',
+            'accused.*.cnic_front' => 'nullable|string',
+            'accused.*.cnic_back' => 'nullable|string',
+            'accused.*.passport_attachment' => 'nullable|string',
+            'accused.*.picture' => 'nullable|string',
+            'accused.*.other_attachment' => 'nullable|string',
+            'accused.*.country_code' => 'nullable|string|max:8',
 
             'recommendation_short' => 'nullable|string|max:2000',
             'recommendation_full'  => 'nullable|string|max:10000',
@@ -176,16 +256,17 @@ class VerificationController extends Controller
         }
         $data['evidence'] = $evidence ?: null;
 
-        // Handle accused photo uploads
-        $accusedPhotos = $request->file('accused_photo', []);
+        // Handle accused identity uploads (photo, CNIC, passport, picture)
         $accusedData = $data['accused'] ?? [];
-        foreach ($accusedPhotos as $index => $photo) {
-            if (isset($accusedData[$index])) {
-                $path = $photo->store('verification-reports/accused-photos', 'public');
-                $accusedData[$index]['photo'] = $path;
-            }
+        if (is_array($accusedData) && $accusedData !== []) {
+            $data['accused'] = $this->applyAccusedIdentityFiles(
+                $request,
+                $accusedData,
+                'verification-reports/accused-photos'
+            );
+        } else {
+            $data['accused'] = !empty($accusedData) ? $accusedData : null;
         }
-        $data['accused'] = !empty($accusedData) ? $accusedData : null;
 
         // Auto-use user's profile signature if no file uploaded
         $user = auth()->user();
@@ -318,6 +399,12 @@ class VerificationController extends Controller
             'accused.*.nationality' => 'nullable|string|max:50',
             'accused.*.passport_no' => 'nullable|string|max:50|required_if:accused.*.nationality,Dual Nationality Holder|required_if:accused.*.nationality,Foreigner',
             'accused.*.photo'     => 'nullable|string',
+            'accused.*.cnic_front' => 'nullable|string',
+            'accused.*.cnic_back' => 'nullable|string',
+            'accused.*.passport_attachment' => 'nullable|string',
+            'accused.*.picture' => 'nullable|string',
+            'accused.*.other_attachment' => 'nullable|string',
+            'accused.*.country_code' => 'nullable|string|max:8',
 
             'recommendation_short' => 'nullable|string|max:2000',
             'recommendation_full'  => 'nullable|string|max:10000',
@@ -355,16 +442,17 @@ class VerificationController extends Controller
         }
         $data['evidence'] = $evidence ?: null;
 
-        // Accused photo uploads (new photos replace the value sent in accused[*][photo])
-        $accusedPhotos = $request->file('accused_photo', []);
+        // Accused identity uploads (photo, CNIC, passport, picture)
         $accusedData = $data['accused'] ?? [];
-        foreach ($accusedPhotos as $index => $photo) {
-            if (isset($accusedData[$index])) {
-                $path = $photo->store('verification-reports/accused-photos', 'public');
-                $accusedData[$index]['photo'] = $path;
-            }
+        if (is_array($accusedData) && $accusedData !== []) {
+            $data['accused'] = $this->applyAccusedIdentityFiles(
+                $request,
+                $accusedData,
+                'verification-reports/accused-photos'
+            );
+        } else {
+            $data['accused'] = !empty($accusedData) ? $accusedData : null;
         }
-        $data['accused'] = !empty($accusedData) ? $accusedData : null;
 
         $report->update($data);
 
@@ -387,7 +475,10 @@ class VerificationController extends Controller
         );
 
         if (request()->expectsJson()) {
-            return response()->json($verification->load('complaint', 'officer', 'sentByUser'));
+            $payload = $verification->load('complaint', 'officer', 'sentByUser')->toArray();
+            $payload['accused'] = $this->accusedWithUrls($verification->accused);
+
+            return response()->json($payload);
         }
         return redirect()->route('verifications.edit', $verification);
     }
@@ -408,9 +499,23 @@ class VerificationController extends Controller
     {
         $this->authorize('create', Verification::class);
 
+        if (is_string($request->input('direct_info'))) {
+            $decodedDirect = json_decode($request->input('direct_info'), true);
+            if (is_array($decodedDirect)) {
+                $request->merge(['direct_info' => $decodedDirect]);
+            }
+        }
+        if (is_string($request->input('accused'))) {
+            $decodedAccused = json_decode($request->input('accused'), true);
+            if (is_array($decodedAccused)) {
+                $request->merge(['accused' => $decodedAccused]);
+            }
+        }
+
         $data = $request->validate([
             'complaint_id'           => 'nullable|exists:complaints,id',
             'direct_info'            => 'nullable|array',
+            'accused'                => 'nullable',
             'verification_officer_id'=> 'required|exists:users,id',
             'priority_type'          => 'required|in:normal,high,critical',
             'report_text'            => 'nullable|string|max:5000',
@@ -438,6 +543,13 @@ class VerificationController extends Controller
         $data['status']      = 'assigned';
         $data['assigned_by'] = auth()->id();
         $data['assigned_at'] = now();
+
+        $accused = $this->parseAccusedInput($request);
+        if ($accused !== null) {
+            $data['accused'] = $this->applyAccusedIdentityFiles($request, $accused, 'verifications/accused');
+        } else {
+            unset($data['accused']);
+        }
 
         $verification = Verification::create($data);
 
@@ -486,7 +598,22 @@ class VerificationController extends Controller
             'appeared_at'             => 'nullable|date',
             'message_via'             => 'nullable|string|in:whatsapp,sms,phone,in_app,email',
             'whatsapp_sent_at'        => 'nullable|date',
+            'direct_info'             => 'nullable|array',
+            'accused'                 => 'nullable',
         ];
+
+        if (is_string($request->input('direct_info'))) {
+            $decodedDirect = json_decode($request->input('direct_info'), true);
+            if (is_array($decodedDirect)) {
+                $request->merge(['direct_info' => $decodedDirect]);
+            }
+        }
+        if (is_string($request->input('accused'))) {
+            $decodedAccused = json_decode($request->input('accused'), true);
+            if (is_array($decodedAccused)) {
+                $request->merge(['accused' => $decodedAccused]);
+            }
+        }
 
         $data = $request->validate($rules);
 
@@ -517,6 +644,12 @@ class VerificationController extends Controller
         $officerChanged = !empty($data['verification_officer_id'])
             && (int) $data['verification_officer_id'] !== $verification->verification_officer_id;
 
+        $accused = $this->parseAccusedInput($request);
+        unset($data['accused']);
+        if ($accused !== null) {
+            $data['accused'] = $this->applyAccusedIdentityFiles($request, $accused, 'verifications/accused');
+        }
+
         if ($officerChanged) {
             $verification->load('officer');
             app(OfficerAssignmentService::class)->reassign(
@@ -545,7 +678,11 @@ class VerificationController extends Controller
         }
 
         if ($request->expectsJson()) {
-            return response()->json(['message' => 'Verification updated successfully', 'data' => $verification->fresh()]);
+            $fresh = $verification->fresh();
+            $payload = $fresh->toArray();
+            $payload['accused'] = $this->accusedWithUrls($fresh->accused);
+
+            return response()->json(['message' => 'Verification updated successfully', 'data' => $payload]);
         }
 
         return redirect()->route('verifications.index')

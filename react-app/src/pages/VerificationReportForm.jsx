@@ -179,9 +179,18 @@ const [form, setForm] = useState({    tracking_no: '',
         }));
         const accused = (d.accused || []).map(a => ({
           name: a.name || '', father_name: a.father_name || '', phone: a.phone || '', email: a.email || '',
-          country_code: '+92', cnic: a.cnic || '', address: a.address || '',
+          country_code: a.country_code || '+92', cnic: a.cnic || '', address: a.address || '',
           post_address: a.post_address || '', nationality: a.nationality || 'Pakistani',
           passport_no: a.passport_no || '', photo: a.photo || null,
+          cnic_front: a.cnic_front || '', cnic_back: a.cnic_back || '',
+          passport_attachment: a.passport_attachment || '', picture: a.picture || '',
+          other_attachment: a.other_attachment || '',
+          photo_url: a.photo ? '/storage/' + a.photo : '',
+          cnic_front_url: a.cnic_front ? '/storage/' + a.cnic_front : '',
+          cnic_back_url: a.cnic_back ? '/storage/' + a.cnic_back : '',
+          passport_attachment_url: a.passport_attachment ? '/storage/' + a.passport_attachment : '',
+          picture_url: a.picture ? '/storage/' + a.picture : '',
+          other_attachment_url: a.other_attachment ? '/storage/' + a.other_attachment : '',
         }));
         setForm(f => ({
           ...f,
@@ -293,8 +302,20 @@ const [form, setForm] = useState({    tracking_no: '',
       if (k === 'accused') {
         v.forEach((a, i) => {
           Object.entries(a).forEach(([ak, av]) => {
-            if (ak === 'photo' && av instanceof File) fd.append(`accused_photo[${i}]`, av);
-            else fd.append(`accused[${i}][${ak}]`, av ?? '');
+            if (ak.endsWith('_url')) return;
+            if (av instanceof File) {
+              const input = {
+                photo: 'accused_photo',
+                picture: 'accused_picture',
+                cnic_front: 'accused_cnic_front',
+                cnic_back: 'accused_cnic_back',
+                passport_attachment: 'accused_passport',
+                other_attachment: 'accused_other',
+              }[ak];
+              if (input) fd.append(`${input}[${i}]`, av);
+              return;
+            }
+            if (av !== null && av !== undefined && av !== '') fd.append(`accused[${i}][${ak}]`, av);
           });
         });
         return;
@@ -385,7 +406,7 @@ const [form, setForm] = useState({    tracking_no: '',
     }
   };
 
-  const addAccused = () => setForm(f => ({ ...f, accused: [...f.accused, { name: '', father_name: '', phone: '', email: '', country_code: '+92', cnic: '', address: '', post_address: '', nationality: 'Pakistani', passport_no: '', photo: null }] }));
+  const addAccused = () => setForm(f => ({ ...f, accused: [...f.accused, { name: '', father_name: '', phone: '', email: '', country_code: '+92', cnic: '', address: '', post_address: '', nationality: 'Pakistani', passport_no: '', photo: null, cnic_front: '', cnic_back: '', passport_attachment: '', picture: '', other_attachment: '' }] }));
   const removeAccused = (i) => setForm(f => ({ ...f, accused: f.accused.filter((_, idx) => idx !== i) }));
   const updateAccused = (i, field, value) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
   const updateAccusedFile = (i, field, file) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
@@ -665,12 +686,25 @@ const [form, setForm] = useState({    tracking_no: '',
                           <input type="text" className="cf-input" value={a.passport_no || ''} onChange={e => updateAccused(i, 'passport_no', e.target.value)} placeholder={(['Dual Nationality Holder','Foreigner'].includes(a.nationality)) ? 'Passport number required' : 'Optional for Pakistani nationals'} required={['Dual Nationality Holder','Foreigner'].includes(a.nationality)} />
                         </div>
                       </div>
-                      <div className="cf-field">
-                        <label className="cf-label">Photo <span style={{fontSize:11,color:'#6c757d',fontWeight:400}}>(victim can provide accused's picture)</span></label>
-                        <input type="file" className="cf-input" accept="image/*" onChange={e => updateAccusedFile(i, 'photo', e.target.files[0])} />
-                        {a.photo instanceof File
-                          ? <span style={{fontSize:12,color:'#38a169',marginTop:4,display:'block'}}>Photo selected: {a.photo.name}</span>
-                          : (a.photo ? <span style={{fontSize:12,marginTop:4,display:'block'}}>Current photo: <a href={'/storage/' + a.photo} target="_blank" rel="noreferrer" style={{color:'#015C94'}}>View ↗</a></span> : null)}
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px'}}>
+                        {[
+                          { key: 'cnic_front', label: 'CNIC Front', accept: '.jpg,.jpeg,.png,.pdf' },
+                          { key: 'cnic_back', label: 'CNIC Back', accept: '.jpg,.jpeg,.png,.pdf' },
+                          { key: 'passport_attachment', label: 'Passport', accept: '.jpg,.jpeg,.png,.pdf' },
+                          { key: 'picture', label: 'Picture / Photo', accept: 'image/*' },
+                          { key: 'photo', label: 'Photo (legacy)', accept: 'image/*' },
+                          { key: 'other_attachment', label: 'Other Document', accept: '.jpg,.jpeg,.png,.pdf,.doc,.docx' },
+                        ].filter(doc => doc.key !== 'photo').map(doc => (
+                          <div key={doc.key} className="cf-field">
+                            <label className="cf-label">{doc.label}</label>
+                            <input type="file" className="cf-input" accept={doc.accept} onChange={e => updateAccusedFile(i, doc.key, e.target.files[0])} />
+                            {a[doc.key] instanceof File
+                              ? <span style={{fontSize:12,color:'#38a169',marginTop:4,display:'block'}}>Selected: {a[doc.key].name}</span>
+                              : (a[`${doc.key}_url`] || (typeof a[doc.key] === 'string' && a[doc.key])
+                                ? <span style={{fontSize:12,marginTop:4,display:'block'}}>Current: <a href={a[`${doc.key}_url`] || ('/storage/' + a[doc.key])} target="_blank" rel="noreferrer" style={{color:'#015C94'}}>View ↗</a></span>
+                                : null)}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}

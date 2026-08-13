@@ -22,6 +22,7 @@ class Verification extends Model
     protected $fillable = [
         'complaint_id',
         'direct_info',
+        'accused',
         'verification_officer_id',
         'assigned_by',
         'status',
@@ -53,6 +54,7 @@ class Verification extends Model
             'appeared_at'          => 'datetime',
             'whatsapp_sent_at'     => 'datetime',
             'direct_info'          => 'array',
+            'accused'              => 'array',
         ];
     }
 
