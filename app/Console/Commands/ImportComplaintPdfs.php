@@ -53,7 +53,9 @@ class ImportComplaintPdfs extends Command
         $this->info('Scanning PDFs…');
         $queued = 0;
         $skipped = 0;
+        $reused = 0;
         $seen = 0;
+        $skippedNames = [];
         $chunk = [];
         $chunkSize = 50;
 
@@ -65,9 +67,11 @@ class ImportComplaintPdfs extends Command
             $chunk[] = $pdfPath;
 
             if (count($chunk) >= $chunkSize) {
-                [$q, $s] = $this->ingestChunk($service, $user, $batchId, $chunk, $inPlace, $skipExisting, $autoApply, $copyAttachment);
+                [$q, $s, $r, $names] = $this->ingestChunk($service, $user, $batchId, $chunk, $inPlace, $skipExisting, $autoApply, $copyAttachment);
                 $queued += $q;
                 $skipped += $s;
+                $reused += $r;
+                $skippedNames = array_slice(array_merge($skippedNames, $names), 0, 15);
                 $chunk = [];
                 $this->line("  scanned {$seen}  queued {$queued}  skipped {$skipped}");
             }
@@ -75,25 +79,43 @@ class ImportComplaintPdfs extends Command
 
         if ($chunk) {
             if ($this->option('dry-run')) {
-                $this->line('Dry-run remaining:');
+                $this->line('Dry-run files:');
                 foreach ($chunk as $p) {
                     $this->line('  ' . $p);
                 }
             } else {
-                [$q, $s] = $this->ingestChunk($service, $user, $batchId, $chunk, $inPlace, $skipExisting, $autoApply, $copyAttachment);
+                [$q, $s, $r, $names] = $this->ingestChunk($service, $user, $batchId, $chunk, $inPlace, $skipExisting, $autoApply, $copyAttachment);
                 $queued += $q;
                 $skipped += $s;
+                $reused += $r;
+                $skippedNames = array_slice(array_merge($skippedNames, $names), 0, 15);
             }
         }
 
         $this->newLine();
+        $this->info("Found {$seen} PDF(s) under {$path}");
+
         if ($this->option('dry-run')) {
             $this->info('Dry-run complete. No records created.');
 
             return self::SUCCESS;
         }
 
-        $this->info("Queued/processed {$queued} PDF(s). Skipped {$skipped}. Batch: {$batchId}");
+        if ($seen === 0) {
+            $this->warn('Is folder mein koi .pdf file nahi mili. Path check karein (subfolders recursive hain).');
+
+            return self::SUCCESS;
+        }
+
+        $this->info("Queued/processed {$queued} PDF(s). Reused failed {$reused}. Skipped already-imported {$skipped}. Batch: {$batchId}");
+        foreach ($skippedNames as $name) {
+            $this->line("  skip: {$name}");
+        }
+
+        if ($queued === 0 && $skipped > 0) {
+            $this->warn('Sab files pehle se imported/pending hain. Failed dubara: php artisan complaints:retry-pdf-imports --sync');
+            $this->warn('Ya force: add --no-skip-existing');
+        }
 
         if (!$this->option('sync')) {
             $this->line('Start workers (several terminals):');
@@ -101,11 +123,17 @@ class ImportComplaintPdfs extends Command
         }
 
         $counts = ComplaintPdfImport::query()
+            ->where('batch_id', $batchId)
             ->selectRaw('status, count(*) as c')
             ->groupBy('status')
             ->pluck('c', 'status');
-        foreach ($counts as $status => $count) {
-            $this->line("  {$status}: {$count}");
+        if ($counts->isEmpty()) {
+            $this->line('  (this batch: no new rows)');
+        } else {
+            $this->line('This batch:');
+            foreach ($counts as $status => $count) {
+                $this->line("  {$status}: {$count}");
+            }
         }
 
         return self::SUCCESS;
@@ -113,7 +141,7 @@ class ImportComplaintPdfs extends Command
 
     /**
      * @param  list<string>  $paths
-     * @return array{0: int, 1: int}
+     * @return array{0: int, 1: int, 2: int, 3: list<string>}
      */
     private function ingestChunk(
         ComplaintPdfImportService $service,
@@ -130,7 +158,7 @@ class ImportComplaintPdfs extends Command
                 $this->line('  ' . $p);
             }
 
-            return [0, 0];
+            return [0, 0, 0, []];
         }
 
         $stored = $service->registerLocalFiles($paths, $user, $batchId, $inPlace, $skipExisting);
@@ -146,7 +174,12 @@ class ImportComplaintPdfs extends Command
             }
         }
 
-        return [count($stored['imports']), (int) ($stored['skipped'] ?? 0)];
+        return [
+            count($stored['imports']),
+            (int) ($stored['skipped'] ?? 0),
+            (int) ($stored['reused'] ?? 0),
+            $stored['skipped_names'] ?? [],
+        ];
     }
 
     /**

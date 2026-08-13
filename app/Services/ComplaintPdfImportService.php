@@ -40,40 +40,72 @@ class ComplaintPdfImportService
      * Register PDFs already on disk (CLI bulk). $inPlace keeps the original path (no copy).
      *
      * @param  list<string>  $absolutePaths
-     * @return array{batch_id: string, imports: list<ComplaintPdfImport>, skipped: int}
+     * @return array{batch_id: string, imports: list<ComplaintPdfImport>, skipped: int, reused: int, skipped_names: list<string>}
      */
     public function registerLocalFiles(array $absolutePaths, User $user, string $batchId, bool $inPlace = true, bool $skipExisting = true): array
     {
         $imports = [];
         $skipped = 0;
+        $reused = 0;
+        $skippedNames = [];
 
         $absolutePaths = array_values(array_filter(array_map(
             fn ($p) => $this->normalizeLocalPath($p),
             $absolutePaths
         )));
 
-        $existingNames = [];
-        $existingPaths = [];
-        if ($skipExisting && $absolutePaths) {
+        $byName = [];
+        $byPath = [];
+        if ($absolutePaths) {
             $names = array_values(array_unique(array_map('basename', $absolutePaths)));
-            $existingNames = ComplaintPdfImport::query()
-                ->whereIn('original_filename', $names)
-                ->pluck('original_filename')
-                ->all();
-            $existingNames = array_flip($existingNames);
+            $existing = ComplaintPdfImport::query()
+                ->where(function ($q) use ($names, $absolutePaths) {
+                    $q->whereIn('original_filename', $names)
+                        ->orWhereIn('stored_path', $absolutePaths);
+                })
+                ->orderByDesc('id')
+                ->get();
 
-            $existingPaths = ComplaintPdfImport::query()
-                ->whereIn('stored_path', $absolutePaths)
-                ->pluck('stored_path')
-                ->all();
-            $existingPaths = array_flip($existingPaths);
+            foreach ($existing as $row) {
+                $key = strtolower((string) $row->original_filename);
+                $byName[$key] ??= $row;
+                $byPath[(string) $row->stored_path] ??= $row;
+            }
         }
+
+        $active = [
+            ComplaintPdfImport::STATUS_IMPORTED,
+            ComplaintPdfImport::STATUS_PENDING,
+            ComplaintPdfImport::STATUS_PROCESSING,
+            ComplaintPdfImport::STATUS_EXTRACTED,
+        ];
 
         foreach ($absolutePaths as $abs) {
             $original = basename($abs);
+            $row = $byPath[$abs] ?? $byName[strtolower($original)] ?? null;
 
-            if ($skipExisting && (isset($existingNames[$original]) || isset($existingPaths[$abs]))) {
+            if ($row && $row->status === ComplaintPdfImport::STATUS_FAILED) {
+                $stored = $inPlace ? $abs : $row->stored_path;
+                $row->update([
+                    'user_id'       => $user->id,
+                    'batch_id'      => $batchId,
+                    'stored_path'   => $stored,
+                    'status'        => ComplaintPdfImport::STATUS_PENDING,
+                    'error_message' => null,
+                    'processed_at'  => null,
+                ]);
+                $imports[] = $row->fresh();
+                $reused++;
+                $byName[strtolower($original)] = $row;
+                $byPath[$abs] = $row;
+                continue;
+            }
+
+            if ($skipExisting && $row && in_array($row->status, $active, true)) {
                 $skipped++;
+                if (count($skippedNames) < 15) {
+                    $skippedNames[] = $original . ' (' . $row->status . ')';
+                }
                 continue;
             }
 
@@ -86,12 +118,19 @@ class ComplaintPdfImportService
                 $stored = $destRel;
             }
 
-            $imports[] = $this->createImportRow($user, $batchId, $original, $stored);
-            $existingNames[$original] = true;
-            $existingPaths[$abs] = true;
+            $created = $this->createImportRow($user, $batchId, $original, $stored);
+            $imports[] = $created;
+            $byName[strtolower($original)] = $created;
+            $byPath[$abs] = $created;
         }
 
-        return ['batch_id' => $batchId, 'imports' => $imports, 'skipped' => $skipped];
+        return [
+            'batch_id'       => $batchId,
+            'imports'        => $imports,
+            'skipped'        => $skipped,
+            'reused'         => $reused,
+            'skipped_names'  => $skippedNames,
+        ];
     }
 
     public function absolutePdfPath(ComplaintPdfImport $import): string
