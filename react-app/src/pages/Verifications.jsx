@@ -319,7 +319,9 @@ export default function Verifications() {
   const filteredList = list.filter(v => {
     const matchesSearch = !search || 
       v.complaint?.tracking_no?.toLowerCase().includes(search.toLowerCase()) ||
-      v.complaint?.complainant_name?.toLowerCase().includes(search.toLowerCase());
+      v.direct_info?.reference_no?.toLowerCase().includes(search.toLowerCase()) ||
+      v.complaint?.complainant_name?.toLowerCase().includes(search.toLowerCase()) ||
+      v.direct_info?.complainant_name?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = !statusFilter || v.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -453,13 +455,13 @@ export default function Verifications() {
                   <tr key={v.id}>
                     {canBulk && <td><input type="checkbox" className="cf-input" checked={selected.includes(v.id)} onChange={e => { const s = new Set(selected); e.target.checked ? s.add(v.id) : s.delete(v.id); setSelected([...s]); }} /></td>}
                     <td>{i + 1}</td>
-                    <td><span className="table-id">#{v.tracking_no || v.id}</span></td>
+                    <td><span className="table-id">#{(v.complaint?.tracking_no || v.direct_info?.reference_no || v.id)}</span></td>
                     <td>
                       <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                         <div style={{width:'28px',height:'28px',borderRadius:'50%',background:'rgba(38,64,120,0.12)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:600,color:'#2B2B2B'}}>
-                          {(v.complaint?.complainant_name || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0,2).join('').toUpperCase() || '?'}
+                          {((v.complaint?.complainant_name || v.direct_info?.complainant_name) || '?').split(' ').map(w => w[0]).filter(Boolean).slice(0,2).join('').toUpperCase() || '?'}
                         </div>
-                        <span style={{fontSize:'13px',fontWeight:500}}>{v.complaint?.complainant_name}</span>
+                        <span style={{fontSize:'13px',fontWeight:500}}>{v.complaint?.complainant_name || v.direct_info?.complainant_name}</span>
                       </div>
                     </td>
                     <td>{v.officer?.name || '-'}</td>
@@ -874,7 +876,7 @@ export default function Verifications() {
             </div>
             <div className="modal-body">
               <p style={{marginBottom:12, fontSize:13, color:'#555'}}>
-                Complaint <strong>#{msgTarget.complaint?.tracking_no || msgTarget.complaint_id}</strong>
+                Complaint <strong>#{(msgTarget.complaint?.tracking_no || msgTarget.direct_info?.reference_no || msgTarget.complaint_id || msgTarget.id)}</strong>
                 {msgTarget.complaint?.contact_no ? ` · ${msgTarget.complaint.contact_country_code || '+92'}${msgTarget.complaint.contact_no}` : ' · Phone missing'}
               </p>
               <div className="cf-group">

@@ -21,6 +21,7 @@ class Enquiry extends Model
 
     protected $fillable = [
         'complaint_id',
+        'direct_info',
         'enquiry_number',
         'enquiry_officer_id',
         'status',
@@ -90,7 +91,26 @@ class Enquiry extends Model
             'slip_generated'        => 'boolean',
             'slip_generated_at'     => 'datetime',
             'notice_count'          => 'integer',
+            'direct_info'           => 'array',
         ];
+    }
+
+    /**
+     * Display reference: complaint tracking no, else direct reference.
+     */
+    public function reference(): ?string
+    {
+        return $this->complaint?->tracking_no
+            ?: ($this->direct_info['reference_no'] ?? null);
+    }
+
+    /**
+     * Display complainant name: from complaint, else direct snapshot.
+     */
+    public function complainantName(): ?string
+    {
+        return $this->complaint?->complainant_name
+            ?: ($this->direct_info['complainant_name'] ?? null);
     }
 
     public function complaint(): BelongsTo

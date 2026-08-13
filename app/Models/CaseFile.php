@@ -23,6 +23,7 @@ class CaseFile extends Model
 
     protected $fillable = [
         'enquiry_id',
+        'direct_info',
         'fir_no',
         'investigation_officer_id',
         'status',
@@ -31,6 +32,25 @@ class CaseFile extends Model
         'transfer_circle',
         'merge_complaint_id',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'direct_info' => 'array',
+        ];
+    }
+
+    public function reference(): ?string
+    {
+        return $this->enquiry?->reference();
+    }
+
+    public function complainantName(): ?string
+    {
+        return $this->enquiry?->complaint?->complainant_name
+            ?: ($this->direct_info['complainant_name'] ?? null)
+            ?: $this->enquiry?->complainantName();
+    }
 
     public function enquiry(): BelongsTo
     {
