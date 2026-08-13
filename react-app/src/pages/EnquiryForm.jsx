@@ -218,6 +218,8 @@ export default function EnquiryForm() {
   const [linkedVerification, setLinkedVerification] = useState(null);
   const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
+  const [editingAccusedIndex, setEditingAccusedIndex] = useState(null);
+  const [editingNoticeIndex, setEditingNoticeIndex] = useState(null);
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
@@ -450,10 +452,19 @@ export default function EnquiryForm() {
   };
 
   // Accused
-  const addAccused = () => setForm(f => ({ ...f, accused: [...f.accused, { ...EMPTY_ACCUSED }] }));
-  const removeAccused = (i) => setForm(f => ({ ...f, accused: f.accused.filter((_, idx) => idx !== i) }));
+  const addAccused = () => {
+    setForm(f => {
+      setEditingAccusedIndex(f.accused.length);
+      return { ...f, accused: [...f.accused, { ...EMPTY_ACCUSED }] };
+    });
+  };
+  const removeAccused = (i) => {
+    setForm(f => ({ ...f, accused: f.accused.filter((_, idx) => idx !== i) }));
+    setEditingAccusedIndex(prev => (prev === i ? null : (prev != null && prev > i ? prev - 1 : prev)));
+  };
   const updateAccused = (i, field, value) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
   const updateAccusedFile = (i, field, file) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
+  const isAccusedEditing = (a, i) => !a.id || editingAccusedIndex === i;
 
   // Attachments
   const addAttachment = () => setForm(f => ({ ...f, attachments: [...f.attachments, { ...EMPTY_ATTACHMENT, attachment_date: new Date().toISOString().split('T')[0] }] }));
@@ -520,9 +531,18 @@ export default function EnquiryForm() {
   const updateWitnessFile = (i, field, file) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
 
   // Notices
-  const addNotice = () => setForm(f => ({ ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] }));
-  const removeNotice = (i) => setForm(f => ({ ...f, notices: f.notices.filter((_, idx) => idx !== i) }));
+  const addNotice = () => {
+    setForm(f => {
+      setEditingNoticeIndex(f.notices.length);
+      return { ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] };
+    });
+  };
+  const removeNotice = (i) => {
+    setForm(f => ({ ...f, notices: f.notices.filter((_, idx) => idx !== i) }));
+    setEditingNoticeIndex(prev => (prev === i ? null : (prev != null && prev > i ? prev - 1 : prev)));
+  };
   const updateNotice = (i, field, value) => setForm(f => ({ ...f, notices: f.notices.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const isNoticeEditing = (n, i) => !n.id || editingNoticeIndex === i;
 
   const fillNoticeFromPerson = (noticeIndex, personType, personRef) => {
     setForm(f => {
@@ -775,11 +795,21 @@ export default function EnquiryForm() {
     if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
 
     // PHP does not populate multipart on real PUT — use method spoofing
+    let res;
     if (id) {
       fd.append('_method', 'PUT');
-      await api.post(`/enquiries/${id}`, fd);
+      res = await api.post(`/enquiries/${id}`, fd);
     } else {
-      await api.post('/enquiries', fd);
+      res = await api.post('/enquiries', fd);
+    }
+    const saved = res?.data?.data || res?.data;
+    if (saved?.id) {
+      applyEnquiryPayload(saved);
+      setEditingAccusedIndex(null);
+      setEditingNoticeIndex(null);
+      if (!id && !navigateAway) {
+        navigate(`/enquiries/${saved.id}/edit`, { replace: true });
+      }
     }
     if (navigateAway) navigate('/enquiries');
   };
@@ -1132,15 +1162,80 @@ export default function EnquiryForm() {
               <div className="cf-section-icon" style={{ background: '#9b2226' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
               </div>
-              <div><div className="cf-section-title">Accused Persons</div><div className="cf-section-sub">Full accused details with document attachments</div></div>
+              <div><div className="cf-section-title">Accused Persons</div><div className="cf-section-sub">Saved accused list — Edit to update full details</div></div>
             </div>
             <div className="cf-body">
               <button type="button" className="btn btn-outline btn-sm" onClick={addAccused} style={{ marginBottom: 16 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Accused
               </button>
-              {form.accused.map((a, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+
+              {form.accused.some((a, i) => a.id && !isAccusedEditing(a, i)) ? (
+                <div className="table-card" style={{ marginBottom: 16, overflow: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>NAME</th>
+                        <th>CNIC</th>
+                        <th>DESCRIPTION</th>
+                        <th>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {form.accused.map((a, i) => {
+                        if (!a.id || isAccusedEditing(a, i)) return null;
+                        return (
+                          <tr key={a.id || i}>
+                            <td><span className="badge" style={{ background: 'rgba(1,92,148,0.12)', color: '#015C94', fontWeight: 700 }}>#{i + 1}</span></td>
+                            <td style={{ fontWeight: 600 }}>{a.name || '—'}</td>
+                            <td>{a.cnic || '—'}</td>
+                            <td style={{ maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.description || '—'}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => setEditingAccusedIndex(i)}
+                                  title="Edit"
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm"
+                                  style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36 }}
+                                  onClick={() => removeAccused(i)}
+                                  title="Remove"
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {form.accused.map((a, i) => {
+                if (!isAccusedEditing(a, i)) return null;
+                return (
+                <div key={a.id || `new-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <strong style={{ fontSize: 13, color: '#015C94' }}>{a.id ? `Edit Accused #${i + 1}` : `New Accused #${i + 1}`}</strong>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {a.id ? (
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingAccusedIndex(null)}>Done</button>
+                      ) : null}
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAccused(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Name</label><input type="text" className="cf-input" value={a.name} onChange={e => updateAccused(i, 'name', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={a.cnic} onChange={e => updateAccused(i, 'cnic', e.target.value)} placeholder="XXXXX-XXXXXXX-X" /></div>
                     <div className="cf-field"><label className="cf-label">Father Name</label><input type="text" className="cf-input" value={a.father_name} onChange={e => updateAccused(i, 'father_name', e.target.value)} /></div>
@@ -1150,9 +1245,6 @@ export default function EnquiryForm() {
                         {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeAccused(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Contact No</label><input type="text" className="cf-input" value={a.contact_no} onChange={e => updateAccused(i, 'contact_no', e.target.value)} /></div>
@@ -1200,13 +1292,14 @@ export default function EnquiryForm() {
                         <label className="cf-label">{label}</label>
                         <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateAccusedFile(i, field, e.target.files[0])} />
                         {a[field] && typeof a[field] === 'string' && (
-                          <a href={a[field]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Existing file Γåù</a>
+                          <a href={a[field]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Existing file ↗</a>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
               {form.accused.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No accused added yet.</p>}
             </div>
           </div>

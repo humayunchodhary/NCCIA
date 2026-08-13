@@ -652,7 +652,23 @@ class EnquiryController extends Controller
         }
 
         if ($request->expectsJson()) {
-            return response()->json(['message' => 'Enquiry registered', 'data' => $enquiry->load('complaint', 'officer')], 201);
+            $enquiry->load(
+                'complaint',
+                'officer',
+                'activities.creator',
+                'legalOpinions.creator',
+                'approvals.circleIncharge',
+                'witnesses',
+                'notices',
+                'accusedPersons',
+                'enquiryAttachments',
+                'requisitions'
+            );
+            $payload = $enquiry->toArray();
+            $payload['accused'] = $enquiry->accusedPersons;
+            $payload['attachments'] = $enquiry->enquiryAttachments;
+
+            return response()->json(['message' => 'Enquiry registered', 'data' => $payload], 201);
         }
 
         return redirect()->route('enquiries.index')
@@ -897,20 +913,25 @@ class EnquiryController extends Controller
             }
 
             if ($request->expectsJson()) {
+                $fresh = $enquiry->fresh()->load(
+                    'complaint',
+                    'officer',
+                    'activities.creator',
+                    'legalOpinions.creator',
+                    'approvals.circleIncharge',
+                    'witnesses',
+                    'notices',
+                    'accusedPersons',
+                    'enquiryAttachments',
+                    'requisitions'
+                );
+                $payload = $fresh->toArray();
+                $payload['accused'] = $fresh->accusedPersons;
+                $payload['attachments'] = $fresh->enquiryAttachments;
+
                 return response()->json([
                     'message' => 'Enquiry updated successfully',
-                    'data'    => $enquiry->fresh()->load(
-                        'complaint',
-                        'officer',
-                        'activities.creator',
-                        'legalOpinions.creator',
-                        'approvals.circleIncharge',
-                        'witnesses',
-                        'notices',
-                        'accusedPersons',
-                        'enquiryAttachments',
-                        'requisitions'
-                    ),
+                    'data'    => $payload,
                 ]);
             }
 
