@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ForensicLayout from './components/ForensicLayout';
@@ -35,7 +35,7 @@ import Rules from './pages/Rules';
 import SOP from './pages/SOP';
 import UserManual from './pages/UserManual';
 import Chat from './pages/Chat';
-import { canAssignVerification, canCreateComplaint, canView, isForensicUser } from './utils/permissions';
+import { canAssignVerification, canCreateComplaint, canCreateDirectVerification, canView, isForensicUser } from './utils/permissions';
 
 const MAIN_ROLES = [
   'admin', 'circle_incharge', 'operator', 'verification_officer',
@@ -94,8 +94,11 @@ function CreateComplaintRoute({ children }) {
 
 function AssignVerificationRoute({ children }) {
   const { user, loading } = useAuth();
+  const [searchParams] = useSearchParams();
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
   if (!user) return <Navigate to="/login" />;
+  const isDirect = searchParams.get('direct') === '1';
+  if (isDirect && canCreateDirectVerification(user)) return children;
   if (!canAssignVerification(user)) return <Navigate to="/verifications" replace />;
   return children;
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
-import { canView, hasRole, canCreateComplaint, canAssignVerification } from '../utils/permissions';
+import { canView, hasRole, canCreateComplaint, canAssignVerification, canSeeDirectVerification, canSeeDirectEnquiry, canSeeDirectFir } from '../utils/permissions';
 
 function getBreadcrumb(pathname) {
   const map = {
@@ -401,7 +401,7 @@ export default function Layout() {
               </div>
             </>
           )}
-          {(canAssignVerification(user) || canView('enquiries', user) || canView('dac_cases', user)) && (
+          {(canSeeDirectVerification(user) || canSeeDirectEnquiry(user) || canSeeDirectFir(user)) && (
             <div className="nav-item">
               <a
                 href="#vip-direct"
@@ -419,27 +419,27 @@ export default function Layout() {
                 </svg>
               </a>
               <div className={`nav-submenu${vipOpen ? ' open' : ''}`}>
-                {canAssignVerification(user) && (
+                {canSeeDirectVerification(user) && (
                   <div className="nav-item">
                     <NavLink to="/verifications/create?direct=1" className="nav-link" data-page="direct-verification">
                       <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
-                      <span>Direct Verification</span>
+                      <span>VIP Verification</span>
                     </NavLink>
                   </div>
                 )}
-                {canView('enquiries', user) && (
+                {canSeeDirectEnquiry(user) && (
                   <div className="nav-item">
                     <NavLink to="/enquiries/create?direct=1" className="nav-link" data-page="direct-enquiry">
                       <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-                      <span>Direct Enquiry</span>
+                      <span>VIP Enquiry</span>
                     </NavLink>
                   </div>
                 )}
-                {canView('dac_cases', user) && (
+                {canSeeDirectFir(user) && (
                   <div className="nav-item">
                     <NavLink to="/cases/create?direct=1" className="nav-link" data-page="direct-fir">
                       <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
-                      <span>Direct FIR</span>
+                      <span>VIP FIR / DAC</span>
                     </NavLink>
                   </div>
                 )}

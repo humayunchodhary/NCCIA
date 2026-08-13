@@ -20,6 +20,7 @@ use App\Notifications\NoticeNonAppearanceNotification;
 use App\Notifications\CaseAssignedNotification;
 use App\Services\EnquiryNumberGenerator;
 use App\Services\FirNumberGenerator;
+use App\Services\OfficerAssignmentService;
 use App\Services\PrintService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -607,6 +608,13 @@ class EnquiryController extends Controller
         });
 
         if ($enquiry->enquiry_officer_id) {
+            app(OfficerAssignmentService::class)->recordInitial(
+                $enquiry,
+                OfficerAssignmentService::TYPE_ENQUIRY,
+                OfficerAssignmentService::ROLE_EO,
+                (int) $enquiry->enquiry_officer_id,
+                $request->user()->id,
+            );
             $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
         }
 
@@ -784,6 +792,18 @@ class EnquiryController extends Controller
             $officerChanged = $privileged && !empty($data['enquiry_officer_id'])
                 && (int) $data['enquiry_officer_id'] !== (int) $enquiry->enquiry_officer_id;
 
+            if ($officerChanged) {
+                $enquiry->load('officer');
+                app(OfficerAssignmentService::class)->reassign(
+                    $enquiry,
+                    OfficerAssignmentService::TYPE_ENQUIRY,
+                    OfficerAssignmentService::ROLE_EO,
+                    (int) $data['enquiry_officer_id'],
+                    $request->user()->id,
+                    'Officer changed via update',
+                );
+            }
+
             DB::transaction(function () use ($enquiry, $updateData, $data, $request, $privileged) {
                 if (!empty($updateData)) {
                     $enquiry->update($updateData);
@@ -830,6 +850,11 @@ class EnquiryController extends Controller
 
             if ($officerChanged) {
                 $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+            } else {
+                app(OfficerAssignmentService::class)->touchWorkSnapshot(
+                    $enquiry->fresh(),
+                    OfficerAssignmentService::TYPE_ENQUIRY,
+                );
             }
 
             if ($request->expectsJson()) {
@@ -933,7 +958,18 @@ class EnquiryController extends Controller
     {
         $data = $request->validate([
             'enquiry_officer_id' => 'required|integer|exists:users,id',
+            'change_reason'      => 'nullable|string|max:500',
         ]);
+
+        $enquiry->load('officer');
+        app(OfficerAssignmentService::class)->reassign(
+            $enquiry,
+            OfficerAssignmentService::TYPE_ENQUIRY,
+            OfficerAssignmentService::ROLE_EO,
+            (int) $data['enquiry_officer_id'],
+            $request->user()->id,
+            $data['change_reason'] ?? 'Officer assigned',
+        );
 
         $enquiry->update([
             'enquiry_officer_id' => $data['enquiry_officer_id'],
@@ -953,7 +989,18 @@ class EnquiryController extends Controller
     {
         $data = $request->validate([
             'enquiry_officer_id' => 'required|integer|exists:users,id',
+            'change_reason'      => 'nullable|string|max:500',
         ]);
+
+        $enquiry->load('officer');
+        app(OfficerAssignmentService::class)->reassign(
+            $enquiry,
+            OfficerAssignmentService::TYPE_ENQUIRY,
+            OfficerAssignmentService::ROLE_EO,
+            (int) $data['enquiry_officer_id'],
+            $request->user()->id,
+            $data['change_reason'] ?? 'Officer reassigned',
+        );
 
         $enquiry->update([
             'enquiry_officer_id' => $data['enquiry_officer_id'],
@@ -964,7 +1011,7 @@ class EnquiryController extends Controller
         $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
 
         return response()->json([
-            'message' => 'Enquiry officer reassigned',
+            'message' => 'Enquiry officer reassigned. Previous officer work saved in history.',
             'data'    => $enquiry->fresh()->load('officer'),
         ]);
     }

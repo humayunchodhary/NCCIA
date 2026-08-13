@@ -9,6 +9,7 @@ use App\Models\CaseApproval;
 use App\Models\Enquiry;
 use App\Notifications\CaseAssignedNotification;
 use App\Services\FirNumberGenerator;
+use App\Services\OfficerAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -201,6 +202,16 @@ class CaseFileController extends Controller
                 'status'                  => 'registered',
             ]);
 
+            if (!empty($caseFile->investigation_officer_id)) {
+                app(OfficerAssignmentService::class)->recordInitial(
+                    $caseFile,
+                    OfficerAssignmentService::TYPE_CASE,
+                    OfficerAssignmentService::ROLE_IO,
+                    (int) $caseFile->investigation_officer_id,
+                    $request->user()->id,
+                );
+            }
+
             // Create activities from checked actions
             if (!empty($actions)) {
                 $actionTypes = [
@@ -364,6 +375,22 @@ class CaseFileController extends Controller
         $legalOpinions = $this->decodeArrayField($data['legal_opinions'] ?? []);
         $approvals = $this->decodeArrayField($data['approvals'] ?? []);
 
+        $officerChanged = array_key_exists('investigation_officer_id', $data)
+            && (int) ($data['investigation_officer_id'] ?: 0) !== (int) ($caseFile->investigation_officer_id ?: 0)
+            && !empty($data['investigation_officer_id']);
+
+        if ($officerChanged) {
+            $caseFile->load('investigationOfficer');
+            app(OfficerAssignmentService::class)->reassign(
+                $caseFile,
+                OfficerAssignmentService::TYPE_CASE,
+                OfficerAssignmentService::ROLE_IO,
+                (int) $data['investigation_officer_id'],
+                $request->user()->id,
+                'Officer changed via update',
+            );
+        }
+
         DB::transaction(function () use ($caseFile, $data, $request, $actions, $arrests, $legalOpinions, $approvals) {
             $updates = array_filter([
                 'enquiry_id'               => array_key_exists('enquiry_id', $data) ? $data['enquiry_id'] : null,
@@ -524,7 +551,18 @@ class CaseFileController extends Controller
     {
         $data = $request->validate([
             'investigation_officer_id' => 'required|integer|exists:users,id',
+            'change_reason'            => 'nullable|string|max:500',
         ]);
+
+        $caseFile->load('investigationOfficer');
+        app(OfficerAssignmentService::class)->reassign(
+            $caseFile,
+            OfficerAssignmentService::TYPE_CASE,
+            OfficerAssignmentService::ROLE_IO,
+            (int) $data['investigation_officer_id'],
+            $request->user()->id,
+            $data['change_reason'] ?? 'Officer reassigned',
+        );
 
         $caseFile->update([
             'investigation_officer_id' => $data['investigation_officer_id'],
@@ -534,7 +572,7 @@ class CaseFileController extends Controller
         $caseFile->investigationOfficer?->notify(new CaseAssignedNotification($caseFile));
 
         return response()->json([
-            'message' => 'Investigation officer assigned',
+            'message' => 'Investigation officer assigned. Previous officer work saved in history.',
             'data'    => $caseFile->fresh()->load('investigationOfficer'),
         ]);
     }

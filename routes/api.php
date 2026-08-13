@@ -21,6 +21,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SidebarCountsController;
 use App\Http\Controllers\Forensic\ForensicUserController;
+use App\Http\Controllers\OfficerAssignmentHistoryController;
 
 Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
@@ -85,6 +86,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkAction'])
         ->middleware('role:admin,circle_incharge');
     Route::get('/verifications/{verification}', [VerificationController::class, 'show'])->name('api.verifications.show');
+    Route::get('/verifications/{verification}/officer-history', [OfficerAssignmentHistoryController::class, 'forVerification']);
     Route::put('/verifications/{verification}', [VerificationController::class, 'update'])->name('api.verifications.update');
     Route::delete('/verifications/{verification}', [VerificationController::class, 'destroy'])
         ->middleware('role:admin')
@@ -102,6 +104,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->middleware('role:admin,circle_incharge,operator,reader_branch,moharrar,enquiry_officer,director_general,ad_legal,dd_legal,additional_director')
         ->name('api.enquiries.store');
     Route::get('/enquiries/{enquiry}', [EnquiryController::class, 'show'])->name('api.enquiries.show');
+    Route::get('/enquiries/{enquiry}/officer-history', [OfficerAssignmentHistoryController::class, 'forEnquiry']);
     Route::put('/enquiries/{enquiry}', [EnquiryController::class, 'update'])->name('api.enquiries.update');
     Route::delete('/enquiries/{enquiry}', [EnquiryController::class, 'destroy'])
         ->middleware('role:admin')
@@ -124,6 +127,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::get('/cases', [CaseFileController::class, 'index'])->name('api.cases.index');
     Route::post('/cases', [CaseFileController::class, 'store'])->name('api.cases.store');
     Route::get('/cases/{caseFile}', [CaseFileController::class, 'show'])->name('api.cases.show');
+    Route::get('/cases/{caseFile}/officer-history', [OfficerAssignmentHistoryController::class, 'forCase']);
     Route::put('/cases/{caseFile}', [CaseFileController::class, 'update'])->name('api.cases.update');
     Route::delete('/cases/{caseFile}', [CaseFileController::class, 'destroy'])->name('api.cases.destroy');
     Route::post('/cases/{caseFile}/assign-officer', [CaseFileController::class, 'assignOfficer'])

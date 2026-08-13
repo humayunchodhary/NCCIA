@@ -14,6 +14,7 @@ use App\Notifications\VerificationSubmittedNotification;
 use App\Notifications\ComplainantMessageNotification;
 use App\Services\ComplainantNotifyService;
 use App\Services\EnquiryNumberGenerator;
+use App\Services\OfficerAssignmentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -428,6 +429,14 @@ class VerificationController extends Controller
 
         $verification = Verification::create($data);
 
+        app(OfficerAssignmentService::class)->recordInitial(
+            $verification,
+            OfficerAssignmentService::TYPE_VERIFICATION,
+            OfficerAssignmentService::ROLE_VO,
+            (int) $verification->verification_officer_id,
+            auth()->id(),
+        );
+
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
 
         if ($request->expectsJson()) {
@@ -496,10 +505,27 @@ class VerificationController extends Controller
         $officerChanged = !empty($data['verification_officer_id'])
             && (int) $data['verification_officer_id'] !== $verification->verification_officer_id;
 
+        if ($officerChanged) {
+            $verification->load('officer');
+            app(OfficerAssignmentService::class)->reassign(
+                $verification,
+                OfficerAssignmentService::TYPE_VERIFICATION,
+                OfficerAssignmentService::ROLE_VO,
+                (int) $data['verification_officer_id'],
+                $request->user()->id,
+                'Officer changed via update',
+            );
+        }
+
         $verification->update($data);
 
         if ($officerChanged) {
             $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        } else {
+            app(OfficerAssignmentService::class)->touchWorkSnapshot(
+                $verification->fresh(),
+                OfficerAssignmentService::TYPE_VERIFICATION,
+            );
         }
 
         if ($justNotified) {
@@ -790,6 +816,14 @@ class VerificationController extends Controller
 
         $verification = Verification::create($data);
 
+        app(OfficerAssignmentService::class)->recordInitial(
+            $verification,
+            OfficerAssignmentService::TYPE_VERIFICATION,
+            OfficerAssignmentService::ROLE_VO,
+            (int) $verification->verification_officer_id,
+            $request->user()->id,
+        );
+
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
 
         return response()->json([
@@ -825,6 +859,11 @@ class VerificationController extends Controller
 
         $verification->update($data);
         $verification->load(['complaint', 'officer', 'approvals']);
+
+        app(OfficerAssignmentService::class)->touchWorkSnapshot(
+            $verification,
+            OfficerAssignmentService::TYPE_VERIFICATION,
+        );
 
         // Only same-circle Circle Incharge(s) get this (e.g. aslam @ Lahore)
         $this->notifyCircleInchargesForVerification($verification);
@@ -989,12 +1028,26 @@ class VerificationController extends Controller
 
         $data = $request->validate([
             'verification_officer_id' => 'required|integer|exists:users,id',
+            'change_reason'           => 'nullable|string|max:500',
         ]);
+
+        $verification->load('officer');
+
+        app(OfficerAssignmentService::class)->reassign(
+            $verification,
+            OfficerAssignmentService::TYPE_VERIFICATION,
+            OfficerAssignmentService::ROLE_VO,
+            (int) $data['verification_officer_id'],
+            $request->user()->id,
+            $data['change_reason'] ?? 'Officer reassigned',
+        );
 
         $verification->update([
             'verification_officer_id' => $data['verification_officer_id'],
             'status'                  => 'assigned',
             'assigned_at'             => now(),
+            'assigned_by'             => $request->user()->id,
+            // Clear live fields for the new officer; previous work is kept in officer_assignment_histories.work_snapshot
             'report_text'             => null,
             'recommendation'          => null,
             'closure_reason'          => null,
@@ -1010,7 +1063,7 @@ class VerificationController extends Controller
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
 
         return response()->json([
-            'message' => 'Verification officer reassigned',
+            'message' => 'Verification officer reassigned. Previous officer work saved in history.',
             'data'    => $verification->fresh()->load('officer'),
         ]);
     }

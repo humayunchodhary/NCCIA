@@ -137,6 +137,32 @@ export function canAssignVerification(user) {
   return hasAnyRole(user, ['admin', 'circle_incharge', 'operator']);
 }
 
+/** Sidebar / create: VIP Direct Verification */
+export function canSeeDirectVerification(user) {
+  return hasAnyRole(user, ['admin', 'circle_incharge', 'operator', 'verification_officer', 'director_general']);
+}
+
+/** Sidebar / create: VIP Direct Enquiry */
+export function canSeeDirectEnquiry(user) {
+  return hasAnyRole(user, [
+    'admin', 'circle_incharge', 'enquiry_officer', 'reader_branch',
+    'director_general', 'ad_legal', 'dd_legal', 'additional_director',
+  ]) || canView('enquiries', user);
+}
+
+/** Sidebar / create: VIP Direct FIR (DAC) */
+export function canSeeDirectFir(user) {
+  return hasAnyRole(user, [
+    'admin', 'circle_incharge', 'moharrar', 'investigation_officer',
+    'enquiry_officer', 'director_general', 'ad_legal', 'dd_legal', 'additional_director',
+  ]) || canView('dac_cases', user);
+}
+
+/** VO may open direct verification create (assigned to self); CI/admin/operator assign freely */
+export function canCreateDirectVerification(user) {
+  return canSeeDirectVerification(user);
+}
+
 /** Enquiry → Case/FIR registration (Circle Incharge, legal chain, Moharrar, DG). */
 export function canRegisterCaseFromEnquiry(user) {
   return hasAnyRole(user, [
