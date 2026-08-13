@@ -1284,7 +1284,7 @@ export default function EnquiryForm() {
             </div>
             <div className="cf-body">
               <div className="cf-field" style={{ marginBottom: 16 }}>
-                <label className="cf-label">Technical Report</label>
+                <label className="cf-label required">Technical Report</label>
                 <textarea
                   className="cf-input"
                   rows={4}
@@ -1293,27 +1293,27 @@ export default function EnquiryForm() {
                   placeholder="Technical analysis / report findings..."
                   style={{ width: '100%' }}
                 />
-                {technicalReportUrl && (
+                {technicalReportUrl ? (
                   <div style={{ fontSize: 12, marginTop: 6 }}>
                     Current file:{' '}
                     <a href={technicalReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>
                       Open ↗
                     </a>
                   </div>
-                )}
-                {technicalFile && (
+                ) : null}
+                {technicalFile ? (
                   <div style={{ fontSize: 12, marginTop: 6, color: '#0d7a4f' }}>Selected: {technicalFile.name}</div>
-                )}
+                ) : null}
                 <input
                   type="file"
                   className="cf-input"
                   style={{ marginTop: 8 }}
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  onChange={e => setTechnicalFile(e.target.files[0] || null)}
+                  onChange={e => setTechnicalFile(e.target.files?.[0] || null)}
                 />
               </div>
               <div className="cf-field">
-                <label className="cf-label">Forensic Report</label>
+                <label className="cf-label required">Forensic Report</label>
                 <textarea
                   className="cf-input"
                   rows={4}
@@ -1322,23 +1322,23 @@ export default function EnquiryForm() {
                   placeholder="Forensic analysis / report findings..."
                   style={{ width: '100%' }}
                 />
-                {forensicReportUrl && (
+                {forensicReportUrl ? (
                   <div style={{ fontSize: 12, marginTop: 6 }}>
                     Current file:{' '}
                     <a href={forensicReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>
                       Open ↗
                     </a>
                   </div>
-                )}
-                {forensicFile && (
+                ) : null}
+                {forensicFile ? (
                   <div style={{ fontSize: 12, marginTop: 6, color: '#0d7a4f' }}>Selected: {forensicFile.name}</div>
-                )}
+                ) : null}
                 <input
                   type="file"
                   className="cf-input"
                   style={{ marginTop: 8 }}
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  onChange={e => setForensicFile(e.target.files[0] || null)}
+                  onChange={e => setForensicFile(e.target.files?.[0] || null)}
                 />
               </div>
             </div>
