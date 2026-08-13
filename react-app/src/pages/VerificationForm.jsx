@@ -12,6 +12,8 @@ import {
   normalizeDirectInfo,
   buildDirectInfoPayload,
 } from '../utils/directCaseOptions';
+import PdfAutoFillBar from '../components/PdfAutoFillBar';
+import { mapExtractToDirectInfo, mapExtractToVipAccused } from '../utils/fillFromPdf';
 
 const EMPTY_VIP_ACCUSED = {
   name: '', father_name: '', cnic: '', contact_no: '', email: '', address: '',
@@ -252,6 +254,20 @@ export default function VerificationForm() {
           <div className="title-underline"></div>
         </div>
       </div>
+
+      {!isEdit && (
+        <PdfAutoFillBar
+          hint="FIA verification PDF upload karein — Direct/VIP case par complainant, CNIC, phone, address aur gist auto fill ho jayega."
+          onFilled={(extracted) => {
+            setDirectMode(true);
+            setDirect(d => mapExtractToDirectInfo(extracted, d));
+            const row = mapExtractToVipAccused(extracted);
+            if (row) {
+              setAccused(list => (list.some(a => a.cnic && row.cnic && a.cnic === row.cnic) ? list : [...list, row]));
+            }
+          }}
+        />
+      )}
 
       {errors._general && <div className="cf-alert cf-alert-error">{errors._general}</div>}
 

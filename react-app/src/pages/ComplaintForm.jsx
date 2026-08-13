@@ -5,6 +5,8 @@ import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
 import { countryCodes } from '../data/countries';
 import { canAssignVerification, hasRole } from '../utils/permissions';
+import PdfAutoFillBar from '../components/PdfAutoFillBar';
+import { mapExtractToComplaintForm, matchLookupValue } from '../utils/fillFromPdf';
 
 const SCRUTINY_OPTIONS = [
   { value: 'complete', name: 'Complete (Generate Tracking No)' },
@@ -73,7 +75,7 @@ const EVIDENCE_OPTIONS = [
 ];
 
 const EMPTY_ACCUSED = {
-  name: '', mobile_no: '', cnic: '', email: '', social_media_url: '', other_info: '',
+  name: '', mobile_no: '', cnic: '', email: '', social_media_url: '', other_info: '', description: '',
 };
 
 const initialForm = {
@@ -463,6 +465,23 @@ export default function ComplaintForm() {
         </div>
       </div>
 
+      {!id && (
+        <PdfAutoFillBar
+          hint="FIA verification / complaint PDF (jaise 261-26.PDF) upload karein — naam, CNIC, phone, address, tracking, amount aur dates auto fill ho jayenge."
+          onFilled={(extracted, file) => {
+            const mapped = mapExtractToComplaintForm(extracted);
+            const offence = matchLookupValue(offenceTypes, extracted.crime_category);
+            setForm(f => ({
+              ...f,
+              ...mapped,
+              ...(offence ? { offence_type: offence } : {}),
+              initial_accused: mapped.initial_accused?.length ? mapped.initial_accused : f.initial_accused,
+            }));
+            if (file) setAttachmentFile(file);
+          }}
+        />
+      )}
+
       <form onSubmit={handleSubmit} noValidate>
         {serverError && (
           <div className="cf-alert cf-alert-error" style={{ marginBottom: 16 }}>{serverError}</div>
@@ -675,6 +694,16 @@ export default function ComplaintForm() {
                       <label className="cf-label">Other Info</label>
                       <input type="text" className="cf-input" value={a.other_info} onChange={e => updateInitialAccused(i, 'other_info', e.target.value)} placeholder="Any other details" />
                     </div>
+                  </div>
+                  <div className="cf-field">
+                    <label className="cf-label">Description</label>
+                    <textarea
+                      className="cf-input cf-textarea"
+                      rows={2}
+                      value={a.description || ''}
+                      onChange={e => updateInitialAccused(i, 'description', e.target.value)}
+                      placeholder="Role, involvement, modus operandi — anything about this accused..."
+                    />
                   </div>
                 </div>
               ))}

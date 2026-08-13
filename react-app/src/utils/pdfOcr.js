@@ -287,10 +287,10 @@ async function ocrPageWithPdfJs(page, worker, onStatus) {
 /**
  * @param {File} file
  * @param {(msg: string) => void} [onStatus]
- * @param {{ serverRenderPage?: (pageIndex: number) => Promise<string|null> }} [options]
+ * @param {{ serverRenderPage?: (pageIndex: number) => Promise<string|null>, maxPages?: number, stopWhenUseful?: boolean }} [options]
  */
 export async function extractTextFromPdf(file, onStatus, options = {}) {
-  const { serverRenderPage } = options;
+  const { serverRenderPage, maxPages = MAX_OCR_PAGES, stopWhenUseful = true } = options;
 
   try {
     onStatus?.('Loading PDF…');
@@ -298,13 +298,13 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
     const parts = [];
     let renderedAny = false;
 
-    let pageCount = MAX_OCR_PAGES;
+    let pageCount = maxPages;
     let pdf = null;
 
     try {
       const data = new Uint8Array(await file.arrayBuffer());
       pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
-      pageCount = Math.min(pdf.numPages, MAX_OCR_PAGES);
+      pageCount = Math.min(pdf.numPages, maxPages);
     } catch {
       pdf = null;
     }
@@ -344,6 +344,11 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
 
       if (ocrText) {
         parts.push(ocrText);
+      }
+
+      const combinedSoFar = parts.join('\n\n');
+      if (stopWhenUseful && looksLikeVerificationReport(combinedSoFar) && /\d{5}[-\s]?\d{7}[-\s]?\d/.test(combinedSoFar)) {
+        break;
       }
     }
 

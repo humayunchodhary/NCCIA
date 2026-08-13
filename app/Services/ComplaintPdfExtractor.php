@@ -192,7 +192,7 @@ class ComplaintPdfExtractor
                 '/BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE\s*:?\s*(.+?)(?:accuse|Accuse|During|Online|City|$)/is',
                 '/BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|Online|$)/is',
                 '/Crime\s*Categor(?:y|ies)\s*:?\s*(.+?)(?:accuse|City|Amount|$)/is',
-                '/Online\s+Job\s+Frauds/i',
+                '/(Online\s+Job\s+Frauds)/i',
             ]),
             'crime_description'    => $pick([
                 '/(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|$)/is',
@@ -239,6 +239,14 @@ class ComplaintPdfExtractor
         if (!empty($data['inquiry_no'])) {
             $data['inquiry_no'] = preg_replace('/\s+/', '', (string) $data['inquiry_no']);
             $data['inquiry_no'] = preg_replace('/^E[\-\/]?(\d+)[\-\/](\d+)$/i', 'E/$1/$2', $data['inquiry_no']);
+        }
+
+        if (!empty($data['accused_name'])) {
+            $accusedName = trim((string) $data['accused_name']);
+            if (preg_match('/^(defraud|during|the\s|online|city|amount|brief)/i', $accusedName)
+                || str_word_count($accusedName) > 8) {
+                unset($data['accused_name']);
+            }
         }
 
         $score = 0;
@@ -440,7 +448,7 @@ class ComplaintPdfExtractor
     private function mapRecommendation(string $text): ?string
     {
         $lower = strtolower($text);
-        if (str_contains($lower, 'register enq') || str_contains($lower, 'register enquiry') || str_contains($lower, 'registration of enquiry')) {
+        if (str_contains($lower, 'register enq') || str_contains($lower, 'register enquiry') || str_contains($lower, 'registration of enquiry') || str_contains($lower, 'permission to register')) {
             return 'enquiry_registration';
         }
         if (str_contains($lower, 'closure') || str_contains($lower, 'close')) {

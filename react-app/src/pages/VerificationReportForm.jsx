@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../api';
 import { countryCodes } from '../data/countries';
 import { toLocalInput } from '../utils/datetime';
+import PdfAutoFillBar from '../components/PdfAutoFillBar';
+import { mapExtractToVerificationReport, matchLookupValue } from '../utils/fillFromPdf';
 
 const SearchableSelect = ({ options, value, onChange, placeholder, name, required }) => {
   const [open, setOpen] = useState(false);
@@ -432,6 +434,25 @@ const [form, setForm] = useState({    tracking_no: '',
             </Link>
           </div>
         </div>
+
+        {!id && (
+          <PdfAutoFillBar
+            hint="Scanned FIA verification PDF se dates, complainant, gist, recommendation aur accused auto fill."
+            onFilled={(extracted, file) => {
+              const mapped = mapExtractToVerificationReport(extracted);
+              const cat = matchLookupValue(crimeCategories, extracted.crime_category);
+              setForm(f => ({
+                ...f,
+                ...mapped,
+                ...(cat ? { crime_category: cat } : { crime_category: f.crime_category }),
+                accused: mapped.accused?.length ? mapped.accused : f.accused,
+                evidence: file
+                  ? [...(f.evidence || []), { file, desc: `Source PDF: ${file.name}` }]
+                  : f.evidence,
+              }));
+            }}
+          />
+        )}
 
         {serverError && <div className="cf-error-message" style={{background:'#fff5f5',border:'1px solid #e53e3e',borderRadius:'8px',padding:'12px 16px',marginBottom:'16px',color:'#e53e3e'}}>{serverError}
           {Object.keys(errors).length > 0 && <ul style={{margin:'8px 0 0 0',paddingLeft:'20px'}}>{Object.entries(errors).map(([k,v]) => <li key={k}><strong>{k}:</strong> {Array.isArray(v) ? v.join(', ') : v}</li>)}</ul>}
