@@ -76,6 +76,10 @@ class StoreComplaintRequest extends FormRequest
             'operator_id' => 'nullable|integer|exists:users,id',
             'scrutiny_result' => 'nullable|string|in:complete,incomplete,invalid,irrelevant',
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx|max:10240',
+            'cnic_front' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'cnic_back' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'passport_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'picture' => 'nullable|file|mimes:jpg,jpeg,png|max:10240',
 
             // Assign VO on Complete Registration (same form)
             'verification_officer_id' => 'nullable|integer|exists:users,id',

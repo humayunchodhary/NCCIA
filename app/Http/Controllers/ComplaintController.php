@@ -21,23 +21,33 @@ use Illuminate\Support\Str;
 class ComplaintController extends Controller
 {
     /**
-     * Move an uploaded complaint attachment into public/uploads.
+     * Move an uploaded complaint file into public/uploads/complaints.
      */
+    protected function uploadComplaintFile(Request $request, string $field, ?string $existing = null): ?string
+    {
+        if (!$request->hasFile($field)) {
+            return $existing;
+        }
+
+        $file = $request->file($field);
+        $dir = public_path('uploads/complaints');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $name = Str::random(24) . '.' . ($file->getClientOriginalExtension() ?: 'bin');
+        $file->move($dir, $name);
+
+        if ($existing && is_file(public_path($existing))) {
+            @unlink(public_path($existing));
+        }
+
+        return 'uploads/complaints/' . $name;
+    }
+
+    /** @deprecated use uploadComplaintFile */
     protected function uploadAttachment(Request $request, ?Complaint $complaint = null): ?string
     {
-        if (!$request->hasFile('attachment')) {
-            return $complaint?->attachment;
-        }
-
-        $file = $request->file('attachment');
-        $name = 'complaints/' . Str::random(24) . '.' . $file->getClientOriginalExtension() ?: 'file';
-        $file->move(public_path('uploads'), $name);
-
-        if ($complaint && $complaint->attachment && is_file(public_path($complaint->attachment))) {
-            @unlink(public_path($complaint->attachment));
-        }
-
-        return 'uploads/' . $name;
+        return $this->uploadComplaintFile($request, 'attachment', $complaint?->attachment);
     }
 
     public function index()
@@ -125,7 +135,11 @@ class ComplaintController extends Controller
         if (empty($data['circle_id']) && Auth::user()?->circle_id) {
             $data['circle_id'] = Auth::user()->circle_id;
         }
-        $data['attachment'] = $this->uploadAttachment($request);
+        $data['attachment'] = $this->uploadComplaintFile($request, 'attachment');
+        $data['cnic_front'] = $this->uploadComplaintFile($request, 'cnic_front');
+        $data['cnic_back'] = $this->uploadComplaintFile($request, 'cnic_back');
+        $data['passport_attachment'] = $this->uploadComplaintFile($request, 'passport_attachment');
+        $data['picture'] = $this->uploadComplaintFile($request, 'picture');
 
         $scrutinyResult = $data['scrutiny_result'] ?? null;
         if ($scrutinyResult === 'complete') {
@@ -210,7 +224,13 @@ class ComplaintController extends Controller
             $accused = $request->input('initial_accused');
             $data['initial_accused'] = is_string($accused) ? (json_decode($accused, true) ?: []) : $accused;
         }
-        $data['attachment'] = $request->hasFile('attachment') ? $this->uploadAttachment($request, $complaint) : ($request->has('attachment') ? $request->input('attachment') : $complaint->attachment);
+        foreach (['attachment', 'cnic_front', 'cnic_back', 'passport_attachment', 'picture'] as $fileField) {
+            if ($request->hasFile($fileField)) {
+                $data[$fileField] = $this->uploadComplaintFile($request, $fileField, $complaint->{$fileField});
+            } else {
+                unset($data[$fileField]);
+            }
+        }
 
         $scrutinyResult = $data['scrutiny_result'] ?? $complaint->scrutiny_result;
 

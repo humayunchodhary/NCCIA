@@ -143,6 +143,16 @@ export default function ComplaintForm() {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [attachmentFile, setAttachmentFile] = useState(null);
+  const [cnicFrontFile, setCnicFrontFile] = useState(null);
+  const [cnicBackFile, setCnicBackFile] = useState(null);
+  const [passportFile, setPassportFile] = useState(null);
+  const [pictureFile, setPictureFile] = useState(null);
+  const [existingDocs, setExistingDocs] = useState({
+    cnic_front_url: '',
+    cnic_back_url: '',
+    passport_attachment_url: '',
+    picture_url: '',
+  });
   const [existingAttachment, setExistingAttachment] = useState(null);
 
   const { user } = useAuth();
@@ -265,6 +275,12 @@ export default function ComplaintForm() {
           assign_priority_type: d.verification?.priority_type || d.priority_type || 'normal',
         });
         if (d.attachment_url) setExistingAttachment(d.attachment_url);
+        setExistingDocs({
+          cnic_front_url: d.cnic_front_url || '',
+          cnic_back_url: d.cnic_back_url || '',
+          passport_attachment_url: d.passport_attachment_url || '',
+          picture_url: d.picture_url || '',
+        });
       }).catch(() => navigate(isOperator ? '/' : '/complaints'));
     }
   }, [id, navigate, showAssignVo, isOperator]);
@@ -325,7 +341,15 @@ export default function ComplaintForm() {
         delete payload.verification_officer_id;
         delete payload.assign_priority_type;
       }
+      const skipKeys = new Set([
+        'attachment', 'attachment_url',
+        'cnic_front', 'cnic_front_url', 'cnic_back', 'cnic_back_url',
+        'passport_attachment', 'passport_attachment_url', 'picture', 'picture_url',
+        'verification', 'enquiry', 'workflow', 'created_at', 'updated_at',
+        'progress_percent', 'progress_stage', 'id',
+      ]);
       Object.entries(payload).forEach(([k, v]) => {
+        if (skipKeys.has(k)) return;
         if (ARRAY_FORM_FIELDS.includes(k) && Array.isArray(v)) {
           v.forEach(item => fd.append(`${k}[]`, item));
           return;
@@ -336,15 +360,19 @@ export default function ComplaintForm() {
           }
           return;
         }
-        if (v !== null && v !== undefined && v !== '') {
+        if (v !== null && v !== undefined && v !== '' && typeof v !== 'object') {
           fd.append(k, v);
         }
       });
-      if (attachmentFile) {
-        fd.append('attachment', attachmentFile);
-      }
+      if (attachmentFile) fd.append('attachment', attachmentFile);
+      if (cnicFrontFile) fd.append('cnic_front', cnicFrontFile);
+      if (cnicBackFile) fd.append('cnic_back', cnicBackFile);
+      if (passportFile) fd.append('passport_attachment', passportFile);
+      if (pictureFile) fd.append('picture', pictureFile);
       if (id) {
-        await api.put(`/complaints/${id}`, fd);
+        // PHP does not populate multipart files on real PUT — spoof method
+        fd.append('_method', 'PUT');
+        await api.post(`/complaints/${id}`, fd);
       } else {
         const res = await api.post('/complaints', fd);
         const wa = res.data?.complainant_notify?.whatsapp_url;
@@ -733,22 +761,52 @@ export default function ComplaintForm() {
                 <div className="cf-section-icon" style={{ background: '#805ad5' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 </div>
-                <div><div className="cf-section-title">Attachment</div><div className="cf-section-sub">Any supporting document (PDF, image, Word, Excel)</div></div>
+                <div><div className="cf-section-title">Attachments</div><div className="cf-section-sub">CNIC front/back, passport, picture — same as verification identity docs</div></div>
                 <div className="cf-section-badge">Optional</div>
               </div>
               <div className="cf-body">
-                {existingAttachment && (
-                  <div style={{ marginBottom: 10, fontSize: 13 }}>
-                    Current file: <a href={existingAttachment} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open attachment ↗</a>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  className="cf-input"
-                  accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
-                  onChange={e => setAttachmentFile(e.target.files[0] || null)}
-                />
-                <span className="cf-hint">Upload a new file to replace any existing attachment.</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                  {[
+                    { key: 'cnic_front', label: 'CNIC Front', file: cnicFrontFile, setFile: setCnicFrontFile, url: existingDocs.cnic_front_url, accept: '.jpg,.jpeg,.png,.pdf' },
+                    { key: 'cnic_back', label: 'CNIC Back', file: cnicBackFile, setFile: setCnicBackFile, url: existingDocs.cnic_back_url, accept: '.jpg,.jpeg,.png,.pdf' },
+                    { key: 'passport_attachment', label: 'Passport', file: passportFile, setFile: setPassportFile, url: existingDocs.passport_attachment_url, accept: '.jpg,.jpeg,.png,.pdf' },
+                    { key: 'picture', label: 'Picture / Photo', file: pictureFile, setFile: setPictureFile, url: existingDocs.picture_url, accept: 'image/*' },
+                  ].map(doc => (
+                    <div key={doc.key} className="cf-field">
+                      <label className="cf-label">{doc.label}</label>
+                      <input
+                        type="file"
+                        className="cf-input"
+                        accept={doc.accept}
+                        onChange={e => doc.setFile(e.target.files?.[0] || null)}
+                      />
+                      {doc.file ? (
+                        <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {doc.file.name}</span>
+                      ) : doc.url ? (
+                        <a href={doc.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>
+                          Current file ↗
+                        </a>
+                      ) : null}
+                      {errors[doc.key] && <div className="cf-error">{errors[doc.key]}</div>}
+                    </div>
+                  ))}
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label">Other Supporting Document</label>
+                  {existingAttachment && (
+                    <div style={{ marginBottom: 8, fontSize: 13 }}>
+                      Current file:{' '}
+                      <a href={existingAttachment} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open attachment ↗</a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    className="cf-input"
+                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={e => setAttachmentFile(e.target.files[0] || null)}
+                  />
+                  <span className="cf-hint">Optional extra file (PDF, image, Word, Excel).</span>
+                </div>
               </div>
             </div>
           </div>
