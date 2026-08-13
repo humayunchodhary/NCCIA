@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { canCreateComplaint } from '../utils/permissions';
+import { extractTextFromPdf } from '../utils/pdfOcr';
 
 function Field({ label, value }) {
   if (!value) return null;
@@ -27,15 +28,43 @@ export default function AdpImport() {
   const runExtract = async () => {
     if (!file) return;
     setLoading(true);
-    setMessage('ADP extracting…');
+    setExtracted(null);
+    setMessage('Extracting PDF…');
     try {
+      let ocrText = '';
+      try {
+        ocrText = await extractTextFromPdf(file, (s) => setMessage(s), {
+          serverRenderPage: async (pageIndex) => {
+            const fdPage = new FormData();
+            fdPage.append('file', file);
+            fdPage.append('page', String(pageIndex));
+            try {
+              const r = await api.post('/complaint-pdf-imports/render-page', fdPage, { timeout: 120000 });
+              return r.data?.image || null;
+            } catch {
+              return null;
+            }
+          },
+        });
+      } catch (ocrErr) {
+        // Browser OCR optional — ADP / local PHP may still read text PDFs
+        setMessage(`Browser OCR skipped (${ocrErr.message}). Trying server extract…`);
+      }
+
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.post('/adp/extract', fd);
+      if (ocrText && ocrText.length > 20) {
+        fd.append('ocr_text', ocrText);
+      }
+      const res = await api.post('/adp/extract', fd, { timeout: 180000 });
       setExtracted(res.data.data);
-      setMessage(`Extracted in ${res.data.elapsed_ms}ms (${res.data.ai_provider}${res.data.used_ocr ? ' + OCR' : ''})`);
+      const warn = (res.data.warnings || []).join(' ');
+      setMessage(
+        `Extracted in ${res.data.elapsed_ms || 0}ms (${res.data.ai_provider || 'local'}${res.data.used_ocr ? ' + OCR' : ''})`
+        + (warn ? ` — ${warn}` : '')
+      );
     } catch (err) {
-      setMessage(err.response?.data?.message || err.message || 'Extract failed — is ADP backend running?');
+      setMessage(err.response?.data?.message || err.message || 'Extract failed — start ADP on port 8001 or use Import PDF.');
     } finally {
       setLoading(false);
     }
@@ -80,7 +109,9 @@ export default function AdpImport() {
       <div className="page-header">
         <h1>ADP — Fast AI Extract</h1>
         <p style={{ color: '#64748b', fontSize: 13 }}>
-          Upload PDF → Python ADP backend (OCR + AI) → one-click save to NCCIA complaint.
+          Upload PDF → ADP AI extract (or NCCIA local fallback) → Save to complaint.
+          <br />
+          Tip: ADP Python service should run on port <b>8001</b> for best AI results. If offline, local OCR still works.
         </p>
       </div>
 
@@ -94,6 +125,7 @@ export default function AdpImport() {
           onChange={(ev) => setFile(ev.target.files?.[0] || null)}
           style={{ marginBottom: 12 }}
         />
+        {file && <div style={{ fontSize: 13, marginBottom: 10, color: '#334155' }}>{file.name}</div>}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-primary" disabled={!file || loading} onClick={runExtract}>
             {loading ? 'Working…' : 'Extract PDF'}
@@ -117,9 +149,13 @@ export default function AdpImport() {
           <Field label="Father" value={v.father_name} />
           <Field label="CNIC" value={v.cnic} />
           <Field label="Phone" value={v.phone} />
+          <Field label="Email" value={v.email} />
+          <Field label="Address" value={v.address} />
           <Field label="Crime" value={c.category} />
           <Field label="City" value={c.city} />
           <Field label="Amount" value={c.amount_involved} />
+          <Field label="Description" value={c.description} />
+          <Field label="Recommendation" value={e.recommendation} />
         </div>
       )}
     </div>

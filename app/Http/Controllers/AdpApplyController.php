@@ -5,47 +5,148 @@ namespace App\Http\Controllers;
 use App\Http\Resources\ComplaintResource;
 use App\Models\Complaint;
 use App\Models\VerificationReport;
+use App\Services\ComplaintPdfExtractor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class AdpApplyController extends Controller
 {
-    public function extract(Request $request)
+    public function extract(Request $request, ComplaintPdfExtractor $extractor)
     {
         $this->authorize('create', Complaint::class);
 
         $request->validate([
-            'file' => 'required|file|mimes:pdf|max:51200',
+            'file'     => 'required|file|mimes:pdf|max:51200',
+            'ocr_text' => 'nullable|string|max:500000',
         ]);
 
-        $base = config('services.adp.url');
-        if (!$base) {
-            return response()->json(['message' => 'ADP backend URL not configured (ADP_API_URL).'], 503);
-        }
-
         $file = $request->file('file');
+        $ocrText = $request->input('ocr_text');
+        $base = config('services.adp.url');
         $timeout = config('services.adp.timeout', 120);
 
-        try {
-            $response = Http::timeout($timeout)
-                ->attach('file', file_get_contents($file->getRealPath()), $file->getClientOriginalName())
-                ->post("{$base}/api/v1/extract");
-        } catch (\Throwable $e) {
+        // Prefer ADP AI when reachable (unless client already sent rich OCR for offline mode)
+        if ($base && !$request->boolean('force_local')) {
+            try {
+                $response = Http::timeout($timeout)
+                    ->attach('file', file_get_contents($file->getRealPath()), $file->getClientOriginalName())
+                    ->post("{$base}/api/v1/extract");
+
+                if ($response->successful()) {
+                    return response()->json($response->json());
+                }
+
+                $adpError = $response->json('detail')
+                    ?? $response->json('message')
+                    ?? ('ADP HTTP ' . $response->status());
+            } catch (\Throwable $e) {
+                $adpError = $e->getMessage();
+            }
+        } else {
+            $adpError = $base ? 'Forced local extract' : 'ADP_API_URL not configured';
+        }
+
+        // Local fallback — same PDF pipeline used by Complaint PDF Import
+        $tmp = $file->getRealPath();
+        $extract = $extractor->extract($tmp, $file->getClientOriginalName(), $ocrText);
+        if (!$extract['ok'] || empty($extract['data'])) {
             return response()->json([
-                'message' => 'ADP backend unreachable. Start it on port 8001 or set ADP_API_URL.',
-                'detail'  => $e->getMessage(),
+                'message' => 'ADP backend unreachable and local PDF extract also failed. Use browser OCR or start ADP on :8001.',
+                'detail'  => trim(($adpError ?? '') . ' | ' . ($extract['error'] ?? 'No fields found')),
             ], 502);
         }
 
-        if (!$response->successful()) {
-            $body = $response->json();
-            return response()->json([
-                'message' => $body['detail'] ?? $body['message'] ?? 'ADP extract failed',
-            ], $response->status());
+        $mapped = $this->mapExtractorToAdp($extract['data'], $file->getClientOriginalName());
+
+        return response()->json([
+            'success'         => true,
+            'data'            => $mapped,
+            'raw_text_preview'=> $extract['data']['raw_text_preview'] ?? null,
+            'used_ocr'        => (bool) ($extract['used_ocr'] ?? false),
+            'page_count'      => $extract['page_count'] ?? null,
+            'ai_provider'     => 'nccia-local',
+            'elapsed_ms'      => 0,
+            'warnings'        => array_values(array_filter([
+                'ADP backend was unreachable — used NCCIA local PDF extractor.',
+                $adpError ? ('ADP: ' . $adpError) : null,
+            ])),
+        ]);
+    }
+
+    /**
+     * Map ComplaintPdfExtractor fields → ADP extract schema expected by apply().
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function mapExtractorToAdp(array $data, string $filename): array
+    {
+        $name = trim((string) ($data['victim_name'] ?? ''));
+        $father = trim((string) ($data['victim_father_name'] ?? ''));
+        if ($name && $father && !str_contains(strtoupper($name), 'S/O') && !str_contains(strtoupper($name), 'D/O')) {
+            // keep separate
         }
 
-        return response()->json($response->json());
+        $amount = $data['amount_involved'] ?? '';
+        if (is_numeric($amount)) {
+            $amount = (string) $amount;
+        }
+
+        return [
+            'complaint_reference' => [
+                'tracking_no'       => (string) ($data['tracking_no'] ?? ''),
+                'registration_date' => (string) ($data['verification_date'] ?? ''),
+                'assignment_date'   => (string) ($data['assignment_date'] ?? ''),
+                'verification_date' => (string) ($data['verification_date'] ?? ''),
+                'vo_remarks'        => 'Local PDF extract',
+            ],
+            'complainant_victim_info' => [
+                'name'           => $name,
+                'father_name'    => $father,
+                'occupation'     => (string) ($data['victim_occupation'] ?? ''),
+                'gender'         => ucfirst((string) ($data['victim_gender'] ?? 'Male')),
+                'cnic'           => (string) ($data['victim_cnic'] ?? ''),
+                'phone'          => (string) ($data['victim_phone'] ?? ''),
+                'email'          => (string) ($data['victim_email'] ?? ''),
+                'address'        => (string) ($data['victim_address'] ?? ''),
+                'postal_address' => (string) ($data['victim_permanent_address'] ?? $data['victim_address'] ?? ''),
+                'nationality'    => 'Pakistani',
+                'dual_nationality' => false,
+                'passport_no'    => '',
+            ],
+            'crime_details' => [
+                'category'         => (string) ($data['crime_category'] ?? ''),
+                'city'             => (string) ($data['city'] ?? ''),
+                'amount_involved'  => (string) $amount,
+                'occurrence_date'  => (string) ($data['assignment_date'] ?? $data['verification_date'] ?? ''),
+                'description'      => (string) ($data['crime_description'] ?? $data['recommendation_full'] ?? ''),
+            ],
+            'accused_list' => array_values(array_filter([[
+                'name'               => (string) ($data['accused_name'] ?? ''),
+                'father_name'        => '',
+                'phone'              => (string) ($data['accused_phone'] ?? ''),
+                'bank_name'          => '',
+                'account_no_or_iban' => '',
+            ]], fn ($row) => trim(($row['name'] ?? '') . ($row['phone'] ?? '')) !== '')),
+            'enquiry_and_case' => [
+                'enquiry_no'      => (string) ($data['inquiry_no'] ?? ''),
+                'enquiry_officer' => (string) ($data['reporting_officer'] ?? ''),
+                'status'          => '',
+                'recommendation'  => (string) ($data['recommendation_short'] ?? $data['recommendation'] ?? ''),
+                'closure_reason'  => '',
+                'evidence_file'   => $filename,
+                'cfr_summary'     => (string) ($data['recommendation_full'] ?? ''),
+            ],
+            'notices_and_witnesses' => [
+                'witness_name' => '',
+                'witness_cnic' => '',
+                'notice_no'    => '',
+                'notice_type'  => '',
+                'notice_date'  => '',
+                'notice_via'   => '',
+            ],
+        ];
     }
 
     public function apply(Request $request)
