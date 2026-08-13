@@ -94,12 +94,20 @@ class ComplaintPdfExtractor
             ];
         }
 
+        $node = $this->extractWithNodeOcr($absolutePdfPath, $originalFilename);
+        if ($this->hasMinimumFields($node['data'] ?? [])) {
+            return $node;
+        }
+        if (!empty($node['error'])) {
+            $pythonError = trim(($pythonError ? $pythonError . ' | ' : '') . $node['error']);
+        }
+
         return [
             'ok'         => false,
             'data'       => $fallback,
             'used_ocr'   => false,
             'page_count' => null,
-            'error'      => $pythonError ?: 'Could not extract PDF text. Install Python + pymupdf + tesseract for scanned PDFs.',
+            'error'      => $pythonError ?: 'Could not extract PDF text. Disk quota conda ke liye kam hai — bash scripts/setup-ocr-lite.sh chalao (Node tesseract.js).',
         ];
     }
 
@@ -562,6 +570,163 @@ class ComplaintPdfExtractor
         }
         if (str_contains($lower, 'transfer')) {
             return 'transfer';
+        }
+
+        return null;
+    }
+
+    /**
+     * Lightweight OCR using Node tesseract.js (no conda / no sudo).
+     *
+     * @return array{ok: bool, data: array<string, mixed>, used_ocr: bool, page_count: ?int, error: ?string}
+     */
+    private function extractWithNodeOcr(string $absolutePdfPath, string $originalFilename): array
+    {
+        $node = $this->nodeBinary();
+        $script = base_path('scripts/ocr-png.cjs');
+        $nodeModules = rtrim((string) (getenv('HOME') ?: '/home/realerp'), '/') . '/nccia-ocr/node_modules';
+        if (env('PDF_OCR_NODE_MODULES')) {
+            $nodeModules = (string) env('PDF_OCR_NODE_MODULES');
+        }
+
+        if (!$node) {
+            return ['ok' => false, 'data' => [], 'used_ocr' => false, 'page_count' => null, 'error' => 'Node.js nahi mila. cPanel → Setup Node.js, phir bash scripts/setup-ocr-lite.sh'];
+        }
+        if (!is_file($script)) {
+            return ['ok' => false, 'data' => [], 'used_ocr' => false, 'page_count' => null, 'error' => 'scripts/ocr-png.cjs missing'];
+        }
+        if (!is_dir($nodeModules . '/tesseract.js')) {
+            return ['ok' => false, 'data' => [], 'used_ocr' => false, 'page_count' => null, 'error' => 'tesseract.js missing. Run: bash scripts/setup-ocr-lite.sh'];
+        }
+
+        $maxPages = max(1, min(3, (int) env('PDF_OCR_MAX_PAGES', 2)));
+        $chunks = [];
+        for ($page = 0; $page < $maxPages; $page++) {
+            $png = $this->renderPdfPageToPngFile($absolutePdfPath, $page);
+            if (!$png) {
+                break;
+            }
+            try {
+                $result = Process::timeout(120)
+                    ->env(['NODE_PATH' => $nodeModules, 'PATH' => dirname($node) . PATH_SEPARATOR . (getenv('PATH') ?: '/usr/bin')])
+                    ->run([$node, $script, $png]);
+                if ($result->successful()) {
+                    $chunks[] = $result->output();
+                }
+            } finally {
+                @unlink($png);
+            }
+        }
+
+        $text = trim(implode("\n\n", $chunks));
+        if ($text === '') {
+            return ['ok' => false, 'data' => [], 'used_ocr' => false, 'page_count' => null, 'error' => 'Node OCR ne text nahi diya (PDF page render/Imagick/gs check karein).'];
+        }
+
+        $data = $this->parseVerificationReportText($text, $originalFilename);
+
+        return [
+            'ok'         => $this->hasMinimumFields($data),
+            'data'       => $data,
+            'used_ocr'   => true,
+            'page_count' => count($chunks),
+            'error'      => $this->hasMinimumFields($data) ? null : 'Node OCR chala lekin CNIC/name nahi mila. Preview: ' . Str::limit($text, 180),
+        ];
+    }
+
+    public function nodeBinary(): ?string
+    {
+        $configured = trim((string) env('PDF_OCR_NODE', ''));
+        $home = rtrim((string) (getenv('HOME') ?: '/home/realerp'), '/');
+        foreach (array_filter([
+            $configured,
+            '/opt/cpanel/ea-nodejs20/bin/node',
+            '/opt/cpanel/ea-nodejs18/bin/node',
+            '/opt/cpanel/ea-nodejs16/bin/node',
+            $home . '/nodevenv/node/bin/node',
+            'node',
+        ]) as $bin) {
+            try {
+                if (Process::timeout(8)->run([$bin, '-v'])->successful()) {
+                    return $bin;
+                }
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    private function renderPdfPageToPngFile(string $pdfPath, int $page): ?string
+    {
+        $out = sys_get_temp_dir() . '/nccia-ocr-' . uniqid('', true) . '.png';
+
+        if (extension_loaded('imagick')) {
+            try {
+                $im = new \Imagick();
+                $im->setResolution(200, 200);
+                $im->readImage($pdfPath . '[' . $page . ']');
+                $im->setImageBackgroundColor(new \ImagickPixel('white'));
+                if (defined('\Imagick::ALPHACHANNEL_REMOVE')) {
+                    $im->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+                }
+                $im->setImageFormat('png');
+                $im->writeImage($out);
+                $im->clear();
+                if (is_file($out) && filesize($out) > 200) {
+                    return $out;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Imagick render failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        $pageNum = $page + 1;
+        foreach (
+            [
+                ['gs', ['-dSAFER', '-dBATCH', '-dNOPAUSE', '-sDEVICE=png16m', '-r200', '-dFirstPage=' . $pageNum, '-dLastPage=' . $pageNum, '-sOutputFile=' . $out, $pdfPath]],
+                ['ghostscript', ['-dSAFER', '-dBATCH', '-dNOPAUSE', '-sDEVICE=png16m', '-r200', '-dFirstPage=' . $pageNum, '-dLastPage=' . $pageNum, '-sOutputFile=' . $out, $pdfPath]],
+                ['pdftoppm', ['-png', '-f', (string) $pageNum, '-l', (string) $pageNum, '-r', '200', '-singlefile', $pdfPath, preg_replace('/\.png$/', '', $out)]],
+                ['mutool', ['draw', '-o', $out, '-r', '200', $pdfPath, (string) $pageNum]],
+            ] as [$bin, $args]
+        ) {
+            try {
+                $cmd = $this->findBinaryOnPath($bin);
+                if (!$cmd) {
+                    continue;
+                }
+                $r = Process::timeout(60)->run(array_merge([$cmd], $args));
+                $png = $out;
+                if (!is_file($png)) {
+                    $png = preg_replace('/\.png$/', '', $out) . '.png';
+                }
+                if (($r->successful() || is_file($png)) && is_file($png) && filesize($png) > 200) {
+                    return $png;
+                }
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+
+        return is_file($out) && filesize($out) > 200 ? $out : null;
+    }
+
+    private function findBinaryOnPath(string $name): ?string
+    {
+        foreach (['/usr/bin/' . $name, '/usr/local/bin/' . $name] as $path) {
+            if (is_executable($path)) {
+                return $path;
+            }
+        }
+        try {
+            $r = Process::timeout(5)->run(['bash', '-lc', 'command -v ' . escapeshellarg($name)]);
+            $path = trim($r->output());
+            if ($path !== '' && is_executable($path)) {
+                return $path;
+            }
+        } catch (\Throwable $e) {
+            return null;
         }
 
         return null;

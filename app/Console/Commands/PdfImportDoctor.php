@@ -87,13 +87,19 @@ class PdfImportDoctor extends Command
             }
         }
 
+        $node = $extractor->nodeBinary();
+        $this->line('Node: ' . ($node ?: 'NOT FOUND'));
+        $nm = rtrim((string) (getenv('HOME') ?: ''), '/') . '/nccia-ocr/node_modules/tesseract.js';
+        $this->line('tesseract.js: ' . (is_dir($nm) ? $nm : 'MISSING — bash scripts/setup-ocr-lite.sh'));
+        $this->line('Imagick: ' . (extension_loaded('imagick') ? 'yes' : 'no'));
+
         $this->newLine();
-        $this->warn('This host has no sudo. Do NOT use dnf/yum.');
-        $this->line('Jailshell / shared hosting — install OCR in your home:');
-        $this->line('  bash scripts/setup-ocr-user.sh');
+        $this->warn('Disk quota exceeded for Miniconda. Do NOT run setup-ocr-user.sh again.');
+        $this->line('Cleanup + lite OCR (~40MB):');
+        $this->line('  bash scripts/setup-ocr-lite.sh');
         $this->line('Then in .env:');
-        $this->line('  PDF_EXTRACT_PYTHON=$HOME/miniconda3/bin/python');
-        $this->line('Also check CloudLinux alt python: ls /opt/alt/python3*/bin/python3');
+        $this->line('  PDF_OCR_NODE=/opt/cpanel/ea-nodejs18/bin/node   # doctor jo path de');
+        $this->line('  PDF_OCR_NODE_MODULES=$HOME/nccia-ocr/node_modules');
 
         return self::SUCCESS;
     }
