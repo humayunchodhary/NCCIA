@@ -74,28 +74,24 @@ export default function ForensicDashboard() {
       </div>
 
       <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 22 }}>
-        <div className="stat-card">
-          <div className="stat-card-header">
-            <div className="stat-icon" style={{ background: 'rgba(0,188,212,0.14)', color: '#0097a7' }}>
+        <div className="stat-card teal">
+          <div className="stat-card-top">
+            <div className="stat-icon teal">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
-            <div>
-              <div className="stat-label">Total Forensic Users</div>
-              <div className="stat-value">{stats?.total_users ?? 0}</div>
-            </div>
           </div>
+          <div className="stat-value">{stats?.total_users ?? 0}</div>
+          <div className="stat-label">Total Forensic Users</div>
         </div>
         {(Object.entries(byRole) || []).map(([key, count]) => (
-          <div className="stat-card" key={key}>
-            <div className="stat-card-header">
-              <div className="stat-icon" style={{ background: 'rgba(0,188,212,0.14)', color: '#0097a7' }}>
+          <div className="stat-card teal" key={key}>
+            <div className="stat-card-top">
+              <div className="stat-icon teal">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
               </div>
-              <div>
-                <div className="stat-label">{ROLE_LABELS[key] || key.replace(/_/g, ' ')}</div>
-                <div className="stat-value">{count}</div>
-              </div>
             </div>
+            <div className="stat-value">{count}</div>
+            <div className="stat-label">{ROLE_LABELS[key] || key.replace(/_/g, ' ')}</div>
           </div>
         ))}
       </div>

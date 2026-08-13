@@ -7,6 +7,7 @@ function getBreadcrumb(pathname) {
   const map = {
     '/forensic': 'Forensic Dashboard',
     '/forensic/users': 'Forensic Users',
+    '/forensic/profile': 'My Profile',
   };
   return map[pathname] || 'Forensic Dashboard';
 }
@@ -98,7 +99,7 @@ export default function ForensicLayout() {
           )}
           <div className="nav-section-label">Account</div>
           <div className="nav-item">
-            <NavLink to="/profile" className="nav-link" data-page="profile">
+            <NavLink to="/forensic/profile" className="nav-link" data-page="profile">
               <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg></span>
               <span>My Profile</span>
             </NavLink>
@@ -155,7 +156,7 @@ export default function ForensicLayout() {
                   </div>
                 </div>
                 <div className="user-dropdown-body">
-                  <a href="#profile" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/profile'); }}>
+                  <a href="#profile" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/forensic/profile'); }}>
                     <div className="user-dropdown-item-icon" style={{background:'#0097a7',color:'#fff'}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg></div>
                     <div className="user-dropdown-item-text"><span>My Profile</span><small>View & edit your profile</small></div>
                   </a>
