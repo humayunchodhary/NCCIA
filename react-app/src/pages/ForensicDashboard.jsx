@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
-import { isForensicAdmin } from '../utils/permissions';
+import { isForensicAdmin, hasRole } from '../utils/permissions';
 
 const ROLE_LABELS = {
   admin_forensic: 'Admin Forensic',
@@ -15,13 +15,21 @@ const ROLE_LABELS = {
 export default function ForensicDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
+  const [reqStats, setReqStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const isAdmin = isForensicAdmin(user);
+  const isFo = hasRole(user, 'forensic_team');
 
   useEffect(() => {
-    api.get('/forensic/stats')
-      .then(r => setStats(r.data))
+    Promise.all([
+      api.get('/forensic/stats'),
+      api.get('/forensic/request-stats').catch(() => ({ data: null })),
+    ])
+      .then(([u, r]) => {
+        setStats(u.data);
+        setReqStats(r.data);
+      })
       .catch(e => setError(e.response?.data?.message || e.message || 'Failed to load forensic dashboard'))
       .finally(() => setLoading(false));
   }, []);
@@ -62,59 +70,51 @@ export default function ForensicDashboard() {
           <div>
             <div style={{ fontSize: 13, opacity: 0.85 }}>Welcome, <strong>{user?.name?.split(' ')[0] || 'Officer'}</strong></div>
             <div style={{ fontSize: 20, fontWeight: 700 }}>Forensic {roleLabel}</div>
-            <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>NCCIA Digital Forensic Laboratory — isolated forensic workspace</div>
+            <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>Seize → AD review → FO report code → Desk → EO by hand</div>
           </div>
         </div>
-        {isAdmin && (
-          <Link to="/forensic/users" className="btn" style={{ background: '#fff', color: '#015C94', fontWeight: 700, whiteSpace: 'nowrap' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6, verticalAlign: 'middle' }}><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            Manage Forensic Users
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link to="/forensic/requests" className="btn" style={{ background: '#fff', color: '#015C94', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            Seize Requests
           </Link>
-        )}
+          {isAdmin && (
+            <Link to="/forensic/users" className="btn" style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', fontWeight: 700, whiteSpace: 'nowrap', border: '1px solid rgba(255,255,255,0.5)' }}>
+              Manage Users
+            </Link>
+          )}
+        </div>
       </div>
+
+      {reqStats && (
+        <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16, marginBottom: 22 }}>
+          {[
+            ['Pending AD', reqStats.submitted, '/forensic/requests?status=submitted'],
+            ['Assigned', reqStats.assigned],
+            ['In progress', reqStats.in_progress],
+            ['Report ready', reqStats.report_ready],
+            ['Handed over', reqStats.handed_over],
+            ...(isFo ? [['My queue', reqStats.my_assigned]] : []),
+          ].map(([label, value, to]) => (
+            <div className="stat-card teal" key={label}>
+              <div className="stat-value">{value ?? 0}</div>
+              <div className="stat-label">{label}</div>
+              {to && <Link to={to} style={{ fontSize: 11, color: '#015C94' }}>Open →</Link>}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 22 }}>
         <div className="stat-card teal">
-          <div className="stat-card-top">
-            <div className="stat-icon teal">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-          </div>
           <div className="stat-value">{stats?.total_users ?? 0}</div>
           <div className="stat-label">Total Forensic Users</div>
         </div>
         {(Object.entries(byRole) || []).map(([key, count]) => (
           <div className="stat-card teal" key={key}>
-            <div className="stat-card-top">
-              <div className="stat-icon teal">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
-              </div>
-            </div>
             <div className="stat-value">{count}</div>
             <div className="stat-label">{ROLE_LABELS[key] || key.replace(/_/g, ' ')}</div>
           </div>
         ))}
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">
-            <div className="card-icon" style={{ background: 'rgba(0,188,212,0.14)', color: '#0097a7' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            </div>
-            Forensic Modules
-          </div>
-        </div>
-        <div className="card-body">
-          <div style={{ padding: '28px 24px', textAlign: 'center', color: '#6c757d' }}>
-            <div style={{ fontSize: 30, marginBottom: 10 }}>🔬</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#2b2b2b' }}>Forensic case module coming soon</div>
-            <div style={{ fontSize: 13, marginTop: 6, maxWidth: 460, margin: '8px auto 0', lineHeight: 1.6 }}>
-              The forensic case, evidence and lab-analysis module is under development.
-              {isAdmin ? ' For now you can create forensic users and issue their login credentials.' : ' Contact the Forensic Admin if you need access.'}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

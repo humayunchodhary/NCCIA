@@ -678,7 +678,7 @@ class VerificationController extends Controller
         $data = $request->validate([
             'ids'                 => 'required|array|min:1',
             'ids.*'               => 'integer|exists:verifications,id',
-            'action'              => 'required|string|in:closure,merge,transfer,delete',
+            'action'              => 'required|string|in:closure,merge,transfer,delete,proceed_to_verification',
             'closure_reason'      => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
             'merge_complaint_id'  => 'nullable|integer|exists:complaints,id',
             'transfer_department' => 'nullable|string|max:255',
@@ -755,14 +755,27 @@ class VerificationController extends Controller
                             ->log('Verification deleted (bulk): #' . $verification->id);
                         $verification->delete();
                         break;
+
+                    case 'proceed_to_verification':
+                        $verification->update([
+                            'status'          => 'submitted',
+                            'submitted_at'    => now(),
+                            'recommendation'  => 'enquiry_registration',
+                        ]);
+                        break;
                 }
             }
         });
 
+        $actionLabel = [
+            'closure' => 'closed',
+            'proceed_to_verification' => 'proceeded to verification (enquiry registration)',
+        ][$data['action']] ?? $data['action'];
+
         return response()->json([
             'message' => $data['action'] === 'delete'
                 ? count($verifications) . ' verification(s) deleted successfully.'
-                : count($verifications) . ' verification(s) marked as ' . ($data['action'] === 'closure' ? 'closed' : $data['action']) . '.',
+                : count($verifications) . ' verification(s) marked as ' . $actionLabel . '.',
         ]);
     }
 

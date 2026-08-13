@@ -4,8 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { isForensicAdmin } from '../utils/permissions';
 
 function getBreadcrumb(pathname) {
+  if (pathname.startsWith('/forensic/requests/')) return 'Request Detail';
   const map = {
     '/forensic': 'Forensic Dashboard',
+    '/forensic/requests': 'Seize Requests',
     '/forensic/users': 'Forensic Users',
     '/forensic/profile': 'My Profile',
   };
@@ -82,6 +84,18 @@ export default function ForensicLayout() {
                 </svg>
               </span>
               <span>Dashboard</span>
+            </NavLink>
+          </div>
+          <div className="nav-item">
+            <NavLink to="/forensic/requests" className="nav-link" data-page="forensic-requests">
+              <span className="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                  <rect x="9" y="3" width="6" height="4" rx="1"/>
+                  <path d="M9 12h6M9 16h4"/>
+                </svg>
+              </span>
+              <span>Seize Requests</span>
             </NavLink>
           </div>
           {isAdmin && (

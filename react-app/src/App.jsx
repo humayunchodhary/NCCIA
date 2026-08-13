@@ -9,6 +9,8 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import ForensicDashboard from './pages/ForensicDashboard';
 import ForensicUsers from './pages/ForensicUsers';
+import ForensicRequests from './pages/ForensicRequests';
+import ForensicRequestDetail from './pages/ForensicRequestDetail';
 import Profile from './pages/Profile';
 import Analytics from './pages/Analytics';
 import Complaints from './pages/Complaints';
@@ -112,6 +114,8 @@ function AppRoutes() {
       <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
       <Route element={<ForensicProtectedRoute><ForensicLayout /></ForensicProtectedRoute>}>
         <Route path="forensic" element={<ForensicDashboard />} />
+        <Route path="forensic/requests" element={<ForensicRequests />} />
+        <Route path="forensic/requests/:id" element={<ForensicRequestDetail />} />
         <Route path="forensic/users" element={<ForensicUsers />} />
         <Route path="forensic/profile" element={<Profile />} />
       </Route>

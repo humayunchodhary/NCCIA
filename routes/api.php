@@ -21,6 +21,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SidebarCountsController;
 use App\Http\Controllers\Forensic\ForensicUserController;
+use App\Http\Controllers\Forensic\ForensicRequestController;
 use App\Http\Controllers\OfficerAssignmentHistoryController;
 
 Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () {
@@ -261,6 +262,26 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     // Forensic portal — isolated from the main NCCIA modules
     Route::get('/forensic/stats', [ForensicUserController::class, 'stats'])
         ->middleware('role:admin_forensic,ad_forensic,desk_forensic,forensic_team');
+    Route::get('/forensic/request-stats', [ForensicRequestController::class, 'stats'])
+        ->middleware('role:admin_forensic,ad_forensic,desk_forensic,forensic_team');
+    Route::get('/forensic/team-officers', [ForensicRequestController::class, 'teamOfficers'])
+        ->middleware('role:admin_forensic,ad_forensic');
+    Route::get('/forensic/requests', [ForensicRequestController::class, 'index'])
+        ->middleware('role:admin_forensic,ad_forensic,desk_forensic,forensic_team');
+    Route::get('/forensic/requests/{forensicRequest}', [ForensicRequestController::class, 'show'])
+        ->middleware('role:admin_forensic,ad_forensic,desk_forensic,forensic_team');
+    Route::post('/forensic/requests/{forensicRequest}/assign', [ForensicRequestController::class, 'assign'])
+        ->middleware('role:admin_forensic,ad_forensic');
+    Route::post('/forensic/requests/{forensicRequest}/mark-ready', [ForensicRequestController::class, 'markReady'])
+        ->middleware('role:admin_forensic,forensic_team');
+    Route::post('/forensic/requests/{forensicRequest}/hand-over', [ForensicRequestController::class, 'handOver'])
+        ->middleware('role:admin_forensic,ad_forensic,desk_forensic');
+
+    // Main app: submit seizure + EO lookup by report code
+    Route::post('/forensic-requests', [ForensicRequestController::class, 'store']);
+    Route::get('/forensic-requests', [ForensicRequestController::class, 'linkedIndex']);
+    Route::post('/forensic-requests/lookup', [ForensicRequestController::class, 'lookupByCode']);
+
     Route::get('/forensic/roles', [ForensicUserController::class, 'rolesList'])
         ->middleware('role:admin_forensic');
     Route::get('/forensic/users', [ForensicUserController::class, 'index'])

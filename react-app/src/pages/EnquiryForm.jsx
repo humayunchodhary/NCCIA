@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import VerificationReportPanel from '../components/VerificationReportPanel';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
+import SeizeForensicPanel from '../components/SeizeForensicPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
@@ -1295,6 +1296,7 @@ export default function EnquiryForm() {
                 {forensicReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={forensicReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open Γåù</a></div>}
                 <input type="file" className="cf-input" style={{ marginTop: 8 }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => setForensicFile(e.target.files[0] || null)} />
               </div>
+              <SeizeForensicPanel enquiryId={id} />
             </div>
           </div>
         )}
