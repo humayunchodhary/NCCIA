@@ -3,15 +3,14 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
+import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDisplayDateTime, toLocalInput } from '../utils/datetime';
 import { hasRole } from '../utils/permissions';
 import {
-  HIGH_PROFILE_TYPES,
-  DEPARTMENT_TYPES,
-  DIRECT_RECEIVED_VIA,
   emptyDirectInfo,
   normalizeDirectInfo,
+  buildDirectInfoPayload,
 } from '../utils/directCaseOptions';
 const RECOMMENDATION_OPTIONS = [
   { value: 'enquiry_registration', name: 'Enquiry Registration' },
@@ -145,16 +144,7 @@ export default function VerificationForm() {
     try {
       const payload = { ...form, complaint_id: form.complaint_id || null };
       if (directMode && !payload.complaint_id) {
-        const circle = circles.find(c => String(c.id) === String(direct.circle_id));
-        payload.direct_info = {
-          reference_no: direct.reference_no,
-          complainant_name: direct.complainant_name,
-          circle_id: direct.circle_id || null,
-          circle_code: circle?.code || direct.circle_code || null,
-          high_profile_type: direct.high_profile_type || null,
-          department_type: direct.department_type || null,
-          received_via: direct.received_via || null,
-        };
+        payload.direct_info = buildDirectInfoPayload(direct, circles);
       }
       if (isEdit) {
         await api.put(`/verifications/${id}`, payload);
@@ -296,61 +286,14 @@ export default function VerificationForm() {
             </div>
 
             {directMode && (
-              <div className="cf-section" style={{marginTop:16,borderTop:'1px dashed #dbe2ea',paddingTop:16}}>
-                <div className="cf-section-header">
-                  <div className="cf-section-icon" style={{background:'#0E7C7B'}}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  </div>
-                  <div><div className="cf-section-title">Direct Case Details</div><div className="cf-section-sub">VIP / direct case without complaint</div></div>
-                </div>
-                <div className="cf-row-2">
-                  <div className="cf-field">
-                    <label className="cf-label required">Reference No / Tracking No</label>
-                    <input type="text" className="cf-input" value={direct.reference_no} onChange={e => setDirect(d => ({ ...d, reference_no: e.target.value }))} placeholder="e.g. VIP-2026-0001" />
-                    {errors.direct_info && <span className="cf-error">{errors.direct_info[0]}</span>}
-                  </div>
-                  <div className="cf-field">
-                    <label className="cf-label required">Complainant Name</label>
-                    <input type="text" className="cf-input" value={direct.complainant_name} onChange={e => setDirect(d => ({ ...d, complainant_name: e.target.value }))} placeholder="Complainant / applicant name" />
-                  </div>
-                </div>
-                <div className="cf-row-3">
-                  <div className="cf-field">
-                    <label className="cf-label">High Profile Type</label>
-                    <select className="cf-input" value={direct.high_profile_type} onChange={e => setDirect(d => ({ ...d, high_profile_type: e.target.value }))}>
-                      <option value="">Choose High Profile Type</option>
-                      {HIGH_PROFILE_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="cf-field">
-                    <label className="cf-label">Department Type (From)</label>
-                    <select className="cf-input" value={direct.department_type} onChange={e => setDirect(d => ({ ...d, department_type: e.target.value }))}>
-                      <option value="">Choose Department Type</option>
-                      {DEPARTMENT_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="cf-field">
-                    <label className="cf-label">Received Via</label>
-                    <select className="cf-input" value={direct.received_via} onChange={e => setDirect(d => ({ ...d, received_via: e.target.value }))}>
-                      <option value="">Choose Received Via</option>
-                      {DIRECT_RECEIVED_VIA.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="cf-row-2">
-                  <div className="cf-field">
-                    <label className="cf-label">Circle</label>
-                    <SearchableSelect
-                      value={direct.circle_id}
-                      onChange={v => setDirect(d => ({ ...d, circle_id: v }))}
-                      options={circles}
-                      placeholder="Select Circle"
-                      valueKey="id"
-                      formatLabel={o => o.name + (o.code ? ' (' + o.code + ')' : '')}
-                    />
-                  </div>
-                </div>
-              </div>
+              <DirectRegistrationFields
+                direct={direct}
+                setDirect={setDirect}
+                errors={errors}
+                title="VIP / Direct Verification Details"
+                subtitle="Same fields as CMS Case / Enquiry Registration Form"
+                showCaseExtras
+              />
             )}
           </div>
         </div>
