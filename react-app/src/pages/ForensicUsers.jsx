@@ -20,12 +20,12 @@ export default function ForensicUsers() {
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [modal, setModal] = useState(null); // 'create' | 'edit' | null
+  const [modal, setModal] = useState(null); 
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
-  const [creds, setCreds] = useState(null); // { email, password } shown once
+  const [creds, setCreds] = useState(null); 
   const [resetTarget, setResetTarget] = useState(null);
   const [resetPwd, setResetPwd] = useState('');
   const [savingReset, setSavingReset] = useState(false);

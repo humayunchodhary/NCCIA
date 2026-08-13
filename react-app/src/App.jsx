@@ -9,6 +9,7 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import ForensicDashboard from './pages/ForensicDashboard';
 import ForensicUsers from './pages/ForensicUsers';
+import Profile from './pages/Profile';
 import Analytics from './pages/Analytics';
 import Complaints from './pages/Complaints';
 import ComplaintForm from './pages/ComplaintForm';
@@ -25,7 +26,6 @@ import OfficerForm from './pages/OfficerForm';
 import OffenceTypes from './pages/OffenceTypes';
 import Cases from './pages/Cases';
 import CaseForm from './pages/CaseForm';
-import Profile from './pages/Profile';
 import Users from './pages/Users';
 import UserForm from './pages/UserForm';
 import Circles from './pages/Circles';
@@ -110,6 +110,7 @@ function AppRoutes() {
       <Route element={<ForensicProtectedRoute><ForensicLayout /></ForensicProtectedRoute>}>
         <Route path="forensic" element={<ForensicDashboard />} />
         <Route path="forensic/users" element={<ForensicUsers />} />
+        <Route path="forensic/profile" element={<Profile />} />
       </Route>
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
