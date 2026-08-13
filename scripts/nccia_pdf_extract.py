@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Extract NCCIA/FIA verification report fields from complaint PDFs."""
+"""Extract NCCIA/FIA verification report fields from complaint PDFs.
 
-from __future__ import annotations
+Compatible with Python 3.6+ (shared hosting).
+"""
 
 import io
 import json
@@ -11,7 +12,7 @@ import sys
 from pathlib import Path
 
 
-def normalize_cnic(raw: str | None) -> str | None:
+def normalize_cnic(raw):
     if not raw:
         return None
     digits = re.sub(r"\D", "", raw)
@@ -20,7 +21,7 @@ def normalize_cnic(raw: str | None) -> str | None:
     return f"{digits[:5]}-{digits[5:12]}-{digits[12]}"
 
 
-def parse_date(raw: str | None) -> str | None:
+def parse_date(raw):
     if not raw:
         return None
     raw = raw.strip()
@@ -34,7 +35,7 @@ def parse_date(raw: str | None) -> str | None:
     return None
 
 
-def inquiry_ref_from_filename(filename: str) -> str | None:
+def inquiry_ref_from_filename(filename):
     stem = Path(filename).stem
     m = re.match(r"^(\d+)-(\d+)$", stem)
     if m:
@@ -45,7 +46,7 @@ def inquiry_ref_from_filename(filename: str) -> str | None:
     return None
 
 
-def clean_value(val: str | None) -> str | None:
+def clean_value(val):
     if not val:
         return None
     val = val.strip().strip('"').strip("'")
@@ -53,7 +54,7 @@ def clean_value(val: str | None) -> str | None:
     return val or None
 
 
-def first_match(text: str, patterns: list[str], flags: int = re.I | re.S) -> str | None:
+def first_match(text, patterns, flags=re.I | re.S):
     for pattern in patterns:
         m = re.search(pattern, text, flags)
         if m:
@@ -64,7 +65,30 @@ def first_match(text: str, patterns: list[str], flags: int = re.I | re.S) -> str
     return None
 
 
-def ocr_page(page) -> str:
+def configure_tesseract():
+    try:
+        import pytesseract
+    except Exception:
+        return
+    candidates = [
+        os.environ.get("TESSERACT_CMD"),
+        os.path.join(os.path.dirname(sys.executable), "tesseract"),
+        os.path.expanduser("~/miniconda3/bin/tesseract"),
+        os.path.expanduser("~/miniforge3/bin/tesseract"),
+        os.path.expanduser("~/.local/bin/tesseract"),
+        "/usr/bin/tesseract",
+        "/usr/local/bin/tesseract",
+    ]
+    for cmd in candidates:
+        if cmd and os.path.isfile(cmd) and os.access(cmd, os.X_OK):
+            pytesseract.pytesseract.tesseract_cmd = cmd
+            tessdata = os.path.normpath(os.path.join(os.path.dirname(cmd), "..", "share", "tessdata"))
+            if os.path.isdir(tessdata) and not os.environ.get("TESSDATA_PREFIX"):
+                os.environ["TESSDATA_PREFIX"] = tessdata
+            return
+
+
+def ocr_page(page):
     import fitz
 
     pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
@@ -74,6 +98,7 @@ def ocr_page(page) -> str:
         import pytesseract
         from PIL import Image
 
+        configure_tesseract()
         img = Image.open(io.BytesIO(png_bytes))
         text = pytesseract.image_to_string(img)
         if len(text.strip()) > 40:
@@ -97,18 +122,21 @@ def ocr_page(page) -> str:
             ocr_page._reader = easyocr.Reader(["en"], gpu=False, verbose=False)  # type: ignore[attr-defined]
 
         lines = ocr_page._reader.readtext(tmp_path, detail=0)  # type: ignore[attr-defined]
-        Path(tmp_path).unlink(missing_ok=True)
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
         return "\n".join(lines)
     except Exception:
         return ""
 
 
-def extract_text_from_pdf(pdf_path: str, max_pages: int = 3) -> tuple[str, int, bool]:
+def extract_text_from_pdf(pdf_path, max_pages=3):
     import fitz
 
     doc = fitz.open(pdf_path)
     page_count = doc.page_count
-    chunks: list[str] = []
+    chunks = []
     used_ocr = False
 
     for i in range(min(max_pages, page_count)):
@@ -130,7 +158,7 @@ def extract_text_from_pdf(pdf_path: str, max_pages: int = 3) -> tuple[str, int, 
     return "\n".join(chunks), page_count, used_ocr
 
 
-def split_name_father(full_name: str | None) -> tuple[str | None, str | None]:
+def split_name_father(full_name):
     if not full_name:
         return None, None
     m = re.match(r"^(.+?)\s+S/O\s+(.+)$", full_name, re.I)
@@ -142,7 +170,7 @@ def split_name_father(full_name: str | None) -> tuple[str | None, str | None]:
     return full_name.strip(), None
 
 
-def map_recommendation(text: str | None) -> str | None:
+def map_recommendation(text):
     if not text:
         return None
     lower = text.lower()
@@ -157,7 +185,7 @@ def map_recommendation(text: str | None) -> str | None:
     return None
 
 
-def parse_verification_report(text: str, filename: str) -> dict:
+def parse_verification_report(text, filename):
     tracking_no = first_match(
         text,
         [
@@ -383,7 +411,7 @@ def parse_verification_report(text: str, filename: str) -> dict:
     }
 
 
-def main() -> int:
+def main():
     if len(sys.argv) < 2:
         print(json.dumps({"error": "Usage: nccia_pdf_extract.py <pdf_path>"}))
         return 1

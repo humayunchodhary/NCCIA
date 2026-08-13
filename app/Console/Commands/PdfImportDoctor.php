@@ -37,8 +37,21 @@ class PdfImportDoctor extends Command
             }
         }
 
-        $tess = Process::timeout(15)->run(['tesseract', '--version']);
-        $this->line('Tesseract: ' . ($tess->successful() ? trim(explode("\n", $tess->output() . $tess->errorOutput())[0] ?? 'ok') : 'NOT FOUND — dnf/yum/apt install tesseract'));
+        $env = $extractor->pythonProcessEnv($python);
+        $tess = Process::timeout(15)->env($env)->run(['tesseract', '--version']);
+        $tessLine = trim(explode("\n", $tess->output() . $tess->errorOutput())[0] ?? '');
+        $this->line('Tesseract: ' . ($tess->successful() ? $tessLine : 'NOT FOUND'));
+
+        foreach ([
+            getenv('HOME') . '/miniconda3/bin/python',
+            '/opt/alt/python310/bin/python3',
+            '/opt/alt/python39/bin/python3',
+            '/opt/alt/python38/bin/python3',
+        ] as $alt) {
+            if ($alt && is_file($alt)) {
+                $this->line("Found extra python: {$alt}");
+            }
+        }
 
         $script = base_path('scripts/nccia_pdf_extract.py');
         $this->line('Extract script: ' . (is_file($script) ? $script : 'MISSING'));
@@ -75,10 +88,12 @@ class PdfImportDoctor extends Command
         }
 
         $this->newLine();
-        $this->line('If Python/tesseract missing, on Alma/RHEL:');
-        $this->line('  sudo dnf install -y python3 python3-pip tesseract tesseract-langpack-eng');
-        $this->line('  python3 -m pip install --user pymupdf pytesseract pillow');
-        $this->line('  # then in .env: PDF_EXTRACT_PYTHON=/usr/bin/python3');
+        $this->warn('This host has no sudo. Do NOT use dnf/yum.');
+        $this->line('Jailshell / shared hosting — install OCR in your home:');
+        $this->line('  bash scripts/setup-ocr-user.sh');
+        $this->line('Then in .env:');
+        $this->line('  PDF_EXTRACT_PYTHON=$HOME/miniconda3/bin/python');
+        $this->line('Also check CloudLinux alt python: ls /opt/alt/python3*/bin/python3');
 
         return self::SUCCESS;
     }

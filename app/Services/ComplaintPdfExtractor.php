@@ -37,12 +37,14 @@ class ComplaintPdfExtractor
         if (!$python) {
             $pythonError = 'Python not found. Server par install karein: python3, pymupdf, tesseract. .env mein PDF_EXTRACT_PYTHON=/usr/bin/python3';
         } else {
-            $result = Process::timeout(180)->run([
-                $python,
-                $script,
-                $absolutePdfPath,
-                (string) (int) env('PDF_OCR_MAX_PAGES', 3),
-            ]);
+            $result = Process::timeout(180)
+                ->env($this->pythonProcessEnv($python))
+                ->run([
+                    $python,
+                    $script,
+                    $absolutePdfPath,
+                    (string) (int) env('PDF_OCR_MAX_PAGES', 3),
+                ]);
 
             if ($result->successful()) {
                 $decoded = json_decode(trim($result->output()), true);
@@ -319,28 +321,95 @@ class ComplaintPdfExtractor
 
     public function pythonBinary(): ?string
     {
+        $home = rtrim((string) (getenv('HOME') ?: '/home/realerp'), '/');
         $configured = trim((string) env('PDF_EXTRACT_PYTHON', ''));
-        if ($configured !== '') {
-            if ((is_file($configured) && is_executable($configured)) || $this->pythonWorks($configured)) {
-                return $configured;
+        $candidates = array_values(array_unique(array_filter([
+            $configured,
+            $home . '/miniconda3/bin/python',
+            $home . '/miniconda3/bin/python3',
+            $home . '/miniforge3/bin/python',
+            $home . '/ocr-env/bin/python',
+            '/opt/alt/python311/bin/python3',
+            '/opt/alt/python310/bin/python3',
+            '/opt/alt/python39/bin/python3',
+            '/opt/alt/python38/bin/python3',
+            'python3.12',
+            'python3.11',
+            'python3.10',
+            'python3.9',
+            'python3.8',
+            'python3',
+            'python',
+            'py',
+        ])));
+
+        $best = null;
+        $bestScore = -1.0;
+        foreach ($candidates as $bin) {
+            if (!$this->pythonWorks($bin)) {
+                continue;
+            }
+            $score = $this->pythonVersionScore($bin);
+            if ($score > $bestScore) {
+                $best = $bin;
+                $bestScore = $score;
             }
         }
 
-        foreach (['python3', 'python', 'py'] as $bin) {
-            if ($this->pythonWorks($bin)) {
-                return $bin;
+        return $best;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function pythonProcessEnv(?string $python = null): array
+    {
+        $python = $python ?: $this->pythonBinary();
+        $path = getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin';
+        if ($python) {
+            $dir = dirname($python);
+            if ($dir !== '' && $dir !== '.') {
+                $path = $dir . PATH_SEPARATOR . $path;
             }
         }
 
-        return null;
+        $env = ['PATH' => $path];
+        $home = rtrim((string) (getenv('HOME') ?: ''), '/');
+        foreach ([
+            $python ? dirname($python) . '/../share/tessdata' : null,
+            $home . '/miniconda3/share/tessdata',
+            $home . '/ocr-env/share/tessdata',
+        ] as $td) {
+            if ($td && is_dir($td)) {
+                $resolved = realpath($td);
+                $env['TESSDATA_PREFIX'] = $resolved !== false ? $resolved : $td;
+                break;
+            }
+        }
+
+        return $env;
     }
 
     private function pythonWorks(string $bin): bool
     {
         try {
             return Process::timeout(10)->run([$bin, '--version'])->successful();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return false;
+        }
+    }
+
+    private function pythonVersionScore(string $bin): float
+    {
+        try {
+            $r = Process::timeout(10)->run([$bin, '-c', 'import sys; print("%d.%d" % sys.version_info[:2])']);
+            if (!$r->successful()) {
+                return 0;
+            }
+
+            return (float) trim($r->output());
+        } catch (\Throwable $e) {
+            return 0;
         }
     }
 
