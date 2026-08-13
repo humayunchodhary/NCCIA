@@ -32,10 +32,12 @@ export default function Verifications() {
   const [statusFilter, setStatusFilter] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  // Bulk selection + bulk close
+  // Bulk selection + bulk actions (closure / merge / transfer / delete)
   const [selected, setSelected] = useState([]);
-  const [closeModalOpen, setCloseModalOpen] = useState(false);
-  const [closeReason, setCloseReason] = useState('');
+  const [bulkModal, setBulkModal] = useState(null);
+  const [bulkForm, setBulkForm] = useState({ closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '' });
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const hasRole = (roleName) => userHasRole(user, roleName);
   const canBulk = hasRole('admin') || hasRole('circle_incharge');
@@ -133,17 +135,51 @@ export default function Verifications() {
     setDeleteTarget(null);
   };
 
-  // ── Bulk close ──
-  const handleBulkClose = async () => {
-    if (!selected.length) return;
+  // ── Bulk actions (closure / merge / transfer / delete) ──
+  const openBulkModal = (action) => {
+    if (action !== 'delete') {
+      api.get('/lookup/circles').then(r => setCircles(r.data || [])).catch(() => {});
+    }
+    setBulkModal({ action });
+    setBulkForm({ closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '' });
+  };
+
+  const handleBulkAction = async () => {
+    if (!bulkModal || !selected.length) return;
+    setBulkSaving(true);
     try {
-      await api.post('/verifications/bulk-close', { ids: selected, closure_reason: closeReason || null });
+      const payload = {
+        ids: selected,
+        action: bulkModal.action,
+        closure_reason: bulkForm.closure_reason || null,
+        merge_complaint_id: bulkForm.merge_complaint_id ? Number(bulkForm.merge_complaint_id) : null,
+        transfer_department: bulkForm.transfer_department || null,
+        transfer_circle_id: bulkForm.transfer_circle_id ? Number(bulkForm.transfer_circle_id) : null,
+      };
+      const r = await api.post('/verifications/bulk-action', payload);
       fetchData();
       setSelected([]);
-      setCloseModalOpen(false);
-      setCloseReason('');
+      setBulkModal(null);
+      alert(r.data?.message || 'Bulk action completed.');
     } catch (e) {
-      alert(e.response?.data?.message || 'Failed to close verifications');
+      alert(e.response?.data?.message || 'Bulk action failed');
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selected.length) return;
+    setBulkSaving(true);
+    try {
+      await api.post('/verifications/bulk-action', { ids: selected, action: 'delete' });
+      fetchData();
+      setSelected([]);
+      setBulkDeleteOpen(false);
+    } catch (e) {
+      alert(e.response?.data?.message || 'Bulk delete failed');
+    } finally {
+      setBulkSaving(false);
     }
   };
 
@@ -306,6 +342,31 @@ export default function Verifications() {
     return 1;
   };
 
+  const bulkCanSubmit = !bulkModal || (
+    bulkModal.action === 'closure' ? !!bulkForm.closure_reason
+    : bulkModal.action === 'merge' ? !!bulkForm.merge_complaint_id
+    : bulkModal.action === 'transfer' ? !!bulkForm.transfer_department
+    : true
+  );
+
+  const renderBulkBar = () => {
+    if (!canBulk || selected.length === 0) return null;
+    const btn = (label, color, onClick) => (
+      <button type="button" className="btn btn-sm" onClick={onClick} style={{background:'#fff',color:color,border:'1.5px solid rgba(1,92,148,0.35)',borderRadius:'6px',height:'32px',padding:'0 12px',cursor:'pointer',fontSize:'12px',fontWeight:600}}>{label}</button>
+    );
+    return (
+      <div className="bulk-action-bar" style={{display:'flex',alignItems:'center',gap:'12px',padding:'12px 16px',background:'#fff',border:'1px solid #e5e5e5',borderRadius:'8px',marginBottom:'12px',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
+        <span style={{fontSize:'13px',fontWeight:600,color:'#2b2b2b'}}>{selected.length} selected</span>
+        <div style={{flex:1}}></div>
+        {btn('Closure', '#015C94', () => openBulkModal('closure'))}
+        {btn('Merge', '#015C94', () => openBulkModal('merge'))}
+        {btn('Transfer', '#015C94', () => openBulkModal('transfer'))}
+        {btn('Delete', '#e53e3e', () => setBulkDeleteOpen(true))}
+        {btn('Clear', '#374151', () => setSelected([]))}
+      </div>
+    );
+  };
+
   return (
     <div className="page-content">
       <div className="page-header">
@@ -359,13 +420,7 @@ export default function Verifications() {
           <div className="filter-spacer" style={{flex:1}}></div>
         </div>
 
-        {canBulk && selected.length > 0 && (
-          <div className="bulk-action-bar" style={{display:'flex',alignItems:'center',gap:'12px',padding:'12px 16px',background:'#fff',border:'1px solid #e5e5e5',borderRadius:'8px',marginBottom:'12px',boxShadow:'0 1px 6px rgba(0,0,0,0.05)'}}>
-            <span style={{fontSize:'13px',fontWeight:600,color:'#2b2b2b'}}>{selected.length} selected</span>
-            <button className="btn btn-sm" onClick={() => { setCloseReason(''); setCloseModalOpen(true); }} style={{background:'rgba(229,62,62,0.12)',color:'#e53e3e',border:'none',borderRadius:'6px',height:'32px',padding:'0 12px',cursor:'pointer',fontSize:'12px',fontWeight:600}}>Close</button>
-            <button className="btn btn-sm" onClick={() => setSelected([])} style={{background:'#f3f4f6',color:'#374151',border:'1px solid #d1d5db',borderRadius:'6px',height:'32px',padding:'0 12px',cursor:'pointer',fontSize:'12px',fontWeight:600}}>Clear</button>
-          </div>
-        )}
+        {renderBulkBar()}
 
       <div className="card">
         <div className="card-header">
@@ -486,6 +541,8 @@ export default function Verifications() {
         </div>
       </div>
 
+      {renderBulkBar()}
+
       <ConfirmModal
         open={!!deleteTarget}
         title="Delete Verification"
@@ -493,6 +550,15 @@ export default function Verifications() {
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmModal
+        open={bulkDeleteOpen}
+        title="Bulk Delete"
+        message={`Delete ${selected.length} selected verification(s)? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleBulkDelete}
+        onCancel={() => setBulkDeleteOpen(false)}
       />
 
       {/* ── Submit Report Modal ── */}
@@ -692,31 +758,70 @@ export default function Verifications() {
         </div>
       )}
 
-      {/* ── Bulk Close Modal ── */}
-      {closeModalOpen && (
-        <div className="modal-overlay" onClick={() => setCloseModalOpen(false)}>
-          <div className="modal-container" style={{maxWidth:'480px'}} onClick={e => e.stopPropagation()}>
+      {/* ── Bulk Action Modal (Closure / Merge / Transfer) ── */}
+      {bulkModal && (
+        <div className="modal-overlay" onClick={() => setBulkModal(null)}>
+          <div className="modal-container" style={{maxWidth:'560px'}} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Close Selected Verifications</h3>
-              <button className="modal-close" onClick={() => setCloseModalOpen(false)}>&times;</button>
+              <h3>{bulkModal.action === 'closure' ? 'Bulk Closure' : bulkModal.action === 'merge' ? 'Bulk Merge' : 'Bulk Transfer'} ({selected.length} selected)</h3>
+              <button className="modal-close" onClick={() => setBulkModal(null)}>&times;</button>
             </div>
-            <div className="modal-body">
-              <p style={{marginBottom:'12px',fontSize:'13px',color:'#555'}}>
-                Close {selected.length} verification(s)? Mark the closure reason below.
+            <div className="modal-body" style={{maxHeight:'70vh',overflowY:'auto'}}>
+              <p style={{marginBottom:'14px',fontSize:'13px',color:'#555'}}>
+                Apply this action to all {selected.length} selected verification record(s). The linked complaint will also be updated.
               </p>
-              <div className="cf-group">
-                <label className="cf-label">Closure Reason (optional)</label>
-                <select className="cf-input" value={closeReason} onChange={e => setCloseReason(e.target.value)}>
-                  <option value="">— No reason —</option>
-                  {CLOSURE_REASONS.map(r => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
+
+              {bulkModal.action === 'closure' && (
+                <div className="cf-group">
+                  <label className="cf-label">Closure Reason <span className="required">*</span></label>
+                  <select className="cf-input" value={bulkForm.closure_reason} onChange={e => setBulkForm({...bulkForm, closure_reason: e.target.value})} required>
+                    <option value="">Select closure reason...</option>
+                    {CLOSURE_REASONS.map(r => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {bulkModal.action === 'merge' && (
+                <div className="cf-group">
+                  <label className="cf-label">Merge with Complaint <span className="required">*</span></label>
+                  <SearchableSelect
+                    value={bulkForm.merge_complaint_id}
+                    onChange={v => setBulkForm({...bulkForm, merge_complaint_id: v})}
+                    options={list.filter(x => x.complaint?.tracking_no).map(x => x.complaint)}
+                    placeholder="Select complaint..."
+                    valueKey="id"
+                    formatLabel={o => '#' + o.tracking_no + ' - ' + o.complainant_name}
+                  />
+                </div>
+              )}
+
+              {bulkModal.action === 'transfer' && (
+                <>
+                  <div className="cf-group">
+                    <label className="cf-label">Department Name <span className="required">*</span></label>
+                    <input className="cf-input" value={bulkForm.transfer_department} onChange={e => setBulkForm({...bulkForm, transfer_department: e.target.value})} placeholder="e.g. Home Department" required />
+                  </div>
+                  <div className="cf-group">
+                    <label className="cf-label">Circle</label>
+                    <SearchableSelect
+                      value={bulkForm.transfer_circle_id}
+                      onChange={v => setBulkForm({...bulkForm, transfer_circle_id: v})}
+                      options={circles}
+                      placeholder="Select circle..."
+                      valueKey="id"
+                      formatLabel={o => o.name}
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setCloseModalOpen(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleBulkClose} style={{background:'#e53e3e',color:'#fff'}}>Close Verifications</button>
+              <button className="btn btn-outline" onClick={() => setBulkModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleBulkAction} disabled={bulkSaving || !bulkCanSubmit}>
+                {bulkSaving ? 'Processing...' : 'Proceed'}
+              </button>
             </div>
           </div>
         </div>

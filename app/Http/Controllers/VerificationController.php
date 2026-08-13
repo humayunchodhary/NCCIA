@@ -619,6 +619,107 @@ class VerificationController extends Controller
         return back()->with('success', "Closed {$count} verification(s)");
     }
 
+    /**
+     * Bulk process selected verifications (admin / circle incharge only):
+     * closure, merge, transfer, or delete. Closure/merge/transfer also update
+     * the linked complaint, matching the approve() downstream behaviour.
+     */
+    public function bulkAction(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['admin', 'circle_incharge']), 403);
+
+        $data = $request->validate([
+            'ids'                 => 'required|array|min:1',
+            'ids.*'               => 'integer|exists:verifications,id',
+            'action'              => 'required|string|in:closure,merge,transfer,delete',
+            'closure_reason'      => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
+            'merge_complaint_id'  => 'nullable|integer|exists:complaints,id',
+            'transfer_department' => 'nullable|string|max:255',
+            'transfer_circle_id'  => 'nullable|integer|exists:circles,id',
+        ]);
+
+        if ($data['action'] === 'merge' && in_array($data['merge_complaint_id'] ?? null, $data['ids'])) {
+            return response()->json(['message' => 'Cannot merge a verification with itself.'], 422);
+        }
+
+        $verifications = Verification::visibleTo($user)
+            ->with('complaint')
+            ->whereIn('id', $data['ids'])
+            ->get();
+
+        if ($verifications->isEmpty()) {
+            return response()->json(['message' => 'No verifications found for the selected records.'], 404);
+        }
+
+        DB::transaction(function () use ($verifications, $data, $user) {
+            foreach ($verifications as $verification) {
+                $complaint = $verification->complaint;
+
+                switch ($data['action']) {
+                    case 'closure':
+                        $verification->update([
+                            'status'         => 'closed',
+                            'completed_at'   => now(),
+                            'recommendation' => 'closure',
+                            'closure_reason' => $data['closure_reason'] ?? null,
+                        ]);
+                        $complaint?->update([
+                            'status'         => 'closed',
+                            'final_status'   => 'closed',
+                            'closure_reason' => $data['closure_reason'] ?? null,
+                        ]);
+                        break;
+
+                    case 'merge':
+                        $verification->update([
+                            'status'             => 'approved',
+                            'approved_at'        => now(),
+                            'recommendation'     => 'merge',
+                            'merge_complaint_id' => $data['merge_complaint_id'] ?? null,
+                        ]);
+                        $complaint?->update([
+                            'status'         => 'merged',
+                            'final_status'   => 'merged',
+                            'merged_with_id' => $data['merge_complaint_id'] ?? null,
+                        ]);
+                        break;
+
+                    case 'transfer':
+                        $verification->update([
+                            'status'              => 'approved',
+                            'approved_at'         => now(),
+                            'recommendation'      => 'transfer',
+                            'transfer_department' => $data['transfer_department'] ?? null,
+                            'transfer_circle_id'  => $data['transfer_circle_id'] ?? null,
+                        ]);
+                        $complaint?->update([
+                            'status'                 => 'transferred',
+                            'final_status'           => 'transferred',
+                            'transfer_to_department' => $data['transfer_department'] ?? null,
+                            'transfer_to_circle_id'  => $data['transfer_circle_id'] ?? null,
+                        ]);
+                        break;
+
+                    case 'delete':
+                        activity()->useLog('verifications')
+                            ->performedOn($verification)
+                            ->causedBy($user)
+                            ->withProperties(['id' => $verification->id])
+                            ->log('Verification deleted (bulk): #' . $verification->id);
+                        $verification->delete();
+                        break;
+                }
+            }
+        });
+
+        return response()->json([
+            'message' => $data['action'] === 'delete'
+                ? count($verifications) . ' verification(s) deleted successfully.'
+                : count($verifications) . ' verification(s) marked as ' . ($data['action'] === 'closure' ? 'closed' : $data['action']) . '.',
+        ]);
+    }
+
     // ── Existing API methods ──
 
     /**
