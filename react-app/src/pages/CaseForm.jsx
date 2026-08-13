@@ -3,6 +3,13 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
+import {
+  HIGH_PROFILE_TYPES,
+  DEPARTMENT_TYPES,
+  DIRECT_RECEIVED_VIA,
+  emptyDirectInfo,
+  normalizeDirectInfo,
+} from '../utils/directCaseOptions';
 
 const CASE_STATUS = [
   { value: 'registered', name: 'Registered (Moharrar)' },
@@ -64,17 +71,31 @@ export default function CaseForm() {
   const [officers, setOfficers] = useState([]);
   const [legalOfficers, setLegalOfficers] = useState([]);
   const [circles, setCircles] = useState([]);
+  const [circleOptions, setCircleOptions] = useState([]);
   const [circleIncharges, setCircleIncharges] = useState([]);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [activeTab, setActiveTab] = useState('details');
+  const [directMode, setDirectMode] = useState(false);
+  const [direct, setDirect] = useState(emptyDirectInfo());
 
   useEffect(() => {
-    api.get('/enquiries?status=registered,assigned,in_progress,cfr_submitted,approved,closed').then(r => { const d = r.data.data || r.data; setEnquiries((Array.isArray(d) ? d : []).map(e => ({ value: e.id, name: '#' + (e.enquiry_number || e.id) + ' — ' + (e.complaint?.tracking_no || e.complaint_id || 'N/A') }))); }).catch(() => {});
+    api.get('/enquiries?status=registered,assigned,in_progress,cfr_submitted,approved,closed').then(r => {
+      const d = r.data.data || r.data;
+      setEnquiries((Array.isArray(d) ? d : []).map(e => ({
+        value: e.id,
+        name: '#' + (e.enquiry_number || e.id) + ' — ' + (e.complaint?.tracking_no || e.direct_info?.reference_no || e.complaint_id || 'N/A'),
+      })));
+    }).catch(() => {});
     api.get('/lookup/investigation-officers').then(r => { const d = r.data.data || r.data; setOfficers((Array.isArray(d) ? d : []).map(o => ({ value: o.id, name: o.name + (o.designation ? ' (' + o.designation + ')' : '') }))); }).catch(() => {});
     api.get('/lookup/legal-officers').then(r => setLegalOfficers(r.data.data || r.data)).catch(() => {});
-    api.get('/lookup/circles').then(r => setCircles(r.data.data || r.data)).catch(() => {});
+    api.get('/lookup/circles').then(r => {
+      const d = r.data.data || r.data;
+      const list = Array.isArray(d) ? d : [];
+      setCircles(list);
+      setCircleOptions(list.map(c => ({ value: c.id ?? c.code ?? c.name, name: c.name + (c.code ? ' (' + c.code + ')' : '') })));
+    }).catch(() => {});
     api.get('/lookup/circle-incharges').then(r => { const d = r.data.data || r.data; setCircleIncharges(Array.isArray(d) ? d : []); }).catch(() => {});
   }, []);
 
@@ -119,6 +140,10 @@ export default function CaseForm() {
             remarks: ap.remarks || '',
           })),
         });
+        if (!d.enquiry_id && d.direct_info) {
+          setDirectMode(true);
+          setDirect(normalizeDirectInfo(d.direct_info));
+        }
       }).catch(() => navigate('/cases'));
     }
   }, [id, navigate]);
@@ -165,6 +190,10 @@ export default function CaseForm() {
           remarks: ap.remarks || '',
         })),
       }));
+      if (!d.enquiry_id && d.direct_info) {
+        setDirectMode(true);
+        setDirect(normalizeDirectInfo(d.direct_info));
+      }
     }).catch(() => {});
   };
 
@@ -193,27 +222,44 @@ export default function CaseForm() {
   const removeApproval = (i) => setForm(f => ({ ...f, approvals: f.approvals.filter((_, idx) => idx !== i) }));
   const updateApproval = (i, field, value) => setForm(f => ({ ...f, approvals: f.approvals.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
-  const buildPayload = () => ({
-    enquiry_id: form.enquiry_id || undefined,
-    fir_no: form.fir_no || undefined,
-    investigation_officer_id: form.investigation_officer_id || undefined,
-    status: form.status,
-    recommendation: form.recommendation || undefined,
-    transfer_department: form.transfer_department || undefined,
-    transfer_circle: form.transfer_circle || undefined,
-    merge_complaint_id: form.merge_complaint_id || undefined,
-    activities: form.activities
-      .filter(a => a.type)
-      .map(a => ({
-        id: a.id,
-        type: a.type,
-        description: a.description,
-        activity_date: a.activity_date,
-      })),
-    arrests: form.arrests.filter(a => a.accused_name),
-    legal_opinions: form.legal_opinions.filter(lo => lo.role),
-    approvals: form.approvals.filter(ap => ap.decision),
-  });
+  const buildPayload = () => {
+    const payload = {
+      enquiry_id: directMode ? null : (form.enquiry_id || undefined),
+      fir_no: form.fir_no || undefined,
+      investigation_officer_id: form.investigation_officer_id || undefined,
+      status: form.status,
+      recommendation: form.recommendation || undefined,
+      transfer_department: form.transfer_department || undefined,
+      transfer_circle: form.transfer_circle || undefined,
+      merge_complaint_id: form.merge_complaint_id || undefined,
+      activities: form.activities
+        .filter(a => a.type)
+        .map(a => ({
+          id: a.id,
+          type: a.type,
+          description: a.description,
+          activity_date: a.activity_date,
+        })),
+      arrests: form.arrests.filter(a => a.accused_name),
+      legal_opinions: form.legal_opinions.filter(lo => lo.role),
+      approvals: form.approvals.filter(ap => ap.decision),
+    };
+
+    if (directMode && !form.enquiry_id) {
+      const circle = circles.find(c => String(c.id) === String(direct.circle_id));
+      payload.direct_info = {
+        reference_no: direct.reference_no,
+        complainant_name: direct.complainant_name,
+        circle_id: direct.circle_id || null,
+        circle_code: circle?.code || direct.circle_code || null,
+        high_profile_type: direct.high_profile_type || null,
+        department_type: direct.department_type || null,
+        received_via: direct.received_via || null,
+      };
+    }
+
+    return payload;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -304,15 +350,93 @@ export default function CaseForm() {
                 <div className="cf-section-icon" style={{ background: '#015C94' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                 </div>
-                <div><div className="cf-section-title">Case Reference</div><div className="cf-section-sub">Link to enquiry, auto-generate FIR number</div></div>
+                <div><div className="cf-section-title">Case Reference</div><div className="cf-section-sub">Link to enquiry, or register VIP / direct FIR</div></div>
                 <div className="cf-section-badge">STEP 1</div>
               </div>
               <div className="cf-body">
                 <div className="cf-row-3">
-                  {renderField('Enquiry', 'enquiry_id', { required: true, options: enquiries })}
+                  <div className="cf-field">
+                    <label className={`cf-label${directMode ? '' : ' required'}`}>{directMode ? '' : 'Enquiry'}</label>
+                    {directMode ? (
+                      <div className="cf-input-wrap" style={{background:'#F7F8FA',padding:'8px 10px',borderRadius:6,fontSize:13,color:'#015C94',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                        Direct FIR (No Enquiry / Complaint)
+                        <span
+                          style={{color:'#015C94',cursor:'pointer',fontWeight:600,textDecoration:'underline'}}
+                          onClick={() => { setDirectMode(false); setDirect(emptyDirectInfo()); }}
+                        >Switch to Enquiry</span>
+                      </div>
+                    ) : (
+                      <div className="cf-input-wrap">
+                        <select className="cf-input" value={form.enquiry_id} onChange={setF('enquiry_id')} required={!directMode} style={errors.enquiry_id ? { borderColor: '#e53e3e' } : {}}>
+                          <option value="">Select Enquiry</option>
+                          {enquiries.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                        </select>
+                        <div style={{marginTop:6}}>
+                          <span style={{color:'#015C94',cursor:'pointer',fontWeight:600,fontSize:12,textDecoration:'underline'}} onClick={() => { setDirectMode(true); setForm(f => ({ ...f, enquiry_id: '' })); }}>
+                            Enquiry nahi hai? Direct FIR create karein
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {errors.enquiry_id && <div className="cf-error">{errors.enquiry_id}</div>}
+                  </div>
                   {renderField('FIR Number', 'fir_no', { placeholder: 'Auto-generated or manual' })}
                   {renderField('Status', 'status', { options: CASE_STATUS, required: true })}
                 </div>
+
+                {directMode && (
+                  <div className="cf-section" style={{marginTop:16,borderTop:'1px dashed #dbe2ea',paddingTop:16}}>
+                    <div className="cf-section-header">
+                      <div className="cf-section-icon" style={{background:'#0E7C7B'}}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      </div>
+                      <div><div className="cf-section-title">Direct FIR Details</div><div className="cf-section-sub">VIP / departmental / direct case without enquiry</div></div>
+                    </div>
+                    <div className="cf-row-2">
+                      <div className="cf-field">
+                        <label className="cf-label required">Reference No / Tracking No</label>
+                        <input type="text" className="cf-input" value={direct.reference_no} onChange={e => setDirect(d => ({ ...d, reference_no: e.target.value }))} placeholder="e.g. VIP-2026-0001 / Letter No." />
+                        {errors.direct_info && <div className="cf-error">{Array.isArray(errors.direct_info) ? errors.direct_info[0] : errors.direct_info}</div>}
+                      </div>
+                      <div className="cf-field">
+                        <label className="cf-label required">Complainant Name</label>
+                        <input type="text" className="cf-input" value={direct.complainant_name} onChange={e => setDirect(d => ({ ...d, complainant_name: e.target.value }))} placeholder="Complainant / applicant name" />
+                      </div>
+                    </div>
+                    <div className="cf-row-3">
+                      <div className="cf-field">
+                        <label className="cf-label">High Profile Type</label>
+                        <select className="cf-input" value={direct.high_profile_type} onChange={e => setDirect(d => ({ ...d, high_profile_type: e.target.value }))}>
+                          <option value="">Choose High Profile Type</option>
+                          {HIGH_PROFILE_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="cf-field">
+                        <label className="cf-label">Department Type (From)</label>
+                        <select className="cf-input" value={direct.department_type} onChange={e => setDirect(d => ({ ...d, department_type: e.target.value }))}>
+                          <option value="">Choose Department Type</option>
+                          {DEPARTMENT_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="cf-field">
+                        <label className="cf-label">Received Via</label>
+                        <select className="cf-input" value={direct.received_via} onChange={e => setDirect(d => ({ ...d, received_via: e.target.value }))}>
+                          <option value="">Choose Received Via</option>
+                          {DIRECT_RECEIVED_VIA.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="cf-row-2">
+                      <div className="cf-field">
+                        <label className="cf-label">Circle</label>
+                        <select className="cf-input" value={direct.circle_id} onChange={e => setDirect(d => ({ ...d, circle_id: e.target.value }))}>
+                          <option value="">— Select Circle —</option>
+                          {circles.map(c => <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ''}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -331,7 +455,7 @@ export default function CaseForm() {
                 </div>
                 <div className="cf-row-2">
                   {renderField('Transfer Department', 'transfer_department')}
-                  {renderField('Transfer Circle', 'transfer_circle', { options: circles })}
+                  {renderField('Transfer Circle', 'transfer_circle', { options: circleOptions })}
                 </div>
                 {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
               </div>
@@ -531,7 +655,7 @@ export default function CaseForm() {
               </div>
               <div className="cf-row-2">
                 {renderField('Transfer Department', 'transfer_department')}
-                {renderField('Transfer Circle', 'transfer_circle', { options: circles })}
+                {renderField('Transfer Circle', 'transfer_circle', { options: circleOptions })}
               </div>
               {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
             </div>

@@ -6,6 +6,13 @@ import VerificationReportPanel from '../components/VerificationReportPanel';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 import { toLocalInput } from '../utils/datetime';
+import {
+  HIGH_PROFILE_TYPES,
+  DEPARTMENT_TYPES,
+  DIRECT_RECEIVED_VIA,
+  emptyDirectInfo,
+  normalizeDirectInfo,
+} from '../utils/directCaseOptions';
 
 const ENQUIRY_STATUS = [
   { value: 'registered', name: 'Registered (Reader Branch)' },
@@ -194,7 +201,7 @@ export default function EnquiryForm() {
   const [verificationReport, setVerificationReport] = useState(null);
   const [linkedVerification, setLinkedVerification] = useState(null);
   const [directMode, setDirectMode] = useState(false);
-  const [direct, setDirect] = useState({ reference_no: '', complainant_name: '', circle_id: '', circle_code: '' });
+  const [direct, setDirect] = useState(emptyDirectInfo());
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
@@ -352,12 +359,7 @@ export default function EnquiryForm() {
     }
     if (!d.complaint_id && d.direct_info) {
       setDirectMode(true);
-      setDirect({
-        reference_no: d.direct_info.reference_no || '',
-        complainant_name: d.direct_info.complainant_name || '',
-        circle_id: d.direct_info.circle_id || '',
-        circle_code: d.direct_info.circle_code || '',
-      });
+      setDirect(normalizeDirectInfo(d.direct_info));
     }
   };
 
@@ -604,6 +606,9 @@ export default function EnquiryForm() {
         complainant_name: direct.complainant_name,
         circle_id: direct.circle_id || null,
         circle_code: circle?.code || direct.circle_code || null,
+        high_profile_type: direct.high_profile_type || null,
+        department_type: direct.department_type || null,
+        received_via: direct.received_via || null,
       }));
     }
 
@@ -898,6 +903,29 @@ export default function EnquiryForm() {
                       <div className="cf-field">
                         <label className="cf-label required">Complainant Name</label>
                         <input type="text" className="cf-input" value={direct.complainant_name} onChange={e => setDirect(d => ({ ...d, complainant_name: e.target.value }))} placeholder="Complainant / applicant name" />
+                      </div>
+                    </div>
+                    <div className="cf-row-3">
+                      <div className="cf-field">
+                        <label className="cf-label">High Profile Type</label>
+                        <select className="cf-input" value={direct.high_profile_type} onChange={e => setDirect(d => ({ ...d, high_profile_type: e.target.value }))}>
+                          <option value="">Choose High Profile Type</option>
+                          {HIGH_PROFILE_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="cf-field">
+                        <label className="cf-label">Department Type (From)</label>
+                        <select className="cf-input" value={direct.department_type} onChange={e => setDirect(d => ({ ...d, department_type: e.target.value }))}>
+                          <option value="">Choose Department Type</option>
+                          {DEPARTMENT_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="cf-field">
+                        <label className="cf-label">Received Via</label>
+                        <select className="cf-input" value={direct.received_via} onChange={e => setDirect(d => ({ ...d, received_via: e.target.value }))}>
+                          <option value="">Choose Received Via</option>
+                          {DIRECT_RECEIVED_VIA.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                        </select>
                       </div>
                     </div>
                     <div className="cf-row-2">

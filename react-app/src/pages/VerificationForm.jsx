@@ -4,6 +4,13 @@ import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDisplayDateTime, toLocalInput } from '../utils/datetime';
+import {
+  HIGH_PROFILE_TYPES,
+  DEPARTMENT_TYPES,
+  DIRECT_RECEIVED_VIA,
+  emptyDirectInfo,
+  normalizeDirectInfo,
+} from '../utils/directCaseOptions';
 const RECOMMENDATION_OPTIONS = [
   { value: 'enquiry_registration', name: 'Enquiry Registration' },
   { value: 'closure', name: 'Closure' },
@@ -31,7 +38,7 @@ export default function VerificationForm() {
   const { user } = useAuth();
   const [form, setForm] = useState({ complaint_id: '', verification_officer_id: '', priority_type: 'normal', status: 'assigned', report_text: '', recommendation: '', closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', complainant_message: '', appeared_at: '', message_via: '' });
   const [directMode, setDirectMode] = useState(false);
-  const [direct, setDirect] = useState({ reference_no: '', complainant_name: '', circle_id: '', circle_code: '' });
+  const [direct, setDirect] = useState(emptyDirectInfo());
   const [officers, setOfficers] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [allComplaints, setAllComplaints] = useState([]);
@@ -65,12 +72,7 @@ export default function VerificationForm() {
          }
          if (!d.complaint_id && d.direct_info) {
            setDirectMode(true);
-           setDirect({
-             reference_no: d.direct_info.reference_no || '',
-             complainant_name: d.direct_info.complainant_name || '',
-             circle_id: d.direct_info.circle_id || '',
-             circle_code: d.direct_info.circle_code || '',
-           });
+           setDirect(normalizeDirectInfo(d.direct_info));
          }
       }).catch(() => navigate('/verifications'));
     }
@@ -143,6 +145,9 @@ export default function VerificationForm() {
           complainant_name: direct.complainant_name,
           circle_id: direct.circle_id || null,
           circle_code: circle?.code || direct.circle_code || null,
+          high_profile_type: direct.high_profile_type || null,
+          department_type: direct.department_type || null,
+          received_via: direct.received_via || null,
         };
       }
       if (isEdit) {
@@ -301,6 +306,29 @@ export default function VerificationForm() {
                   <div className="cf-field">
                     <label className="cf-label required">Complainant Name</label>
                     <input type="text" className="cf-input" value={direct.complainant_name} onChange={e => setDirect(d => ({ ...d, complainant_name: e.target.value }))} placeholder="Complainant / applicant name" />
+                  </div>
+                </div>
+                <div className="cf-row-3">
+                  <div className="cf-field">
+                    <label className="cf-label">High Profile Type</label>
+                    <select className="cf-input" value={direct.high_profile_type} onChange={e => setDirect(d => ({ ...d, high_profile_type: e.target.value }))}>
+                      <option value="">Choose High Profile Type</option>
+                      {HIGH_PROFILE_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="cf-field">
+                    <label className="cf-label">Department Type (From)</label>
+                    <select className="cf-input" value={direct.department_type} onChange={e => setDirect(d => ({ ...d, department_type: e.target.value }))}>
+                      <option value="">Choose Department Type</option>
+                      {DEPARTMENT_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="cf-field">
+                    <label className="cf-label">Received Via</label>
+                    <select className="cf-input" value={direct.received_via} onChange={e => setDirect(d => ({ ...d, received_via: e.target.value }))}>
+                      <option value="">Choose Received Via</option>
+                      {DIRECT_RECEIVED_VIA.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="cf-row-2">

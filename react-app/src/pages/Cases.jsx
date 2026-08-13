@@ -52,7 +52,7 @@ export default function Cases() {
           <div className="table-responsive">
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>FIR No</th><th>Enquiry</th><th>IO</th><th>Status</th><th>Progress</th><th>Created</th><th style={{textAlign:'center'}}>Actions</th></tr>
+                <tr><th>#</th><th>FIR No</th><th>Enquiry / Ref</th><th>IO</th><th>Status</th><th>Progress</th><th>Created</th><th style={{textAlign:'center'}}>Actions</th></tr>
               </thead>
               <tbody>
                 {list.map((c) => {
@@ -62,7 +62,11 @@ export default function Cases() {
                     <td><span className="table-id">#{c.id}</span></td>
                     <td><span style={{fontSize:'13px',fontWeight:500}}>{c.fir_no || `CASE-${c.id}`}</span></td>
                     <td>
-                      <span style={{fontSize:12}}>{c.direct_info?.complainant_name ? c.direct_info.complainant_name + ' · ' : ''}{c.enquiry?.enquiry_number || c.direct_info?.reference_no || c.enquiry_id || '-'}</span>
+                      <span style={{fontSize:12}}>
+                        {c.direct_info?.complainant_name ? c.direct_info.complainant_name + ' · ' : ''}
+                        {c.enquiry?.enquiry_number || c.direct_info?.reference_no || c.enquiry_id || '-'}
+                        {c.direct_info?.high_profile_type ? ` · ${String(c.direct_info.high_profile_type).replace(/_/g, ' ')}` : ''}
+                      </span>
                     </td>
                     <td><span style={{fontSize:12}}>{c.investigation_officer?.name || '-'}</span></td>
                     <td><span className={`badge ${c.status === 'closed' || c.status === 'approved' ? 'badge-finalized' : 'badge-pending'}`}>{c.status}</span></td>

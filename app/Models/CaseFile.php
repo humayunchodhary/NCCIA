@@ -42,7 +42,8 @@ class CaseFile extends Model
 
     public function reference(): ?string
     {
-        return $this->enquiry?->reference();
+        return $this->enquiry?->reference()
+            ?: ($this->direct_info['reference_no'] ?? null);
     }
 
     public function complainantName(): ?string
@@ -107,6 +108,21 @@ class CaseFile extends Model
             return $query->where('investigation_officer_id', $user->id);
         }
 
-        return $query->whereIn('enquiry_id', Enquiry::visibleTo($user)->select('id'));
+        return $query->where(function ($q) use ($user) {
+            $q->whereIn('enquiry_id', Enquiry::visibleTo($user)->select('id'));
+
+            // Direct FIR (no enquiry): show to circle incharge / same-circle users.
+            $q->orWhere(function ($d) use ($user) {
+                $d->whereNull('enquiry_id')->whereNotNull('direct_info');
+                if ($user->circle_id && !$user->hasRole('circle_incharge')) {
+                    $d->where('direct_info->circle_id', $user->circle_id);
+                } elseif ($user->hasRole('circle_incharge') && $user->circle_id) {
+                    $d->where(function ($c) use ($user) {
+                        $c->where('direct_info->circle_id', $user->circle_id)
+                          ->orWhereNull('direct_info->circle_id');
+                    });
+                }
+            });
+        });
     }
 }

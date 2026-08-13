@@ -144,8 +144,15 @@ class CaseFileController extends Controller
         $this->authorize('create', CaseFile::class);
 
         $data = $request->validate([
-            'enquiry_id'              => 'required|integer|exists:enquiries,id',
+            'enquiry_id'              => 'nullable|integer|exists:enquiries,id',
             'direct_info'             => 'nullable|array',
+            'direct_info.reference_no' => 'nullable|string|max:255',
+            'direct_info.complainant_name' => 'nullable|string|max:255',
+            'direct_info.circle_id'   => 'nullable',
+            'direct_info.circle_code' => 'nullable|string|max:50',
+            'direct_info.high_profile_type' => 'nullable|string|max:50',
+            'direct_info.department_type' => 'nullable|string|max:50',
+            'direct_info.received_via' => 'nullable|string|max:50',
             'fir_no'                  => 'nullable|string|unique:cases,fir_no',
             'investigation_officer_id' => 'nullable|integer|exists:users,id',
             'status'                  => 'nullable|string|max:50',
@@ -165,19 +172,31 @@ class CaseFileController extends Controller
             'incharge_remarks'       => 'nullable|string',
         ]);
 
+        if (empty($data['enquiry_id']) && empty($data['direct_info']['reference_no'] ?? null)) {
+            return response()->json([
+                'message' => 'Select an enquiry or provide direct FIR details (reference no).',
+                'errors'  => ['direct_info' => ['Reference No is required for direct FIR.']],
+            ], 422);
+        }
+
         $actions = $this->normalizeActions($request, $data);
         $arrests = $this->normalizeArrests($data);
         $legalOpinions = $this->decodeArrayField($data['legal_opinions'] ?? []);
         $approvals = $this->decodeArrayField($data['approvals'] ?? []);
 
-        $caseFile = DB::transaction(function () use ($data, $request, $gen) {
-            $enquiry = Enquiry::findOrFail($data['enquiry_id']);
-            $directInfo = $enquiry->direct_info ?? ($data['direct_info'] ?? null);
+        $caseFile = DB::transaction(function () use ($data, $request, $gen, $actions, $arrests, $legalOpinions, $approvals) {
+            $enquiry = !empty($data['enquiry_id']) ? Enquiry::find($data['enquiry_id']) : null;
+            $directInfo = $enquiry
+                ? ($enquiry->direct_info ?? ($data['direct_info'] ?? null))
+                : ($data['direct_info'] ?? null);
+
+            $circleCode = is_array($directInfo) ? ($directInfo['circle_code'] ?? null) : null;
+            $firNo = $data['fir_no'] ?? $gen->generate($circleCode);
 
             $caseFile = CaseFile::create([
-                'enquiry_id'              => $data['enquiry_id'],
-                'direct_info'             => $directInfo,
-                'fir_no'                  => $data['fir_no'] ?? $gen->generate(),
+                'enquiry_id'              => $enquiry?->id,
+                'direct_info'             => $enquiry ? ($enquiry->direct_info ?? $directInfo) : $directInfo,
+                'fir_no'                  => $firNo,
                 'investigation_officer_id' => $data['investigation_officer_id'] ?? null,
                 'status'                  => 'registered',
             ]);
@@ -313,6 +332,14 @@ class CaseFileController extends Controller
 
         $data = $request->validate([
             'enquiry_id'               => 'nullable|integer|exists:enquiries,id',
+            'direct_info'              => 'nullable|array',
+            'direct_info.reference_no' => 'nullable|string|max:255',
+            'direct_info.complainant_name' => 'nullable|string|max:255',
+            'direct_info.circle_id'    => 'nullable',
+            'direct_info.circle_code'  => 'nullable|string|max:50',
+            'direct_info.high_profile_type' => 'nullable|string|max:50',
+            'direct_info.department_type' => 'nullable|string|max:50',
+            'direct_info.received_via' => 'nullable|string|max:50',
             'fir_no'                   => 'nullable|string|unique:cases,fir_no,' . $caseFile->id,
             'investigation_officer_id' => 'nullable|integer|exists:users,id',
             'status'                   => 'nullable|string|max:50',
@@ -339,7 +366,7 @@ class CaseFileController extends Controller
 
         DB::transaction(function () use ($caseFile, $data, $request, $actions, $arrests, $legalOpinions, $approvals) {
             $updates = array_filter([
-                'enquiry_id'               => $data['enquiry_id'] ?? null,
+                'enquiry_id'               => array_key_exists('enquiry_id', $data) ? $data['enquiry_id'] : null,
                 'fir_no'                   => array_key_exists('fir_no', $data) ? $data['fir_no'] : null,
                 'investigation_officer_id' => array_key_exists('investigation_officer_id', $data)
                     ? ($data['investigation_officer_id'] ?: null)
@@ -350,6 +377,10 @@ class CaseFileController extends Controller
                 'transfer_circle'          => array_key_exists('transfer_circle', $data) ? ($data['transfer_circle'] ?: null) : null,
                 'merge_complaint_id'       => array_key_exists('merge_complaint_id', $data) ? ($data['merge_complaint_id'] ?: null) : null,
             ], fn ($v) => $v !== null);
+
+            if (array_key_exists('direct_info', $data)) {
+                $updates['direct_info'] = $data['direct_info'];
+            }
 
             if ($updates) {
                 $caseFile->update($updates);

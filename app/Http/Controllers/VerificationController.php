@@ -415,9 +415,10 @@ class VerificationController extends Controller
             'report_text'            => 'nullable|string|max:5000',
         ]);
 
-        if (empty($data['complaint_id']) && empty($data['direct_info'])) {
+        if (empty($data['complaint_id']) && empty($data['direct_info']['reference_no'] ?? null)) {
             return response()->json([
                 'message' => 'Select a complaint or provide direct case details (reference no).',
+                'errors'  => ['direct_info' => ['Reference No is required for direct case.']],
             ], 422);
         }
 

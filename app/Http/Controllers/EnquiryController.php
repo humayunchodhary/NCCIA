@@ -557,6 +557,13 @@ class EnquiryController extends Controller
             $complaint = Complaint::find($data['complaint_id']);
         }
 
+        if (!$complaint && empty($data['direct_info']['reference_no'] ?? null)) {
+            return response()->json([
+                'message' => 'Select a complaint or provide direct enquiry details (reference no).',
+                'errors'  => ['direct_info' => ['Reference No is required for direct enquiry.']],
+            ], 422);
+        }
+
         $enquiry = DB::transaction(function () use ($data, $complaint, $request, $officerId, $privileged) {
             $enquiry = Enquiry::create([
                 'complaint_id'    => $complaint?->id,
