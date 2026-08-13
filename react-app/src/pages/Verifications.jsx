@@ -452,12 +452,16 @@ export default function Verifications() {
             <option value="sent_back">Sent Back</option>
             <option value="closed">Closed</option>
           </select>
-          <span style={{fontSize:'12px',fontWeight:600,color:'#2b2b2b'}}>Quick Actions (applied to current search results):</span>
-          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('closure')} style={{background:'#fff',color:'#015C94',border:'1.5px solid rgba(1,92,148,0.35)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Closure</button>
-          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('proceed_to_verification')} style={{background:'#fff',color:'#264078',border:'1.5px solid rgba(38,64,120,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Proceed to Verification</button>
-          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('transfer')} style={{background:'#fff',color:'#7c3aed',border:'1.5px solid rgba(124,58,237,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Transfer</button>
-          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('merge')} style={{background:'#fff',color:'#ea580c',border:'1.5px solid rgba(234,88,12,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Merge</button>
-          <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('delete')} style={{background:'#fff',color:'#e53e3e',border:'1.5px solid rgba(229,62,62,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Delete</button>
+          {canBulk && (
+            <>
+              <span style={{fontSize:'12px',fontWeight:600,color:'#2b2b2b'}}>Quick Actions (applied to current search results):</span>
+              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('closure')} style={{background:'#fff',color:'#015C94',border:'1.5px solid rgba(1,92,148,0.35)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Closure</button>
+              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('proceed_to_verification')} style={{background:'#fff',color:'#264078',border:'1.5px solid rgba(38,64,120,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Proceed to Verification</button>
+              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('transfer')} style={{background:'#fff',color:'#7c3aed',border:'1.5px solid rgba(124,58,237,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Transfer</button>
+              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('merge')} style={{background:'#fff',color:'#ea580c',border:'1.5px solid rgba(234,88,12,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Merge</button>
+              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('delete')} style={{background:'#fff',color:'#e53e3e',border:'1.5px solid rgba(229,62,62,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Delete</button>
+            </>
+          )}
           <div className="filter-spacer" style={{flex:1}}></div>
         </div>
 
