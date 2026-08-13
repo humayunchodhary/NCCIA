@@ -64,6 +64,29 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const forensicLogin = async (email, password) => {
+    setError(null);
+    setRemaining(null);
+    setRetryAfter(null);
+    try {
+      await csrf();
+      const r = await api.post('/forensic/login', { email, password });
+      setUser(r.data.user);
+      return r.data;
+    } catch (err) {
+      const data = err.response?.data || {};
+      const msg = data.message || 'Login failed';
+      if (err.response?.status === 429) {
+        setRetryAfter(data.retry_after || 60);
+        setError(msg);
+      } else {
+        setRemaining(data.remaining);
+        setError(data.remaining !== undefined ? `${msg} (${data.remaining} attempt${data.remaining === 1 ? '' : 's'} left)` : msg);
+      }
+      throw err;
+    }
+  };
+
   const clearError = () => { setError(null); setRemaining(null); setRetryAfter(null); };
 
   const logout = async () => {
@@ -72,7 +95,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, remaining, retryAfter, login, logout, clearError }}>
+    <AuthContext.Provider value={{ user, loading, error, remaining, retryAfter, login, forensicLogin, logout, clearError }}>
       {children}
     </AuthContext.Provider>
   );

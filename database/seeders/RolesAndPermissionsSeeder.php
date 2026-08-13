@@ -20,6 +20,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'reports', 'enquiries', 'io_records', 'dac_cases',
             'court_cases', 'users', 'circles', 'offence_types',
             'reference', 'profile',
+            'forensic', 'forensic_users',
         ];
 
         foreach ($features as $feat) {
@@ -68,6 +69,11 @@ class RolesAndPermissionsSeeder extends Seeder
                 'dashboard','analytics','complaints','verifications','reports','enquiries',
                 'io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile',
             ],
+            // Forensic portal roles — isolated from the main NCCIA modules
+            'admin_forensic' => ['forensic', 'forensic_users', 'profile'],
+            'ad_forensic'    => ['forensic', 'profile'],
+            'desk_forensic'  => ['forensic', 'profile'],
+            'forensic_team'  => ['forensic', 'profile'],
         ];
 
         foreach ($roleFeatures as $roleName => $perms) {

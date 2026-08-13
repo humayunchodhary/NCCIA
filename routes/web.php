@@ -48,8 +48,17 @@ Route::get('/login', function () {
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+Route::get('/forensic', function () {
+    return spaHtmlResponse();
+});
+
+Route::get('/forensic/login', function () {
+    return spaHtmlResponse();
+});
+
 // Sanctum SPA auth routes (need session middleware from web group)
 Route::post('/api/login', [LoginController::class, 'apiLogin']);
+Route::post('/api/forensic/login', [LoginController::class, 'apiForensicLogin']);
 Route::post('/api/forgot-password', [PasswordResetController::class, 'forgot']);
 Route::post('/api/reset-password', [PasswordResetController::class, 'reset']);
 Route::post('/api/logout', [LoginController::class, 'apiLogout'])->middleware('auth:sanctum');

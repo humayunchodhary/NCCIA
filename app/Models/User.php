@@ -65,4 +65,19 @@ class User extends Authenticatable
             'dd_legal',
         ]);
     }
+
+    /**
+     * Forensic portal roles (isolated from the main NCCIA modules).
+     */
+    public const FORENSIC_ROLES = [
+        'admin_forensic',
+        'ad_forensic',
+        'desk_forensic',
+        'forensic_team',
+    ];
+
+    public function isForensic(): bool
+    {
+        return $this->hasAnyRole(self::FORENSIC_ROLES);
+    }
 }
