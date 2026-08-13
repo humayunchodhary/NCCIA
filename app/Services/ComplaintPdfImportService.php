@@ -30,17 +30,102 @@ class ComplaintPdfImportService
                 'public'
             );
 
-            $imports[] = ComplaintPdfImport::create([
-                'user_id'           => $user->id,
-                'batch_id'          => $batchId,
-                'original_filename' => $original,
-                'stored_path'       => $path,
-                'inquiry_ref'       => $this->extractor->inquiryRefFromFilename($original),
-                'status'            => ComplaintPdfImport::STATUS_PENDING,
-            ]);
+            $imports[] = $this->createImportRow($user, $batchId, $original, $path);
         }
 
         return ['batch_id' => $batchId, 'imports' => $imports];
+    }
+
+    /**
+     * Register PDFs already on disk (CLI bulk). $inPlace keeps the original path (no copy).
+     *
+     * @param  list<string>  $absolutePaths
+     * @return array{batch_id: string, imports: list<ComplaintPdfImport>, skipped: int}
+     */
+    public function registerLocalFiles(array $absolutePaths, User $user, string $batchId, bool $inPlace = true, bool $skipExisting = true): array
+    {
+        $imports = [];
+        $skipped = 0;
+
+        $absolutePaths = array_values(array_filter(array_map(
+            fn ($p) => $this->normalizeLocalPath($p),
+            $absolutePaths
+        )));
+
+        $existingNames = [];
+        $existingPaths = [];
+        if ($skipExisting && $absolutePaths) {
+            $names = array_values(array_unique(array_map('basename', $absolutePaths)));
+            $existingNames = ComplaintPdfImport::query()
+                ->whereIn('original_filename', $names)
+                ->pluck('original_filename')
+                ->all();
+            $existingNames = array_flip($existingNames);
+
+            $existingPaths = ComplaintPdfImport::query()
+                ->whereIn('stored_path', $absolutePaths)
+                ->pluck('stored_path')
+                ->all();
+            $existingPaths = array_flip($existingPaths);
+        }
+
+        foreach ($absolutePaths as $abs) {
+            $original = basename($abs);
+
+            if ($skipExisting && (isset($existingNames[$original]) || isset($existingPaths[$abs]))) {
+                $skipped++;
+                continue;
+            }
+
+            if ($inPlace) {
+                $stored = $abs;
+            } else {
+                $destRel = 'imports/complaint-pdfs/' . $batchId . '/'
+                    . Str::slug(pathinfo($original, PATHINFO_FILENAME)) . '-' . Str::random(6) . '.pdf';
+                Storage::disk('public')->put($destRel, file_get_contents($abs));
+                $stored = $destRel;
+            }
+
+            $imports[] = $this->createImportRow($user, $batchId, $original, $stored);
+            $existingNames[$original] = true;
+            $existingPaths[$abs] = true;
+        }
+
+        return ['batch_id' => $batchId, 'imports' => $imports, 'skipped' => $skipped];
+    }
+
+    public function absolutePdfPath(ComplaintPdfImport $import): string
+    {
+        $p = (string) $import->stored_path;
+        if ($p !== '' && $this->isAbsolutePath($p) && is_file($p)) {
+            return $p;
+        }
+
+        return Storage::disk('public')->path($p);
+    }
+
+    private function createImportRow(User $user, string $batchId, string $original, string $storedPath): ComplaintPdfImport
+    {
+        return ComplaintPdfImport::create([
+            'user_id'           => $user->id,
+            'batch_id'          => $batchId,
+            'original_filename' => $original,
+            'stored_path'       => $storedPath,
+            'inquiry_ref'       => $this->extractor->inquiryRefFromFilename($original),
+            'status'            => ComplaintPdfImport::STATUS_PENDING,
+        ]);
+    }
+
+    private function isAbsolutePath(string $path): bool
+    {
+        return str_starts_with($path, '/') || (bool) preg_match('/^[A-Za-z]:[\\\\\\/]/', $path);
+    }
+
+    private function normalizeLocalPath(string $path): string
+    {
+        $real = realpath($path);
+
+        return $real !== false ? $real : $path;
     }
 
     public function process(ComplaintPdfImport $import, ?string $ocrText = null): ComplaintPdfImport
@@ -49,7 +134,7 @@ class ComplaintPdfImportService
 
         $import->update(['status' => ComplaintPdfImport::STATUS_PROCESSING]);
 
-        $absolute = Storage::disk('public')->path($import->stored_path);
+        $absolute = $this->absolutePdfPath($import);
         if (!is_file($absolute)) {
             return $this->fail($import, 'Stored PDF file not found.');
         }
@@ -77,7 +162,7 @@ class ComplaintPdfImportService
         return $import->fresh();
     }
 
-    public function applyToSystem(ComplaintPdfImport $import, User $user, bool $createIfMissing = true): ComplaintPdfImport
+    public function applyToSystem(ComplaintPdfImport $import, User $user, bool $createIfMissing = true, bool $copyAttachment = true): ComplaintPdfImport
     {
         if (!$import->extracted_data) {
             $import = $this->process($import);
@@ -95,13 +180,13 @@ class ComplaintPdfImportService
         try {
             $attachmentPath = null;
 
-            $result = DB::transaction(function () use ($import, $data, $user, $createIfMissing, &$attachmentPath) {
+            $result = DB::transaction(function () use ($import, $data, $user, $createIfMissing, $copyAttachment, &$attachmentPath) {
                 $complaint = $this->findOrCreateComplaint($data, $user, $createIfMissing, $import);
                 if (!$complaint) {
                     throw new \RuntimeException('Complaint not found and create_if_missing is disabled.');
                 }
 
-                $attachmentPath = $this->attachPdfToComplaint($complaint, $import);
+                $attachmentPath = $copyAttachment ? $this->attachPdfToComplaint($complaint, $import) : null;
 
                 $report = $this->upsertVerificationReport($complaint, $data, $user, $import, $attachmentPath);
 
@@ -375,7 +460,7 @@ class ComplaintPdfImportService
 
     private function attachPdfToComplaint(Complaint $complaint, ComplaintPdfImport $import): string
     {
-        $source = Storage::disk('public')->path($import->stored_path);
+        $source = $this->absolutePdfPath($import);
         $destDir = public_path('uploads/complaints');
         if (!is_dir($destDir)) {
             mkdir($destDir, 0755, true);

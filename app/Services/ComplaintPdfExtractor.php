@@ -34,10 +34,11 @@ class ComplaintPdfExtractor
         }
 
         if ($python) {
-            $result = Process::timeout(300)->run([
+            $result = Process::timeout(180)->run([
                 $python,
                 $script,
                 $absolutePdfPath,
+                (string) (int) env('PDF_OCR_MAX_PAGES', 3),
             ]);
 
             if ($result->successful()) {

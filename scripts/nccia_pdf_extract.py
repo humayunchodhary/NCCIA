@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -80,6 +81,10 @@ def ocr_page(page) -> str:
     except Exception:
         pass
 
+    easy_on = os.environ.get("PDF_OCR_EASY", "0").lower() in ("1", "true", "yes")
+    if not easy_on:
+        return ""
+
     try:
         import tempfile
         import easyocr
@@ -98,7 +103,7 @@ def ocr_page(page) -> str:
         return ""
 
 
-def extract_text_from_pdf(pdf_path: str, max_pages: int = 12) -> tuple[str, int, bool]:
+def extract_text_from_pdf(pdf_path: str, max_pages: int = 3) -> tuple[str, int, bool]:
     import fitz
 
     doc = fitz.open(pdf_path)
@@ -115,6 +120,11 @@ def extract_text_from_pdf(pdf_path: str, max_pages: int = 12) -> tuple[str, int,
                 text = ocr_text
                 used_ocr = True
         chunks.append(text)
+        combined = "\n".join(chunks)
+        if re.search(r"\d{5}[-\s]?\d{7}[-\s]?\d", combined) and re.search(
+            r"verification|complainant|tracking", combined, re.I
+        ):
+            break
 
     doc.close()
     return "\n".join(chunks), page_count, used_ocr
@@ -234,7 +244,7 @@ def parse_verification_report(text: str, filename: str) -> dict:
             r"BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE\s*:?\s*(.+?)(?:accuse|Accuse|During|Online|City|$)",
             r"BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|Online|$)",
             r"Crime\s*Categor(?:y|ies)\s*:?\s*(.+?)(?:accuse|City|Amount|$)",
-            r"Online\s+Job\s+Frauds",
+            r"(Online\s+Job\s+Frauds)",
         ],
     )
 
@@ -380,9 +390,15 @@ def main() -> int:
 
     pdf_path = sys.argv[1]
     filename = Path(pdf_path).name
+    max_pages = 3
+    if len(sys.argv) >= 3:
+        try:
+            max_pages = max(1, int(sys.argv[2]))
+        except ValueError:
+            max_pages = 3
 
     try:
-        text, page_count, used_ocr = extract_text_from_pdf(pdf_path)
+        text, page_count, used_ocr = extract_text_from_pdf(pdf_path, max_pages=max_pages)
         parsed = parse_verification_report(text, filename)
         parsed["page_count"] = page_count
         parsed["used_ocr"] = used_ocr

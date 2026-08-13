@@ -16,10 +16,13 @@ class ProcessComplaintPdfImport implements ShouldQueue
 
     public int $timeout = 300;
 
+    public int $tries = 1;
+
     public function __construct(
         public int $importId,
         public ?int $userId = null,
         public bool $autoApply = true,
+        public bool $copyAttachment = true,
     ) {}
 
     public function handle(ComplaintPdfImportService $service): void
@@ -38,7 +41,7 @@ class ProcessComplaintPdfImport implements ShouldQueue
                     : $import->user?->load('roles');
 
                 if ($user) {
-                    $service->applyToSystem($import, $user, true);
+                    $service->applyToSystem($import, $user, true, $this->copyAttachment);
                 }
             }
         } catch (\Throwable $e) {
