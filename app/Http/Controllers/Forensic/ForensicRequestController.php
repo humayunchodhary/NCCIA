@@ -47,8 +47,8 @@ class ForensicRequestController extends Controller
             'case_id'     => 'nullable|integer|exists:cases,id',
             'destination' => 'required|in:forensic,technical',
             'note'        => 'required|string|max:5000',
-            'items'       => 'required|array|min:1',
-            'items.*.item_type'  => 'required|string|max:50',
+            'items'       => 'nullable|array',
+            'items.*.item_type'  => 'required_with:items|string|max:50',
             'items.*.make_model' => 'nullable|string|max:255',
             'items.*.imei'       => 'nullable|string|max:64',
             'items.*.serial_no'  => 'nullable|string|max:128',
@@ -61,12 +61,21 @@ class ForensicRequestController extends Controller
             return response()->json(['message' => 'Link enquiry or case is required.'], 422);
         }
 
+        $items = $data['items'] ?? [];
+        if ($items === []) {
+            $items = [[
+                'item_type'   => 'report',
+                'description' => 'Forensic / technical report submission',
+                'quantity'    => 1,
+            ]];
+        }
+
         $path = null;
         if ($request->hasFile('attachment')) {
             $path = $request->file('attachment')->store('forensic-requests', 'public');
         }
 
-        $fr = DB::transaction(function () use ($data, $user, $gen, $path) {
+        $fr = DB::transaction(function () use ($data, $user, $gen, $path, $items) {
             $fr = ForensicRequest::create([
                 'request_no'    => $gen->generateRequestNo(),
                 'enquiry_id'    => $data['enquiry_id'] ?? null,
@@ -78,7 +87,7 @@ class ForensicRequestController extends Controller
                 'attachment_path' => $path,
             ]);
 
-            foreach ($data['items'] as $item) {
+            foreach ($items as $item) {
                 $fr->items()->create([
                     'item_type'   => $item['item_type'],
                     'make_model'  => $item['make_model'] ?? null,
@@ -103,7 +112,9 @@ class ForensicRequestController extends Controller
         }
 
         return response()->json([
-            'message' => 'Seizure note submitted to ' . ucfirst($fr->destination) . ' department.',
+            'message' => ($fr->destination === 'forensic'
+                ? 'Forensic report submitted to AD Forensic for review.'
+                : 'Submitted to Technical department.'),
             'data'    => $fr->load($this->withRelations()),
         ], 201);
     }

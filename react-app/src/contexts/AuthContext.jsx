@@ -29,17 +29,7 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, [checkAuth]);
 
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        navigator.sendBeacon?.('/api/logout');
-      } else if (document.visibilityState === 'visible') {
-        checkAuth();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [checkAuth]);
+  // Do NOT logout on tab hide — that was wiping forms whenever the browser blinked/switched tabs.
 
   const login = async (email, password) => {
     setError(null);

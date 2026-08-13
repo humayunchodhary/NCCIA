@@ -1,29 +1,27 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Poll `callback` on mount and every `intervalMs` (default 30s).
- * Also re-runs when the tab becomes visible again.
+ * Poll `callback` every `intervalMs` while the tab is visible.
+ * Does NOT re-run on mount visibility flicker in a way that remounts forms —
+ * only for list pages. Skips when document is hidden.
  */
-export function useAutoRefresh(callback, deps = [], intervalMs = 30000) {
+export function useAutoRefresh(callback, deps = [], intervalMs = 60000) {
   const saved = useRef(callback);
   saved.current = callback;
 
   useEffect(() => {
-    const run = () => saved.current();
+    const run = () => {
+      if (document.visibilityState !== 'visible') return;
+      // Never refresh while user is typing in an input
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      saved.current();
+    };
 
-    run();
+    // Initial load once
+    saved.current();
     const timer = setInterval(run, intervalMs);
 
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        run();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisible);
-
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
+    return () => clearInterval(timer);
   }, deps);
 }

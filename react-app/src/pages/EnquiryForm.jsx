@@ -193,6 +193,8 @@ export default function EnquiryForm() {
   const [forensicFile, setForensicFile] = useState(null);
   const [technicalReportUrl, setTechnicalReportUrl] = useState('');
   const [forensicReportUrl, setForensicReportUrl] = useState('');
+  const [sendingForensic, setSendingForensic] = useState(false);
+  const [forensicSendMsg, setForensicSendMsg] = useState('');
   const [caseFileId, setCaseFileId] = useState(null);
   const [ioOfficers, setIoOfficers] = useState([]);
   const [registerIoId, setRegisterIoId] = useState('');
@@ -509,6 +511,47 @@ export default function EnquiryForm() {
       setServerError(res?.message || 'Could not save requisitions.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const sendReportToDepartment = async (destination) => {
+    if (!id) {
+      setForensicSendMsg('Pehle enquiry save karein, phir AD Forensic ko bhejein.');
+      return;
+    }
+    const note = destination === 'forensic'
+      ? (form.forensic_report || '').trim()
+      : (form.technical_report || '').trim();
+    if (!note) {
+      setForensicSendMsg(destination === 'forensic'
+        ? 'Forensic Report text likhein, phir Submit to AD Forensic dabayein.'
+        : 'Technical Report text likhein, phir Submit to Technical dabayein.');
+      return;
+    }
+    setSendingForensic(true);
+    setForensicSendMsg('');
+    try {
+      // Save enquiry first so report text/file is persisted
+      await saveEnquiry({ navigateAway: false });
+      const fd = new FormData();
+      fd.append('enquiry_id', String(id));
+      fd.append('destination', destination);
+      fd.append('note', note);
+      fd.append('items', JSON.stringify([{
+        item_type: 'report',
+        description: destination === 'forensic' ? 'Forensic report from enquiry' : 'Technical report from enquiry',
+        quantity: 1,
+      }]));
+      const file = destination === 'forensic' ? forensicFile : technicalFile;
+      if (file) fd.append('attachment', file);
+      const r = await api.post('/forensic-requests', fd);
+      setForensicSendMsg(r.data?.message || `Submitted to ${destination}.`);
+      if (destination === 'forensic') setForensicFile(null);
+      else setTechnicalFile(null);
+    } catch (err) {
+      setForensicSendMsg(err.response?.data?.message || err.message || 'Submit failed');
+    } finally {
+      setSendingForensic(false);
     }
   };
 
@@ -1311,6 +1354,16 @@ export default function EnquiryForm() {
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   onChange={e => setTechnicalFile(e.target.files?.[0] || null)}
                 />
+                <div style={{ marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={sendingForensic || !id}
+                    onClick={() => sendReportToDepartment('technical')}
+                  >
+                    {sendingForensic ? 'Sending…' : 'Submit to Technical Department'}
+                  </button>
+                </div>
               </div>
               <div className="cf-field">
                 <label className="cf-label required">Forensic Report</label>
@@ -1340,6 +1393,30 @@ export default function EnquiryForm() {
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   onChange={e => setForensicFile(e.target.files?.[0] || null)}
                 />
+                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={sendingForensic || !id}
+                    onClick={() => sendReportToDepartment('forensic')}
+                  >
+                    {sendingForensic ? 'Sending…' : 'Submit to AD Forensic'}
+                  </button>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                    AD Forensic review → assign FO → report code
+                  </span>
+                </div>
+                {forensicSendMsg ? (
+                  <div style={{
+                    marginTop: 10, fontSize: 13, padding: '8px 10px', borderRadius: 8,
+                    background: forensicSendMsg.toLowerCase().includes('fail') || forensicSendMsg.toLowerCase().includes('likhein') || forensicSendMsg.toLowerCase().includes('pehle')
+                      ? '#fef2f2' : '#ecfdf5',
+                    color: forensicSendMsg.toLowerCase().includes('fail') || forensicSendMsg.toLowerCase().includes('likhein') || forensicSendMsg.toLowerCase().includes('pehle')
+                      ? '#b91c1c' : '#047857',
+                  }}>
+                    {forensicSendMsg}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
