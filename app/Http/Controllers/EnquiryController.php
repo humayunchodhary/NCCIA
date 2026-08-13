@@ -99,10 +99,37 @@ class EnquiryController extends Controller
             }
             $label = $actionLabels[$type] ?? $type;
 
+            $meta = null;
+            if (is_array($action) && !empty($action['seize_items']) && is_array($action['seize_items'])) {
+                $meta = ['seize_items' => array_values(array_filter(
+                    array_map(static function ($item) {
+                        if (!is_array($item)) {
+                            return null;
+                        }
+                        return [
+                            'item_type'   => $item['item_type'] ?? null,
+                            'make_model'  => $item['make_model'] ?? null,
+                            'imei'        => $item['imei'] ?? null,
+                            'serial_no'   => $item['serial_no'] ?? null,
+                            'quantity'    => isset($item['quantity']) ? (int) $item['quantity'] : 1,
+                            'description' => $item['description'] ?? null,
+                        ];
+                    }, $action['seize_items']),
+                    static fn ($item) => $item && (
+                        !empty($item['item_type']) || !empty($item['make_model'])
+                        || !empty($item['imei']) || !empty($item['serial_no'])
+                        || !empty($item['description'])
+                    )
+                ))];
+            } elseif (is_array($action) && array_key_exists('meta', $action) && is_array($action['meta'])) {
+                $meta = $action['meta'];
+            }
+
             $attrs = [
                 'type'          => $type,
                 'diary_no'      => (is_array($action) && !empty($action['diary_no'])) ? $action['diary_no'] : null,
                 'description'   => (is_array($action) && !empty($action['description'])) ? $action['description'] : $label,
+                'meta'          => $meta,
                 'activity_date' => $this->normalizeDate(
                     (is_array($action) && !empty($action['activity_date'])) ? $action['activity_date'] : now()
                 ) ?? now()->toDateString(),
@@ -328,6 +355,7 @@ class EnquiryController extends Controller
                 'is_government'       => filter_var($a['is_government'] ?? false, FILTER_VALIDATE_BOOLEAN),
                 'department_name'     => $a['department_name'] ?? null,
                 'designation'         => $a['designation'] ?? null,
+                'description'         => $a['description'] ?? null,
             ];
 
             foreach ([

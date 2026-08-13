@@ -12,6 +12,7 @@ class EnquiryActivity extends Model
         'type',
         'diary_no',
         'description',
+        'meta',
         'activity_date',
         'attachment_path',
         'created_by',
@@ -21,6 +22,7 @@ class EnquiryActivity extends Model
     {
         return [
             'activity_date' => 'date:Y-m-d',
+            'meta' => 'array',
         ];
     }
 

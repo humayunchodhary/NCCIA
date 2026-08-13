@@ -27,6 +27,7 @@ class EnquiryAccused extends Model
         'is_government',
         'department_name',
         'designation',
+        'description',
         'cnic_attachment',
         'passport_attachment',
         'nadra_verisys_attachment',

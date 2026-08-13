@@ -78,8 +78,22 @@ const EMPTY_ACCUSED = {
   name: '', cnic: '', father_name: '', gender: '', contact_no: '', whatsapp_no: '',
   email: '', postal_address: '', permanent_address: '', religion: '', district_domicile: '',
   identification_mark: '', occupation: '', is_government: false, department_name: '', designation: '',
+  description: '',
   cnic_attachment: null, passport_attachment: null, nadra_verisys_attachment: null,
 };
+
+const EMPTY_SEIZE_ITEM = {
+  item_type: '', make_model: '', imei: '', serial_no: '', quantity: 1, description: '',
+};
+
+const SEIZE_ITEM_TYPES = [
+  { value: 'mobile', name: 'Mobile Phone' },
+  { value: 'laptop', name: 'Laptop' },
+  { value: 'hard_disk', name: 'Hard Disk / SSD' },
+  { value: 'sim', name: 'SIM Card' },
+  { value: 'usb', name: 'USB / Flash Drive' },
+  { value: 'other', name: 'Other' },
+];
 
 const EMPTY_WITNESS = {
   name: '', father_name: '', relation: '', gender: '', cnic: '', domicile_district: '',
@@ -278,6 +292,7 @@ export default function EnquiryForm() {
         is_government: !!a.is_government,
         department_name: a.department_name || '',
         designation: a.designation || '',
+        description: a.description || '',
         cnic_attachment: a.cnic_attachment || null,
         passport_attachment: a.passport_attachment || null,
         nadra_verisys_attachment: a.nadra_verisys_attachment || null,
@@ -306,6 +321,7 @@ export default function EnquiryForm() {
         description: a.description || '',
         activity_date: toDate(a.activity_date),
         attachment_path: a.attachment_path || '',
+        seize_items: Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
       })),
       witnesses: (d.witnesses || []).map(w => ({
         id: w.id,
@@ -337,6 +353,7 @@ export default function EnquiryForm() {
         notice_type: n.notice_type || '',
         receiver_name: n.receiver_name || '',
         person_type: n.person_type || '',
+        person_ref: n.person_ref ?? '',
         notice_via: n.notice_via || '',
         notice_date: toDate(n.notice_date),
         appearance_date: toLocalInput(n.appearance_date),
@@ -450,10 +467,41 @@ export default function EnquiryForm() {
   const updateRequisition = (i, field, value) => setForm(f => ({ ...f, requisitions: f.requisitions.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [] }] }));
   const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
-  const updateActivity = (i, field, value) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const updateActivity = (i, field, value) => setForm(f => ({
+    ...f,
+    activities: f.activities.map((a, idx) => {
+      if (idx !== i) return a;
+      const next = { ...a, [field]: value };
+      if (field === 'type' && (value === 'seizures' || value === 'search_seize') && !(next.seize_items || []).length) {
+        next.seize_items = [{ ...EMPTY_SEIZE_ITEM }];
+      }
+      return next;
+    }),
+  }));
   const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
+  const addSeizeItem = (activityIndex) => setForm(f => ({
+    ...f,
+    activities: f.activities.map((a, idx) => idx === activityIndex
+      ? { ...a, seize_items: [...(a.seize_items || []), { ...EMPTY_SEIZE_ITEM }] }
+      : a),
+  }));
+  const removeSeizeItem = (activityIndex, itemIndex) => setForm(f => ({
+    ...f,
+    activities: f.activities.map((a, idx) => idx === activityIndex
+      ? { ...a, seize_items: (a.seize_items || []).filter((_, si) => si !== itemIndex) }
+      : a),
+  }));
+  const updateSeizeItem = (activityIndex, itemIndex, field, value) => setForm(f => ({
+    ...f,
+    activities: f.activities.map((a, idx) => idx === activityIndex
+      ? {
+          ...a,
+          seize_items: (a.seize_items || []).map((it, si) => si === itemIndex ? { ...it, [field]: value } : it),
+        }
+      : a),
+  }));
 
   // Legal Opinions
   const addLegalOpinion = () => setForm(f => ({ ...f, legal_opinions: [...f.legal_opinions, { role: '', opinion_text: '', decision: '', created_by: user?.id }] }));
@@ -472,9 +520,58 @@ export default function EnquiryForm() {
   const updateWitnessFile = (i, field, file) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
 
   // Notices
-  const addNotice = () => setForm(f => ({ ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', person_type: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] }));
+  const addNotice = () => setForm(f => ({ ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] }));
   const removeNotice = (i) => setForm(f => ({ ...f, notices: f.notices.filter((_, idx) => idx !== i) }));
   const updateNotice = (i, field, value) => setForm(f => ({ ...f, notices: f.notices.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+
+  const fillNoticeFromPerson = (noticeIndex, personType, personRef) => {
+    setForm(f => {
+      const notices = f.notices.map((n, idx) => {
+        if (idx !== noticeIndex) return n;
+        const next = { ...n, person_type: personType, person_ref: personRef === '' || personRef == null ? '' : String(personRef) };
+        if (personType === 'accused' && personRef !== '' && personRef != null) {
+          const a = f.accused[Number(personRef)];
+          if (a) {
+            next.receiver_name = a.name || '';
+            next.phone = a.contact_no || a.whatsapp_no || '';
+            next.address = a.postal_address || a.permanent_address || '';
+          }
+        } else if (personType === 'witness' && personRef !== '' && personRef != null) {
+          const w = f.witnesses[Number(personRef)];
+          if (w) {
+            next.receiver_name = w.name || '';
+            next.phone = w.contact_no || w.whatsapp_no || '';
+            next.address = w.address || w.mailing_address || w.permanent_address || '';
+          }
+        } else if (personType === 'complainant') {
+          if (selectedComplaint) {
+            next.receiver_name = selectedComplaint.complainant_name || '';
+            next.phone = selectedComplaint.contact_no || selectedComplaint.whatsapp_no || '';
+            next.address = selectedComplaint.address || '';
+          } else if (directMode && direct) {
+            next.receiver_name = direct.complainant_name || '';
+            next.phone = direct.contact_no || direct.whatsapp_no || '';
+            next.address = direct.address || '';
+          }
+        }
+        return next;
+      });
+      return { ...f, notices };
+    });
+  };
+
+  const onNoticePersonTypeChange = (noticeIndex, personType) => {
+    if (personType === 'complainant') {
+      fillNoticeFromPerson(noticeIndex, 'complainant', '');
+      return;
+    }
+    setForm(f => ({
+      ...f,
+      notices: f.notices.map((n, idx) => idx === noticeIndex
+        ? { ...n, person_type: personType, person_ref: '', receiver_name: '', phone: '', address: '' }
+        : n),
+    }));
+  };
 
   const printNotice = async (n) => {
     if (!id) { alert('Save the enquiry first, then you can print notices.'); return; }
@@ -533,11 +630,23 @@ export default function EnquiryForm() {
     try {
       // Save enquiry first so report text/file is persisted
       await saveEnquiry({ navigateAway: false });
+      const seizeItems = (form.activities || [])
+        .filter(a => a.type === 'seizures' || a.type === 'search_seize')
+        .flatMap(a => a.seize_items || [])
+        .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
+        .map(it => ({
+          item_type: it.item_type || 'other',
+          make_model: it.make_model || null,
+          imei: it.imei || null,
+          serial_no: it.serial_no || null,
+          quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+          description: it.description || null,
+        }));
       const fd = new FormData();
       fd.append('enquiry_id', String(id));
       fd.append('destination', destination);
       fd.append('note', note);
-      fd.append('items', JSON.stringify([{
+      fd.append('items', JSON.stringify(seizeItems.length ? seizeItems : [{
         item_type: 'report',
         description: destination === 'forensic' ? 'Forensic report from enquiry' : 'Technical report from enquiry',
         quantity: 1,
@@ -557,6 +666,12 @@ export default function EnquiryForm() {
 
   const nonAppearanceCount = form.notices.filter(n => n.status === 'non_appearance').length;
   const referredToCourt = nonAppearanceCount >= 3;
+  const seizedItemsPreview = useMemo(() => (
+    (form.activities || [])
+      .filter(a => a.type === 'seizures' || a.type === 'search_seize')
+      .flatMap(a => (a.seize_items || []).map(it => ({ ...it, activity_type: a.type })))
+      .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
+  ), [form.activities]);
 
   const saveEnquiry = async ({ navigateAway = true } = {}) => {
     const fd = new FormData();
@@ -1064,6 +1179,17 @@ export default function EnquiryForm() {
                       <div className="cf-field"><label className="cf-label">Designation</label><input type="text" className="cf-input" value={a.designation} onChange={e => updateAccused(i, 'designation', e.target.value)} /></div>
                     </div>
                   )}
+                  <div className="cf-field" style={{ marginBottom: 12 }}>
+                    <label className="cf-label">Description</label>
+                    <textarea
+                      className="cf-input"
+                      rows={2}
+                      value={a.description || ''}
+                      onChange={e => updateAccused(i, 'description', e.target.value)}
+                      placeholder="Short description / remarks about this accused"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     {[
                       ['cnic_attachment', 'CNIC Attachment'],
@@ -1209,48 +1335,80 @@ export default function EnquiryForm() {
                     </div>
                   )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
-                    <div className="cf-field"><label className="cf-label">Notice No</label>
-                      <input type="text" className="cf-input" value={n.notice_number} onChange={e => updateNotice(i, 'notice_number', e.target.value)} placeholder="e.g. NCCIA/N/25" />
-                    </div>
-                    <div className="cf-field"><label className="cf-label">Notice Type</label>
-                      <select className="cf-input" value={n.notice_type} onChange={e => updateNotice(i, 'notice_type', e.target.value)}>
+                    <div className="cf-field"><label className="cf-label">Person Type</label>
+                      <select className="cf-input" value={n.person_type} onChange={e => onNoticePersonTypeChange(i, e.target.value)}>
                         <option value="">— Select —</option>
-                        {NOTICE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                        {PERSON_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
+                    {n.person_type === 'accused' && (
+                      <div className="cf-field"><label className="cf-label">Accused Name</label>
+                        <select
+                          className="cf-input"
+                          value={n.person_ref ?? ''}
+                          onChange={e => fillNoticeFromPerson(i, 'accused', e.target.value)}
+                        >
+                          <option value="">— Select Accused —</option>
+                          {form.accused.map((a, ai) => (
+                            <option key={ai} value={String(ai)} disabled={!a.name}>
+                              {a.name || `Accused #${ai + 1}`}{a.cnic ? ` (${a.cnic})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {n.person_type === 'witness' && (
+                      <div className="cf-field"><label className="cf-label">Witness Name</label>
+                        <select
+                          className="cf-input"
+                          value={n.person_ref ?? ''}
+                          onChange={e => fillNoticeFromPerson(i, 'witness', e.target.value)}
+                        >
+                          <option value="">— Select Witness —</option>
+                          {form.witnesses.map((w, wi) => (
+                            <option key={wi} value={String(wi)} disabled={!w.name}>
+                              {w.name || `Witness #${wi + 1}`}{w.cnic ? ` (${w.cnic})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div className="cf-field"><label className="cf-label">Receiver Name</label>
                       <input type="text" className="cf-input" value={n.receiver_name} onChange={e => updateNotice(i, 'receiver_name', e.target.value)} placeholder="Recipient name" />
                     </div>
-                    <div className="cf-field"><label className="cf-label">Notice Date</label>
-                      <input type="date" className="cf-input" value={n.notice_date} onChange={e => updateNotice(i, 'notice_date', e.target.value)} />
+                    <div className="cf-field"><label className="cf-label">Notice No</label>
+                      <input type="text" className="cf-input" value={n.notice_number} onChange={e => updateNotice(i, 'notice_number', e.target.value)} placeholder="e.g. NCCIA/N/25" />
                     </div>
                     <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeNotice(i)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                    <div className="cf-field"><label className="cf-label">Notice Type</label>
+                      <select className="cf-input" value={n.notice_type} onChange={e => updateNotice(i, 'notice_type', e.target.value)}>
+                        <option value="">— Select —</option>
+                        {NOTICE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Notice Date</label>
+                      <input type="date" className="cf-input" value={n.notice_date} onChange={e => updateNotice(i, 'notice_date', e.target.value)} />
+                    </div>
                     <div className="cf-field"><label className="cf-label">Notice Via</label>
                       <select className="cf-input" value={n.notice_via} onChange={e => updateNotice(i, 'notice_via', e.target.value)}>
                         <option value="">— Select —</option>
                         {NOTICE_VIA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
-                    <div className="cf-field"><label className="cf-label">Person Type</label>
-                      <select className="cf-input" value={n.person_type} onChange={e => updateNotice(i, 'person_type', e.target.value)}>
-                        <option value="">— Select —</option>
-                        {PERSON_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
-                      </select>
-                    </div>
                     <div className="cf-field"><label className="cf-label">Phone</label>
                       <input type="text" className="cf-input" value={n.phone} onChange={e => updateNotice(i, 'phone', e.target.value)} placeholder="Phone number" />
                     </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Status</label>
                       <select className="cf-input" value={n.status} onChange={e => updateNotice(i, 'status', e.target.value)}>
                         {NOTICE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Appearance Date</label>
                       <input type="datetime-local" className="cf-input" value={n.appearance_date || ''} onChange={e => updateNotice(i, 'appearance_date', e.target.value)} />
                     </div>
@@ -1326,6 +1484,27 @@ export default function EnquiryForm() {
               <div className="cf-section-badge">STEP 3</div>
             </div>
             <div className="cf-body">
+              {seizedItemsPreview.length > 0 && (
+                <div style={{ marginBottom: 16, padding: 12, background: '#f0f7fb', border: '1px solid #c5d9e8', borderRadius: 8 }}>
+                  <strong style={{ display: 'block', marginBottom: 8, color: '#015C94', fontSize: 13 }}>
+                    Seized items (auto from Activities)
+                  </strong>
+                  <div style={{ fontSize: 12, color: '#444' }}>
+                    {seizedItemsPreview.map((it, idx) => (
+                      <div key={idx} style={{ marginBottom: 4 }}>
+                        {idx + 1}. {SEIZE_ITEM_TYPES.find(o => o.value === it.item_type)?.name || it.item_type || 'Item'}
+                        {it.make_model ? ` — ${it.make_model}` : ''}
+                        {it.imei ? ` | IMEI: ${it.imei}` : ''}
+                        {it.serial_no ? ` | S/N: ${it.serial_no}` : ''}
+                        {it.quantity ? ` | Qty: ${it.quantity}` : ''}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: '#666' }}>
+                    Submit to AD Forensic / Technical will auto-attach these item details.
+                  </div>
+                </div>
+              )}
               <div className="cf-field" style={{ marginBottom: 16 }}>
                 <label className="cf-label required">Technical Report</label>
                 <textarea
@@ -1463,6 +1642,49 @@ export default function EnquiryForm() {
                   <div className="cf-field"><label className="cf-label">Description</label>
                     <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity..." style={{ width: '100%' }}></textarea>
                   </div>
+                  {(a.type === 'seizures' || a.type === 'search_seize') && (
+                    <div style={{ marginTop: 14, padding: 12, background: '#fff', border: '1px solid #d8e2ea', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <strong style={{ fontSize: 13, color: '#015C94' }}>Seized Items</strong>
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>Add Item</button>
+                      </div>
+                      {(a.seize_items || []).map((it, si) => (
+                        <div key={si} style={{ padding: 10, marginBottom: 10, background: '#f7fafc', borderRadius: 8, border: '1px solid #e6eef4' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 10, marginBottom: 8 }}>
+                            <div className="cf-field"><label className="cf-label">Item Type</label>
+                              <select className="cf-input" value={it.item_type || ''} onChange={e => updateSeizeItem(i, si, 'item_type', e.target.value)}>
+                                <option value="">— Select —</option>
+                                {SEIZE_ITEM_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                              </select>
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Make / Model</label>
+                              <input type="text" className="cf-input" value={it.make_model || ''} onChange={e => updateSeizeItem(i, si, 'make_model', e.target.value)} />
+                            </div>
+                            <div className="cf-field"><label className="cf-label">IMEI</label>
+                              <input type="text" className="cf-input" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Serial No</label>
+                              <input type="text" className="cf-input" value={it.serial_no || ''} onChange={e => updateSeizeItem(i, si, 'serial_no', e.target.value)} />
+                            </div>
+                            <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36, alignSelf: 'end' }} onClick={() => removeSeizeItem(i, si)}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 10 }}>
+                            <div className="cf-field"><label className="cf-label">Qty</label>
+                              <input type="number" min={1} className="cf-input" value={it.quantity ?? 1} onChange={e => updateSeizeItem(i, si, 'quantity', e.target.value)} />
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Item Description</label>
+                              <input type="text" className="cf-input" value={it.description || ''} onChange={e => updateSeizeItem(i, si, 'description', e.target.value)} placeholder="Optional details" />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {(a.seize_items || []).length === 0 && (
+                        <p style={{ margin: 0, fontSize: 12, color: '#888' }}>No seized items yet. Click Add Item.</p>
+                      )}
+                    </div>
+                  )}
                   {a.type === 'diaries' && (
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => printDiary(a)}>
