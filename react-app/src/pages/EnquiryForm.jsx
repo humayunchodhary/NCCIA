@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import VerificationReportPanel from '../components/VerificationReportPanel';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
-import SeizeForensicPanel from '../components/SeizeForensicPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
 import { toLocalInput } from '../utils/datetime';
@@ -224,8 +223,13 @@ export default function EnquiryForm() {
   }, [showVerificationReport]);
 
   const applyEnquiryPayload = (d) => {
-    if (d.technical_report_attachment) setTechnicalReportUrl(d.technical_report_attachment);
-    if (d.forensic_report_attachment) setForensicReportUrl(d.forensic_report_attachment);
+    const fileUrl = (p) => {
+      if (!p) return '';
+      if (/^https?:\/\//i.test(p) || p.startsWith('/')) return p;
+      return `/${p}`;
+    };
+    setTechnicalReportUrl(fileUrl(d.technical_report_attachment) || '');
+    setForensicReportUrl(fileUrl(d.forensic_report_attachment) || '');
     setCaseFileId(d.case_file_id || d.case_file?.id || null);
     setVerificationReport(d.complaint?.latest_verification_report || d.complaint?.latestVerificationReport || null);
     setLinkedVerification(d.complaint?.verification || null);
@@ -592,6 +596,9 @@ export default function EnquiryForm() {
       const v = form[k];
       if (v !== null && v !== undefined && v !== '') fd.append(k, v);
     });
+    // Always send report fields so backend can persist them (even if empty string cleared)
+    fd.set('technical_report', form.technical_report ?? '');
+    fd.set('forensic_report', form.forensic_report ?? '');
 
     if (directMode && !form.complaint_id) {
       fd.append('direct_info', JSON.stringify(buildDirectInfoPayload(direct, circles)));
@@ -1277,18 +1284,63 @@ export default function EnquiryForm() {
             </div>
             <div className="cf-body">
               <div className="cf-field" style={{ marginBottom: 16 }}>
-                <label className="cf-label required">Technical Report</label>
-                <textarea className="cf-input" rows={4} required value={form.technical_report || ''} onChange={setF('technical_report')} placeholder="Technical analysis / report findings..." style={{ width: '100%' }}></textarea>
-                {technicalReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={technicalReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open Γåù</a></div>}
-                <input type="file" className="cf-input" style={{ marginTop: 8 }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => setTechnicalFile(e.target.files[0] || null)} />
+                <label className="cf-label">Technical Report</label>
+                <textarea
+                  className="cf-input"
+                  rows={4}
+                  value={form.technical_report || ''}
+                  onChange={setF('technical_report')}
+                  placeholder="Technical analysis / report findings..."
+                  style={{ width: '100%' }}
+                />
+                {technicalReportUrl && (
+                  <div style={{ fontSize: 12, marginTop: 6 }}>
+                    Current file:{' '}
+                    <a href={technicalReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>
+                      Open ↗
+                    </a>
+                  </div>
+                )}
+                {technicalFile && (
+                  <div style={{ fontSize: 12, marginTop: 6, color: '#0d7a4f' }}>Selected: {technicalFile.name}</div>
+                )}
+                <input
+                  type="file"
+                  className="cf-input"
+                  style={{ marginTop: 8 }}
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={e => setTechnicalFile(e.target.files[0] || null)}
+                />
               </div>
               <div className="cf-field">
-                <label className="cf-label required">Forensic Report</label>
-                <textarea className="cf-input" rows={4} required value={form.forensic_report || ''} onChange={setF('forensic_report')} placeholder="Forensic analysis / report findings..." style={{ width: '100%' }}></textarea>
-                {forensicReportUrl && <div style={{ fontSize: 12, marginTop: 6 }}>Current file: <a href={forensicReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open Γåù</a></div>}
-                <input type="file" className="cf-input" style={{ marginTop: 8 }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => setForensicFile(e.target.files[0] || null)} />
+                <label className="cf-label">Forensic Report</label>
+                <textarea
+                  className="cf-input"
+                  rows={4}
+                  value={form.forensic_report || ''}
+                  onChange={setF('forensic_report')}
+                  placeholder="Forensic analysis / report findings..."
+                  style={{ width: '100%' }}
+                />
+                {forensicReportUrl && (
+                  <div style={{ fontSize: 12, marginTop: 6 }}>
+                    Current file:{' '}
+                    <a href={forensicReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>
+                      Open ↗
+                    </a>
+                  </div>
+                )}
+                {forensicFile && (
+                  <div style={{ fontSize: 12, marginTop: 6, color: '#0d7a4f' }}>Selected: {forensicFile.name}</div>
+                )}
+                <input
+                  type="file"
+                  className="cf-input"
+                  style={{ marginTop: 8 }}
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  onChange={e => setForensicFile(e.target.files[0] || null)}
+                />
               </div>
-              <SeizeForensicPanel enquiryId={id} />
             </div>
           </div>
         )}

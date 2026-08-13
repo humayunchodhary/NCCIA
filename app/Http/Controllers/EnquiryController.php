@@ -39,10 +39,15 @@ class EnquiryController extends Controller
         if (!$file) {
             return null;
         }
-        $ext  = $file->getClientOriginalExtension() ?: 'bin';
-        $name = $dir . '/' . Str::random(24) . '.' . $ext;
-        $file->move(public_path('uploads'), $name);
-        return 'uploads/' . $name;
+        $ext = $file->getClientOriginalExtension() ?: 'bin';
+        $subdir = public_path('uploads/' . $dir);
+        if (!is_dir($subdir) && !mkdir($subdir, 0755, true) && !is_dir($subdir)) {
+            throw new \RuntimeException('Upload folder could not be created: ' . $dir);
+        }
+        $name = Str::random(24) . '.' . $ext;
+        $file->move($subdir, $name);
+
+        return 'uploads/' . $dir . '/' . $name;
     }
 
     private function decodeArrays(array &$data): void
@@ -766,9 +771,15 @@ class EnquiryController extends Controller
                 'documentary_evidence'=> $data['documentary_evidence'] ?? null,
                 'plea'                => $data['plea'] ?? null,
                 'conclusion'          => $data['conclusion'] ?? null,
-                'technical_report'    => $data['technical_report'] ?? null,
-                'forensic_report'     => $data['forensic_report'] ?? null,
             ], fn ($v) => $v !== null);
+
+            // Always persist report text when the client sent the keys (even empty clear)
+            if (array_key_exists('technical_report', $data)) {
+                $updateData['technical_report'] = $data['technical_report'];
+            }
+            if (array_key_exists('forensic_report', $data)) {
+                $updateData['forensic_report'] = $data['forensic_report'];
+            }
 
             if ($canEditCfrRemarks && array_key_exists('cfr_remarks', $data)) {
                 $updateData['cfr_remarks'] = $data['cfr_remarks'];
