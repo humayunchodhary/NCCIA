@@ -46,12 +46,6 @@ const RECEIVED_FROM_OPTIONS = [
   { value: 'General Public', name: 'General Public' },
 ];
 
-const CMU_OPTIONS = [
-  { value: 'NCCIA - HQ', name: 'NCCIA - HQ' },
-  { value: 'Zonal Directorate', name: 'Zonal Directorate' },
-  { value: 'CCRC', name: 'CCRC' },
-];
-
 const GENDER_OPTIONS = [
   { value: 'Male', name: 'Male' },
   { value: 'Female', name: 'Female' },
@@ -149,6 +143,7 @@ export default function ComplaintForm() {
   const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
   const [offenceTypes, setOffenceTypes] = useState([]);
+  const [circleOptions, setCircleOptions] = useState([]);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
@@ -264,6 +259,11 @@ export default function ComplaintForm() {
 
   useEffect(() => {
     api.get('/offence-types').then(r => setOffenceTypes(r.data.data || r.data)).catch(() => {});
+    api.get('/lookup/circles').then(r => {
+      const all = r.data.data || r.data || [];
+      const list = Array.isArray(all) ? all : [];
+      setCircleOptions(list.map(c => ({ value: c.name, name: c.name + (c.code ? ` (${c.code})` : '') })));
+    }).catch(() => {});
     if (showAssignVo) {
       api.get('/lookup/verification-officers').then(r => {
         const all = r.data.data || r.data;
@@ -638,7 +638,7 @@ export default function ComplaintForm() {
               {renderField('Received From', 'received_from', { required: true, options: RECEIVED_FROM_OPTIONS })}
             </div>
             <div className="cf-row-3">
-              {renderField('CMU', 'cmu', { options: CMU_OPTIONS })}
+              {renderField('CMU', 'cmu', { options: circleOptions })}
               {renderField('Priority', 'priority_type', { options: PRIORITY_OPTIONS })}
               {renderField('Occurrence Date', 'occurrence_date', { type: 'date', required: true })}
             </div>
