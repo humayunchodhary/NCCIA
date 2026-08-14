@@ -631,7 +631,7 @@ export default function ComplaintForm() {
             <div className="cf-row-3">
               {renderField('Report Date', 'report_date', { type: 'date', required: true })}
               {renderField('Reporting Time', 'reporting_time', { type: 'datetime-local' })}
-              {renderField('Diary No', 'diary_no', { required: true })}
+              {renderField('Diary No', 'diary_no')}
             </div>
             <div className="cf-row-2">
               {renderField('Received Via', 'received_via', { required: true, options: RECEIVED_VIA_OPTIONS })}

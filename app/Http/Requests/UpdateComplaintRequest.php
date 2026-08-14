@@ -34,7 +34,7 @@ class UpdateComplaintRequest extends FormRequest
 
             'report_date'        => 'required|date',
             'reporting_time'     => 'nullable|date',
-            'diary_no'           => 'required|string|max:255',
+            'diary_no'           => 'nullable|string|max:255',
             'received_via'       => 'required|string|max:255',
             'received_from'      => 'required|string|max:255',
             'cmu'                => 'nullable|string|max:255',
