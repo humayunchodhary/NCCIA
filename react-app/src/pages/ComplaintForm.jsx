@@ -665,10 +665,10 @@ export default function ComplaintForm() {
             </div>
             <div className="cf-row-2">
               {renderField('Bank Name (Sender)', 'bank_name_sender')}
-              {renderField('Bank Name (Receiver)', 'bank_name_receiver')}
+              {renderField('Account No (Sender)', 'account_no_sender')}
             </div>
             <div className="cf-row-2">
-              {renderField('Account No (Sender)', 'account_no_sender')}
+              {renderField('Bank Name (Receiver)', 'bank_name_receiver')}
               {renderField('Account No (Receiver)', 'account_no_receiver')}
             </div>
           </div>
