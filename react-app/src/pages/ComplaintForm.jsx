@@ -595,6 +595,28 @@ export default function ComplaintForm() {
               {renderField('Address', 'address', { rows: 2, required: true })}
               {renderField('Postal Address', 'post_address', { rows: 2 })}
             </div>
+            <div style={{ marginTop: 16 }}>
+              <div className="cf-label" style={{ fontWeight: 700, marginBottom: 8 }}>Identity Documents</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                {[
+                  { key: 'cnic_front', label: 'CNIC Front', file: cnicFrontFile, setFile: setCnicFrontFile, url: existingDocs.cnic_front_url, accept: '.jpg,.jpeg,.png,.pdf' },
+                  { key: 'cnic_back', label: 'CNIC Back', file: cnicBackFile, setFile: setCnicBackFile, url: existingDocs.cnic_back_url, accept: '.jpg,.jpeg,.png,.pdf' },
+                  { key: 'passport_attachment', label: 'Passport', file: passportFile, setFile: setPassportFile, url: existingDocs.passport_attachment_url, accept: '.jpg,.jpeg,.png,.pdf' },
+                  { key: 'picture', label: 'Photo', file: pictureFile, setFile: setPictureFile, url: existingDocs.picture_url, accept: 'image/*' },
+                ].map(doc => (
+                  <div key={doc.key} className="cf-field">
+                    <label className="cf-label">{doc.label}</label>
+                    <input type="file" className="cf-input" accept={doc.accept} onChange={e => doc.setFile(e.target.files?.[0] || null)} />
+                    {doc.file ? (
+                      <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {doc.file.name}</span>
+                    ) : doc.url ? (
+                      <a href={doc.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Current file ↗</a>
+                    ) : null}
+                    {errors[doc.key] && <div className="cf-error">{errors[doc.key]}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -828,36 +850,10 @@ export default function ComplaintForm() {
                 <div className="cf-section-icon" style={{ background: '#805ad5' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 </div>
-                <div><div className="cf-section-title">Attachments</div><div className="cf-section-sub">CNIC front/back, passport, picture — same as verification identity docs</div></div>
+                <div><div className="cf-section-title">Attachments</div><div className="cf-section-sub">Additional supporting documents</div></div>
                 <div className="cf-section-badge">Optional</div>
               </div>
               <div className="cf-body">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                  {[
-                    { key: 'cnic_front', label: 'CNIC Front', file: cnicFrontFile, setFile: setCnicFrontFile, url: existingDocs.cnic_front_url, accept: '.jpg,.jpeg,.png,.pdf' },
-                    { key: 'cnic_back', label: 'CNIC Back', file: cnicBackFile, setFile: setCnicBackFile, url: existingDocs.cnic_back_url, accept: '.jpg,.jpeg,.png,.pdf' },
-                    { key: 'passport_attachment', label: 'Passport', file: passportFile, setFile: setPassportFile, url: existingDocs.passport_attachment_url, accept: '.jpg,.jpeg,.png,.pdf' },
-                    { key: 'picture', label: 'Picture / Photo', file: pictureFile, setFile: setPictureFile, url: existingDocs.picture_url, accept: 'image/*' },
-                  ].map(doc => (
-                    <div key={doc.key} className="cf-field">
-                      <label className="cf-label">{doc.label}</label>
-                      <input
-                        type="file"
-                        className="cf-input"
-                        accept={doc.accept}
-                        onChange={e => doc.setFile(e.target.files?.[0] || null)}
-                      />
-                      {doc.file ? (
-                        <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {doc.file.name}</span>
-                      ) : doc.url ? (
-                        <a href={doc.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>
-                          Current file ↗
-                        </a>
-                      ) : null}
-                      {errors[doc.key] && <div className="cf-error">{errors[doc.key]}</div>}
-                    </div>
-                  ))}
-                </div>
                 <div className="cf-field">
                   <label className="cf-label">Other Supporting Document</label>
                   {existingAttachment && (
