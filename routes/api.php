@@ -23,6 +23,7 @@ use App\Http\Controllers\SidebarCountsController;
 use App\Http\Controllers\Forensic\ForensicUserController;
 use App\Http\Controllers\Forensic\ForensicRequestController;
 use App\Http\Controllers\OfficerAssignmentHistoryController;
+use App\Http\Controllers\SmsController;
 
 Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
@@ -312,4 +313,12 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/messages', [MessageController::class, 'store']);
     Route::get('/messages/unread-count', [MessageController::class, 'unreadCount']);
     Route::post('/messages/read-all', [MessageController::class, 'markAllRead']);
+
+    // SMS
+    Route::get('/sms', [SmsController::class, 'index'])
+        ->middleware('role:admin,director_general,circle_incharge');
+    Route::post('/sms', [SmsController::class, 'store'])
+        ->middleware('role:admin,director_general,circle_incharge');
+    Route::get('/sms/templates', [SmsController::class, 'templates'])
+        ->middleware('role:admin,director_general,circle_incharge');
 });

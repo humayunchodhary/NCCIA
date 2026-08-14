@@ -15,6 +15,8 @@ use App\Notifications\ComplainantMessageNotification;
 use App\Services\ComplainantNotifyService;
 use App\Services\EnquiryNumberGenerator;
 use App\Services\OfficerAssignmentService;
+use App\Services\SmsService;
+use App\Services\SmsTemplates;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -563,6 +565,19 @@ class VerificationController extends Controller
 
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
 
+        if ($verification->officer) {
+            app(SmsService::class)->sendToUser(
+                $verification->officer,
+                SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                [
+                    'subject_type' => 'verification',
+                    'subject_id'   => $verification->id,
+                    'trigger'      => 'verification_assigned',
+                ]
+            );
+        }
+
         if ($request->expectsJson()) {
             return response()->json(['message' => 'Verification assigned successfully', 'data' => $verification->load('officer', 'complaint')], 201);
         }
@@ -666,6 +681,19 @@ class VerificationController extends Controller
 
         if ($officerChanged) {
             $verification->officer?->notify(new VerificationAssignedNotification($verification));
+
+            if ($verification->officer) {
+                app(SmsService::class)->sendToUser(
+                    $verification->officer,
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                    [
+                        'subject_type' => 'verification',
+                        'subject_id'   => $verification->id,
+                        'trigger'      => 'verification_assigned',
+                    ]
+                );
+            }
         } else {
             app(OfficerAssignmentService::class)->touchWorkSnapshot(
                 $verification->fresh(),
@@ -720,6 +748,26 @@ class VerificationController extends Controller
         ])->save();
 
         $complaint = $verification->complaint;
+
+        // Send the appearance notice as SMS whenever an SMS/WhatsApp message is recorded.
+        if ($complaint?->contact_no) {
+            $phone = preg_replace('/\D+/', '', ($complaint->contact_country_code ?: '+92') . $complaint->contact_no);
+            if ($phone) {
+                app(SmsService::class)->sendBilingual(
+                    $phone,
+                    SmsTemplates::appearanceNotice($verification->loadMissing('officer'), $request->user(), 'en'),
+                    SmsTemplates::appearanceNotice($verification->loadMissing('officer'), $request->user(), 'ur'),
+                    [
+                        'country_code'   => $complaint->contact_country_code ?: '+92',
+                        'recipient_type' => 'complainant',
+                        'subject_type'   => 'verification',
+                        'subject_id'     => $verification->id,
+                        'trigger'        => 'appearance_notice',
+                    ]
+                );
+            }
+        }
+
         $whatsappUrl = $notify->whatsappUrl($complaint, $message);
 
         // Keep circle incharge in the loop
@@ -988,6 +1036,19 @@ class VerificationController extends Controller
 
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
 
+        if ($verification->officer) {
+            app(SmsService::class)->sendToUser(
+                $verification->officer,
+                SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                [
+                    'subject_type' => 'verification',
+                    'subject_id'   => $verification->id,
+                    'trigger'      => 'verification_assigned',
+                ]
+            );
+        }
+
         return response()->json([
             'message' => 'Verification assigned successfully',
             'data'    => $verification->load('officer'),
@@ -1223,6 +1284,19 @@ class VerificationController extends Controller
 
         $verification->load('officer');
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
+
+        if ($verification->officer) {
+            app(SmsService::class)->sendToUser(
+                $verification->officer,
+                SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                [
+                    'subject_type' => 'verification',
+                    'subject_id'   => $verification->id,
+                    'trigger'      => 'verification_assigned',
+                ]
+            );
+        }
 
         return response()->json([
             'message' => 'Verification officer reassigned. Previous officer work saved in history.',

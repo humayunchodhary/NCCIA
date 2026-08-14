@@ -12,6 +12,8 @@ use App\Http\Resources\ComplaintResource;
 use App\Notifications\VerificationAssignedNotification;
 use App\Services\ComplainantNotifyService;
 use App\Services\PrintService;
+use App\Services\SmsService;
+use App\Services\SmsTemplates;
 use App\Services\TrackingNumberGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -176,6 +178,12 @@ class ComplaintController extends Controller
         if ($complaint->tracking_no) {
             $notify = app(ComplainantNotifyService::class)->notifyRegistration($complaint);
             $complaint->refresh();
+            $this->sendComplainantSms(
+                $complaint,
+                SmsTemplates::complaintRegistered($complaint, 'en'),
+                SmsTemplates::complaintRegistered($complaint, 'ur'),
+                'complaint_registered'
+            );
         }
 
         if ($request->expectsJson()) {
@@ -364,6 +372,16 @@ class ComplaintController extends Controller
             $complaint->refresh();
         }
 
+        // Send status-update SMS to complainant once a tracking number exists.
+        if ($complaint->tracking_no) {
+            $this->sendComplainantSms(
+                $complaint,
+                SmsTemplates::complaintStatusUpdate($complaint, $request->status, 'en'),
+                SmsTemplates::complaintStatusUpdate($complaint, $request->status, 'ur'),
+                'complaint_status_update'
+            );
+        }
+
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Complaint status updated to ' . $request->status,
@@ -385,6 +403,14 @@ class ComplaintController extends Controller
         abort_unless($complaint->tracking_no, 422, 'Tracking number not generated yet.');
 
         $payload = $notify->notifyRegistration($complaint);
+
+        // Resend the registration SMS as well.
+        $this->sendComplainantSms(
+            $complaint,
+            SmsTemplates::complaintRegistered($complaint, 'en'),
+            SmsTemplates::complaintRegistered($complaint, 'ur'),
+            'complaint_registered'
+        );
 
         return response()->json([
             'message' => 'Registration message ready for complainant',
@@ -420,6 +446,27 @@ class ComplaintController extends Controller
         return back()->with('success', 'Verification assigned to ' . ($verification->officer?->name ?? 'officer'));
     }
 
+    /**
+     * Send the complainant an SMS (bilingual) and log it against the complaint.
+     */
+    protected function sendComplainantSms(Complaint $complaint, string $en, string $ur, string $trigger): void
+    {
+        $phone = preg_replace('/\D+/', '', ($complaint->contact_country_code ?: '+92') . ($complaint->contact_no ?: ''));
+        if (!$phone) {
+            return;
+        }
+
+        $options = [
+            'country_code'   => $complaint->contact_country_code ?: '+92',
+            'recipient_type' => 'complainant',
+            'subject_type'   => 'complaint',
+            'subject_id'     => $complaint->id,
+            'trigger'        => $trigger,
+        ];
+
+        app(SmsService::class)->sendBilingual($phone, $en, $ur, $options);
+    }
+
     protected function assignVerificationOfficer(Complaint $complaint, int $officerId, string $priority = 'normal'): Verification
     {
         $priority = in_array($priority, ['normal', 'high', 'critical'], true) ? $priority : 'normal';
@@ -451,6 +498,20 @@ class ComplaintController extends Controller
 
         $verification->loadMissing('officer');
         $verification->officer?->notify(new VerificationAssignedNotification($verification));
+
+        // SMS the assigned Verification Officer.
+        if ($verification->officer) {
+            app(SmsService::class)->sendToUser(
+                $verification->officer,
+                SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                [
+                    'subject_type' => 'verification',
+                    'subject_id'   => $verification->id,
+                    'trigger'      => 'verification_assigned',
+                ]
+            );
+        }
 
         return $verification;
     }

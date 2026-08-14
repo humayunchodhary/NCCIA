@@ -11,6 +11,8 @@ use App\Notifications\CaseAssignedNotification;
 use App\Notifications\EnquiryAssignedNotification;
 use App\Notifications\VerificationAssignedNotification;
 use App\Services\EnquiryNumberGenerator;
+use App\Services\SmsService;
+use App\Services\SmsTemplates;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -100,6 +102,12 @@ class RoleWorkAssigner
                     'assigned_at'              => now(),
                 ]);
                 $vo->notify(new VerificationAssignedNotification($v));
+                app(SmsService::class)->sendToUser(
+                    $vo,
+                    SmsTemplates::verificationAssigned($v, $vo, 'en'),
+                    SmsTemplates::verificationAssigned($v, $vo, 'ur'),
+                    ['subject_type' => 'verification', 'subject_id' => $v->id, 'trigger' => 'verification_assigned']
+                );
                 $count++;
             });
 
@@ -123,6 +131,12 @@ class RoleWorkAssigner
                     'assigned_at'             => $v->assigned_at ?: now(),
                 ]);
                 $vo->notify(new VerificationAssignedNotification($v->fresh()));
+                app(SmsService::class)->sendToUser(
+                    $vo,
+                    SmsTemplates::verificationAssigned($v->fresh(), $vo, 'en'),
+                    SmsTemplates::verificationAssigned($v->fresh(), $vo, 'ur'),
+                    ['subject_type' => 'verification', 'subject_id' => $v->id, 'trigger' => 'verification_assigned']
+                );
                 $count++;
             });
 
@@ -191,6 +205,12 @@ class RoleWorkAssigner
                     'assignment_date'    => now()->toDateString(),
                 ]);
                 $eo->notify(new EnquiryAssignedNotification($e->fresh()));
+                app(SmsService::class)->sendToUser(
+                    $eo,
+                    SmsTemplates::enquiryAssigned($e->fresh(), $eo, 'en'),
+                    SmsTemplates::enquiryAssigned($e->fresh(), $eo, 'ur'),
+                    ['subject_type' => 'enquiry', 'subject_id' => $e->id, 'trigger' => 'enquiry_assigned']
+                );
                 $count++;
             });
 
@@ -275,6 +295,12 @@ class RoleWorkAssigner
                         // notification optional
                     }
                 }
+                app(SmsService::class)->sendToUser(
+                    $io,
+                    SmsTemplates::caseAssigned($c->fresh(), $io, 'en'),
+                    SmsTemplates::caseAssigned($c->fresh(), $io, 'ur'),
+                    ['subject_type' => 'case_file', 'subject_id' => $c->id, 'trigger' => 'case_assigned']
+                );
                 $count++;
             });
 

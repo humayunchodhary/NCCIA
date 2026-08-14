@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaseFile;
+use App\Models\Complaint;
 use App\Models\CourtCase;
 use App\Models\CourtReport;
+use App\Services\SmsService;
+use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -60,6 +63,9 @@ class CourtCaseController extends Controller
                 'status'      => 'filed',
             ]);
         });
+
+        // Notify the complainant when a court case is filed.
+        $this->notifyComplainantOfCourtCase($courtCase->fresh(), $data['filing_date']);
 
         return response()->json([
             'message' => 'Court case filed',
@@ -134,10 +140,60 @@ class CourtCaseController extends Controller
             return $verdict;
         });
 
+        // SMS the complainant about the verdict.
+        $courtCase->load('caseFile.enquiry.complaint');
+        $complaint = $courtCase->caseFile?->enquiry?->complaint;
+        if ($complaint?->contact_no) {
+            $digits = preg_replace('/\D+/', '', ($complaint->contact_country_code ?: '+92') . $complaint->contact_no);
+            if ($digits) {
+                app(SmsService::class)->sendBilingual(
+                    $digits,
+                    SmsTemplates::verdict($courtCase, str_replace('_', ' ', $data['verdict']), 'en'),
+                    SmsTemplates::verdict($courtCase, str_replace('_', ' ', $data['verdict']), 'ur'),
+                    [
+                        'country_code'   => $complaint->contact_country_code ?: '+92',
+                        'recipient_type' => 'complainant',
+                        'subject_type'   => 'court_case',
+                        'subject_id'     => $courtCase->id,
+                        'trigger'        => 'verdict',
+                    ]
+                );
+            }
+        }
+
         return response()->json([
             'message' => 'Verdict recorded — case closed',
             'data'    => $verdict->load('courtCase.caseFile'),
         ], 201);
+    }
+
+    /**
+     * SMS the complainant when their case is filed / goes to court.
+     */
+    protected function notifyComplainantOfCourtCase(CourtCase $courtCase, string $filingDate): void
+    {
+        $complaint = $courtCase->caseFile?->enquiry?->complaint;
+        if (!$complaint?->contact_no) {
+            return;
+        }
+
+        $digits = preg_replace('/\D+/', '', ($complaint->contact_country_code ?: '+92') . $complaint->contact_no);
+        if (!$digits) {
+            return;
+        }
+
+        app(SmsService::class)->sendBilingual(
+            $digits,
+            SmsTemplates::courtHearing($courtCase, \Carbon\Carbon::parse($filingDate), 'en'),
+            SmsTemplates::courtHearing($courtCase, \Carbon\Carbon::parse($filingDate), 'ur'),
+            [
+                'country_code'   => $complaint->contact_country_code ?: '+92',
+                'recipient_type' => 'complainant',
+                'subject_type'   => 'court_case',
+                'subject_id'     => $courtCase->id,
+                'trigger'        => 'court_hearing',
+            ]
+        );
     }
 
     public function forwardReport(Request $request, CourtCase $courtCase)

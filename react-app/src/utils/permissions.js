@@ -1,7 +1,7 @@
 // Role → feature matrix (sync with RolesAndPermissionsSeeder + NCCIA flowchart)
 export const ROLE_FEATURES = {
-  admin:                ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'profile'],
-  circle_incharge:      ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'offence_types', 'reference', 'profile'],
+  admin:                ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile'],
+  circle_incharge:      ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'offence_types', 'reference', 'sms_logs', 'profile'],
   operator:             ['dashboard', 'complaints', 'profile'],
   verification_officer: ['dashboard', 'verifications', 'reports', 'profile'],
   enquiry_officer:      ['dashboard', 'enquiries', 'dac_cases', 'profile'],
@@ -11,7 +11,7 @@ export const ROLE_FEATURES = {
   ad_legal:             ['dashboard', 'enquiries', 'dac_cases', 'profile'],
   dd_legal:             ['dashboard', 'enquiries', 'dac_cases', 'profile'],
   additional_director:  ['dashboard', 'enquiries', 'dac_cases', 'profile'],
-  director_general:     ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'profile'],
+  director_general:     ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile'],
 };
 
 /** Who fills / does what (flowchart WS_FLOW_CHART) */

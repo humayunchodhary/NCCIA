@@ -40,4 +40,34 @@ return [
         'timeout' => (int) env('ADP_API_TIMEOUT', 120),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | SMS Gateway (Pakistani providers: Jazz/Telenor/Ufone/Zong via HTTP API)
+    |--------------------------------------------------------------------------
+    |
+    | Build the service to accept either GET or POST based on the gateway.
+    | `sms.http_method`  : get|post
+    | `sms.params`       : query/body params the gateway expects, with {phone},
+    |                      {message} and {sender} placeholders. Extra credentials
+    |                      (api_key, username, password, route_id, etc.) go here.
+    | `sms.success_match` : substring expected in a successful response
+    |                       (e.g. "ok", "1", "success"). Empty disables checking.
+    |
+    */
+    'sms' => [
+        'enabled'        => filter_var(env('SMS_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'provider'       => env('SMS_PROVIDER', 'generic'),
+        'gateway_url'    => env('SMS_API_URL', ''),
+        'http_method'    => strtolower(env('SMS_HTTP_METHOD', 'get')),
+        'sender_id'      => env('SMS_SENDER_ID', 'NCCIA'),
+        'success_match'  => env('SMS_SUCCESS_MATCH', ''),
+        'timeout'        => (int) env('SMS_TIMEOUT', 15),
+        'params'         => [
+            'api_key'  => env('SMS_API_KEY', ''),
+            'username' => env('SMS_USERNAME', ''),
+            'password' => env('SMS_PASSWORD', ''),
+            'route_id' => env('SMS_ROUTE_ID', ''),
+        ],
+    ],
+
 ];

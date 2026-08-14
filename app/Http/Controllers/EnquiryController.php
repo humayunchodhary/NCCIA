@@ -22,6 +22,8 @@ use App\Services\EnquiryNumberGenerator;
 use App\Services\FirNumberGenerator;
 use App\Services\OfficerAssignmentService;
 use App\Services\PrintService;
+use App\Services\SmsService;
+use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -529,6 +531,26 @@ class EnquiryController extends Controller
         );
 
         $recipients->unique('id')->each(fn ($u) => $u?->notify(new NoticeNonAppearanceNotification($enquiry, null, false)));
+
+        // SMS the person who failed to appear (latest non-appearance notice receiver).
+        $lastNotice = $enquiry->notices()->where('status', 'non_appearance')->latest()->first();
+        if ($lastNotice?->phone) {
+            $digits = preg_replace('/\D+/', '', $lastNotice->phone);
+            if ($digits) {
+                app(SmsService::class)->sendBilingual(
+                    $digits,
+                    SmsTemplates::nonAppearance($enquiry, 'en'),
+                    SmsTemplates::nonAppearance($enquiry, 'ur'),
+                    [
+                        'country_code'   => '+92',
+                        'recipient_type' => 'notice_receiver',
+                        'subject_type'   => 'enquiry_notice',
+                        'subject_id'     => $lastNotice->id,
+                        'trigger'        => 'non_appearance',
+                    ]
+                );
+            }
+        }
     }
 
     public function verifyNotice(string $token)
@@ -649,6 +671,19 @@ class EnquiryController extends Controller
                 $request->user()->id,
             );
             $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+
+            if ($enquiry->officer) {
+                app(SmsService::class)->sendToUser(
+                    $enquiry->officer,
+                    SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'en'),
+                    SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'ur'),
+                    [
+                        'subject_type' => 'enquiry',
+                        'subject_id'   => $enquiry->id,
+                        'trigger'      => 'enquiry_assigned',
+                    ]
+                );
+            }
         }
 
         if ($request->expectsJson()) {
@@ -905,6 +940,19 @@ class EnquiryController extends Controller
 
             if ($officerChanged) {
                 $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+
+                if ($enquiry->officer) {
+                    app(SmsService::class)->sendToUser(
+                        $enquiry->officer,
+                        SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'en'),
+                        SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'ur'),
+                        [
+                            'subject_type' => 'enquiry',
+                            'subject_id'   => $enquiry->id,
+                            'trigger'      => 'enquiry_assigned',
+                        ]
+                    );
+                }
             } else {
                 app(OfficerAssignmentService::class)->touchWorkSnapshot(
                     $enquiry->fresh(),
@@ -1039,6 +1087,19 @@ class EnquiryController extends Controller
 
         $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
 
+        if ($enquiry->officer) {
+            app(SmsService::class)->sendToUser(
+                $enquiry->officer,
+                SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'en'),
+                SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'ur'),
+                [
+                    'subject_type' => 'enquiry',
+                    'subject_id'   => $enquiry->id,
+                    'trigger'      => 'enquiry_assigned',
+                ]
+            );
+        }
+
         return response()->json([
             'message' => 'Enquiry officer assigned',
             'data'    => $enquiry->fresh()->load('officer'),
@@ -1069,6 +1130,19 @@ class EnquiryController extends Controller
         ]);
 
         $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+
+        if ($enquiry->officer) {
+            app(SmsService::class)->sendToUser(
+                $enquiry->officer,
+                SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'en'),
+                SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'ur'),
+                [
+                    'subject_type' => 'enquiry',
+                    'subject_id'   => $enquiry->id,
+                    'trigger'      => 'enquiry_assigned',
+                ]
+            );
+        }
 
         return response()->json([
             'message' => 'Enquiry officer reassigned. Previous officer work saved in history.',
@@ -1294,6 +1368,19 @@ class EnquiryController extends Controller
 
             if ($caseFile->investigation_officer_id) {
                 $caseFile->investigationOfficer?->notify(new CaseAssignedNotification($caseFile));
+
+                if ($caseFile->investigationOfficer) {
+                    app(SmsService::class)->sendToUser(
+                        $caseFile->investigationOfficer,
+                        SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'en'),
+                        SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'ur'),
+                        [
+                            'subject_type' => 'case_file',
+                            'subject_id'   => $caseFile->id,
+                            'trigger'      => 'case_assigned',
+                        ]
+                    );
+                }
             }
 
             return response()->json([

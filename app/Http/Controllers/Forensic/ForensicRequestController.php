@@ -9,6 +9,8 @@ use App\Notifications\ForensicReportHandedOverNotification;
 use App\Notifications\ForensicReportReadyNotification;
 use App\Notifications\ForensicRequestAssignedNotification;
 use App\Services\ForensicReportCodeGenerator;
+use App\Services\SmsService;
+use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -289,6 +291,20 @@ class ForensicRequestController extends Controller
 
         if ($eoId) {
             User::find($eoId)?->notify(new ForensicReportHandedOverNotification($forensicRequest->fresh()));
+
+            $eo = User::find($eoId);
+            if ($eo) {
+                app(SmsService::class)->sendToUser(
+                    $eo,
+                    SmsTemplates::forensicHandedOver($forensicRequest, 'en'),
+                    SmsTemplates::forensicHandedOver($forensicRequest, 'ur'),
+                    [
+                        'subject_type' => 'forensic_request',
+                        'subject_id'   => $forensicRequest->id,
+                        'trigger'      => 'forensic_handed_over',
+                    ]
+                );
+            }
         }
 
         return response()->json([

@@ -10,6 +10,8 @@ use App\Models\Enquiry;
 use App\Notifications\CaseAssignedNotification;
 use App\Services\FirNumberGenerator;
 use App\Services\OfficerAssignmentService;
+use App\Services\SmsService;
+use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -313,6 +315,19 @@ class CaseFileController extends Controller
 
         if ($caseFile->investigation_officer_id) {
             $caseFile->investigationOfficer?->notify(new CaseAssignedNotification($caseFile));
+
+            if ($caseFile->investigationOfficer) {
+                app(SmsService::class)->sendToUser(
+                    $caseFile->investigationOfficer,
+                    SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'en'),
+                    SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'ur'),
+                    [
+                        'subject_type' => 'case_file',
+                        'subject_id'   => $caseFile->id,
+                        'trigger'      => 'case_assigned',
+                    ]
+                );
+            }
         }
 
         if ($request->expectsJson()) {
@@ -515,6 +530,20 @@ class CaseFileController extends Controller
             }
         });
 
+        // SMS the new investigation officer when reassigned via update.
+        if ($officerChanged && $caseFile->investigationOfficer) {
+            app(SmsService::class)->sendToUser(
+                $caseFile->investigationOfficer,
+                SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'en'),
+                SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'ur'),
+                [
+                    'subject_type' => 'case_file',
+                    'subject_id'   => $caseFile->id,
+                    'trigger'      => 'case_assigned',
+                ]
+            );
+        }
+
         return response()->json([
             'message' => 'Case updated successfully',
             'data'    => $caseFile->fresh()->load(
@@ -570,6 +599,19 @@ class CaseFileController extends Controller
         ]);
 
         $caseFile->investigationOfficer?->notify(new CaseAssignedNotification($caseFile));
+
+        if ($caseFile->investigationOfficer) {
+            app(SmsService::class)->sendToUser(
+                $caseFile->investigationOfficer,
+                SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'en'),
+                SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'ur'),
+                [
+                    'subject_type' => 'case_file',
+                    'subject_id'   => $caseFile->id,
+                    'trigger'      => 'case_assigned',
+                ]
+            );
+        }
 
         return response()->json([
             'message' => 'Investigation officer assigned. Previous officer work saved in history.',
