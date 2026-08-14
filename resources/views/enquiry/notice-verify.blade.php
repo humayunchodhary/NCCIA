@@ -25,7 +25,7 @@
     <div class="card">
         <div class="head">
             <img src="{{ asset('images/NCCIA.webp') }}" alt="NCCIA">
-            <div class="org">National Compliance &amp; Integrity Authority (NCCIA)</div>
+            <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
         </div>
         <div class="body">
             <div style="text-align:center; margin-bottom: 14px;">

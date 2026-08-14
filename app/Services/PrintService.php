@@ -45,8 +45,8 @@ class PrintService
         <div class="slip">
           <div class="head">
             <img src="{$logo}" alt="NCCIA" class="logo" />
-            <div class="org">NATIONAL COMPLIANCE &amp;<br/>INTEGRITY AUTHORITY</div>
-            <div class="org-ur">قومی تعمیل و دیانت داری اتھارٹی</div>
+            <div class="org">NATIONAL CYBER CRIME<br/>INVESTIGATION AGENCY</div>
+            <div class="org-ur">قومی سائبر کرائم تفتیش ایجنسی</div>
             <div class="tag">COMPLAINT RECEIPT</div>
           </div>
 
@@ -235,7 +235,7 @@ class PrintService
         <div class="report">
           <div class="head">
             <img src="{$logo}" alt="NCCIA" class="logo" />
-            <div class="org">National Compliance &amp; Integrity Authority (NCCIA)</div>
+            <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
             <div class="addr">Islamabad — Pakistan</div>
             <div class="tag">COMPLAINT REPORT</div>
           </div>
@@ -362,7 +362,7 @@ class PrintService
           <div class="head">
             <div class="center">
               <img src="{$logo}" alt="NCCIA" class="logo" />
-              <div class="org">National Compliance &amp; Integrity Authority (NCCIA)</div>
+              <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
               <div class="addr">Islamabad — Pakistan &nbsp;|&nbsp; Circle: {$circle}</div>
             </div>
             <hr/>
@@ -448,7 +448,7 @@ class PrintService
         <div class="diary">
           <div class="center">
             <img src="{$logo}" alt="NCCIA" class="logo" />
-            <div class="org">National Compliance &amp; Integrity Authority (NCCIA)</div>
+            <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
             <div class="tag">CASE DIARY</div>
           </div>
           <hr/>
