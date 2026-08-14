@@ -7,6 +7,30 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class ComplaintResource extends JsonResource
 {
+    protected function initialAccusedWithUrls(): ?array
+    {
+        $accused = $this->initial_accused;
+        if (!$accused || !is_array($accused)) {
+            return $accused;
+        }
+
+        $fileAttrs = ['cnic_front', 'cnic_back', 'picture', 'passport_attachment'];
+
+        return array_map(function ($row) use ($fileAttrs) {
+            if (!is_array($row)) {
+                return $row;
+            }
+            foreach ($fileAttrs as $attr) {
+                if (!empty($row[$attr]) && is_string($row[$attr])) {
+                    $row[$attr . '_url'] = str_starts_with($row[$attr], 'http')
+                        ? $row[$attr]
+                        : url($row[$attr]);
+                }
+            }
+            return $row;
+        }, $accused);
+    }
+
     public function toArray(Request $request): array
     {
         return [
@@ -50,7 +74,7 @@ class ComplaintResource extends JsonResource
             'platform_email_involved'  => $this->platform_email_involved,
             'platform_mobile_involved' => $this->platform_mobile_involved,
             'evidence'             => $this->evidence,
-            'initial_accused'      => $this->initial_accused,
+            'initial_accused'      => $this->initialAccusedWithUrls(),
             'operator_name'        => $this->operator_name,
             'operator_designation' => $this->operator_designation,
             'entry_time'           => $this->entry_time?->format('Y-m-d\TH:i'),

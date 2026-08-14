@@ -52,6 +52,51 @@ class ComplaintController extends Controller
         return $this->uploadComplaintFile($request, 'attachment', $complaint?->attachment);
     }
 
+    /**
+     * Attach per-accused identity files uploaded as accused_cnic_front[i],
+     * accused_cnic_back[i], accused_picture[i], accused_passport[i].
+     */
+    protected function applyAccusedIdentityFiles(Request $request, ?array $accusedData): ?array
+    {
+        if (!$accusedData || !is_array($accusedData)) {
+            return $accusedData;
+        }
+
+        $fields = [
+            'cnic_front'           => 'accused_cnic_front',
+            'cnic_back'            => 'accused_cnic_back',
+            'picture'              => 'accused_picture',
+            'passport_attachment'  => 'accused_passport',
+        ];
+
+        $dir = public_path('uploads/complaints/accused');
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        foreach ($accusedData as $index => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            foreach ($fields as $attr => $input) {
+                $files = $request->file($input, []);
+                $file = is_array($files) ? ($files[$index] ?? null) : null;
+                if ($file) {
+                    $name = Str::random(24) . '.' . ($file->getClientOriginalExtension() ?: 'bin');
+                    $file->move($dir, $name);
+                    if (!empty($row[$attr]) && is_string($row[$attr]) && is_file(public_path($row[$attr]))) {
+                        @unlink(public_path($row[$attr]));
+                    }
+                    $accusedData[$index][$attr] = 'uploads/complaints/accused/' . $name;
+                } elseif (!empty($row[$attr]) && !is_string($row[$attr])) {
+                    unset($accusedData[$index][$attr]);
+                }
+            }
+        }
+
+        return $accusedData;
+    }
+
     public function index()
     {
         $this->authorize('viewAny', Complaint::class);
@@ -131,6 +176,7 @@ class ComplaintController extends Controller
             $accused = $request->input('initial_accused');
             $data['initial_accused'] = is_string($accused) ? (json_decode($accused, true) ?: []) : $accused;
         }
+        $data['initial_accused'] = $this->applyAccusedIdentityFiles($request, $data['initial_accused'] ?? null);
         $data['user_id'] = Auth::id();
         $data['operator_id'] = $data['operator_id'] ?? Auth::id();
         // Bind complaint to operator's circle so same-circle CI (e.g. Lahore) receives work
@@ -232,6 +278,7 @@ class ComplaintController extends Controller
             $accused = $request->input('initial_accused');
             $data['initial_accused'] = is_string($accused) ? (json_decode($accused, true) ?: []) : $accused;
         }
+        $data['initial_accused'] = $this->applyAccusedIdentityFiles($request, $data['initial_accused'] ?? null);
         foreach (['attachment', 'cnic_front', 'cnic_back', 'passport_attachment', 'picture'] as $fileField) {
             if ($request->hasFile($fileField)) {
                 $data[$fileField] = $this->uploadComplaintFile($request, $fileField, $complaint->{$fileField});
@@ -309,6 +356,21 @@ class ComplaintController extends Controller
 
         return response()->json([
             'html' => $print->slipPrintDocument($complaint),
+        ]);
+    }
+
+    /**
+     * Generate & return the full A4 complaint report (complaint + accused).
+     */
+    public function report(Complaint $complaint, PrintService $print)
+    {
+        abort_unless(
+            Complaint::visibleTo(request()->user())->whereKey($complaint->id)->exists(),
+            404
+        );
+
+        return response()->json([
+            'html' => $print->complaintReportPrintDocument($complaint),
         ]);
     }
 

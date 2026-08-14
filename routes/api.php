@@ -42,6 +42,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->middleware('role:admin')
         ->name('api.complaints.destroy');
     Route::get('/complaints/{complaint}/slip', [ComplaintController::class, 'slip'])->name('api.complaints.slip');
+    Route::get('/complaints/{complaint}/report', [ComplaintController::class, 'report'])->name('api.complaints.report');
     Route::post('/complaints/{complaint}/scrutiny', [ComplaintController::class, 'scrutiny'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/complaints/{complaint}/direct-assign', [ComplaintController::class, 'directAssign'])

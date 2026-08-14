@@ -5,8 +5,7 @@ import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
 import { countryCodes } from '../data/countries';
 import { canAssignVerification, hasRole } from '../utils/permissions';
-import PdfAutoFillBar from '../components/PdfAutoFillBar';
-import { mapExtractToComplaintForm, matchLookupValue } from '../utils/fillFromPdf';
+import { openPrintWindow } from '../utils/print';
 
 const SCRUTINY_OPTIONS = [
   { value: 'complete', name: 'Complete (Generate Tracking No)' },
@@ -76,7 +75,16 @@ const EVIDENCE_OPTIONS = [
 
 const EMPTY_ACCUSED = {
   name: '', mobile_no: '', cnic: '', email: '', social_media_url: '', other_info: '', description: '',
+  cnic_front: '', cnic_back: '', picture: '', passport_attachment: '',
+  cnic_front_url: '', cnic_back_url: '', picture_url: '', passport_attachment_url: '',
 };
+
+const ACCUSED_DOC_FIELDS = [
+  { key: 'cnic_front', label: 'CNIC Front', accept: '.jpg,.jpeg,.png,.pdf' },
+  { key: 'cnic_back', label: 'CNIC Back', accept: '.jpg,.jpeg,.png,.pdf' },
+  { key: 'picture', label: 'Photo', accept: 'image/*' },
+  { key: 'passport_attachment', label: 'Passport', accept: '.jpg,.jpeg,.png,.pdf' },
+];
 
 const initialForm = {
   complainant_name: '',
@@ -235,6 +243,10 @@ export default function ComplaintForm() {
     return Array.isArray(value) ? value : [];
   };
 
+  const addInitialAccusedDoc = (index, key, file) => {
+    updateInitialAccused(index, key, file || '');
+  };
+
   useEffect(() => {
     if (!id && user) {
       const now = new Date();
@@ -358,7 +370,27 @@ export default function ComplaintForm() {
         }
         if (k === 'initial_accused') {
           if (Array.isArray(v) && v.length > 0) {
-            fd.append('initial_accused', JSON.stringify(v));
+            const accusedClean = v.map((a) => {
+              const o = { ...a };
+              ACCUSED_DOC_FIELDS.forEach(({ key }) => {
+                if (o[key] instanceof File) delete o[key];
+              });
+              return o;
+            });
+            fd.append('initial_accused', JSON.stringify(accusedClean));
+            v.forEach((a, i) => {
+              ACCUSED_DOC_FIELDS.forEach(({ key }) => {
+                if (a[key] instanceof File) {
+                  const input = {
+                    cnic_front: 'accused_cnic_front',
+                    cnic_back: 'accused_cnic_back',
+                    picture: 'accused_picture',
+                    passport_attachment: 'accused_passport',
+                  }[key];
+                  if (input) fd.append(`${input}[${i}]`, a[key]);
+                }
+              });
+            });
           }
           return;
         }
@@ -400,6 +432,16 @@ export default function ComplaintForm() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const printReport = async () => {
+    if (!id) return;
+    try {
+      const r = await api.get(`/complaints/${id}/report`);
+      openPrintWindow(r.data.html);
+    } catch (e) {
+      alert(e.response?.data?.message || 'Could not generate report.');
     }
   };
 
@@ -464,23 +506,6 @@ export default function ComplaintForm() {
           <div className="title-underline"></div>
         </div>
       </div>
-
-      {!id && (
-        <PdfAutoFillBar
-          hint="FIA verification / complaint PDF (jaise 261-26.PDF) upload karein — naam, CNIC, phone, address, tracking, amount aur dates auto fill ho jayenge."
-          onFilled={(extracted, file) => {
-            const mapped = mapExtractToComplaintForm(extracted);
-            const offence = matchLookupValue(offenceTypes, extracted.crime_category);
-            setForm(f => ({
-              ...f,
-              ...mapped,
-              ...(offence ? { offence_type: offence } : {}),
-              initial_accused: mapped.initial_accused?.length ? mapped.initial_accused : f.initial_accused,
-            }));
-            if (file) setAttachmentFile(file);
-          }}
-        />
-      )}
 
       <form onSubmit={handleSubmit} noValidate>
         {serverError && (
@@ -705,6 +730,19 @@ export default function ComplaintForm() {
                       placeholder="Role, involvement, modus operandi — anything about this accused..."
                     />
                   </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '12px' }}>
+                    {ACCUSED_DOC_FIELDS.map(doc => (
+                      <div key={doc.key} className="cf-field">
+                        <label className="cf-label">{doc.label}</label>
+                        <input type="file" className="cf-input" accept={doc.accept} onChange={e => addInitialAccusedDoc(i, doc.key, e.target.files?.[0] || '')} />
+                        {a[doc.key] instanceof File ? (
+                          <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {a[doc.key].name}</span>
+                        ) : (a[`${doc.key}_url`] || (typeof a[doc.key] === 'string' && a[doc.key])) ? (
+                          <a href={a[`${doc.key}_url`] || a[doc.key]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Current file ↗</a>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
               <button type="button" className="btn btn-outline btn-sm" onClick={addInitialAccused}>
@@ -846,6 +884,11 @@ export default function ComplaintForm() {
         )}
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
+          {id && (
+            <button type="button" className="btn btn-outline" onClick={printReport} disabled={saving}>
+              Print Report
+            </button>
+          )}
           <button type="button" className="btn btn-outline" onClick={() => navigate(isOperator ? '/' : '/complaints')}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? 'Saving...' : (id ? 'Update Registration' : 'Complete Registration')}

@@ -99,6 +99,15 @@ export default function Complaints() {
     }
   };
 
+  const printReport = async (c) => {
+    try {
+      const r = await api.get(`/complaints/${c.id}/report`);
+      openPrintWindow(r.data.html);
+    } catch (e) {
+      alert(e.response?.data?.message || 'Could not generate report.');
+    }
+  };
+
   // ── Direct Assign ──
   const openDirectAssign = (complaint) => {
     setAssignTarget(complaint);
@@ -225,6 +234,10 @@ export default function Complaints() {
                         <button onClick={() => printSlip(c)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Print 80mm Slip">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                           Print Slip
+                        </button>
+                        <button onClick={() => printReport(c)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Print Full A4 Report">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                          Print Report
                         </button>
                         {canDelete && (
                           <button onClick={() => setDeleteTarget(c)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">

@@ -134,6 +134,197 @@ class PrintService
     }
 
     /**
+     * Full A4 complaint report: complainant, offence, description, accused (with identity files).
+     */
+    public function complaintReportPrintDocument(Complaint $complaint): string
+    {
+        $complaint->loadMissing('circle');
+        $logo = url('images/NCCIA.webp');
+        $issuedAt = now()->format('d/m/Y h:i A');
+
+        $number  = $complaint->tracking_no ?: ($complaint->slip_number ?: ('#' . $complaint->id));
+        $circle  = e($complaint->circle?->name ?? '—');
+        $name    = e($complaint->complainant_name ?: '—');
+        $father  = e($complaint->father_name ?: '—');
+        $cnic    = e($complaint->cnic ?: '—');
+        $phone   = trim(($complaint->contact_country_code ? '+' . ltrim((string) $complaint->contact_country_code, '+') . ' ' : '') . ($complaint->contact_no ?? ''));
+        $phone   = e($phone !== '' ? $phone : '—');
+        $whatsapp = e($complaint->whatsapp_no ?: '—');
+        $gender  = e($complaint->gender ? ucfirst($complaint->gender) : '—');
+        $email   = e($complaint->email ?: '—');
+        $address = e($complaint->address ?: '—');
+        $district = e($complaint->district ?: '—');
+        $passportNo = e($complaint->passport_no ?: '—');
+        $nationality = e($complaint->nationality ?: '—');
+
+        $reportDate = $complaint->report_date ? \Illuminate\Support\Carbon::parse($complaint->report_date)->format('d/m/Y') : '—';
+        $occurrence = $complaint->occurrence_date ? \Illuminate\Support\Carbon::parse($complaint->occurrence_date)->format('d/m/Y') : '—';
+        $offence  = e($complaint->offence_type ?: '—');
+        $priority = e(ucfirst(str_replace('_', ' ', $complaint->priority_type ?? '—')));
+        $source   = e($complaint->source ? ucfirst(str_replace('_', ' ', $complaint->source)) : '—');
+        $amount   = $complaint->amount_involved !== null ? e(number_format((float) $complaint->amount_involved, 2)) : '—';
+        $diary    = e($complaint->diary_no ?: '—');
+        $operator = e($complaint->operator_name ?: '—');
+        $status   = e(ucfirst(str_replace('_', ' ', $complaint->status ?? '—')));
+        $description = nl2br(e($complaint->description ?: '—'));
+
+        $laws = collect($complaint->laws ?: [])->implode(', ');
+        $laws = $laws ? e($laws) : '—';
+
+        $complaintFiles = '';
+        $complaintDocs = [
+            ['label' => 'CNIC Front',   'value' => $complaint->cnic_front],
+            ['label' => 'CNIC Back',    'value' => $complaint->cnic_back],
+            ['label' => 'Passport',     'value' => $complaint->passport_attachment],
+            ['label' => 'Photo',        'value' => $complaint->picture],
+            ['label' => 'Attachment',   'value' => $complaint->attachment],
+        ];
+        foreach ($complaintDocs as $doc) {
+            if (!empty($doc['value'])) {
+                $complaintFiles .= '<div class="flist"><strong>' . $doc['label'] . ':</strong> <a href="' . e(url($doc['value'])) . '">' . e(basename($doc['value'])) . '</a></div>';
+            }
+        }
+        if (!$complaintFiles) {
+            $complaintFiles = '<div class="muted">No attachments</div>';
+        }
+
+        $accusedRows = '';
+        $accused = $complaint->initial_accused ?: [];
+        if (is_array($accused) && count($accused) > 0) {
+            foreach ($accused as $index => $a) {
+                if (!is_array($a)) {
+                    continue;
+                }
+                $n = $index + 1;
+                $aName    = e($a['name'] ?? '—');
+                $aCnic    = e($a['cnic'] ?? '—');
+                $aMobile  = e($a['mobile_no'] ?? '—');
+                $aEmail   = e($a['email'] ?? '—');
+                $aSocial  = e($a['social_media_url'] ?? '—');
+                $aOther   = e($a['other_info'] ?? '—');
+                $aDesc    = e($a['description'] ?? '—');
+                $aDocs = '';
+                $aDocFields = [
+                    ['label' => 'CNIC Front', 'value' => $a['cnic_front'] ?? null],
+                    ['label' => 'CNIC Back',  'value' => $a['cnic_back'] ?? null],
+                    ['label' => 'Photo',      'value' => $a['picture'] ?? null],
+                    ['label' => 'Passport',   'value' => $a['passport_attachment'] ?? null],
+                ];
+                foreach ($aDocFields as $doc) {
+                    if (!empty($doc['value'])) {
+                        $aDocs .= '<span class="alink"><a href="' . e(url($doc['value'])) . '">' . $doc['label'] . '</a></span>';
+                    }
+                }
+                $accusedRows .= <<<HTML
+                <tr>
+                  <td class="c">{$n}</td>
+                  <td><strong>{$aName}</strong></td>
+                  <td>{$aCnic}</td>
+                  <td>{$aMobile}</td>
+                  <td>{$aEmail}</td>
+                  <td>{$aDocs}</td>
+                </tr>
+                <tr class="desc"><td></td><td colspan="5"><span class="k">Other:</span> {$aOther}<br/><span class="k">Social:</span> {$aSocial}<br/><span class="k">Description:</span> {$aDesc}</td></tr>
+                HTML;
+            }
+        } else {
+            $accusedRows = '<tr><td colspan="6" class="c muted">No accused recorded at registration</td></tr>';
+        }
+
+        $body = <<<HTML
+        <div class="report">
+          <div class="head">
+            <img src="{$logo}" alt="NCCIA" class="logo" />
+            <div class="org">National Compliance &amp; Integrity Authority (NCCIA)</div>
+            <div class="addr">Islamabad — Pakistan</div>
+            <div class="tag">COMPLAINT REPORT</div>
+          </div>
+
+          <div class="meta">
+            <div class="mrow"><span class="k">Complaint No:</span><span><strong>{$number}</strong></span></div>
+            <div class="mrow"><span class="k">Circle:</span><span>{$circle}</span></div>
+            <div class="mrow"><span class="k">Report Date:</span><span>{$reportDate}</span></div>
+            <div class="mrow"><span class="k">Status:</span><span>{$status}</span></div>
+            <div class="mrow"><span class="k">Diary No:</span><span>{$diary}</span></div>
+            <div class="mrow"><span class="k">Operator:</span><span>{$operator}</span></div>
+          </div>
+
+          <h3 class="sec">1. Complainant Information</h3>
+          <table class="info">
+            <tr><td class="k">Name</td><td>{$name}</td><td class="k">Father Name</td><td>{$father}</td></tr>
+            <tr><td class="k">CNIC</td><td>{$cnic}</td><td class="k">Gender</td><td>{$gender}</td></tr>
+            <tr><td class="k">Contact</td><td>{$phone}</td><td class="k">WhatsApp</td><td>{$whatsapp}</td></tr>
+            <tr><td class="k">Email</td><td>{$email}</td><td class="k">Nationality</td><td>{$nationality}</td></tr>
+            <tr><td class="k">Passport No</td><td>{$passportNo}</td><td class="k">District</td><td>{$district}</td></tr>
+            <tr><td class="k">Address</td><td colspan="3">{$address}</td></tr>
+          </table>
+
+          <h3 class="sec">2. Complaint / Offence Details</h3>
+          <table class="info">
+            <tr><td class="k">Offence Type</td><td>{$offence}</td><td class="k">Priority</td><td>{$priority}</td></tr>
+            <tr><td class="k">Source</td><td>{$source}</td><td class="k">Occurrence Date</td><td>{$occurrence}</td></tr>
+            <tr><td class="k">Amount Involved</td><td>{$amount}</td><td class="k">Laws</td><td>{$laws}</td></tr>
+          </table>
+          <div class="desc"><span class="k">Description:</span><div class="descbox">{$description}</div></div>
+
+          <h3 class="sec">3. Attachments</h3>
+          <div class="flist-wrap">{$complaintFiles}</div>
+
+          <h3 class="sec">4. Accused (Initial Stage)</h3>
+          <table class="accused">
+            <thead>
+              <tr><th>#</th><th>Name</th><th>CNIC</th><th>Mobile</th><th>Email</th><th>Identity Files</th></tr>
+            </thead>
+            <tbody>{$accusedRows}</tbody>
+          </table>
+
+          <div class="sign-row">
+            <div class="sign"><div class="sign-line"></div><div class="small">Operator / Desk — {$operator}</div></div>
+            <div class="sign"><div class="sign-line"></div><div class="small">Circle Incharge</div></div>
+          </div>
+
+          <div class="foot"><div class="small">Printed: {$issuedAt}</div><div class="tiny">NCCIA — Serving the Nation</div></div>
+        </div>
+        HTML;
+
+        return $this->document(
+            $body,
+            '@page { size: A4; margin: 14mm; }
+             body { margin:0; font-family: Arial, Helvetica, sans-serif; color:#000; }
+             .report { max-width: 175mm; margin: 0 auto; font-size: 13px; line-height: 1.5; }
+             .head { text-align:center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
+             .head .logo { width:70px; height:70px; object-fit:contain; }
+             .head .org { font-size:16px; font-weight:700; margin-top:2px; }
+             .head .addr { font-size:11px; color:#333; margin-top:2px; }
+             .head .tag { display:inline-block; margin-top:6px; padding:3px 14px; border:1.5px solid #000; font-weight:800; font-size:12px; letter-spacing:1.5px; }
+             .meta { margin:6px 0; }
+             .mrow { margin:2px 0; }
+             .mrow .k { display:inline-block; width:110px; font-weight:700; }
+             h3.sec { font-size:13px; margin:16px 0 6px; padding:4px 8px; background:#f0f0f0; border-left:4px solid #015C94; }
+             table.info { width:100%; border-collapse:collapse; margin-bottom:4px; }
+             table.info td { border:1px solid #bbb; padding:5px 8px; vertical-align:top; font-size:12.5px; }
+             table.info .k { width:110px; background:#f7f7f7; font-weight:700; }
+             .desc { margin-top:6px; }
+             .descbox { border:1px solid #bbb; padding:8px; margin-top:4px; font-size:12.5px; white-space:pre-wrap; }
+             .flist-wrap { border:1px solid #bbb; padding:8px; }
+             .flist { margin:2px 0; }
+             table.accused { width:100%; border-collapse:collapse; margin-top:4px; }
+             table.accused th { background:#e9e9e9; border:1px solid #bbb; padding:6px 8px; font-size:12px; }
+             table.accused td { border:1px solid #bbb; padding:5px 8px; font-size:12.5px; vertical-align:top; }
+             table.accused td.c { text-align:center; }
+             table.accused tr.desc td { font-size:11.5px; color:#333; }
+             .alink { display:inline-block; margin-right:6px; padding:1px 6px; border:1px solid #015C94; border-radius:4px; font-size:11px; color:#015C94; }
+             .muted { color:#666; }
+             .sign-row { width:100%; margin:30px 0 10px; }
+             .sign-row .sign { display:inline-block; width:48%; text-align:center; vertical-align:top; }
+             .sign-line { border-top:1px solid #000; margin:0 30px 4px; }
+             .small { font-size:11px; }
+             .tiny { font-size:10px; color:#444; margin-top:2px; }
+             .foot { text-align:center; border-top:1px solid #000; margin-top:14px; padding-top:6px; }'
+        );
+    }
+
+    /**
      * Printable notice document with QR verification code at the bottom.
      */
     public function noticeDocument(EnquiryNotice $notice): string
@@ -244,8 +435,7 @@ class PrintService
 
     public function diaryPrintDocument(Enquiry $enquiry, EnquiryActivity $activity): string
     {
-        $enquiry->loadMissing('complaint.circle');
-        $logo = url('images/NCCIA.webp');
+        $enquiry->loadMissing('complaint.circle');        $logo = url('images/NCCIA.webp');
         $enquiryNo = e($enquiry->enquiry_number ?: ('#' . $enquiry->id));
         $tracking = e($enquiry->complaint?->tracking_no ?? '—');
         $circle = e($enquiry->complaint?->circle?->name ?? '—');
