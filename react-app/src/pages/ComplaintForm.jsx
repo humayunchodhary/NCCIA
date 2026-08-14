@@ -64,7 +64,7 @@ const PLATFORM_OPTIONS = [
 
 const CRIME_MEDIUM_OPTIONS = [
   'Social Media Accounts', 'Gmail', 'ATM', 'Credit Card', 'IBFT', 'Online Banking',
-  'Jazz Cash', 'Easy Paisa', 'Upaisa', 'UBL Omni', 'Bitcoin', 'Crypto Currency',
+  'Jazz Cash', 'Easy Paisa', 'Upaisa', 'UBL Omni', 'Crypto Currency',
   'Email', 'Website', 'OLX', 'Others',
 ];
 
