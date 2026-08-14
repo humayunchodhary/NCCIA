@@ -159,7 +159,7 @@ export default function Complaints() {
           <div className="table-responsive">
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>Complainant</th><th>CNIC</th><th>Offence Type</th><th>Status</th><th>Progress</th><th>Enquiry</th><th>Outcome</th><th>Date</th><th>Actions</th></tr>
+                <tr><th>#</th><th>Complainant</th><th>CNIC</th><th>Crime Category</th><th>Status</th><th>Progress</th><th>Enquiry</th><th>Outcome</th><th>Date</th><th>Actions</th></tr>
               </thead>
               <tbody>
                 {list.map((c, i) => (

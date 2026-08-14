@@ -643,7 +643,7 @@ export default function ComplaintForm() {
               {renderField('Occurrence Date', 'occurrence_date', { type: 'date', required: true })}
             </div>
             <div className="cf-row-2">
-              {renderField('Offence Type', 'offence_type', { required: true, options: offenceTypes })}
+              {renderField('Crime Category', 'offence_type', { required: true, options: offenceTypes })}
             </div>
             {renderCheckboxGroup('Crime Medium', 'crime_mediums', CRIME_MEDIUM_OPTIONS)}
             {renderField('Description', 'description', { rows: 4, required: true })}
