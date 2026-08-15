@@ -30,6 +30,7 @@ import Cases from './pages/Cases';
 import CaseForm from './pages/CaseForm';
 import Users from './pages/Users';
 import UserForm from './pages/UserForm';
+import LoginHistory from './pages/LoginHistory';
 import Circles from './pages/Circles';
 import CourtCases from './pages/CourtCases';
 import Laws from './pages/Laws';
@@ -149,6 +150,7 @@ function AppRoutes() {
         <Route path="users" element={<FeatureRoute feature="users"><Users /></FeatureRoute>} />
         <Route path="users/create" element={<FeatureRoute feature="users"><UserForm /></FeatureRoute>} />
         <Route path="users/:id/edit" element={<FeatureRoute feature="users"><UserForm /></FeatureRoute>} />
+        <Route path="login-history" element={<FeatureRoute feature="users"><LoginHistory /></FeatureRoute>} />
         <Route path="circles" element={<FeatureRoute feature="circles"><Circles /></FeatureRoute>} />
         <Route path="court-cases" element={<FeatureRoute feature="court_cases"><CourtCases /></FeatureRoute>} />
         <Route path="laws" element={<FeatureRoute feature="reference"><Laws /></FeatureRoute>} />

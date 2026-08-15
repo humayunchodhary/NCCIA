@@ -9,11 +9,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class ForensicRequest extends Model
 {
     protected $fillable = [
-        'request_no', 'enquiry_id', 'case_id', 'submitted_by', 'destination', 'note',
-        'status', 'report_code', 'ad_reviewed_by', 'ad_reviewed_at', 'assigned_to',
+        'request_no', 'enquiry_id', 'case_id', 'submitted_by', 'destination', 'priority', 'note',
+        'findings', 'lab_notes', 'status', 'report_code', 'ad_reviewed_by', 'ad_reviewed_at', 'assigned_to',
         'assigned_at', 'opened_at', 'report_ready_at', 'desk_officer_id',
         'desk_notified_at', 'handed_over_at', 'handed_to_user_id', 'handover_remarks',
-        'attachment_path',
+        'attachment_path', 'report_attachment_path',
     ];
 
     protected function casts(): array

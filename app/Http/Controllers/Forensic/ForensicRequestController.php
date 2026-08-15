@@ -19,9 +19,29 @@ class ForensicRequestController extends Controller
     private function withRelations()
     {
         return [
-            'items', 'submitter:id,name', 'assignee:id,name', 'adReviewer:id,name',
-            'deskOfficer:id,name', 'handedTo:id,name',
-            'enquiry:id,enquiry_number', 'caseFile:id,fir_no',
+            'items',
+            'submitter:id,name,email,designation,circle_id',
+            'submitter.circle:id,name,code',
+            'assignee:id,name,email,designation',
+            'adReviewer:id,name,email,designation',
+            'deskOfficer:id,name,email,designation',
+            'handedTo:id,name,email,designation',
+            'enquiry' => function ($q) {
+                $q->with([
+                    'officer:id,name,email,designation',
+                    'complaint:id,tracking_no,complainant_name,complainant_phone,complainant_cnic,circle_id,zone_id',
+                    'complaint.circle:id,name,code',
+                    'complaint.zone:id,name,code',
+                    'accusedPersons:id,enquiry_id,name,father_name,cnic,mobile,address',
+                ]);
+            },
+            'caseFile' => function ($q) {
+                $q->with([
+                    'officer:id,name,email,designation',
+                    'circle:id,name,code',
+                    'zone:id,name,code',
+                ]);
+            },
         ];
     }
 
@@ -45,18 +65,23 @@ class ForensicRequestController extends Controller
         }
 
         $data = $request->validate([
-            'enquiry_id'  => 'nullable|integer|exists:enquiries,id',
-            'case_id'     => 'nullable|integer|exists:cases,id',
-            'destination' => 'required|in:forensic,technical',
-            'note'        => 'required|string|max:5000',
-            'items'       => 'nullable|array',
-            'items.*.item_type'  => 'required_with:items|string|max:50',
-            'items.*.make_model' => 'nullable|string|max:255',
-            'items.*.imei'       => 'nullable|string|max:64',
-            'items.*.serial_no'  => 'nullable|string|max:128',
-            'items.*.quantity'   => 'nullable|integer|min:1|max:999',
-            'items.*.description'=> 'nullable|string|max:1000',
-            'attachment'  => 'nullable|file|max:20480',
+            'enquiry_id'          => 'nullable|integer|exists:enquiries,id',
+            'case_id'             => 'nullable|integer|exists:cases,id',
+            'destination'         => 'required|in:forensic,technical',
+            'priority'            => 'nullable|in:normal,high,urgent',
+            'note'                => 'required|string|max:5000',
+            'items'               => 'nullable|array',
+            'items.*.item_type'        => 'required_with:items|string|max:50',
+            'items.*.make_model'       => 'nullable|string|max:255',
+            'items.*.imei'             => 'nullable|string|max:64',
+            'items.*.imei2'            => 'nullable|string|max:64',
+            'items.*.serial_no'        => 'nullable|string|max:128',
+            'items.*.storage_capacity' => 'nullable|string|max:64',
+            'items.*.condition'        => 'nullable|string|max:100',
+            'items.*.seized_from'      => 'nullable|string|max:255',
+            'items.*.quantity'         => 'nullable|integer|min:1|max:999',
+            'items.*.description'      => 'nullable|string|max:1000',
+            'attachment'          => 'nullable|file|max:20480',
         ]);
 
         if (empty($data['enquiry_id']) && empty($data['case_id'])) {
@@ -66,8 +91,8 @@ class ForensicRequestController extends Controller
         $items = $data['items'] ?? [];
         if ($items === []) {
             $items = [[
-                'item_type'   => 'report',
-                'description' => 'Forensic / technical report submission',
+                'item_type'   => 'phone',
+                'description' => 'Seized evidence item for forensic analysis',
                 'quantity'    => 1,
             ]];
         }
@@ -79,24 +104,29 @@ class ForensicRequestController extends Controller
 
         $fr = DB::transaction(function () use ($data, $user, $gen, $path, $items) {
             $fr = ForensicRequest::create([
-                'request_no'    => $gen->generateRequestNo(),
-                'enquiry_id'    => $data['enquiry_id'] ?? null,
-                'case_id'       => $data['case_id'] ?? null,
-                'submitted_by'  => $user->id,
-                'destination'   => $data['destination'],
-                'note'          => $data['note'],
-                'status'        => 'submitted',
+                'request_no'      => $gen->generateRequestNo(),
+                'enquiry_id'      => $data['enquiry_id'] ?? null,
+                'case_id'         => $data['case_id'] ?? null,
+                'submitted_by'    => $user->id,
+                'destination'     => $data['destination'],
+                'priority'        => $data['priority'] ?? 'normal',
+                'note'            => $data['note'],
+                'status'          => 'submitted',
                 'attachment_path' => $path,
             ]);
 
             foreach ($items as $item) {
                 $fr->items()->create([
-                    'item_type'   => $item['item_type'],
-                    'make_model'  => $item['make_model'] ?? null,
-                    'imei'        => $item['imei'] ?? null,
-                    'serial_no'   => $item['serial_no'] ?? null,
-                    'quantity'    => $item['quantity'] ?? 1,
-                    'description' => $item['description'] ?? null,
+                    'item_type'        => $item['item_type'],
+                    'make_model'       => $item['make_model'] ?? null,
+                    'imei'             => $item['imei'] ?? null,
+                    'imei2'            => $item['imei2'] ?? null,
+                    'serial_no'        => $item['serial_no'] ?? null,
+                    'storage_capacity' => $item['storage_capacity'] ?? null,
+                    'condition'        => $item['condition'] ?? null,
+                    'seized_from'      => $item['seized_from'] ?? null,
+                    'quantity'         => $item['quantity'] ?? 1,
+                    'description'      => $item['description'] ?? null,
                 ]);
             }
 
@@ -115,7 +145,7 @@ class ForensicRequestController extends Controller
 
         return response()->json([
             'message' => ($fr->destination === 'forensic'
-                ? 'Forensic report submitted to AD Forensic for review.'
+                ? 'Seized evidence and memo submitted to AD Forensic for review.'
                 : 'Submitted to Technical department.'),
             'data'    => $fr->load($this->withRelations()),
         ], 201);
@@ -172,7 +202,58 @@ class ForensicRequestController extends Controller
             $q->where('status', $status);
         }
 
-        return response()->json(['data' => $q->paginate(30)]);
+        if ($priority = $request->query('priority')) {
+            $q->where('priority', $priority);
+        }
+
+        if ($assignedTo = $request->query('assigned_to')) {
+            $q->where('assigned_to', $assignedTo);
+        }
+
+        if ($circleId = $request->query('circle_id')) {
+            $q->whereHas('submitter', function ($sq) use ($circleId) {
+                $sq->where('circle_id', $circleId);
+            });
+        }
+
+        if ($itemType = $request->query('item_type')) {
+            $q->whereHas('items', function ($iq) use ($itemType) {
+                $iq->where('item_type', $itemType);
+            });
+        }
+
+        // Global Search across request_no, report_code, note, items (make_model, imei, serial_no), submitter name, enquiry number
+        if ($search = trim((string) $request->query('search', ''))) {
+            $q->where(function ($sq) use ($search) {
+                $sq->where('request_no', 'like', "%{$search}%")
+                    ->orWhere('report_code', 'like', "%{$search}%")
+                    ->orWhere('note', 'like', "%{$search}%")
+                    ->orWhere('findings', 'like', "%{$search}%")
+                    ->orWhereHas('submitter', function ($subQ) use ($search) {
+                        $subQ->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('enquiry', function ($enqQ) use ($search) {
+                        $enqQ->where('enquiry_number', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('caseFile', function ($caseQ) use ($search) {
+                        $caseQ->where('fir_no', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('items', function ($itemQ) use ($search) {
+                        $itemQ->where('make_model', 'like', "%{$search}%")
+                            ->orWhere('imei', 'like', "%{$search}%")
+                            ->orWhere('imei2', 'like', "%{$search}%")
+                            ->orWhere('serial_no', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $perPage = (int) $request->query('per_page', 30);
+        if ($perPage <= 0 || $perPage > 100) {
+            $perPage = 30;
+        }
+
+        return response()->json(['data' => $q->paginate($perPage)]);
     }
 
     public function show(Request $request, ForensicRequest $forensicRequest, ForensicReportCodeGenerator $gen)
@@ -207,24 +288,67 @@ class ForensicRequestController extends Controller
         $data = $request->validate([
             'assigned_to' => 'required|integer|exists:users,id',
             'remarks'     => 'nullable|string|max:1000',
+            'priority'    => 'nullable|in:normal,high,urgent',
         ]);
 
         $fo = User::findOrFail($data['assigned_to']);
         abort_unless($fo->hasRole('forensic_team'), 422, 'Assignee must be a Forensic Officer.');
 
-        $forensicRequest->update([
+        $updates = [
             'assigned_to'    => $fo->id,
             'assigned_at'    => now(),
             'ad_reviewed_by' => $user->id,
             'ad_reviewed_at' => now(),
             'status'         => 'assigned',
-            'note'           => $forensicRequest->note . ($data['remarks'] ? "\n\n[AD] " . $data['remarks'] : ''),
-        ]);
+            'note'           => $forensicRequest->note . ($data['remarks'] ? "\n\n[AD Review] " . $data['remarks'] : ''),
+        ];
+        if (!empty($data['priority'])) {
+            $updates['priority'] = $data['priority'];
+        }
+
+        $forensicRequest->update($updates);
 
         $fo->notify(new ForensicRequestAssignedNotification($forensicRequest->fresh()));
 
         return response()->json([
-            'message' => 'Assigned to Forensic Officer. Notification sent.',
+            'message' => "Evidence assigned to Forensic Officer {$fo->name}. Notification dispatched.",
+            'data'    => $forensicRequest->fresh()->load($this->withRelations()),
+        ]);
+    }
+
+    /** FO updates findings / laboratory examination notes / uploads report */
+    public function updateFindings(Request $request, ForensicRequest $forensicRequest)
+    {
+        $user = $request->user();
+        abort_unless(
+            $user->hasAnyRole(['forensic_team', 'admin_forensic', 'ad_forensic'])
+            && ((int) $forensicRequest->assigned_to === (int) $user->id || $user->hasAnyRole(['admin_forensic', 'ad_forensic'])),
+            403
+        );
+
+        $data = $request->validate([
+            'findings'     => 'nullable|string|max:10000',
+            'lab_notes'    => 'nullable|string|max:10000',
+            'report_file'  => 'nullable|file|max:30720', // up to 30MB
+        ]);
+
+        $updates = [];
+        if (array_key_exists('findings', $data)) {
+            $updates['findings'] = $data['findings'];
+        }
+        if (array_key_exists('lab_notes', $data)) {
+            $updates['lab_notes'] = $data['lab_notes'];
+        }
+        if ($request->hasFile('report_file')) {
+            $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
+        }
+
+        if ($updates) {
+            $forensicRequest->update($updates);
+        }
+
+        return response()->json([
+            'message' => 'Forensic examination findings updated successfully.',
             'data'    => $forensicRequest->fresh()->load($this->withRelations()),
         ]);
     }
@@ -240,25 +364,43 @@ class ForensicRequestController extends Controller
         );
         abort_unless(in_array($forensicRequest->status, ['in_progress', 'assigned'], true), 422);
 
+        $data = $request->validate([
+            'findings'    => 'nullable|string|max:10000',
+            'lab_notes'   => 'nullable|string|max:10000',
+            'report_file' => 'nullable|file|max:30720',
+        ]);
+
         if (!$forensicRequest->report_code) {
             $forensicRequest->report_code = app(ForensicReportCodeGenerator::class)->generateReportCode();
             $forensicRequest->opened_at = $forensicRequest->opened_at ?: now();
         }
 
-        $forensicRequest->update([
-            'status'          => 'report_ready',
-            'report_ready_at' => now(),
-            'desk_notified_at'=> now(),
-            'report_code'     => $forensicRequest->report_code,
-            'opened_at'       => $forensicRequest->opened_at,
-        ]);
+        $updates = [
+            'status'           => 'report_ready',
+            'report_ready_at'  => now(),
+            'desk_notified_at' => now(),
+            'report_code'      => $forensicRequest->report_code,
+            'opened_at'        => $forensicRequest->opened_at,
+        ];
+
+        if (array_key_exists('findings', $data) && $data['findings'] !== null) {
+            $updates['findings'] = $data['findings'];
+        }
+        if (array_key_exists('lab_notes', $data) && $data['lab_notes'] !== null) {
+            $updates['lab_notes'] = $data['lab_notes'];
+        }
+        if ($request->hasFile('report_file')) {
+            $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
+        }
+
+        $forensicRequest->update($updates);
 
         User::role('desk_forensic')->get()->each(function (User $desk) use ($forensicRequest) {
             $desk->notify(new ForensicReportReadyNotification($forensicRequest->fresh()));
         });
 
         return response()->json([
-            'message' => 'Report marked ready. Desk officer notified. Code: ' . $forensicRequest->report_code,
+            'message' => 'Forensic analysis completed. Report marked ready. Desk Officer notified. Report Code: ' . $forensicRequest->report_code,
             'data'    => $forensicRequest->fresh()->load($this->withRelations()),
         ]);
     }
@@ -308,7 +450,7 @@ class ForensicRequestController extends Controller
         }
 
         return response()->json([
-            'message' => 'Report handed over to EO (by hand). EO notified with report code.',
+            'message' => 'Physical report and evidence custody handed over to Enquiry Officer. Acknowledgment recorded.',
             'data'    => $forensicRequest->fresh()->load($this->withRelations()),
         ]);
     }
@@ -333,7 +475,7 @@ class ForensicRequestController extends Controller
 
     public function teamOfficers()
     {
-        $officers = User::role('forensic_team')->orderBy('name')->get(['id', 'name', 'email', 'designation']);
+        $officers = User::role('forensic_team')->orderBy('name')->get(['id', 'name', 'email', 'designation', 'phone']);
 
         return response()->json(['data' => $officers]);
     }
@@ -345,15 +487,64 @@ class ForensicRequestController extends Controller
 
         $base = ForensicRequest::query()->where('destination', 'forensic');
 
+        // Pipeline stage counts
+        $submitted   = (clone $base)->where('status', 'submitted')->count();
+        $assigned    = (clone $base)->where('status', 'assigned')->count();
+        $inProgress  = (clone $base)->where('status', 'in_progress')->count();
+        $reportReady = (clone $base)->where('status', 'report_ready')->count();
+        $handedOver  = (clone $base)->where('status', 'handed_over')->count();
+        $total       = $submitted + $assigned + $inProgress + $reportReady + $handedOver;
+
+        // Priority breakdown
+        $urgentCount = (clone $base)->whereIn('priority', ['urgent', 'high'])->whereNotIn('status', ['handed_over'])->count();
+
+        // My assigned queue (for FO)
+        $myAssigned = $user->hasRole('forensic_team')
+            ? ForensicRequest::where('assigned_to', $user->id)->whereIn('status', ['assigned', 'in_progress'])->count()
+            : 0;
+
+        // Seized Devices breakdown
+        $itemCounts = DB::table('forensic_request_items')
+            ->join('forensic_requests', 'forensic_request_items.forensic_request_id', '=', 'forensic_requests.id')
+            ->where('forensic_requests.destination', 'forensic')
+            ->select('forensic_request_items.item_type', DB::raw('SUM(forensic_request_items.quantity) as total_qty'))
+            ->groupBy('forensic_request_items.item_type')
+            ->pluck('total_qty', 'item_type')
+            ->all();
+
+        $totalDevices = array_sum($itemCounts);
+
+        // Circle distribution
+        $circleCounts = DB::table('forensic_requests')
+            ->join('users', 'forensic_requests.submitted_by', '=', 'users.id')
+            ->leftJoin('circles', 'users.circle_id', '=', 'circles.id')
+            ->where('forensic_requests.destination', 'forensic')
+            ->select(DB::raw('COALESCE(circles.name, "Headquarters") as circle_name'), DB::raw('COUNT(forensic_requests.id) as count'))
+            ->groupBy('circle_name')
+            ->orderByDesc('count')
+            ->limit(8)
+            ->pluck('count', 'circle_name')
+            ->all();
+
         return response()->json([
-            'submitted'     => (clone $base)->where('status', 'submitted')->count(),
-            'assigned'      => (clone $base)->where('status', 'assigned')->count(),
-            'in_progress'   => (clone $base)->where('status', 'in_progress')->count(),
-            'report_ready'  => (clone $base)->where('status', 'report_ready')->count(),
-            'handed_over'   => (clone $base)->where('status', 'handed_over')->count(),
-            'my_assigned'   => $user->hasRole('forensic_team')
-                ? ForensicRequest::where('assigned_to', $user->id)->whereIn('status', ['assigned', 'in_progress'])->count()
-                : 0,
+            'submitted'     => $submitted,
+            'assigned'      => $assigned,
+            'in_progress'   => $inProgress,
+            'report_ready'  => $reportReady,
+            'handed_over'   => $handedOver,
+            'total'         => $total,
+            'urgent_count'  => $urgentCount,
+            'my_assigned'   => $myAssigned,
+            'total_devices' => $totalDevices,
+            'devices_by_type' => [
+                'phone'     => (int) ($itemCounts['phone'] ?? $itemCounts['mobile'] ?? 0),
+                'laptop'    => (int) ($itemCounts['laptop'] ?? $itemCounts['computer'] ?? $itemCounts['pc'] ?? 0),
+                'storage'   => (int) ($itemCounts['hdd'] ?? $itemCounts['ssd'] ?? $itemCounts['storage'] ?? 0),
+                'sim'       => (int) ($itemCounts['sim'] ?? $itemCounts['usb'] ?? $itemCounts['flash_drive'] ?? 0),
+                'documents' => (int) ($itemCounts['documents'] ?? $itemCounts['report'] ?? 0),
+                'other'     => (int) ($itemCounts['other'] ?? 0),
+            ],
+            'by_circle'     => $circleCounts,
         ]);
     }
 }

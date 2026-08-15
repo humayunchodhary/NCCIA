@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\LoginHistoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\ComplaintPdfImportController;
@@ -201,6 +202,14 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])
         ->middleware('role:admin');
 
+    // Login History — admin only
+    Route::get('/login-history', [LoginHistoryController::class, 'index'])
+        ->middleware('role:admin');
+    Route::get('/login-history/{user}', [LoginHistoryController::class, 'userHistory'])
+        ->middleware('role:admin');
+    Route::get('/login-history/stats', [LoginHistoryController::class, 'stats'])
+        ->middleware('role:admin');
+
     // Circle management — admin only
     Route::get('/circles', function () {
         return response()->json(\App\Models\Circle::with('zone')->orderBy('name')->paginate(20));
@@ -277,6 +286,8 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
         ->middleware('role:admin_forensic,ad_forensic,desk_forensic,forensic_team');
     Route::post('/forensic/requests/{forensicRequest}/assign', [ForensicRequestController::class, 'assign'])
         ->middleware('role:admin_forensic,ad_forensic');
+    Route::post('/forensic/requests/{forensicRequest}/findings', [ForensicRequestController::class, 'updateFindings'])
+        ->middleware('role:admin_forensic,ad_forensic,forensic_team');
     Route::post('/forensic/requests/{forensicRequest}/mark-ready', [ForensicRequestController::class, 'markReady'])
         ->middleware('role:admin_forensic,forensic_team');
     Route::post('/forensic/requests/{forensicRequest}/hand-over', [ForensicRequestController::class, 'handOver'])

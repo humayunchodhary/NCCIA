@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\LoginHistory;
+use App\Services\IpDetectionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -37,6 +39,7 @@ class LoginController extends Controller
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
             RateLimiter::clear($key);
+            $this->recordLoginHistory($request, 'web');
             return redirect('/');
         }
 
@@ -49,6 +52,19 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
+        $userId = auth()->id();
+        $clientIp = $request->ip();
+
+        // Update the latest login history with logout time
+        if ($userId) {
+            LoginHistory::where('user_id', $userId)
+                ->where('ip_address', $clientIp)
+                ->whereNull('logged_out_at')
+                ->latest('logged_in_at')
+                ->first()
+                ?->update(['logged_out_at' => now()]);
+        }
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -84,6 +100,7 @@ class LoginController extends Controller
 
             $request->session()->regenerate();
             RateLimiter::clear($key);
+            $this->recordLoginHistory($request, 'api');
             return response()->json([
                 'user' => $user->load('roles', 'zone', 'circle', 'permissions'),
             ]);
@@ -102,6 +119,17 @@ class LoginController extends Controller
     public function apiLogout(Request $request)
     {
         $userId = Auth::id();
+        $clientIp = $request->ip();
+
+        // Update the latest login history with logout time
+        if ($userId) {
+            LoginHistory::where('user_id', $userId)
+                ->where('ip_address', $clientIp)
+                ->whereNull('logged_out_at')
+                ->latest('logged_in_at')
+                ->first()
+                ?->update(['logged_out_at' => now()]);
+        }
 
         Auth::logout();
         $request->session()->flush();
@@ -177,9 +205,29 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
         RateLimiter::clear($key);
+        $this->recordLoginHistory($request, 'forensic');
 
         return response()->json([
             'user' => $user->load('roles', 'zone', 'circle', 'permissions'),
+        ]);
+    }
+
+    private function recordLoginHistory(Request $request, string $method): void
+    {
+        $ipService = app(IpDetectionService::class);
+        $clientIp = $ipService->getClientIp($request);
+        $realIp = $ipService->getRealIp($request);
+        $proxyHeaders = $ipService->getProxyHeaders($request);
+        $isSpoofed = $ipService->detectSpoofing($request);
+
+        LoginHistory::create([
+            'user_id' => auth()->id(),
+            'ip_address' => $clientIp,
+            'real_ip' => $realIp,
+            'proxy_headers' => $proxyHeaders ?: null,
+            'is_spoofed' => $isSpoofed,
+            'user_agent' => $request->userAgent(),
+            'login_method' => $method,
         ]);
     }
 

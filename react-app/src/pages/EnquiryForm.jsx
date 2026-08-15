@@ -735,7 +735,11 @@ export default function EnquiryForm() {
           item_type: it.item_type || 'other',
           make_model: it.make_model || null,
           imei: it.imei || null,
+          imei2: it.imei2 || null,
           serial_no: it.serial_no || null,
+          storage_capacity: it.storage_capacity || null,
+          condition: it.condition || null,
+          seized_from: it.seized_from || null,
           quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
           description: it.description || null,
         }));

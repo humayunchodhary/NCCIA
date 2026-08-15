@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ForensicRequestItem extends Model
 {
     protected $fillable = [
-        'forensic_request_id', 'item_type', 'make_model', 'imei',
-        'serial_no', 'quantity', 'description',
+        'forensic_request_id', 'item_type', 'make_model', 'imei', 'imei2',
+        'serial_no', 'storage_capacity', 'condition', 'seized_from', 'quantity', 'description',
     ];
 
     public function request(): BelongsTo
