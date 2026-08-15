@@ -429,7 +429,38 @@ export default function EnquiryForm() {
       setComplaintDetail(null);
       return;
     }
-    api.get(`/complaints/${form.complaint_id}`).then(r => setComplaintDetail(r.data.data || r.data)).catch(() => {});
+    api.get(`/complaints/${form.complaint_id}`).then(r => {
+      const cd = r.data.data || r.data;
+      setComplaintDetail(cd);
+
+      // If form accused is empty, auto-populate from complaint initial_accused or verification report
+      setForm(f => {
+        const hasRealAccused = (f.accused || []).some(a => (a.name && a.name.trim()) || (a.cnic && a.cnic.trim()));
+        if (hasRealAccused) return f;
+
+        const sourceAccused = cd.latest_verification_report?.accused ||
+                              cd.verification_report?.accused ||
+                              cd.initial_accused || [];
+
+        if (!Array.isArray(sourceAccused) || sourceAccused.length === 0) return f;
+
+        const mapped = sourceAccused.map(a => ({
+          ...EMPTY_ACCUSED,
+          name: a.name || '',
+          cnic: a.cnic || '',
+          father_name: a.father_name || '',
+          gender: a.gender || '',
+          contact_no: a.contact_no || a.phone || '',
+          whatsapp_no: a.whatsapp_no || a.phone || a.contact_no || '',
+          email: a.email || '',
+          postal_address: a.postal_address || a.post_address || a.address || '',
+          permanent_address: a.permanent_address || a.address || '',
+          description: a.description || '',
+        }));
+
+        return { ...f, accused: mapped };
+      });
+    }).catch(() => {});
   }, [form.complaint_id]);
 
   const handleTrackingChange = (e) => {
@@ -604,6 +635,51 @@ export default function EnquiryForm() {
     } catch (e) {
       alert(e.response?.data?.message || 'Could not print summon.');
     }
+  };
+
+  const sendSummonWhatsApp = (n) => {
+    let phoneRaw = (n.phone || '').replace(/\D/g, '');
+    if (!phoneRaw) {
+      if (n.person_type === 'complainant') {
+        phoneRaw = `${selectedComplaint?.contact_country_code || '+92'}${selectedComplaint?.contact_no || ''}`.replace(/\D/g, '');
+      } else if (n.person_type === 'accused' && n.person_ref !== '' && n.person_ref != null) {
+        const a = form.accused[Number(n.person_ref)];
+        phoneRaw = (a?.whatsapp_no || a?.contact_no || '').replace(/\D/g, '');
+      } else if (n.person_type === 'witness' && n.person_ref !== '' && n.person_ref != null) {
+        const w = form.witnesses[Number(n.person_ref)];
+        phoneRaw = (w?.whatsapp_no || w?.contact_no || '').replace(/\D/g, '');
+      }
+    }
+    if (!phoneRaw) {
+      alert('Recipient contact number nahi mila. Barah-e-karam summon mein ya accused/person details mein phone number enter karein.');
+      return;
+    }
+    if (!phoneRaw.startsWith('92') && phoneRaw.length === 10) {
+      phoneRaw = '92' + phoneRaw;
+    } else if (phoneRaw.startsWith('0')) {
+      phoneRaw = '92' + phoneRaw.slice(1);
+    }
+
+    const enqNo = form.enquiry_number || (id ? `ENQ-${id}` : 'Enquiry');
+    const recipient = n.receiver_name || (n.person_type ? n.person_type.toUpperCase() : 'Concerned Person');
+    const summonNo = n.notice_number || 'Official Summon';
+    const appDate = n.appearance_date ? new Date(n.appearance_date).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'As notified';
+    const circleName = transferCircleName || selectedComplaint?.circle?.name || 'NCCIA Office';
+    const offName = officerName || user?.name || 'Enquiry Officer';
+
+    const text = `*NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)*\n` +
+      `*OFFICIAL SUMMON / NOTICE*\n\n` +
+      `*Summon No:* ${summonNo}\n` +
+      `*Enquiry No:* ${enqNo}\n` +
+      `*To:* ${recipient} (${n.person_type || 'Respondent'})\n\n` +
+      `You are hereby directed to appear in person before the Enquiry Officer for verification / statement regarding the subject enquiry.\n\n` +
+      `📅 *Appearance Date & Time:* ${appDate}\n` +
+      `📍 *Location:* ${circleName}\n` +
+      `👤 *Enquiry Officer:* ${offName}\n\n` +
+      `*Instructions:* ${n.description || 'Please bring original CNIC, relevant records/devices and evidence.'}\n\n` +
+      `*Note:* Failure to appear may result in ex-parte legal proceedings under the law.`;
+
+    window.open(`https://wa.me/${phoneRaw}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const printDiary = async (a) => {
@@ -1480,6 +1556,16 @@ export default function EnquiryForm() {
                               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                 <button
                                   type="button"
+                                  className="btn btn-sm"
+                                  style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                  onClick={() => sendSummonWhatsApp(n)}
+                                  title="Send Summon via WhatsApp"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.42a8.204 8.204 0 0 1 2.41 5.82c0 4.54-3.7 8.24-8.24 8.24-1.45 0-2.87-.38-4.12-1.1l-.3-.17-3.12.82.83-3.04-.19-.31a8.216 8.216 0 0 1-1.26-4.44c0-4.54 3.7-8.24 8.24-8.24zm4.52 11.64c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.4-.42-.56-.43h-.47c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.54c.12.17 1.74 2.65 4.21 3.72.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+                                  WhatsApp
+                                </button>
+                                <button
+                                  type="button"
                                   className="btn btn-outline btn-sm"
                                   onClick={() => printNotice(n)}
                                   title="Print Summon"
@@ -1519,18 +1605,19 @@ export default function EnquiryForm() {
               {form.notices.map((n, i) => {
                 if (!isNoticeEditing(n, i)) return null;
                 return (
-                <div key={n.id || `notice-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <strong style={{ fontSize: 13, color: '#B7791F' }}>
-                      {n.id || n.notice_number ? `Edit Summon #${i + 1} (${n.notice_number || ''})` : `New Summon #${i + 1}`}
-                    </strong>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                <div key={n.id || `notice-${i}`} style={{ border: '1px solid #015C94', borderRadius: 10, padding: 16, marginBottom: 14, background: '#f8fafc' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '1px solid #e2e8f0', paddingBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="badge" style={{ background: '#015C94', color: '#fff', fontWeight: 700 }}>
+                        {n.id || n.notice_number ? `Edit Summon #${i + 1} (${n.notice_number || ''})` : `New Summon #${i + 1}`}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
                       {(n.id || n.notice_number || n.receiver_name) && (
                         <button
                           type="button"
                           className="btn btn-outline btn-sm"
                           onClick={() => setEditingNoticeIndex(null)}
-                          style={{ fontSize: 12 }}
                         >
                           Done (Collapse)
                         </button>
@@ -1538,11 +1625,10 @@ export default function EnquiryForm() {
                       <button
                         type="button"
                         className="btn btn-sm"
-                        style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 32, height: 32 }}
+                        style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8 }}
                         onClick={() => removeNotice(i)}
-                        title="Remove"
                       >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        Remove
                       </button>
                     </div>
                   </div>
@@ -1647,7 +1733,17 @@ export default function EnquiryForm() {
                     <label className="cf-label">Description / Instructions</label>
                     <textarea className="cf-input" rows={2} value={n.description} onChange={e => updateNotice(i, 'description', e.target.value)} placeholder="Brief description / instructions on the summon" style={{ width: '100%' }}></textarea>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      onClick={() => sendSummonWhatsApp(n)}
+                      title="Send via WhatsApp"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.42a8.204 8.204 0 0 1 2.41 5.82c0 4.54-3.7 8.24-8.24 8.24-1.45 0-2.87-.38-4.12-1.1l-.3-.17-3.12.82.83-3.04-.19-.31a8.216 8.216 0 0 1-1.26-4.44c0-4.54 3.7-8.24 8.24-8.24zm4.52 11.64c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.4-.42-.56-.43h-.47c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.54c.12.17 1.74 2.65 4.21 3.72.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+                      Send via WhatsApp
+                    </button>
                     <button type="button" className="btn btn-outline btn-sm" onClick={() => printNotice(n)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Summon
                     </button>

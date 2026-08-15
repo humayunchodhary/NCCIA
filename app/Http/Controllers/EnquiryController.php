@@ -781,7 +781,45 @@ class EnquiryController extends Controller
         );
 
         $payload = $enquiry->toArray();
-        $payload['accused'] = $enquiry->accusedPersons;
+        $accused = $enquiry->accusedPersons;
+
+        // Auto-fallback from verification report or complaint initial_accused if enquiry has none saved yet
+        if ($accused->isEmpty() && $enquiry->complaint) {
+            $reportAccused = $enquiry->complaint->latestVerificationReport?->accused;
+            if (!empty($reportAccused) && is_array($reportAccused)) {
+                $accused = collect($reportAccused)->map(function ($a) {
+                    return [
+                        'name'              => $a['name'] ?? '',
+                        'cnic'              => $a['cnic'] ?? '',
+                        'father_name'       => $a['father_name'] ?? '',
+                        'gender'            => $a['gender'] ?? '',
+                        'contact_no'        => $a['phone'] ?? ($a['contact_no'] ?? ''),
+                        'whatsapp_no'       => $a['whatsapp_no'] ?? ($a['phone'] ?? ''),
+                        'email'             => $a['email'] ?? '',
+                        'postal_address'    => $a['post_address'] ?? ($a['address'] ?? ''),
+                        'permanent_address' => $a['address'] ?? '',
+                        'description'       => $a['description'] ?? '',
+                    ];
+                });
+            } elseif (!empty($enquiry->complaint->initial_accused) && is_array($enquiry->complaint->initial_accused)) {
+                $accused = collect($enquiry->complaint->initial_accused)->map(function ($a) {
+                    return [
+                        'name'              => $a['name'] ?? '',
+                        'cnic'              => $a['cnic'] ?? '',
+                        'father_name'       => $a['father_name'] ?? '',
+                        'gender'            => $a['gender'] ?? '',
+                        'contact_no'        => $a['contact_no'] ?? ($a['phone'] ?? ''),
+                        'whatsapp_no'       => $a['whatsapp_no'] ?? ($a['contact_no'] ?? ''),
+                        'email'             => $a['email'] ?? '',
+                        'postal_address'    => $a['address'] ?? ($a['post_address'] ?? ''),
+                        'permanent_address' => $a['address'] ?? '',
+                        'description'       => $a['description'] ?? '',
+                    ];
+                });
+            }
+        }
+
+        $payload['accused'] = $accused;
         $payload['attachments'] = $enquiry->enquiryAttachments;
 
         return response()->json($payload);
