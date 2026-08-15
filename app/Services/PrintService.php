@@ -108,7 +108,7 @@ class PrintService
              body { margin:0; padding:0; background:#fff; }
              .slip { width: 76mm; margin: 0 auto; font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
              .head { text-align:center; border-bottom: 3px solid #000; padding-bottom: 7px; margin-bottom: 6px; }
-             .logo { display:block; width:76px; height:76px; margin:0 auto 4px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
+             .logo { display:block; width:100px; height:100px; margin:0 auto 4px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
              .org { font-weight:800; font-size:11px; line-height:1.3; margin-top:3px; letter-spacing:0.2px; text-align:center; }
              .org-ur { font-size:11px; font-weight:700; margin-top:2px; text-align:center; }
              .tag { display:inline-block; margin-top:6px; padding:2px 10px; border:2px solid #000; font-weight:800; font-size:10px; letter-spacing:1.2px; text-align:center; }
@@ -320,7 +320,7 @@ class PrintService
              body { margin:0; font-family: Arial, Helvetica, sans-serif; color:#000; }
              .report { max-width: 175mm; margin: 0 auto; font-size: 13px; line-height: 1.5; }
              .head { text-align:center; border-bottom: 3px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
-             .head .logo { width:92px; height:92px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
+             .head .logo { width:130px; height:130px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
              .head .org { font-size:16px; font-weight:700; margin-top:2px; }
              .head .addr { font-size:11px; color:#333; margin-top:2px; }
              .head .tag { display:inline-block; margin-top:6px; padding:3px 14px; border:2px solid #000; font-weight:800; font-size:12px; letter-spacing:1.5px; }
