@@ -11,6 +11,9 @@ class Message extends Model
     protected $fillable = [
         'sender_id',
         'receiver_id',
+        'enquiry_id',
+        'case_file_id',
+        'case_number',
         'message',
         'is_read',
         'read_at',
@@ -34,12 +37,34 @@ class Message extends Model
         return $this->belongsTo(User::class, 'receiver_id');
     }
 
+    public function enquiry(): BelongsTo
+    {
+        return $this->belongsTo(Enquiry::class, 'enquiry_id');
+    }
+
+    public function caseFile(): BelongsTo
+    {
+        return $this->belongsTo(CaseFile::class, 'case_file_id');
+    }
+
     public function scopeBetween(Builder $query, int $userA, int $userB): Builder
     {
-        return $query->where(function ($q) use ($userA, $userB) {
-            $q->where('sender_id', $userA)->where('receiver_id', $userB);
-        })->orWhere(function ($q) use ($userA, $userB) {
-            $q->where('sender_id', $userB)->where('receiver_id', $userA);
+        return $query->whereNull('enquiry_id')->whereNull('case_file_id')->where(function ($q) use ($userA, $userB) {
+            $q->where(function ($sq) use ($userA, $userB) {
+                $sq->where('sender_id', $userA)->where('receiver_id', $userB);
+            })->orWhere(function ($sq) use ($userA, $userB) {
+                $sq->where('sender_id', $userB)->where('receiver_id', $userA);
+            });
         });
+    }
+
+    public function scopeForEnquiry(Builder $query, int $enquiryId): Builder
+    {
+        return $query->where('enquiry_id', $enquiryId);
+    }
+
+    public function scopeForCase(Builder $query, int $caseId): Builder
+    {
+        return $query->where('case_file_id', $caseId);
     }
 }

@@ -104,7 +104,12 @@ class ReferenceController extends Controller
             'version' => 'nullable|string|max:20',
             'effective_date' => 'nullable|date',
             'description' => 'nullable|string',
+            'content' => 'nullable|string',
         ]);
+        if (isset($data['content']) && !isset($data['description'])) {
+            $data['description'] = $data['content'];
+        }
+        unset($data['content']);
         return response()->json(Sop::create($data), 201);
     }
 
@@ -121,7 +126,12 @@ class ReferenceController extends Controller
             'version' => 'nullable|string|max:20',
             'effective_date' => 'nullable|date',
             'description' => 'nullable|string',
+            'content' => 'nullable|string',
         ]);
+        if (isset($data['content']) && !isset($data['description'])) {
+            $data['description'] = $data['content'];
+        }
+        unset($data['content']);
         $sop->update($data);
         return response()->json($sop);
     }
@@ -145,7 +155,12 @@ class ReferenceController extends Controller
             'audience' => 'required|string|max:255',
             'version' => 'nullable|string|max:20',
             'description' => 'nullable|string',
+            'content' => 'nullable|string',
         ]);
+        if (isset($data['content']) && !isset($data['description'])) {
+            $data['description'] = $data['content'];
+        }
+        unset($data['content']);
         return response()->json(UserManual::create($data), 201);
     }
 
@@ -161,7 +176,12 @@ class ReferenceController extends Controller
             'audience' => 'required|string|max:255',
             'version' => 'nullable|string|max:20',
             'description' => 'nullable|string',
+            'content' => 'nullable|string',
         ]);
+        if (isset($data['content']) && !isset($data['description'])) {
+            $data['description'] = $data['content'];
+        }
+        unset($data['content']);
         $manual->update($data);
         return response()->json($manual);
     }

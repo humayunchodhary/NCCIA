@@ -6,6 +6,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import SearchableSelect from '../components/SearchableSelect';
 import WorkflowProgress, { enquiryProgress } from '../components/WorkflowProgress';
+import CaseChatModal from '../components/CaseChatModal';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateEnquiry } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 
@@ -66,6 +67,9 @@ export default function Enquiries() {
   const [changeTarget, setChangeTarget] = useState(null);
   const [changeOfficerId, setChangeOfficerId] = useState('');
   const [changeSaving, setChangeSaving] = useState(false);
+
+  // Case Chat Modal
+  const [chatTarget, setChatTarget] = useState(null);
 
   // Register Case modal
   const [registerTarget, setRegisterTarget] = useState(null);
@@ -277,6 +281,16 @@ export default function Enquiries() {
                       <td><span style={{fontSize:12,color:'#6c757d'}}>{new Date(e.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span></td>
                       <td style={{textAlign:'center'}}>
                         <div style={{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap'}}>
+                          <button
+                            type="button"
+                            onClick={() => setChatTarget(e)}
+                            className="btn btn-sm"
+                            style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:8,width:36,height:36,display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14}}
+                            title="Case Discussion & Team Chat"
+                          >
+                            💬
+                          </button>
+
                           <Link to={`/enquiries/${e.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </Link>
@@ -520,6 +534,16 @@ export default function Enquiries() {
           </div>
         </div>
       )}
+      {/* ── Case Chat Modal ── */}
+      <CaseChatModal
+        open={!!chatTarget}
+        onClose={() => setChatTarget(null)}
+        type="enquiry"
+        id={chatTarget?.id}
+        caseNumber={chatTarget?.enquiry_number || (chatTarget?.id ? `ENQ-${chatTarget.id}` : '')}
+        title={chatTarget?.complaint?.complainant_name || chatTarget?.direct_info?.complainant_name || ''}
+        officers={chatTarget?.officer ? [{ name: chatTarget.officer.name, role_label: 'Enquiry Officer' }] : []}
+      />
     </div>
   );
 }

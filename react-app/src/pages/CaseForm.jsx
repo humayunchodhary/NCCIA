@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
+import CaseChatPanel from '../components/CaseChatPanel';
 import {
   emptyDirectInfo,
   normalizeDirectInfo,
@@ -265,15 +266,16 @@ export default function CaseForm() {
           </div>
         </div>
 
-        <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px' }}>
-          {['details', 'activities', 'arrests', 'legal', 'approvals', 'outcome'].map(tab => (
-            <button type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 20px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+        <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px', flexWrap: 'wrap' }}>
+          {['details', 'activities', 'arrests', 'legal', 'approvals', 'outcome', 'chat'].map(tab => (
+            <button key={tab} type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 20px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
               {tab === 'details' && 'Details'}
               {tab === 'activities' && 'Activities'}
               {tab === 'arrests' && 'Arrests'}
               {tab === 'legal' && 'Legal Opinions'}
               {tab === 'approvals' && 'Approvals'}
               {tab === 'outcome' && 'Outcome'}
+              {tab === 'chat' && 'Case Discussion 💬'}
             </button>
           ))}
         </div>
@@ -558,6 +560,31 @@ export default function CaseForm() {
                 {renderField('Transfer Circle', 'transfer_circle', { options: circleOptions })}
               </div>
               {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
+            </div>
+          </div>
+        )}
+
+        {/* CASE DISCUSSION / CHAT TAB */}
+        {activeTab === 'chat' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#015C94' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div>
+                <div className="cf-section-title">Case Discussion Room</div>
+                <div className="cf-section-sub">Real-time team chat & notes for Case/FIR #{form.fir_no || id}</div>
+              </div>
+            </div>
+            <div className="cf-body" style={{ padding: 16 }}>
+              <CaseChatPanel
+                type="case"
+                id={id || 1}
+                caseNumber={form.fir_no || (id ? `CASE-${id}` : '')}
+                title={complaintDetail?.complainant_name || direct?.complainant_name || ''}
+                officers={form.investigation_officer_id ? [{ name: 'Investigation Officer', role_label: 'Assigned IO' }] : []}
+                compact={false}
+              />
             </div>
           </div>
         )}

@@ -5,6 +5,7 @@ import api from '../api';
 import VerificationReportPanel from '../components/VerificationReportPanel';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
+import CaseChatPanel from '../components/CaseChatPanel';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
 import { toLocalInput } from '../utils/datetime';
 import {
@@ -112,7 +113,7 @@ const EMPTY_REQUISITION = {
 
 const BASE_TAB_ORDER = [
   'details', 'accused', 'witnesses', 'notices', 'attachments', 'reports',
-  'activities', 'requisitions', 'legal', 'approvals', 'outcome',
+  'activities', 'requisitions', 'legal', 'approvals', 'outcome', 'chat',
 ];
 
 const CLOSURE_REASONS = [
@@ -948,6 +949,7 @@ export default function EnquiryForm() {
               {tab === 'legal' && 'Legal Opinions'}
               {tab === 'approvals' && 'Approvals'}
               {tab === 'outcome' && 'Outcome'}
+              {tab === 'chat' && 'Case Discussion 💬'}
             </button>
           ))}
         </div>
@@ -1411,11 +1413,140 @@ export default function EnquiryForm() {
                   Warning: This enquiry has been referred to court (3 non-appearances).
                 </div>
               )}
+
               <button type="button" className="btn btn-outline btn-sm" onClick={addNotice} style={{ marginBottom: 16 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Summon
               </button>
-              {form.notices.map((n, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+
+              {/* SAVED SUMMONS SUMMARY TABLE */}
+              {form.notices.some((n, i) => (n.id || n.notice_number || n.receiver_name) && !isNoticeEditing(n, i)) ? (
+                <div className="table-card" style={{ marginBottom: 16, overflow: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>SUMMON NO</th>
+                        <th>RECIPIENT / PERSON TYPE</th>
+                        <th>SUMMON DATE</th>
+                        <th>SUMMON VIA</th>
+                        <th>APPEARANCE DATE</th>
+                        <th>STATUS & REMARKS</th>
+                        <th>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {form.notices.map((n, i) => {
+                        if (isNoticeEditing(n, i)) return null;
+                        const statusObj = NOTICE_STATUS_OPTIONS.find(o => o.value === n.status);
+                        const statusLabel = statusObj?.name || n.status || 'Issued';
+                        const isNonApp = n.appearance_remarks === 'non_appearance';
+                        const statusColor = isNonApp ? '#e53e3e' : n.status === 'served' ? '#2d6a4f' : '#B7791F';
+
+                        return (
+                          <tr key={n.id || i}>
+                            <td><span className="badge" style={{ background: 'rgba(1,92,148,0.12)', color: '#015C94', fontWeight: 700 }}>#{i + 1}</span></td>
+                            <td style={{ fontWeight: 700, color: '#1e293b' }}>{n.notice_number || '—'}</td>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{n.receiver_name || '—'}</div>
+                              {n.person_type && (
+                                <span className="badge" style={{ fontSize: 10, background: '#e2e8f0', color: '#475569', textTransform: 'capitalize' }}>
+                                  {n.person_type}
+                                </span>
+                              )}
+                            </td>
+                            <td>{n.notice_date || '—'}</td>
+                            <td>
+                              <div style={{ fontSize: 12 }}>{NOTICE_VIA_OPTIONS.find(o => o.value === n.notice_via)?.name || n.notice_via || '—'}</div>
+                              {n.notice_type && <div style={{ color: '#64748b', fontSize: 11 }}>{NOTICE_TYPE_OPTIONS.find(o => o.value === n.notice_type)?.name || n.notice_type}</div>}
+                            </td>
+                            <td>
+                              {n.appearance_date ? (
+                                <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                                  {new Date(n.appearance_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                </div>
+                              ) : '—'}
+                            </td>
+                            <td>
+                              <span className="badge" style={{ background: `${statusColor}18`, color: statusColor, fontWeight: 700 }}>
+                                {statusLabel}
+                              </span>
+                              {n.appearance_remarks && (
+                                <div style={{ fontSize: 11, color: isNonApp ? '#e53e3e' : '#64748b', marginTop: 2, fontWeight: isNonApp ? 600 : 400 }}>
+                                  {APPEARANCE_REMARKS_OPTIONS.find(o => o.value === n.appearance_remarks)?.name || n.appearance_remarks}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => printNotice(n)}
+                                  title="Print Summon"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                                  Print
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => setEditingNoticeIndex(i)}
+                                  title="Edit"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm"
+                                  style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 32, height: 32 }}
+                                  onClick={() => removeNotice(i)}
+                                  title="Remove"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {/* EXPANDED EDIT FORM FOR SELECTED / NEW SUMMON */}
+              {form.notices.map((n, i) => {
+                if (!isNoticeEditing(n, i)) return null;
+                return (
+                <div key={n.id || `notice-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <strong style={{ fontSize: 13, color: '#B7791F' }}>
+                      {n.id || n.notice_number ? `Edit Summon #${i + 1} (${n.notice_number || ''})` : `New Summon #${i + 1}`}
+                    </strong>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {(n.id || n.notice_number || n.receiver_name) && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => setEditingNoticeIndex(null)}
+                          style={{ fontSize: 12 }}
+                        >
+                          Done (Collapse)
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 32, height: 32 }}
+                        onClick={() => removeNotice(i)}
+                        title="Remove"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </div>
+                  </div>
+
                   {i >= 1 && form.notices.slice(0, i).length > 0 && (
                     <div style={{ padding: '10px 14px', marginBottom: 12, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 12 }}>
                       <strong style={{ display: 'block', marginBottom: 6 }}>Previous Summon History</strong>
@@ -1427,7 +1558,7 @@ export default function EnquiryForm() {
                       ))}
                     </div>
                   )}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Person Type</label>
                       <select className="cf-input" value={n.person_type} onChange={e => onNoticePersonTypeChange(i, e.target.value)}>
                         <option value="">— Select —</option>
@@ -1472,9 +1603,6 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Summon No</label>
                       <input type="text" className="cf-input" value={n.notice_number} onChange={e => updateNotice(i, 'notice_number', e.target.value)} placeholder="e.g. NCCIA/N/25" />
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeNotice(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Summon Type</label>
@@ -1519,14 +1647,49 @@ export default function EnquiryForm() {
                     <label className="cf-label">Description / Instructions</label>
                     <textarea className="cf-input" rows={2} value={n.description} onChange={e => updateNotice(i, 'description', e.target.value)} placeholder="Brief description / instructions on the summon" style={{ width: '100%' }}></textarea>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
                     <button type="button" className="btn btn-outline btn-sm" onClick={() => printNotice(n)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Summon
                     </button>
+                    {(n.id || n.notice_number || n.receiver_name) && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setEditingNoticeIndex(null)}
+                      >
+                        Done (Save & Collapse)
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
+              );
+              })}
               {form.notices.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No summons added yet. Click "Add Summon" to start.</p>}
+            </div>
+          </div>
+        )}
+
+        {/* CASE DISCUSSION / CHAT TAB */}
+        {activeTab === 'chat' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#015C94' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div>
+                <div className="cf-section-title">Case Discussion Room</div>
+                <div className="cf-section-sub">Real-time team chat & notes for Enquiry #{form.enquiry_number || id}</div>
+              </div>
+            </div>
+            <div className="cf-body" style={{ padding: 16 }}>
+              <CaseChatPanel
+                type="enquiry"
+                id={id || form.enquiry_number || 1}
+                caseNumber={form.enquiry_number || (id ? `ENQ-${id}` : '')}
+                title={selectedComplaint?.complainant_name || direct?.complainant_name || ''}
+                officers={form.enquiry_officer_id ? [{ name: 'Enquiry Officer', role_label: 'Assigned' }] : []}
+                compact={false}
+              />
             </div>
           </div>
         )}

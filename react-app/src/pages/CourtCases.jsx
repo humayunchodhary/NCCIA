@@ -19,9 +19,11 @@ export default function CourtCases() {
   const [lastPage, setLastPage] = useState(1);
   const [showDetail, setShowDetail] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState(null);
   const [showVerdict, setShowVerdict] = useState(null);
   const [cases, setCases] = useState([]);
   const [createForm, setCreateForm] = useState({ case_id: '', court_name: '', judge_name: '', filing_date: '' });
+  const [editForm, setEditForm] = useState({ court_name: '', judge_name: '', filing_date: '', status: '' });
   const [verdictForm, setVerdictForm] = useState({ verdict: '', verdict_date: '', details: '' });
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -66,6 +68,32 @@ export default function CourtCases() {
     try {
       await api.post('/court-cases', createForm);
       setShowCreate(false);
+      fetchData();
+    } catch (err) {
+      const res = err.response?.data;
+      if (res?.errors) setErrors(res.errors);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEditModal = (item) => {
+    setShowEdit(item);
+    setEditForm({
+      court_name: item.court_name || '',
+      judge_name: item.judge_name || '',
+      filing_date: item.filing_date ? item.filing_date.split('T')[0] : '',
+      status: item.status || 'pending',
+    });
+  };
+
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setErrors({});
+    try {
+      await api.put(`/court-cases/${showEdit.id}`, editForm);
+      setShowEdit(null);
       fetchData();
     } catch (err) {
       const res = err.response?.data;
@@ -133,6 +161,9 @@ export default function CourtCases() {
                         <button onClick={() => openDetail(cc)} className="btn btn-outline btn-sm btn-icon" title="View Details">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
+                        <button onClick={() => openEditModal(cc)} className="btn btn-outline btn-sm btn-icon" title="Edit Court Case">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
                         <button onClick={() => openVerdict(cc)} className="btn btn-sm" style={{ background: 'rgba(1,92,148,0.15)', color: '#015C94', border: 'none', borderRadius: 8, width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} title="Add Verdict">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                         </button>
@@ -186,6 +217,47 @@ export default function CourtCases() {
               <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
                 <button type="submit" className="btn btn-primary btn-sm" disabled={saving} style={{ flex: 1 }}>{saving ? 'Saving...' : 'File Case'}</button>
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowCreate(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEdit && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', padding: 20 }} onClick={() => setShowEdit(null)}>
+          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #f0f0f0' }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Edit Court Case #{showEdit.id}</h3>
+            </div>
+            <form onSubmit={handleEdit} style={{ padding: '16px 24px 24px' }}>
+              <div className="cf-field">
+                <label className="cf-label required">Court Name</label>
+                <input type="text" className="cf-input" value={editForm.court_name} onChange={e => setEditForm({ ...editForm, court_name: e.target.value })} placeholder="e.g. Sessions Court Lahore" required />
+              </div>
+              <div className="cf-row-2">
+                <div className="cf-field">
+                  <label className="cf-label">Judge Name</label>
+                  <input type="text" className="cf-input" value={editForm.judge_name} onChange={e => setEditForm({ ...editForm, judge_name: e.target.value })} placeholder="e.g. Mr. Justice" />
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label required">Filing Date</label>
+                  <input type="date" className="cf-input" value={editForm.filing_date} onChange={e => setEditForm({ ...editForm, filing_date: e.target.value })} required />
+                </div>
+              </div>
+              <div className="cf-field">
+                <label className="cf-label">Status</label>
+                <select className="cf-input" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
+                  <option value="pending">Pending</option>
+                  <option value="in_trial">In Trial</option>
+                  <option value="verdict_given">Verdict Given</option>
+                  <option value="dismissed">Dismissed</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={saving} style={{ flex: 1 }}>{saving ? 'Updating...' : 'Update Court Case'}</button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowEdit(null)}>Cancel</button>
               </div>
             </form>
           </div>

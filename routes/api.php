@@ -84,6 +84,7 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::post('/verifications/reports/bulk-delete', [VerificationController::class, 'bulkDestroyReports']);
     Route::get('/verifications/reports/{report}', [VerificationController::class, 'showReport']);
     Route::put('/verifications/reports/{report}', [VerificationController::class, 'updateReport']);
+    Route::post('/verifications/reports/{report}', [VerificationController::class, 'updateReport']);
     Route::delete('/verifications/reports/{report}', [VerificationController::class, 'destroyReport']);
     Route::post('/verifications/reports', [VerificationController::class, 'storeReport']);
 Route::post('/verifications/bulk-close', [VerificationController::class, 'bulkClose'])
@@ -316,6 +317,13 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/messages', [MessageController::class, 'store']);
     Route::get('/messages/unread-count', [MessageController::class, 'unreadCount']);
     Route::post('/messages/read-all', [MessageController::class, 'markAllRead']);
+
+    // Case-specific collaboration chat
+    Route::get('/messages/cases', [MessageController::class, 'caseConversations']);
+    Route::get('/messages/case-thread', [MessageController::class, 'caseThread']);
+    Route::get('/messages/cases/{caseId}/thread', [MessageController::class, 'caseThread']);
+    Route::post('/messages/case-message', [MessageController::class, 'storeCaseMessage']);
+    Route::post('/messages/cases/{caseId}/send', [MessageController::class, 'storeCaseMessage']);
 
     // SMS
     Route::get('/sms', [SmsController::class, 'index'])

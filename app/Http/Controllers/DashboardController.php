@@ -241,20 +241,24 @@ class DashboardController extends Controller
         $cacheKey = 'dash:v2:' . ($user?->id ?: 0) . ':' . md5(json_encode([$role, $year, $dateFrom, $dateTo, $accountFilter]));
 
         $payload = Cache::remember($cacheKey, 60, function () use ($user, $role, $year, $dateFrom, $dateTo) {
-        // ─── Role-based base queries (data isolation via Complaint::visibleTo) ──
+        // ─── Role-based base queries (data isolation via visibleTo scopes) ──
         $cmpQuery = Complaint::visibleTo($user);
+        $verQuery = Verification::visibleTo($user);
+        $enqQuery = Enquiry::visibleTo($user);
+        $caseQuery = CaseFile::visibleTo($user);
 
         if ($dateFrom) {
             $cmpQuery = $cmpQuery->whereDate('created_at', '>=', $dateFrom);
+            $verQuery = $verQuery->whereDate('created_at', '>=', $dateFrom);
+            $enqQuery = $enqQuery->whereDate('created_at', '>=', $dateFrom);
+            $caseQuery = $caseQuery->whereDate('created_at', '>=', $dateFrom);
         }
         if ($dateTo) {
             $cmpQuery = $cmpQuery->whereDate('created_at', '<=', $dateTo);
+            $verQuery = $verQuery->whereDate('created_at', '<=', $dateTo);
+            $enqQuery = $enqQuery->whereDate('created_at', '<=', $dateTo);
+            $caseQuery = $caseQuery->whereDate('created_at', '<=', $dateTo);
         }
-
-        // Subqueries — never pluck millions of IDs into PHP
-        $verQuery = Verification::whereIn('complaint_id', (clone $cmpQuery)->select('id'));
-        $enqQuery = Enquiry::whereIn('complaint_id', (clone $cmpQuery)->select('id'));
-        $caseQuery = CaseFile::whereIn('enquiry_id', (clone $enqQuery)->select('id'));
 
         // ─── Stats ─────────────────────────────────────────────────
         $totalVerifications       = (clone $verQuery)->count();
@@ -356,32 +360,48 @@ class DashboardController extends Controller
         })->count();
         $withVoCount = (clone $verQuery)->count();
 
+        // ─── Role-specific metrics ────────────────────────────────
+        $assignedEnquiries      = (clone $enqQuery)->whereNotIn('status', ['approved', 'closed'])->count();
+        $pendingCfrs            = (clone $enqQuery)->whereIn('status', ['in_progress', 'assigned'])->count();
+        $unservedSummons        = (clone $enqQuery)->whereHas('notices', fn ($q) => $q->whereIn('status', ['issued', 'unserved']))->count();
+        $activeInvestigations   = (clone $caseQuery)->whereNotIn('status', ['approved', 'closed'])->count();
+        $courtHearingsUpcoming  = \App\Models\CourtCase::visibleTo($user)->whereNotIn('status', ['verdict_given', 'closed', 'dismissed'])->count();
+        $pendingApprovals       = (clone $verQuery)->where('status', 'submitted')->count()
+                                + (clone $enqQuery)->where('status', 'cfr_submitted')->count()
+                                + (clone $caseQuery)->where('status', 'cfr_submitted')->count();
+
         $stats = [
-            'total_complaints'      => $totalComplaints,
-            'complete_registrations'=> $completeCount,
-            'incomplete_registrations' => $incompleteCount,
-            'with_verification'     => $withVoCount,
-            'total_verifications'   => $totalVerifications,
-            'pending_verifications' => $pendingVerifications,
-            'pending_review'        => $pendingReview,
-            'avg_wait_days'         => round((float) $avgWaitDays, 1),
-            'finalized_cases'       => $finalizedCases,
-            'finalized_this_month'  => $finalizedThisMonth,
-            'converted_to_enquiry'  => $convertedToEnquiry,
-            'active_enquiries'      => $activeEnquiries,
-            'recommended_closure'   => $recommendedClosure,
-            'awaiting_approval'     => $awaitingApproval,
-            'closed_non_pursuance'  => $closedNonPursuance,
-            'closed_np_last_30'     => $closedNpLast30,
-            'closed_non_evidence'   => $closedNonEvidence,
-            'ne_under_review'       => $neUnderReview,
-            'avg_processing_days'   => round((float) $avgProcessingDays, 1),
-            'transfer_circles'      => $transferCircles,
-            'merge_other'           => $mergeOther,
-            'jurisdiction_wanted'   => $jurisdictionWanted,
-            'overall_performance'   => $overallPerformance,
-            'avg_completion'        => $avgCompletion,
-            'workflow_stages'       => $workflowStages,
+            'total_complaints'        => $totalComplaints,
+            'complete_registrations'  => $completeCount,
+            'incomplete_registrations'=> $incompleteCount,
+            'with_verification'       => $withVoCount,
+            'total_verifications'     => $totalVerifications,
+            'pending_verifications'   => $pendingVerifications,
+            'pending_review'          => $pendingReview,
+            'avg_wait_days'           => round((float) $avgWaitDays, 1),
+            'finalized_cases'         => $finalizedCases,
+            'finalized_this_month'    => $finalizedThisMonth,
+            'converted_to_enquiry'    => $convertedToEnquiry,
+            'active_enquiries'        => $activeEnquiries,
+            'recommended_closure'     => $recommendedClosure,
+            'awaiting_approval'       => $awaitingApproval,
+            'closed_non_pursuance'    => $closedNonPursuance,
+            'closed_np_last_30'       => $closedNpLast30,
+            'closed_non_evidence'     => $closedNonEvidence,
+            'ne_under_review'         => $neUnderReview,
+            'avg_processing_days'     => round((float) $avgProcessingDays, 1),
+            'transfer_circles'        => $transferCircles,
+            'merge_other'             => $mergeOther,
+            'jurisdiction_wanted'     => $jurisdictionWanted,
+            'overall_performance'     => $overallPerformance,
+            'avg_completion'          => $avgCompletion,
+            'workflow_stages'         => $workflowStages,
+            'assigned_enquiries'      => $assignedEnquiries,
+            'pending_cfrs'            => $pendingCfrs,
+            'unserved_summons'        => $unservedSummons,
+            'active_investigations'   => $activeInvestigations,
+            'court_hearings_upcoming' => $courtHearingsUpcoming,
+            'pending_approvals'       => $pendingApprovals,
         ];
         // ─── Monthly Trends (3 grouped queries, not 36 counts) ─────
         $receivedMap = (clone $cmpQuery)->whereYear('created_at', $year)
@@ -432,7 +452,7 @@ class DashboardController extends Controller
             return $item;
         });
 
-        $recentLimit = ($role === 'operator') ? 20 : 5;
+        $recentLimit = ($role === 'operator') ? 20 : 6;
         $recentComplaints = (clone $cmpQuery)
             ->with(['verification.officer', 'enquiry', 'caseFiles'])
             ->latest('id')
@@ -457,7 +477,45 @@ class DashboardController extends Controller
                 ];
             });
 
-        return compact('stats', 'monthlyTrends', 'categoryBreakdown', 'recentComplaints');
+        // ─── Recent Activity Feed ──────────────────────────────────
+        $recentFromComplaints = (clone $cmpQuery)->latest('id')->take(4)->get()->map(fn ($c) => [
+            'type'        => 'complaint',
+            'id'          => $c->id,
+            'description' => "Complaint registered — #" . ($c->tracking_no ?: $c->diary_no ?: $c->id),
+            'causer_name' => $c->operator_name ?: 'Front Desk Operator',
+            'created_at'  => $c->created_at?->toISOString(),
+        ]);
+        $recentFromVerifications = (clone $verQuery)->with('complaint', 'officer')->latest('id')->take(4)->get()->map(fn ($v) => [
+            'type'        => 'verification',
+            'id'          => $v->id,
+            'description' => "Verification (" . ($v->status ?? 'updated') . ") — #" . ($v->complaint?->tracking_no ?: $v->id),
+            'causer_name' => $v->officer?->name ?: 'Verification Officer',
+            'created_at'  => $v->created_at?->toISOString(),
+        ]);
+        $recentFromEnquiries = (clone $enqQuery)->with('officer')->latest('id')->take(4)->get()->map(fn ($e) => [
+            'type'        => 'enquiry',
+            'id'          => $e->id,
+            'description' => "Enquiry {$e->enquiry_number} status: {$e->status}",
+            'causer_name' => $e->officer?->name ?: 'Enquiry Officer',
+            'created_at'  => $e->created_at?->toISOString(),
+        ]);
+        $recentFromCases = (clone $caseQuery)->with('investigationOfficer')->latest('id')->take(4)->get()->map(fn ($cf) => [
+            'type'        => 'case',
+            'id'          => $cf->id,
+            'description' => "Case {$cf->fir_no} status: {$cf->status}",
+            'causer_name' => $cf->investigationOfficer?->name ?: 'Investigation Officer',
+            'created_at'  => $cf->created_at?->toISOString(),
+        ]);
+
+        $recentActivity = $recentFromComplaints
+            ->concat($recentFromVerifications)
+            ->concat($recentFromEnquiries)
+            ->concat($recentFromCases)
+            ->sortByDesc('created_at')
+            ->take(10)
+            ->values();
+
+        return compact('stats', 'monthlyTrends', 'categoryBreakdown', 'recentComplaints', 'recentActivity');
         });
 
         return response()->json($payload);

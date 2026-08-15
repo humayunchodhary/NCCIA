@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import CaseChatPanel from '../components/CaseChatPanel';
 
 const PRIMARY = '#015C94';
 
@@ -50,6 +51,9 @@ function initialsOf(name) {
 
 export default function Chat() {
   const { user } = useAuth();
+  const [tabMode, setTabMode] = useState('cases'); // 'cases' or 'direct'
+
+  // Direct chat state
   const [conversations, setConversations] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -62,9 +66,25 @@ export default function Chat() {
   const threadTopRef = useRef(null);
   const meId = user?.id;
 
+  // Case chat state
+  const [caseList, setCaseList] = useState([]);
+  const [selectedCase, setSelectedCase] = useState(null);
+  const [caseSearch, setCaseSearch] = useState('');
+
   const refreshConversations = useCallback(() => {
     api.get('/messages/conversations').then(r => setConversations(r.data || [])).catch(() => {});
   }, []);
+
+  const refreshCases = useCallback(() => {
+    api.get('/messages/cases').then(r => {
+      const list = Array.isArray(r.data) ? r.data : [];
+      setCaseList(list);
+      // Auto-select first case if none selected
+      if (!selectedCase && list.length > 0) {
+        setSelectedCase(list[0]);
+      }
+    }).catch(() => {});
+  }, [selectedCase]);
 
   const loadThread = useCallback((otherId) => {
     if (!otherId || otherId === meId) return;
@@ -77,16 +97,21 @@ export default function Chat() {
   useEffect(() => {
     api.get('/messages/contacts').then(r => setContacts(r.data || [])).catch(() => {});
     refreshConversations();
+    refreshCases();
     setLoading(false);
-  }, [refreshConversations]);
+  }, [refreshConversations, refreshCases]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      refreshConversations();
-      if (activeId) loadThread(activeId);
+      if (tabMode === 'direct') {
+        refreshConversations();
+        if (activeId) loadThread(activeId);
+      } else {
+        refreshCases();
+      }
     }, 5000);
     return () => clearInterval(timer);
-  }, [refreshConversations, loadThread, activeId]);
+  }, [refreshConversations, refreshCases, loadThread, activeId, tabMode]);
 
   useEffect(() => {
     if (threadTopRef.current) {
@@ -124,7 +149,6 @@ export default function Chat() {
   };
 
   const activeContact = contacts.find(c => c.id === activeId) || conversations.find(c => c.user?.id === activeId)?.user || null;
-
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread || 0), 0);
 
   const markAllRead = async () => {
@@ -157,10 +181,22 @@ export default function Chat() {
     return (a.name || '').localeCompare(b.name || '');
   });
 
+  const filteredCases = caseList.filter(c => {
+    if (!caseSearch) return true;
+    const q = caseSearch.toLowerCase();
+    return (
+      (c.case_number || '').toLowerCase().includes(q) ||
+      (c.reference_no || '').toLowerCase().includes(q) ||
+      (c.complainant_name || '').toLowerCase().includes(q) ||
+      (c.category || '').toLowerCase().includes(q) ||
+      (c.officers || []).some(o => (o.name || '').toLowerCase().includes(q))
+    );
+  });
+
   if (loading) {
     return (
       <div className="page-header">
-        <h1>Messages</h1>
+        <h1>Messages & Collaboration</h1>
         <LoadingSkeleton rows={6} />
       </div>
     );
@@ -169,197 +205,387 @@ export default function Chat() {
   return (
     <div>
       <div className="page-header">
-        <h1>Internal Messages</h1>
-        <span style={{ color: '#6b7280', fontSize: 13 }}>
-          Secure in-agency chat — data is saved and visible only to participants
-        </span>
+        <div>
+          <h1 className="page-title">Collaboration & Case Discussions</h1>
+          <p className="page-subtitle" style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+            Chat with team members working on specific enquiries/cases or send direct messages
+          </p>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', height: 'calc(100vh - 240px)', minHeight: 480 }}>
-          {/* Contact sidebar */}
-          <div style={{ width: 320, minWidth: 260, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#f9fafb' }}>
-            <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#374151' }}>
-                Conversations
-                {totalUnread > 0 && <span style={{ marginLeft: 8, background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, minWidth: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{totalUnread}</span>}
+        {/* Navigation Tabs Header */}
+        <div style={{
+          display: 'flex',
+          borderBottom: '1px solid #e2e8f0',
+          background: '#f8fafc',
+          padding: '8px 12px',
+          gap: 10,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setTabMode('cases')}
+              style={{
+                background: tabMode === 'cases' ? PRIMARY : '#ffffff',
+                color: tabMode === 'cases' ? '#ffffff' : '#334155',
+                border: tabMode === 'cases' ? 'none' : '1px solid #cbd5e1',
+                borderRadius: 8,
+                padding: '8px 16px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: tabMode === 'cases' ? '0 2px 6px rgba(1,92,148,0.25)' : 'none',
+                transition: 'all 0.15s',
+              }}
+            >
+              <span>📁 Case & Enquiry Discussions</span>
+              <span style={{
+                background: tabMode === 'cases' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                padding: '1px 6px',
+                borderRadius: 10,
+                fontSize: 11,
+              }}>
+                {caseList.length}
               </span>
-              <button
-                type="button"
-                onClick={markAllRead}
-                disabled={totalUnread === 0}
-                title="Mark all conversations as read"
-                style={{
-                  background: totalUnread > 0 ? '#015C94' : '#e5e7eb',
-                  color: totalUnread > 0 ? '#fff' : '#9ca3af',
-                  border: 'none', borderRadius: 6, cursor: totalUnread > 0 ? 'pointer' : 'not-allowed',
-                  fontSize: 12, fontWeight: 600, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5,
-                }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                Mark all read
-              </button>
-            </div>
-            <div style={{ padding: 12, borderBottom: '1px solid #e5e7eb' }}>
-              <input
-                type="search"
-                placeholder="Search officers…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="cf-input"
-                style={{ width: '100%' }}
-              />
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {filtered.length === 0 && (
-                <div style={{ padding: 20, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No contacts found</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTabMode('direct')}
+              style={{
+                background: tabMode === 'direct' ? PRIMARY : '#ffffff',
+                color: tabMode === 'direct' ? '#ffffff' : '#334155',
+                border: tabMode === 'direct' ? 'none' : '1px solid #cbd5e1',
+                borderRadius: 8,
+                padding: '8px 16px',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: tabMode === 'direct' ? '0 2px 6px rgba(1,92,148,0.25)' : 'none',
+                transition: 'all 0.15s',
+              }}
+            >
+              <span>👤 Direct Messages (1-on-1)</span>
+              {totalUnread > 0 && (
+                <span style={{
+                  background: '#ef4444',
+                  color: '#fff',
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}>
+                  {totalUnread}
+                </span>
               )}
-              {sortedContacts.map(c => {
-                const conv = convFor(c.id);
-                const unread = conv?.unread || 0;
-                const isActive = activeId === c.id;
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => selectConversation(c.id)}
-                    style={{
-                      padding: '10px 12px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid #f0f1f3',
-                      background: isActive ? '#eaf2f8' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f3f4f6'; }}
-                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <div style={{
-                      width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                      background: PRIMARY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 600, fontSize: 14,
-                    }}>
-                      {initialsOf(c.name)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
-                        <span style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
-                        {conv?.last_time && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{timeAgo(conv.last_time)}</span>}
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 12, color: unread ? PRIMARY : '#9ca3af', fontWeight: unread ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {conv?.last_message || (c.designation || c.role)}
-                        </span>
-                        {unread > 0 && (
-                          <span style={{
-                            background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11,
-                            minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            padding: '0 5px', flexShrink: 0,
-                          }}>{unread}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Thread area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
-            {!activeContact ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.4 }}>
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                <p style={{ marginTop: 12 }}>Select a contact to start messaging</p>
-              </div>
-            ) : (
-              <>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10, background: '#f9fafb' }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                    background: PRIMARY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 600, fontSize: 13,
-                  }}>
-                    {initialsOf(activeContact.name)}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{activeContact.name}</div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>{(activeContact.designation || activeContact.role || 'Officer').replace(/_/g, ' ')}</div>
-                  </div>
-                </div>
-
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: '#f3f4f6' }}>
-                  <div ref={threadTopRef} />
-                  {threadLoading && <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 20 }}>Loading conversation…</div>}
-                  {!threadLoading && messages.length === 0 && (
-                    <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 30 }}>No messages yet. Say hello!</div>
-                  )}
-                  {!threadLoading && messages.map((m, i) => {
-                    const mine = Number(m.sender_id) === Number(meId);
-                    const showDay = i === 0 || formatDay(messages[i - 1].created_at) !== formatDay(m.created_at);
-                    return (
-                      <div key={m.id}>
-                        {showDay && (
-                          <div style={{ textAlign: 'center', margin: '12px 0' }}>
-                            <span style={{ background: '#e5e7eb', color: '#6b7280', fontSize: 11, padding: '3px 10px', borderRadius: 10 }}>{formatDay(m.created_at)}</span>
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
-                          <div style={{
-                            maxWidth: '72%',
-                            background: mine ? PRIMARY : '#fff',
-                            color: mine ? '#fff' : '#111827',
-                            padding: '9px 13px',
-                            borderRadius: 14,
-                            borderBottomRightRadius: mine ? 4 : 14,
-                            borderBottomLeftRadius: mine ? 14 : 4,
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                            fontSize: 14,
-                            lineHeight: 1.45,
-                          }}>
-                            {m.message}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
-                          <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                            {formatTime(m.created_at)}
-                            {mine && (m.is_read ? ' · Read' : ' · Sent')}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <form onSubmit={sendMessage} style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, background: '#fff' }}>
-                  <textarea
-                    value={text}
-                    onChange={e => setText(e.target.value)}
-                    placeholder="Type a message…"
-                    rows={1}
-                    className="cf-input"
-                    style={{ flex: 1, resize: 'none', minHeight: 40, maxHeight: 120, padding: '10px 12px' }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage(e);
-                      }
-                    }}
-                  />
-                  <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} disabled={sending || !text.trim()}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    Send
-                  </button>
-                </form>
-              </>
-            )}
+            </button>
           </div>
         </div>
+
+        {/* CASE DISCUSSIONS MODE */}
+        {tabMode === 'cases' && (
+          <div style={{ display: 'flex', height: 'calc(100vh - 240px)', minHeight: 520 }}>
+            {/* Left Case List Sidebar */}
+            <div style={{
+              width: 340,
+              minWidth: 280,
+              borderRight: '1px solid #e5e7eb',
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#f9fafb',
+            }}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb' }}>
+                <input
+                  type="search"
+                  placeholder="Search Case / Enquiry #, name…"
+                  value={caseSearch}
+                  onChange={e => setCaseSearch(e.target.value)}
+                  className="cf-input"
+                  style={{ width: '100%', fontSize: 13 }}
+                />
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {filteredCases.length === 0 && (
+                  <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                    No matching cases or enquiries found.
+                  </div>
+                )}
+                {filteredCases.map(c => {
+                  const isSel = selectedCase?.type === c.type && selectedCase?.id === c.id;
+                  return (
+                    <div
+                      key={`${c.type}-${c.id}`}
+                      onClick={() => setSelectedCase(c)}
+                      style={{
+                        padding: '12px 14px',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #f0f1f3',
+                        background: isSel ? '#eaf2f8' : '#ffffff',
+                        borderLeft: isSel ? `4px solid ${PRIMARY}` : '4px solid transparent',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#f3f4f6'; }}
+                      onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = '#ffffff'; }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>
+                          #{c.case_number}
+                        </span>
+                        {c.last_time && (
+                          <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>
+                            {timeAgo(c.last_time)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: 12.5, color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 4 }}>
+                        {c.complainant_name} · <span style={{ fontWeight: 400, color: '#64748b' }}>{c.category}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 12, color: c.has_messages ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                          {c.last_message ? `💬 ${c.last_message}` : 'No notes yet'}
+                        </span>
+                        <span style={{
+                          background: c.type === 'enquiry' ? 'rgba(1,92,148,0.12)' : 'rgba(45,106,79,0.12)',
+                          color: c.type === 'enquiry' ? '#015C94' : '#2d6a4f',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: 4,
+                          textTransform: 'uppercase',
+                        }}>
+                          {c.type}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right Chat Panel */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+              {selectedCase ? (
+                <div style={{ height: '100%', padding: 0 }}>
+                  <CaseChatPanel
+                    type={selectedCase.type}
+                    id={selectedCase.id}
+                    caseNumber={selectedCase.case_number}
+                    title={selectedCase.complainant_name}
+                    officers={selectedCase.officers}
+                    compact={false}
+                  />
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.4 }}>
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <p style={{ marginTop: 12 }}>Select a case or enquiry to view discussion</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* DIRECT MESSAGES (1-ON-1) MODE */}
+        {tabMode === 'direct' && (
+          <div style={{ display: 'flex', height: 'calc(100vh - 240px)', minHeight: 520 }}>
+            {/* Contact sidebar */}
+            <div style={{ width: 320, minWidth: 260, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#f9fafb' }}>
+              <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#374151' }}>
+                  Officers
+                  {totalUnread > 0 && <span style={{ marginLeft: 8, background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, minWidth: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{totalUnread}</span>}
+                </span>
+                <button
+                  type="button"
+                  onClick={markAllRead}
+                  disabled={totalUnread === 0}
+                  title="Mark all conversations as read"
+                  style={{
+                    background: totalUnread > 0 ? '#015C94' : '#e5e7eb',
+                    color: totalUnread > 0 ? '#fff' : '#9ca3af',
+                    border: 'none', borderRadius: 6, cursor: totalUnread > 0 ? 'pointer' : 'not-allowed',
+                    fontSize: 12, fontWeight: 600, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  Mark all read
+                </button>
+              </div>
+              <div style={{ padding: 12, borderBottom: '1px solid #e5e7eb' }}>
+                <input
+                  type="search"
+                  placeholder="Search officers…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="cf-input"
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {filtered.length === 0 && (
+                  <div style={{ padding: 20, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No contacts found</div>
+                )}
+                {sortedContacts.map(c => {
+                  const conv = convFor(c.id);
+                  const unread = conv?.unread || 0;
+                  const isActive = activeId === c.id;
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => selectConversation(c.id)}
+                      style={{
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #f0f1f3',
+                        background: isActive ? '#eaf2f8' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f3f4f6'; }}
+                      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <div style={{
+                        width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                        background: PRIMARY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 600, fontSize: 14,
+                      }}>
+                        {initialsOf(c.name)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                          {conv?.last_time && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{timeAgo(conv.last_time)}</span>}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 12, color: unread ? PRIMARY : '#9ca3af', fontWeight: unread ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {conv?.last_message || (c.designation || c.role)}
+                          </span>
+                          {unread > 0 && (
+                            <span style={{
+                              background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11,
+                              minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              padding: '0 5px', flexShrink: 0,
+                            }}>{unread}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Thread area */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+              {!activeContact ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.4 }}>
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <p style={{ marginTop: 12 }}>Select a contact to start messaging</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10, background: '#f9fafb' }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                      background: PRIMARY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 600, fontSize: 13,
+                    }}>
+                      {initialsOf(activeContact.name)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{activeContact.name}</div>
+                      <div style={{ fontSize: 12, color: '#6b7280' }}>{(activeContact.designation || activeContact.role || 'Officer').replace(/_/g, ' ')}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: '#f3f4f6' }}>
+                    <div ref={threadTopRef} />
+                    {threadLoading && <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 20 }}>Loading conversation…</div>}
+                    {!threadLoading && messages.length === 0 && (
+                      <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 30 }}>No messages yet. Say hello!</div>
+                    )}
+                    {!threadLoading && messages.map((m, i) => {
+                      const mine = Number(m.sender_id) === Number(meId);
+                      const showDay = i === 0 || formatDay(messages[i - 1].created_at) !== formatDay(m.created_at);
+                      return (
+                        <div key={m.id}>
+                          {showDay && (
+                            <div style={{ textAlign: 'center', margin: '12px 0' }}>
+                              <span style={{ background: '#e5e7eb', color: '#6b7280', fontSize: 11, padding: '3px 10px', borderRadius: 10 }}>{formatDay(m.created_at)}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
+                            <div style={{
+                              maxWidth: '72%',
+                              background: mine ? PRIMARY : '#fff',
+                              color: mine ? '#fff' : '#111827',
+                              padding: '9px 13px',
+                              borderRadius: 14,
+                              borderBottomRightRadius: mine ? 4 : 14,
+                              borderBottomLeftRadius: mine ? 14 : 4,
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontSize: 14,
+                              lineHeight: 1.45,
+                            }}>
+                              {m.message}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
+                            <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                              {formatTime(m.created_at)}
+                              {mine && (m.is_read ? ' · Read' : ' · Sent')}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <form onSubmit={sendMessage} style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, background: '#fff' }}>
+                    <textarea
+                      value={text}
+                      onChange={e => setText(e.target.value)}
+                      placeholder="Type a message…"
+                      rows={1}
+                      className="cf-input"
+                      style={{ flex: 1, resize: 'none', minHeight: 40, maxHeight: 120, padding: '10px 12px' }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage(e);
+                        }
+                      }}
+                    />
+                    <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} disabled={sending || !text.trim()}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                      Send
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

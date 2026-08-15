@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Message;
 use App\Models\User;
+use App\Models\Enquiry;
+use App\Models\CaseFile;
 use Illuminate\Http\Request;
 
 class MessageController extends Controller
@@ -32,28 +34,34 @@ class MessageController extends Controller
     }
 
     /**
-     * List conversations (distinct other users) with last message + unread count.
+     * List direct conversations (distinct other users) with last message + unread count.
      */
     public function conversations(Request $request)
     {
         $me = $request->user()->id;
 
-        $messages = Message::where('sender_id', $me)
-            ->orWhere('receiver_id', $me)
+        $messages = Message::whereNull('enquiry_id')
+            ->whereNull('case_file_id')
+            ->where(function ($q) use ($me) {
+                $q->where('sender_id', $me)->orWhere('receiver_id', $me);
+            })
             ->orderByDesc('id')
             ->get();
 
         $otherIds = $messages
             ->map(fn ($m) => $m->sender_id === $me ? $m->receiver_id : $m->sender_id)
+            ->filter()
             ->unique()
             ->values();
 
         $conversations = $otherIds->map(function ($otherId) use ($me) {
-            $last = Message::where(function ($q) use ($me, $otherId) {
-                $q->where('sender_id', $me)->where('receiver_id', $otherId);
-            })->orWhere(function ($q) use ($me, $otherId) {
-                $q->where('sender_id', $otherId)->where('receiver_id', $me);
-            })->orderByDesc('id')->first();
+            $last = Message::whereNull('enquiry_id')
+                ->whereNull('case_file_id')
+                ->where(function ($q) use ($me, $otherId) {
+                    $q->where('sender_id', $me)->where('receiver_id', $otherId);
+                })->orWhere(function ($q) use ($me, $otherId) {
+                    $q->where('sender_id', $otherId)->where('receiver_id', $me);
+                })->orderByDesc('id')->first();
 
             $other = User::with('roles')->find($otherId);
             if (!$other) {
@@ -69,7 +77,9 @@ class MessageController extends Controller
                 ],
                 'last_message' => $last?->message,
                 'last_time'    => $last?->created_at?->toISOString(),
-                'unread'       => Message::where('sender_id', $otherId)
+                'unread'       => Message::whereNull('enquiry_id')
+                    ->whereNull('case_file_id')
+                    ->where('sender_id', $otherId)
                     ->where('receiver_id', $me)
                     ->where('is_read', false)
                     ->count(),
@@ -80,7 +90,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Show the thread between me and $user; marks incoming messages as read.
+     * Show direct thread between me and $user; marks incoming messages as read.
      */
     public function show(Request $request, User $user)
     {
@@ -90,7 +100,9 @@ class MessageController extends Controller
             return response()->json(['message' => 'You cannot open a conversation with yourself.'], 422);
         }
 
-        Message::where('sender_id', $user->id)
+        Message::whereNull('enquiry_id')
+            ->whereNull('case_file_id')
+            ->where('sender_id', $user->id)
             ->where('receiver_id', $me->id)
             ->where('is_read', false)
             ->update(['is_read' => true, 'read_at' => now()]);
@@ -112,7 +124,7 @@ class MessageController extends Controller
     }
 
     /**
-     * Send a message to another user.
+     * Send direct message to another user.
      */
     public function store(Request $request)
     {
@@ -132,6 +144,231 @@ class MessageController extends Controller
         ]);
 
         return response()->json($message->load('sender:id,name'), 201);
+    }
+
+    /**
+     * List all cases & enquiries available for case-specific collaboration chat.
+     */
+    public function caseConversations(Request $request)
+    {
+        $user = $request->user();
+
+        // 1. Fetch accessible Enquiries
+        $enquiries = Enquiry::visibleTo($user)
+            ->with(['complaint:id,complainant_name,tracking_no,offence_type', 'officer:id,name,designation'])
+            ->latest('id')
+            ->take(80)
+            ->get();
+
+        // 2. Fetch accessible Cases
+        $cases = CaseFile::visibleTo($user)
+            ->with(['enquiry.complaint:id,complainant_name,tracking_no,offence_type', 'investigationOfficer:id,name,designation'])
+            ->latest('id')
+            ->take(80)
+            ->get();
+
+        $list = collect();
+
+        foreach ($enquiries as $enq) {
+            $caseNumber = $enq->enquiry_number ?: 'ENQ-' . str_pad($enq->id, 4, '0', STR_PAD_LEFT);
+            $last = Message::where('enquiry_id', $enq->id)->orderByDesc('id')->first();
+            $unreadCount = Message::where('enquiry_id', $enq->id)
+                ->where('sender_id', '!=', $user->id)
+                ->where('is_read', false)
+                ->count();
+
+            $officers = [];
+            if ($enq->officer) {
+                $officers[] = [
+                    'id' => $enq->officer->id,
+                    'name' => $enq->officer->name,
+                    'designation' => $enq->officer->designation,
+                    'role_label' => 'Enquiry Officer',
+                ];
+            }
+
+            $list->push([
+                'type'             => 'enquiry',
+                'id'               => $enq->id,
+                'case_number'      => $caseNumber,
+                'reference_no'     => $enq->complaint?->tracking_no ?: ($enq->direct_info['reference_no'] ?? 'Direct'),
+                'complainant_name' => $enq->complaint?->complainant_name ?: ($enq->direct_info['complainant_name'] ?? 'N/A'),
+                'category'         => $enq->complaint?->offence_type ?: ($enq->direct_info['offence_type'] ?? 'General'),
+                'status'           => $enq->status,
+                'officers'         => $officers,
+                'last_message'     => $last?->message,
+                'last_time'        => $last?->created_at?->toISOString() ?: $enq->created_at?->toISOString(),
+                'has_messages'     => (bool) $last,
+                'unread_count'     => $unreadCount,
+            ]);
+        }
+
+        foreach ($cases as $cf) {
+            $caseNumber = $cf->fir_no ?: 'CASE-' . str_pad($cf->id, 4, '0', STR_PAD_LEFT);
+            $last = Message::where('case_file_id', $cf->id)->orderByDesc('id')->first();
+            $unreadCount = Message::where('case_file_id', $cf->id)
+                ->where('sender_id', '!=', $user->id)
+                ->where('is_read', false)
+                ->count();
+
+            $officers = [];
+            if ($cf->investigationOfficer) {
+                $officers[] = [
+                    'id' => $cf->investigationOfficer->id,
+                    'name' => $cf->investigationOfficer->name,
+                    'designation' => $cf->investigationOfficer->designation,
+                    'role_label' => 'Investigation Officer',
+                ];
+            }
+            if ($cf->enquiry?->officer && $cf->enquiry->officer->id !== $cf->investigation_officer_id) {
+                $officers[] = [
+                    'id' => $cf->enquiry->officer->id,
+                    'name' => $cf->enquiry->officer->name,
+                    'designation' => $cf->enquiry->officer->designation,
+                    'role_label' => 'Enquiry Officer',
+                ];
+            }
+
+            $list->push([
+                'type'             => 'case',
+                'id'               => $cf->id,
+                'case_number'      => $caseNumber,
+                'reference_no'     => $cf->enquiry?->complaint?->tracking_no ?: ($cf->direct_info['reference_no'] ?? 'Direct'),
+                'complainant_name' => $cf->enquiry?->complaint?->complainant_name ?: ($cf->direct_info['complainant_name'] ?? 'N/A'),
+                'category'         => $cf->enquiry?->complaint?->offence_type ?: ($cf->direct_info['offence_type'] ?? 'DAC Case'),
+                'status'           => $cf->status,
+                'officers'         => $officers,
+                'last_message'     => $last?->message,
+                'last_time'        => $last?->created_at?->toISOString() ?: $cf->created_at?->toISOString(),
+                'has_messages'     => (bool) $last,
+                'unread_count'     => $unreadCount,
+            ]);
+        }
+
+        // Sort: cases with unread first, then active messages, then latest time
+        $sorted = $list->sortByDesc(function ($item) {
+            $hasUnread = ($item['unread_count'] ?? 0) > 0 ? 2 : 0;
+            $hasMsg = $item['has_messages'] ? 1 : 0;
+            return ($hasUnread + $hasMsg) . '_' . $item['last_time'];
+        })->values();
+
+        return response()->json($sorted);
+    }
+
+    /**
+     * Get thread for a specific case or enquiry room.
+     */
+    public function caseThread(Request $request, $caseId = null)
+    {
+        $type = $request->query('type') ?: $request->input('type'); // 'enquiry' or 'case'
+        $id = $caseId ?: (int) $request->query('id');
+        $caseNo = $request->query('case_number') ?: $request->input('case_number');
+
+        $query = Message::with(['sender:id,name,designation', 'sender.roles']);
+
+        if ($caseId && !is_numeric($caseId)) {
+            $query->where('case_number', $caseId);
+        } elseif ($type === 'enquiry' && $id) {
+            $query->where('enquiry_id', (int) $id);
+        } elseif ($type === 'case' && $id) {
+            $query->where('case_file_id', (int) $id);
+        } elseif ($id && is_numeric($id)) {
+            $query->where(function ($q) use ($id) {
+                $q->where('case_file_id', (int) $id)
+                  ->orWhere('enquiry_id', (int) $id);
+            });
+        } elseif ($caseNo) {
+            $query->where('case_number', $caseNo);
+        } else {
+            return response()->json(['message' => 'Invalid case/enquiry identifier'], 422);
+        }
+
+        $messages = $query->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function ($m) {
+                return [
+                    'id'                 => $m->id,
+                    'sender_id'          => $m->sender_id,
+                    'sender_name'        => $m->sender?->name ?? 'Unknown Officer',
+                    'sender_designation' => $m->sender?->designation ?? '',
+                    'sender_role'        => $m->sender?->roles->first()?->name ?? 'officer',
+                    'message'            => $m->message,
+                    'created_at'         => $m->created_at?->toISOString(),
+                ];
+            });
+
+        return response()->json($messages);
+    }
+
+    /**
+     * Send a message to a case / enquiry discussion room.
+     */
+    public function storeCaseMessage(Request $request, $caseId = null)
+    {
+        $type = $request->input('type', 'case');
+        $id = $caseId ?: $request->input('id');
+
+        $data = $request->validate([
+            'type'        => 'nullable|in:enquiry,case',
+            'id'          => 'nullable',
+            'case_number' => 'nullable|string|max:100',
+            'message'     => 'required|string|max:5000',
+        ]);
+
+        $sender = $request->user();
+        $messageText = trim($data['message']);
+
+        $caseNumber = $data['case_number'] ?? null;
+        $enquiryId = null;
+        $caseFileId = null;
+
+        if ($type === 'enquiry') {
+            $enquiry = is_numeric($id) ? Enquiry::find($id) : Enquiry::where('enquiry_number', $id)->first();
+            if (!$enquiry) {
+                return response()->json(['message' => 'Enquiry not found'], 404);
+            }
+            $enquiryId = $enquiry->id;
+            $caseNumber = $caseNumber ?: ($enquiry->enquiry_number ?: 'ENQ-' . $enquiry->id);
+        } else {
+            $caseFile = is_numeric($id) ? CaseFile::find($id) : CaseFile::where('fir_no', $id)->first();
+            if (!$caseFile) {
+                // If not found as case, try finding as enquiry
+                $enquiry = is_numeric($id) ? Enquiry::find($id) : Enquiry::where('enquiry_number', $id)->first();
+                if ($enquiry) {
+                    $enquiryId = $enquiry->id;
+                    $caseNumber = $caseNumber ?: ($enquiry->enquiry_number ?: 'ENQ-' . $enquiry->id);
+                } else {
+                    return response()->json(['message' => 'Case/Enquiry not found'], 404);
+                }
+            } else {
+                $caseFileId = $caseFile->id;
+                $caseNumber = $caseNumber ?: ($caseFile->fir_no ?: 'CASE-' . $caseFile->id);
+            }
+        }
+
+        $msg = Message::create([
+            'sender_id'    => $sender->id,
+            'receiver_id'  => null,
+            'enquiry_id'   => $enquiryId,
+            'case_file_id' => $caseFileId,
+            'case_number'  => $caseNumber,
+            'message'      => $messageText,
+            'is_read'      => true,
+            'read_at'      => now(),
+        ]);
+
+        $msg->load(['sender:id,name,designation', 'sender.roles']);
+
+        return response()->json([
+            'id'                 => $msg->id,
+            'sender_id'          => $msg->sender_id,
+            'sender_name'        => $msg->sender?->name ?? $sender->name,
+            'sender_designation' => $msg->sender?->designation ?? $sender->designation,
+            'sender_role'        => $msg->sender?->roles->first()?->name ?? $sender->roles->first()?->name ?? 'officer',
+            'message'            => $msg->message,
+            'created_at'         => $msg->created_at?->toISOString(),
+        ], 201);
     }
 
     /**
@@ -158,3 +395,4 @@ class MessageController extends Controller
         return response()->json(['message' => 'All messages marked as read', 'marked' => $count]);
     }
 }
+

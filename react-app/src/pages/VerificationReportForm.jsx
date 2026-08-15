@@ -393,7 +393,8 @@ const handleTrackingChange = (e) => {
     const fd = buildFormData();
     const url = id ? `/verifications/reports/${id}` : '/verifications/reports';
     if (id) {
-      await api.put(url, fd);
+      fd.append('_method', 'PUT');
+      await api.post(url, fd);
       return id;
     }
     const res = await api.post(url, fd);

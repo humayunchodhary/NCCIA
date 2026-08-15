@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import WorkflowProgress, { caseProgress } from '../components/WorkflowProgress';
+import CaseChatModal from '../components/CaseChatModal';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 
 export default function Cases() {
@@ -10,6 +11,7 @@ export default function Cases() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const [chatTarget, setChatTarget] = useState(null);
 
   const fetchData = useCallback((p = page) => {
     setLoading(true);
@@ -75,9 +77,20 @@ export default function Cases() {
                     </td>
                     <td><span style={{fontSize:'12px',color:'#6c757d'}}>{new Date(c.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span></td>
                     <td style={{textAlign:'center'}}>
-                      <Link to={`/cases/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                      </Link>
+                      <div style={{display:'flex',gap:6,justifyContent:'center',alignItems:'center'}}>
+                        <button
+                          type="button"
+                          onClick={() => setChatTarget(c)}
+                          className="btn btn-sm"
+                          style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:8,width:36,height:36,display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14}}
+                          title="Case Discussion & Team Chat"
+                        >
+                          💬
+                        </button>
+                        <Link to={`/cases/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                   );
@@ -89,12 +102,23 @@ export default function Cases() {
         </div>
         {lastPage > 1 && (
           <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:8,padding:'12px 16px',borderTop:'1px solid #f0f0f0'}}>
-            <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{padding:'6px 14px',borderRadius:6,border:'1px solid #dee2e6',background: page <= 1 ? '#f8f9fa' : '#fff',color: page <= 1 ? '#adb5bd' : '#495057',cursor: page <= 1 ? 'default' : 'pointer',fontSize:13}}>Prev</button>
+            <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{padding:'6px 14px',borderRadius6:6,border:'1px solid #dee2e6',background: page <= 1 ? '#f8f9fa' : '#fff',color: page <= 1 ? '#adb5bd' : '#495057',cursor: page <= 1 ? 'default' : 'pointer',fontSize:13}}>Prev</button>
             <span style={{fontSize:13,color:'#6c757d'}}>Page {page} of {lastPage}</span>
             <button disabled={page >= lastPage} onClick={() => setPage(p => Math.min(lastPage, p + 1))} style={{padding:'6px 14px',borderRadius:6,border:'1px solid #dee2e6',background: page >= lastPage ? '#f8f9fa' : '#fff',color: page >= lastPage ? '#adb5bd' : '#495057',cursor: page >= lastPage ? 'default' : 'pointer',fontSize:13}}>Next</button>
           </div>
         )}
       </div>
+
+      {/* Case Chat Modal */}
+      <CaseChatModal
+        open={!!chatTarget}
+        onClose={() => setChatTarget(null)}
+        type="case"
+        id={chatTarget?.id}
+        caseNumber={chatTarget?.fir_no || (chatTarget?.id ? `CASE-${chatTarget.id}` : '')}
+        title={chatTarget?.direct_info?.complainant_name || chatTarget?.enquiry?.complaint?.complainant_name || ''}
+        officers={chatTarget?.investigation_officer ? [{ name: chatTarget.investigation_officer.name, role_label: 'Investigation Officer' }] : []}
+      />
     </div>
   );
 }

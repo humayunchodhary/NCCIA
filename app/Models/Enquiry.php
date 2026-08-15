@@ -240,6 +240,19 @@ class Enquiry extends Model
             return $query->where('enquiry_officer_id', $user->id);
         }
 
-        return $query->whereIn('complaint_id', Complaint::visibleTo($user)->select('id'));
+        return $query->where(function ($q) use ($user) {
+            $q->whereIn('complaint_id', Complaint::visibleTo($user)->select('id'))
+              ->orWhere(function ($d) use ($user) {
+                  $d->whereNull('complaint_id');
+                  if ($user->circle_id && !$user->hasRole('circle_incharge')) {
+                      $d->where('direct_info->circle_id', $user->circle_id);
+                  } elseif ($user->hasRole('circle_incharge') && $user->circle_id) {
+                      $d->where(function ($c) use ($user) {
+                          $c->where('direct_info->circle_id', $user->circle_id)
+                            ->orWhereNull('direct_info->circle_id');
+                      });
+                  }
+              });
+        });
     }
 }

@@ -72,8 +72,9 @@ export default function Dashboard() {
   if (error) return <div style={{ padding: 40, textAlign: 'center' }}><div style={{ color: '#e53e3e', fontSize: 14, marginBottom: 8 }}>⚠️ Dashboard Error</div><div style={{ color: '#888', fontSize: 13 }}>{error}</div></div>;
   if (!data) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>No data available</div>;
 
-  const { stats, recentComplaints, monthlyTrends, categoryBreakdown } = data;
+  const { stats, recentComplaints, monthlyTrends, categoryBreakdown, recentActivity } = data;
   const recent = recentComplaints?.length ? recentComplaints : [];
+  const activities = Array.isArray(recentActivity) ? recentActivity : [];
   const ws = stats?.workflow_stages || {};
 
   if (isOperatorOnly) {
@@ -253,6 +254,30 @@ export default function Dashboard() {
                 </Link>
               </div>
             </div>
+
+            {activities.length > 0 && (
+              <div className="card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <div className="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                    Live Activity Feed
+                  </div>
+                </div>
+                <div className="card-body" style={{ padding: '12px 16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {activities.slice(0, 5).map((act, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12, borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none', paddingBottom: 8 }}>
+                        <span style={{ fontSize: 14 }}>⚡</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, color: '#1e293b' }}>{act.description}</div>
+                          <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{act.causer_name} · {act.created_at ? new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -283,7 +308,7 @@ export default function Dashboard() {
         <div className="page-title-group">
           <div className="page-label">Overview</div>
           <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} &nbsp;·&nbsp; CCRC-LHR Circle</p>
+          <p className="page-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} &nbsp;·&nbsp; Multi-Role Oversight</p>
           <div className="title-underline"></div>
         </div>
         <div className="page-actions">
@@ -328,6 +353,30 @@ export default function Dashboard() {
           <ul style={{margin:0, paddingLeft:18, color:'#475569', fontSize:13, lineHeight:1.55}}>
             {(duties.fills || []).map((item) => <li key={item}>{item}</li>)}
           </ul>
+        </div>
+      </div>
+
+      {/* Role-Specific Summary Highlights */}
+      <div className="stats-grid" style={{ marginBottom: 16 }}>
+        <div className="stat-card blue">
+          <div className="stat-value">{stats.assigned_enquiries || 0}</div>
+          <div className="stat-label">Assigned Enquiries</div>
+          <div className="stat-footer"><span>Active Investigations</span><span className="stat-footer-value">{stats.active_investigations || 0}</span></div>
+        </div>
+        <div className="stat-card orange">
+          <div className="stat-value">{stats.pending_cfrs || 0}</div>
+          <div className="stat-label">Pending CFRs / Scrutiny</div>
+          <div className="stat-footer"><span>Awaiting CFR Submission</span></div>
+        </div>
+        <div className="stat-card red">
+          <div className="stat-value">{stats.unserved_summons || 0}</div>
+          <div className="stat-label">Unserved Summons</div>
+          <div className="stat-footer"><span>Non-Appearance Check</span></div>
+        </div>
+        <div className="stat-card green">
+          <div className="stat-value">{stats.pending_approvals || 0}</div>
+          <div className="stat-label">Pending Approvals</div>
+          <div className="stat-footer"><span>CFR & Reports</span></div>
         </div>
       </div>
 
@@ -613,6 +662,35 @@ export default function Dashboard() {
                 })()}
                 <div className="progress-item"><div className="progress-header"><span className="progress-name">Performance (Resolved/Total)</span><span className="progress-count">{stats.overall_performance || 0}%</span></div><ProgressBar value={stats.overall_performance} color="#015C94" /></div>
               </div>
+            </div>
+          </div>
+
+          {/* Live Activity Feed */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">
+                <div className="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+                Live Activity Feed
+              </div>
+            </div>
+            <div className="card-body" style={{ padding: '12px 16px' }}>
+              {activities.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 12 }}>No recent activity recorded yet</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {activities.slice(0, 7).map((act, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12, borderBottom: i < 6 ? '1px solid #f1f5f9' : 'none', paddingBottom: 8 }}>
+                      <span style={{ fontSize: 15 }}>
+                        {act.type === 'complaint' ? '📝' : act.type === 'verification' ? '📋' : act.type === 'enquiry' ? '🔍' : '📁'}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{act.description}</div>
+                        <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{act.causer_name} · {act.created_at ? new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
