@@ -103,10 +103,20 @@ class ComplaintController extends Controller
 
         $perPage = min(50, max(10, (int) request('per_page', 15)));
 
-        $complaints = Complaint::visibleTo(request()->user())
-            ->with(['enquiry', 'verification.officer', 'caseFiles', 'circle'])
-            ->latest('id')
-            ->paginate($perPage);
+        $query = Complaint::visibleTo(request()->user())
+            ->with(['enquiry', 'verification.officer', 'caseFiles', 'circle']);
+
+        if ($search = trim((string) request('search'))) {
+            $query->where(function ($qq) use ($search) {
+                $qq->where('tracking_no', 'like', "{$search}%")
+                    ->orWhere('diary_no', 'like', "{$search}%")
+                    ->orWhere('cnic', 'like', "{$search}%")
+                    ->orWhere('complainant_name', 'like', "%{$search}%")
+                    ->orWhere('id', $search);
+            });
+        }
+
+        $complaints = $query->latest('id')->paginate($perPage)->withQueryString();
 
         if (request()->expectsJson()) {
             return ComplaintResource::collection($complaints);

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
@@ -23,6 +23,7 @@ const CLOSURE_REASONS = [
 
 export default function Verifications() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -32,6 +33,13 @@ export default function Verifications() {
   const [statusFilter, setStatusFilter] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [proceedConfirm, setProceedConfirm] = useState(false);
+
+  // Complaint search (top nav) — searches complaints by tracking/CNIC/name
+  const [complaintSearch, setComplaintSearch] = useState('');
+  const [complaintResults, setComplaintResults] = useState([]);
+  const [complaintSearchOpen, setComplaintSearchOpen] = useState(false);
+  const [complaintSearchLoading, setComplaintSearchLoading] = useState(false);
+  const complaintSearchTimer = useRef(null);
 
   // Bulk selection + bulk actions (closure / merge / transfer / delete)
   const [selected, setSelected] = useState([]);
@@ -135,6 +143,27 @@ export default function Verifications() {
     setList(list.filter(v => v.id !== deleteTarget.id));
     setDeleteTarget(null);
   };
+
+  useEffect(() => {
+    if (complaintSearchTimer.current) clearTimeout(complaintSearchTimer.current);
+    const q = complaintSearch.trim();
+    if (!q) {
+      setComplaintResults([]);
+      setComplaintSearchLoading(false);
+      return;
+    }
+    setComplaintSearchLoading(true);
+    complaintSearchTimer.current = setTimeout(() => {
+      api.get('/complaints/search', { params: { q } })
+        .then(r => {
+          setComplaintResults((r.data && r.data.data) ? r.data.data : []);
+          setComplaintSearchOpen(true);
+        })
+        .catch(() => setComplaintResults([]))
+        .finally(() => setComplaintSearchLoading(false));
+    }, 250);
+    return () => { if (complaintSearchTimer.current) clearTimeout(complaintSearchTimer.current); };
+  }, [complaintSearch]);
 
   // ── Bulk actions (closure / merge / transfer / delete) ──
   const openBulkModal = (action) => {
@@ -411,14 +440,56 @@ export default function Verifications() {
           <p className="page-subtitle">Manage complaint verifications &nbsp;·&nbsp; CCRC-LHR</p>
           <div className="title-underline"></div>
         </div>
-        {canAssign && (
-          <div className="page-actions">
-            <Link to="/verifications/create" className="btn btn-primary btn-sm">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-              Assign New
-            </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              className="filter-select"
+              placeholder="Search complaint (Tracking No, CNIC, Name)..."
+              style={{ height: '34px', padding: '0 12px', width: '280px', border: '1.5px solid #264078', borderRadius: '8px', fontSize: '13px' }}
+              value={complaintSearch}
+              onChange={e => setComplaintSearch(e.target.value)}
+              onFocus={() => { if (complaintResults.length) setComplaintSearchOpen(true); }}
+              onBlur={() => setTimeout(() => setComplaintSearchOpen(false), 150)}
+            />
+            {complaintSearchLoading && (
+              <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: '#6c757d' }}>Searching...</span>
+            )}
+            {complaintSearchOpen && complaintResults.length > 0 && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, width: '320px', maxHeight: '340px', overflowY: 'auto', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100 }}>
+                {complaintResults.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => { setComplaintSearchOpen(false); navigate(`/complaints/${c.id}/edit`); }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', borderBottom: '1px solid #f1f3f5', background: '#fff', cursor: 'pointer', fontSize: 13 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#f5f7fa'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+                  >
+                    <div style={{ fontWeight: 600, color: '#264078' }}>{c.tracking_no}{c.diary_no ? ` (${c.diary_no})` : ''}</div>
+                    <div style={{ color: '#495057', marginTop: 2 }}>{c.complainant_name}</div>
+                    <div style={{ color: '#6c757d', fontSize: 12, marginTop: 2 }}>
+                      {c.cnic} {c.cmu ? ` · ${c.cmu}` : ''}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {complaintSearchOpen && !complaintResults.length && complaintSearch.trim() && !complaintSearchLoading && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, width: '320px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, padding: '14px', color: '#6c757d', fontSize: 13 }}>
+                No complaint found
+              </div>
+            )}
           </div>
-        )}
+          {canAssign && (
+            <div className="page-actions">
+              <Link to="/verifications/create" className="btn btn-primary btn-sm">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                Assign New
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="tab-nav" style={{display:'flex',gap:'2px',marginBottom:'16px',padding:'4px',background:'#f3f0f0',borderRadius:'8px'}}>
