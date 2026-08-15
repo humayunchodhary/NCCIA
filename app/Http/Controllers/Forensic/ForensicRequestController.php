@@ -30,17 +30,10 @@ class ForensicRequestController extends Controller
             'enquiry' => function ($q) {
                 $q->with([
                     'officer:id,name,email,designation',
-                    'complaint:id,tracking_no,complainant_name,complainant_phone,complainant_cnic,circle_id,zone_id',
+                    'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id,zone_id',
                     'complaint.circle:id,name,code',
                     'complaint.zone:id,name,code',
                     'accusedPersons:id,enquiry_id,name,father_name,cnic,mobile,address',
-                ]);
-            },
-            'caseFile' => function ($q) {
-                $q->with([
-                    'investigationOfficer:id,name,email,designation',
-                    'enquiry.complaint.circle:id,name,code',
-                    'enquiry.complaint.zone:id,name,code',
                 ]);
             },
         ];
@@ -204,19 +197,16 @@ class ForensicRequestController extends Controller
         }
 
         try {
-            // Build safe relations list - skip relations that may not have all sub-columns
+            // Build safe relations list
             $relations = [
                 'items',
                 'submitter:id,name,email,designation,circle_id',
                 'submitter.circle:id,name,code',
                 'assignee:id,name,email,designation',
-                'adReviewer:id,name,email,designation',
-                'deskOfficer:id,name,email,designation',
-                'handedTo:id,name,email,designation',
                 'enquiry' => function ($q) {
                     $q->with([
                         'officer:id,name,email,designation',
-                        'complaint:id,tracking_no,complainant_name,complainant_phone,complainant_cnic,circle_id,zone_id',
+                        'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id,zone_id',
                         'complaint.circle:id,name,code',
                         'complaint.zone:id,name,code',
                     ]);
