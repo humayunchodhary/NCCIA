@@ -365,32 +365,48 @@ class ForensicRequestController extends Controller
             'priority'    => 'nullable|in:normal,high,urgent',
         ]);
 
-        $fo = User::findOrFail($data['assigned_to']);
-
-        $updates = [
-            'assigned_to'    => $fo->id,
-            'assigned_at'    => now(),
-            'ad_reviewed_by' => $user->id,
-            'ad_reviewed_at' => now(),
-            'status'         => 'assigned',
-            'note'           => $forensicRequest->note . ($data['remarks'] ? "\n\n[AD Review] " . $data['remarks'] : ''),
-        ];
-        if (!empty($data['priority'])) {
-            $updates['priority'] = $data['priority'];
-        }
-
-        $forensicRequest->update($updates);
-
         try {
-            $fo->notify(new ForensicRequestAssignedNotification($forensicRequest->fresh()));
-        } catch (\Throwable $e) {
-            Log::warning('FO notify failed: ' . $e->getMessage());
-        }
+            $fo = User::findOrFail($data['assigned_to']);
 
-        return response()->json([
-            'message' => "Evidence assigned to Forensic Officer {$fo->name}. Notification dispatched.",
-            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
-        ]);
+            $updates = [
+                'assigned_to'    => $fo->id,
+                'status'         => 'assigned',
+            ];
+
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'assigned_at')) {
+                    $updates['assigned_at'] = now();
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'ad_reviewed_by')) {
+                    $updates['ad_reviewed_by'] = $user->id;
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'ad_reviewed_at')) {
+                    $updates['ad_reviewed_at'] = now();
+                }
+                if (!empty($data['priority']) && \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'priority')) {
+                    $updates['priority'] = $data['priority'];
+                }
+                if (!empty($data['remarks'])) {
+                    $updates['note'] = ($forensicRequest->note ? $forensicRequest->note . "\n\n" : '') . "[AD Review] " . $data['remarks'];
+                }
+            } catch (\Throwable $e) {}
+
+            $forensicRequest->update($updates);
+
+            try {
+                $fo->notify(new ForensicRequestAssignedNotification($forensicRequest->fresh() ?: $forensicRequest));
+            } catch (\Throwable $e) {
+                Log::warning('FO notify failed: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'message' => "Evidence assigned to Forensic Officer {$fo->name}. Notification dispatched.",
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('ForensicRequest assign error: ' . $e->getMessage());
+            return response()->json(['message' => 'Assignment failed: ' . $e->getMessage()], 422);
+        }
     }
 
     /** FO updates findings / laboratory examination notes / uploads report */
@@ -409,25 +425,42 @@ class ForensicRequestController extends Controller
             'report_file'  => 'nullable|file|max:30720', // up to 30MB
         ]);
 
-        $updates = [];
-        if (array_key_exists('findings', $data)) {
-            $updates['findings'] = $data['findings'];
-        }
-        if (array_key_exists('lab_notes', $data)) {
-            $updates['lab_notes'] = $data['lab_notes'];
-        }
-        if ($request->hasFile('report_file')) {
-            $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
-        }
+        try {
+            $updates = [];
+            if (array_key_exists('findings', $data)) {
+                try {
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'findings')) {
+                        $updates['findings'] = $data['findings'];
+                    }
+                } catch (\Throwable $e) {}
+            }
+            if (array_key_exists('lab_notes', $data)) {
+                try {
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'lab_notes')) {
+                        $updates['lab_notes'] = $data['lab_notes'];
+                    }
+                } catch (\Throwable $e) {}
+            }
+            if ($request->hasFile('report_file')) {
+                try {
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'report_attachment_path')) {
+                        $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
+                    }
+                } catch (\Throwable $e) {}
+            }
 
-        if ($updates) {
-            $forensicRequest->update($updates);
-        }
+            if ($updates) {
+                $forensicRequest->update($updates);
+            }
 
-        return response()->json([
-            'message' => 'Forensic examination findings updated successfully.',
-            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
-        ]);
+            return response()->json([
+                'message' => 'Forensic examination findings updated successfully.',
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('updateFindings error: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to update findings: ' . $e->getMessage()], 422);
+        }
     }
 
     /** FO submits finalized report to AD Forensic for approval */
@@ -447,47 +480,56 @@ class ForensicRequestController extends Controller
             'report_file' => 'nullable|file|max:30720',
         ]);
 
-        if (!$forensicRequest->report_code) {
-            $forensicRequest->report_code = app(ForensicReportCodeGenerator::class)->generateReportCode();
-            $forensicRequest->opened_at = $forensicRequest->opened_at ?: now();
-        }
-
-        $updates = [
-            'status'      => 'submitted_to_ad',
-            'report_code' => $forensicRequest->report_code,
-            'opened_at'   => $forensicRequest->opened_at,
-        ];
-
-        if (array_key_exists('findings', $data) && $data['findings'] !== null) {
-            $updates['findings'] = $data['findings'];
-        }
-        if (array_key_exists('lab_notes', $data) && $data['lab_notes'] !== null) {
-            $updates['lab_notes'] = $data['lab_notes'];
-        }
-        if ($request->hasFile('report_file')) {
-            $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
-        }
-
-        $forensicRequest->update($updates);
-
-        // Notify AD Forensic safely
         try {
-            $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
-            foreach ($adUsers as $ad) {
-                try {
-                    $ad->notify(new \App\Notifications\GeneralNotification(
-                        'forensic_report_submitted_to_ad',
-                        "Forensic Officer " . ($forensicRequest->assignee?->name ?? 'FO') . " completed report for {$forensicRequest->request_no}. Ready for AD review & approval.",
-                        "/forensic/requests/{$forensicRequest->id}"
-                    ));
-                } catch (\Throwable $e) {}
+            if (!$forensicRequest->report_code) {
+                $forensicRequest->report_code = app(ForensicReportCodeGenerator::class)->generateReportCode();
+                $forensicRequest->opened_at = $forensicRequest->opened_at ?: now();
             }
-        } catch (\Throwable $e) {}
 
-        return response()->json([
-            'message' => "Forensic report submitted to AD Forensic for approval. Report Code: {$forensicRequest->report_code}",
-            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
-        ]);
+            $updates = [
+                'status'      => 'submitted_to_ad',
+                'report_code' => $forensicRequest->report_code,
+            ];
+
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'opened_at')) {
+                    $updates['opened_at'] = $forensicRequest->opened_at;
+                }
+                if (array_key_exists('findings', $data) && $data['findings'] !== null && \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'findings')) {
+                    $updates['findings'] = $data['findings'];
+                }
+                if (array_key_exists('lab_notes', $data) && $data['lab_notes'] !== null && \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'lab_notes')) {
+                    $updates['lab_notes'] = $data['lab_notes'];
+                }
+                if ($request->hasFile('report_file') && \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'report_attachment_path')) {
+                    $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
+                }
+            } catch (\Throwable $e) {}
+
+            $forensicRequest->update($updates);
+
+            // Notify AD Forensic safely
+            try {
+                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
+                foreach ($adUsers as $ad) {
+                    try {
+                        $ad->notify(new \App\Notifications\GeneralNotification(
+                            'forensic_report_submitted_to_ad',
+                            "Forensic Officer " . ($forensicRequest->assignee?->name ?? 'FO') . " completed report for {$forensicRequest->request_no}. Ready for AD review & approval.",
+                            "/forensic/requests/{$forensicRequest->id}"
+                        ));
+                    } catch (\Throwable $e) {}
+                }
+            } catch (\Throwable $e) {}
+
+            return response()->json([
+                'message' => "Forensic report submitted to AD Forensic for approval. Report Code: {$forensicRequest->report_code}",
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('submitToAd error: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to submit report: ' . $e->getMessage()], 422);
+        }
     }
 
     /** AD Forensic approves report & notifies Enquiry Officer (EO) to collect by hand */
@@ -503,92 +545,109 @@ class ForensicRequestController extends Controller
             'report_file' => 'nullable|file|max:30720',
         ]);
 
-        if (!$forensicRequest->report_code) {
-            $forensicRequest->report_code = app(ForensicReportCodeGenerator::class)->generateReportCode();
-            $forensicRequest->opened_at = $forensicRequest->opened_at ?: now();
-        }
-
-        $updates = [
-            'status'           => 'report_ready',
-            'report_ready_at'  => now(),
-            'desk_notified_at' => now(),
-            'ad_reviewed_by'   => $user->id,
-            'ad_reviewed_at'   => now(),
-            'report_code'      => $forensicRequest->report_code,
-            'opened_at'        => $forensicRequest->opened_at,
-        ];
-
-        if (array_key_exists('findings', $data) && $data['findings'] !== null) {
-            $updates['findings'] = $data['findings'];
-        }
-        if (array_key_exists('lab_notes', $data) && $data['lab_notes'] !== null) {
-            $updates['lab_notes'] = $data['lab_notes'];
-        }
-        if ($request->hasFile('report_file')) {
-            $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
-        }
-
-        $forensicRequest->update($updates);
-
-        // Notify Desk Officers safely
         try {
-            $deskUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['desk_forensic', 'admin_forensic']))->get();
-            foreach ($deskUsers as $desk) {
-                try {
-                    $desk->notify(new ForensicReportReadyNotification($forensicRequest->fresh()));
-                } catch (\Throwable $e) {}
+            if (!$forensicRequest->report_code) {
+                $forensicRequest->report_code = app(ForensicReportCodeGenerator::class)->generateReportCode();
+                $forensicRequest->opened_at = $forensicRequest->opened_at ?: now();
             }
-        } catch (\Throwable $e) {}
 
-        // Notify AD Forensic safely
-        try {
-            $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
-            foreach ($adUsers as $ad) {
-                try {
-                    $ad->notify(new \App\Notifications\GeneralNotification(
-                        'forensic_report_approved_ad',
-                        "Forensic Report for {$forensicRequest->request_no} has been approved (Code: {$forensicRequest->report_code}). EO notified for collection.",
-                        "/forensic/requests/{$forensicRequest->id}"
-                    ));
-                } catch (\Throwable $e) {}
-            }
-        } catch (\Throwable $e) {}
+            $updates = [
+                'status'      => 'report_ready',
+                'report_code' => $forensicRequest->report_code,
+            ];
 
-        // Notify Enquiry Officer (EO) safely
-        try {
-            $forensicRequest->loadMissing('enquiry', 'submitter');
-            $eoId = $forensicRequest->enquiry?->enquiry_officer_id ?? $forensicRequest->submitted_by;
-            $eo = $eoId ? User::find($eoId) : null;
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'report_ready_at')) {
+                    $updates['report_ready_at'] = now();
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'desk_notified_at')) {
+                    $updates['desk_notified_at'] = now();
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'ad_reviewed_by')) {
+                    $updates['ad_reviewed_by'] = $user->id;
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'ad_reviewed_at')) {
+                    $updates['ad_reviewed_at'] = now();
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'opened_at')) {
+                    $updates['opened_at'] = $forensicRequest->opened_at;
+                }
+                if (array_key_exists('findings', $data) && $data['findings'] !== null && \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'findings')) {
+                    $updates['findings'] = $data['findings'];
+                }
+                if (array_key_exists('lab_notes', $data) && $data['lab_notes'] !== null && \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'lab_notes')) {
+                    $updates['lab_notes'] = $data['lab_notes'];
+                }
+                if ($request->hasFile('report_file') && \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'report_attachment_path')) {
+                    $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
+                }
+            } catch (\Throwable $e) {}
 
-            if ($eo) {
-                try {
-                    $caseRef = $forensicRequest->enquiry?->enquiry_number ? "Enquiry #{$forensicRequest->enquiry->enquiry_number}" : "Case";
-                    $eo->notify(new \App\Notifications\GeneralNotification(
-                        'forensic_report_ready_for_eo',
-                        "Forensic Report for {$caseRef} is ready (Code: {$forensicRequest->report_code}). Please collect by-hand from NCCIA Digital Forensic Lab.",
-                        "/enquiries" . ($forensicRequest->enquiry_id ? "/{$forensicRequest->enquiry_id}/edit" : "")
-                    ));
-                } catch (\Throwable $e) {}
+            $forensicRequest->update($updates);
 
-                try {
-                    app(SmsService::class)->sendToUser(
-                        $eo,
-                        SmsTemplates::forensicReportReadyToCollect($forensicRequest, 'en'),
-                        SmsTemplates::forensicReportReadyToCollect($forensicRequest, 'ur'),
-                        [
-                            'subject_type' => 'forensic_request',
-                            'subject_id'   => $forensicRequest->id,
-                            'trigger'      => 'forensic_report_ready_for_eo',
-                        ]
-                    );
-                } catch (\Throwable $e) {}
-            }
-        } catch (\Throwable $e) {}
+            // Notify Desk Officers safely
+            try {
+                $deskUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['desk_forensic', 'admin_forensic']))->get();
+                foreach ($deskUsers as $desk) {
+                    try {
+                        $desk->notify(new ForensicReportReadyNotification($forensicRequest->fresh() ?: $forensicRequest));
+                    } catch (\Throwable $e) {}
+                }
+            } catch (\Throwable $e) {}
 
-        return response()->json([
-            'message' => "Forensic report approved. Enquiry Officer notified to collect by-hand with Code: {$forensicRequest->report_code}.",
-            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
-        ]);
+            // Notify AD Forensic safely
+            try {
+                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
+                foreach ($adUsers as $ad) {
+                    try {
+                        $ad->notify(new \App\Notifications\GeneralNotification(
+                            'forensic_report_approved_ad',
+                            "Forensic Report for {$forensicRequest->request_no} has been approved (Code: {$forensicRequest->report_code}). EO notified for collection.",
+                            "/forensic/requests/{$forensicRequest->id}"
+                        ));
+                    } catch (\Throwable $e) {}
+                }
+            } catch (\Throwable $e) {}
+
+            // Notify Enquiry Officer (EO) safely
+            try {
+                $forensicRequest->loadMissing('enquiry', 'submitter');
+                $eoId = $forensicRequest->enquiry?->enquiry_officer_id ?? $forensicRequest->submitted_by;
+                $eo = $eoId ? User::find($eoId) : null;
+
+                if ($eo) {
+                    try {
+                        $caseRef = $forensicRequest->enquiry?->enquiry_number ? "Enquiry #{$forensicRequest->enquiry->enquiry_number}" : "Case";
+                        $eo->notify(new \App\Notifications\GeneralNotification(
+                            'forensic_report_ready_for_eo',
+                            "Forensic Report for {$caseRef} is ready (Code: {$forensicRequest->report_code}). Please collect by-hand from NCCIA Digital Forensic Lab.",
+                            "/enquiries" . ($forensicRequest->enquiry_id ? "/{$forensicRequest->enquiry_id}/edit" : "")
+                        ));
+                    } catch (\Throwable $e) {}
+
+                    try {
+                        app(SmsService::class)->sendToUser(
+                            $eo,
+                            SmsTemplates::forensicReportReadyToCollect($forensicRequest, 'en'),
+                            SmsTemplates::forensicReportReadyToCollect($forensicRequest, 'ur'),
+                            [
+                                'subject_type' => 'forensic_request',
+                                'subject_id'   => $forensicRequest->id,
+                                'trigger'      => 'forensic_report_ready_for_eo',
+                            ]
+                        );
+                    } catch (\Throwable $e) {}
+                }
+            } catch (\Throwable $e) {}
+
+            return response()->json([
+                'message' => "Forensic report approved. Enquiry Officer notified to collect by-hand with Code: {$forensicRequest->report_code}.",
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('markReady error: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to approve report: ' . $e->getMessage()], 422);
+        }
     }
 
     /** Desk hands physical report to EO */
@@ -603,47 +662,65 @@ class ForensicRequestController extends Controller
             'handover_remarks'  => 'nullable|string|max:1000',
         ]);
 
-        $forensicRequest->loadMissing('enquiry');
-
-        $eoId = $data['handed_to_user_id']
-            ?? $forensicRequest->enquiry?->enquiry_officer_id
-            ?? $forensicRequest->submitted_by;
-
-        $forensicRequest->update([
-            'status'            => 'handed_over',
-            'desk_officer_id'   => $user->id,
-            'handed_over_at'    => now(),
-            'handed_to_user_id' => $eoId,
-            'handover_remarks'  => $data['handover_remarks'] ?? null,
-        ]);
-
         try {
-            if ($eoId) {
-                $eo = User::find($eoId);
-                if ($eo) {
-                    try {
-                        $eo->notify(new ForensicReportHandedOverNotification($forensicRequest->fresh()));
-                    } catch (\Throwable $e) {}
-                    try {
-                        app(SmsService::class)->sendToUser(
-                            $eo,
-                            SmsTemplates::forensicHandedOver($forensicRequest, 'en'),
-                            SmsTemplates::forensicHandedOver($forensicRequest, 'ur'),
-                            [
-                                'subject_type' => 'forensic_request',
-                                'subject_id'   => $forensicRequest->id,
-                                'trigger'      => 'forensic_handed_over',
-                            ]
-                        );
-                    } catch (\Throwable $e) {}
-                }
-            }
-        } catch (\Throwable $e) {}
+            $forensicRequest->loadMissing('enquiry');
 
-        return response()->json([
-            'message' => 'Physical report and evidence custody handed over to Enquiry Officer. Acknowledgment recorded.',
-            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
-        ]);
+            $eoId = $data['handed_to_user_id']
+                ?? $forensicRequest->enquiry?->enquiry_officer_id
+                ?? $forensicRequest->submitted_by;
+
+            $updates = [
+                'status' => 'handed_over',
+            ];
+
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'desk_officer_id')) {
+                    $updates['desk_officer_id'] = $user->id;
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'handed_over_at')) {
+                    $updates['handed_over_at'] = now();
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'handed_to_user_id')) {
+                    $updates['handed_to_user_id'] = $eoId;
+                }
+                if (\Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'handover_remarks')) {
+                    $updates['handover_remarks'] = $data['handover_remarks'] ?? null;
+                }
+            } catch (\Throwable $e) {}
+
+            $forensicRequest->update($updates);
+
+            try {
+                if ($eoId) {
+                    $eo = User::find($eoId);
+                    if ($eo) {
+                        try {
+                            $eo->notify(new ForensicReportHandedOverNotification($forensicRequest->fresh() ?: $forensicRequest));
+                        } catch (\Throwable $e) {}
+                        try {
+                            app(SmsService::class)->sendToUser(
+                                $eo,
+                                SmsTemplates::forensicHandedOver($forensicRequest, 'en'),
+                                SmsTemplates::forensicHandedOver($forensicRequest, 'ur'),
+                                [
+                                    'subject_type' => 'forensic_request',
+                                    'subject_id'   => $forensicRequest->id,
+                                    'trigger'      => 'forensic_handed_over',
+                                ]
+                            );
+                        } catch (\Throwable $e) {}
+                    }
+                }
+            } catch (\Throwable $e) {}
+
+            return response()->json([
+                'message' => 'Physical report and evidence custody handed over to Enquiry Officer. Acknowledgment recorded.',
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('handOver error: ' . $e->getMessage());
+            return response()->json(['message' => 'Handover failed: ' . $e->getMessage()], 422);
+        }
     }
 
     /** EO / main app: lookup by report code */
