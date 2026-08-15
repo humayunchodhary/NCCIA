@@ -107,12 +107,12 @@ class PrintService
             '@page { size: 80mm auto; margin: 2mm; }
              body { margin:0; padding:0; background:#fff; }
              .slip { width: 76mm; margin: 0 auto; font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
-             .head { text-align:center; border-bottom: 2px solid #000; padding-bottom: 7px; margin-bottom: 6px; }
-             .logo { display:block; width:56px; height:56px; margin:0 auto 4px; object-fit:contain; border-radius:50%; border:2px solid #264078; padding:3px; background:#fff; }
+             .head { text-align:center; border-bottom: 3px solid #000; padding-bottom: 7px; margin-bottom: 6px; }
+             .logo { display:block; width:76px; height:76px; margin:0 auto 4px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
              .org { font-weight:800; font-size:11px; line-height:1.3; margin-top:3px; letter-spacing:0.2px; text-align:center; }
              .org-ur { font-size:11px; font-weight:700; margin-top:2px; text-align:center; }
-             .tag { display:inline-block; margin-top:6px; padding:2px 10px; border:1.5px solid #000; font-weight:800; font-size:10px; letter-spacing:1.2px; text-align:center; }
-             .num-box { text-align:center; border:1.5px dashed #000; padding:6px 4px; margin:8px auto; width:90%; }
+             .tag { display:inline-block; margin-top:6px; padding:2px 10px; border:2px solid #000; font-weight:800; font-size:10px; letter-spacing:1.2px; text-align:center; }
+             .num-box { text-align:center; border:2px dashed #000; padding:6px 4px; margin:8px auto; width:90%; }
              .num-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; }
              .num-val { font-size:16px; font-weight:800; letter-spacing:0.5px; margin-top:2px; }
              .kv { width:100%; border-collapse:collapse; margin:2px auto 6px; }
@@ -120,13 +120,13 @@ class PrintService
              .kv tr:last-child td { border-bottom:none; }
              .k { width:78px; font-weight:700; color:#222; }
              .v { word-break:break-word; text-align:right; }
-             .note { font-size:9.5px; line-height:1.35; text-align:center; border:1px solid #000; padding:5px 4px; margin:6px auto; width:92%; }
+             .note { font-size:9.5px; line-height:1.35; text-align:center; border:2px solid #000; padding:5px 4px; margin:6px auto; width:92%; }
              .sign-row { width:100%; border-collapse:collapse; margin:10px auto 6px; }
              .sign { width:50%; text-align:center; vertical-align:top; padding:0 3px; }
-             .sign-line { border-top:1px solid #000; margin:18px 0 3px; }
-             .qr-block { text-align:center; border-top:1px dashed #000; padding-top:6px; margin-top:4px; }
+             .sign-line { border-top:2px solid #000; margin:18px 0 3px; }
+             .qr-block { text-align:center; border-top:2px dashed #000; padding-top:6px; margin-top:4px; }
              .qr { width:92px; height:92px; }
-             .foot { text-align:center; margin-top:4px; border-top:1px solid #000; padding-top:4px; }
+             .foot { text-align:center; margin-top:4px; border-top:2px solid #000; padding-top:4px; }
              .small { font-size:9.5px; font-weight:700; text-align:center; }
              .tiny { font-size:8.5px; margin-top:1px; text-align:center; }
              .muted { color:#444; word-break:break-all; line-height:1.2; }'
@@ -319,32 +319,32 @@ class PrintService
             '@page { size: A4; margin: 14mm; }
              body { margin:0; font-family: Arial, Helvetica, sans-serif; color:#000; }
              .report { max-width: 175mm; margin: 0 auto; font-size: 13px; line-height: 1.5; }
-             .head { text-align:center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
-             .head .logo { width:70px; height:70px; object-fit:contain; }
+             .head { text-align:center; border-bottom: 3px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
+             .head .logo { width:92px; height:92px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
              .head .org { font-size:16px; font-weight:700; margin-top:2px; }
              .head .addr { font-size:11px; color:#333; margin-top:2px; }
-             .head .tag { display:inline-block; margin-top:6px; padding:3px 14px; border:1.5px solid #000; font-weight:800; font-size:12px; letter-spacing:1.5px; }
+             .head .tag { display:inline-block; margin-top:6px; padding:3px 14px; border:2px solid #000; font-weight:800; font-size:12px; letter-spacing:1.5px; }
              .meta { margin:6px 0; }
              .mrow { margin:2px 0; }
              .mrow .k { display:inline-block; width:110px; font-weight:700; }
-             h3.sec { font-size:13px; margin:16px 0 6px; padding:4px 8px; background:#f0f0f0; border-left:4px solid #015C94; }
+             h3.sec { font-size:13px; margin:16px 0 6px; padding:4px 8px; background:#f0f0f0; border-left:5px solid #015C94; }
              table.info { width:100%; border-collapse:collapse; margin-bottom:4px; }
-             table.info td { border:1px solid #bbb; padding:5px 8px; vertical-align:top; font-size:12.5px; }
+             table.info td { border:1.5px solid #999; padding:5px 8px; vertical-align:top; font-size:12.5px; }
              table.info .k { width:110px; background:#f7f7f7; font-weight:700; }
              .desc { margin-top:6px; }
-             .descbox { border:1px solid #bbb; padding:8px; margin-top:4px; font-size:12.5px; white-space:pre-wrap; }
-             .flist-wrap { border:1px solid #bbb; padding:8px; }
+             .descbox { border:1.5px solid #999; padding:8px; margin-top:4px; font-size:12.5px; white-space:pre-wrap; }
+             .flist-wrap { border:1.5px solid #999; padding:8px; }
              .flist { margin:2px 0; }
              table.accused { width:100%; border-collapse:collapse; margin-top:4px; }
-             table.accused th { background:#e9e9e9; border:1px solid #bbb; padding:6px 8px; font-size:12px; }
-             table.accused td { border:1px solid #bbb; padding:5px 8px; font-size:12.5px; vertical-align:top; }
+             table.accused th { background:#e9e9e9; border:1.5px solid #999; padding:6px 8px; font-size:12px; }
+             table.accused td { border:1.5px solid #999; padding:5px 8px; font-size:12.5px; vertical-align:top; }
              table.accused td.c { text-align:center; }
              table.accused tr.desc td { font-size:11.5px; color:#333; }
-             .alink { display:inline-block; margin-right:6px; padding:1px 6px; border:1px solid #015C94; border-radius:4px; font-size:11px; color:#015C94; }
+             .alink { display:inline-block; margin-right:6px; padding:1px 6px; border:1.5px solid #015C94; border-radius:4px; font-size:11px; color:#015C94; }
              .muted { color:#666; }
              .sign-row { width:100%; margin:30px 0 10px; }
              .sign-row .sign { display:inline-block; width:48%; text-align:center; vertical-align:top; }
-             .sign-line { border-top:1px solid #000; margin:0 30px 4px; }
+             .sign-line { border-top:2px solid #000; margin:0 30px 4px; }
              .small { font-size:11px; }
              .tiny { font-size:10px; color:#444; margin-top:2px; }
              .foot { text-align:center; border-top:1px solid #000; margin-top:14px; padding-top:6px; }'
