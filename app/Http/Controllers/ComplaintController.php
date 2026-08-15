@@ -151,7 +151,81 @@ class ComplaintController extends Controller
         return response()->json(['data' => $rows]);
     }
 
-    public function create()
+    public function bulkAction(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['admin', 'circle_incharge']), 403);
+
+        $data = $request->validate([
+            'ids'                 => 'required|array|min:1',
+            'ids.*'               => 'integer|exists:complaints,id',
+            'action'              => 'required|string|in:closure,merge,transfer',
+            'closure_reason'      => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
+            'merge_complaint_id'  => 'nullable|integer|exists:complaints,id',
+            'transfer_department' => 'nullable|string|max:255',
+            'transfer_circle_id'  => 'nullable|integer|exists:circles,id',
+        ]);
+
+        $complaints = Complaint::visibleTo($user)->whereIn('id', $data['ids'])->get();
+
+        if ($complaints->isEmpty()) {
+            return response()->json(['message' => 'No complaints found for the selected records.'], 404);
+        }
+
+        DB::transaction(function () use ($complaints, $data, $user) {
+            foreach ($complaints as $complaint) {
+                switch ($data['action']) {
+                    case 'closure':
+                        $complaint->update([
+                            'status'         => 'closed',
+                            'final_status'   => 'closed',
+                            'closure_reason' => $data['closure_reason'] ?? null,
+                        ]);
+                        $complaint->verification?->update([
+                            'status'         => 'closed',
+                            'completed_at'   => now(),
+                            'recommendation' => 'closure',
+                            'closure_reason' => $data['closure_reason'] ?? null,
+                        ]);
+                        break;
+
+                    case 'merge':
+                        $complaint->update([
+                            'status'         => 'merged',
+                            'final_status'   => 'merged',
+                            'merged_with_id' => $data['merge_complaint_id'] ?? null,
+                        ]);
+                        $complaint->verification?->update([
+                            'status'             => 'approved',
+                            'approved_at'        => now(),
+                            'recommendation'     => 'merge',
+                            'merge_complaint_id' => $data['merge_complaint_id'] ?? null,
+                        ]);
+                        break;
+
+                    case 'transfer':
+                        $complaint->update([
+                            'status'                 => 'transferred',
+                            'final_status'           => 'transferred',
+                            'transfer_to_department' => $data['transfer_department'] ?? null,
+                            'transfer_to_circle_id'  => $data['transfer_circle_id'] ?? null,
+                        ]);
+                        $complaint->verification?->update([
+                            'status'              => 'approved',
+                            'approved_at'         => now(),
+                            'recommendation'      => 'transfer',
+                            'transfer_department' => $data['transfer_department'] ?? null,
+                            'transfer_circle_id'  => $data['transfer_circle_id'] ?? null,
+                        ]);
+                        break;
+                }
+            }
+        });
+
+        return response()->json(['message' => count($complaints) . ' complaint(s) updated.']);
+    }
+
+public function create()
     {
         $offenceTypes = OffenceType::orderBy('group')->orderBy('name')->get();
         return view('pages.newcomplaint', compact('offenceTypes'));

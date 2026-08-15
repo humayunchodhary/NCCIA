@@ -33,6 +33,8 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     // Complaints
     Route::get('/complaints', [ComplaintController::class, 'index'])->name('api.complaints.index');
     Route::get('/complaints/search', [ComplaintController::class, 'search'])->name('api.complaints.search');
+    Route::post('/complaints/bulk-action', [ComplaintController::class, 'bulkAction'])
+        ->middleware('role:admin,circle_incharge');
     Route::post('/complaints', [ComplaintController::class, 'store'])
         ->middleware('role:operator,admin,circle_incharge,director_general')
         ->name('api.complaints.store');
