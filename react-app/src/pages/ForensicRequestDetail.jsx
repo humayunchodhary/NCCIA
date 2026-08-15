@@ -118,7 +118,15 @@ export default function ForensicRequestDetail() {
   };
 
   if (loading) return <div className="page-content"><LoadingSkeleton type="form" /></div>;
-  if (err && !row) return <div className="page-content"><div style={{color:'#e53e3e',padding:30,textAlign:'center'}}>\u26A0\uFE0F {err}</div></div>;
+  if (err && !row) return (
+    <div className="page-content">
+      <div style={{color:'#e53e3e',padding:40,textAlign:'center',background:'#fff',borderRadius:12,border:'1px solid #fee2e2'}}>
+        <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>⚠️ {err}</div>
+        <p style={{color:'#64748b',fontSize:13,marginBottom:16}}>Could not retrieve forensic request record.</p>
+        <button type="button" className="btn btn-primary btn-sm" onClick={load}>Retry Loading</button>
+      </div>
+    </div>
+  );
   if (!row) return null;
 
   const canAssign        = isAd && (row.status === 'submitted' || isAdmin) && row.destination === 'forensic';
@@ -131,7 +139,7 @@ export default function ForensicRequestDetail() {
   const caseRef          = row.enquiry?.enquiry_number
     ? `Enquiry #${row.enquiry.enquiry_number}`
     : (row.caseFile?.fir_no ? `FIR #${row.caseFile.fir_no}` : 'Direct Case Seizure');
-  const accusedList      = row.enquiry?.accused_persons || [];
+  const accusedList      = row.enquiry?.accused_persons || row.enquiry?.accusedPersons || [];
   const complainantName  = row.enquiry?.complaint?.complainant_name;
   const receivedDateTime = row.created_at
     ? new Date(row.created_at).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})

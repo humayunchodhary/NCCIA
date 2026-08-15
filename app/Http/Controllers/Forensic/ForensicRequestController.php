@@ -17,25 +17,51 @@ use Illuminate\Support\Facades\Log;
 
 class ForensicRequestController extends Controller
 {
-    private function withRelations()
+    /**
+     * Safely eager-load relations for ForensicRequest models without throwing fatal SQL errors
+     * if certain optional sub-columns or child tables (e.g. enquiry_accused) are missing.
+     */
+    private function safeLoadRelations(ForensicRequest $forensicRequest): ForensicRequest
     {
-        return [
-            'items',
-            'submitter:id,name,email,designation,circle_id',
-            'submitter.circle:id,name,code',
-            'assignee:id,name,email,designation',
-            'adReviewer:id,name,email,designation',
-            'deskOfficer:id,name,email,designation',
-            'handedTo:id,name,email,designation',
-            'enquiry' => function ($q) {
-                $q->with([
-                    'officer:id,name,email,designation',
-                    'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id',
-                    'complaint.circle:id,name,code',
-                    'accusedPersons:id,enquiry_id,name,father_name,cnic,contact_no,whatsapp_no,postal_address,permanent_address,description',
-                ]);
-            },
-        ];
+        try {
+            $hasAccused = false;
+            try {
+                $hasAccused = \Illuminate\Support\Facades\Schema::hasTable('enquiry_accused');
+            } catch (\Throwable $e) {}
+
+            $enquiryWith = [
+                'officer:id,name,email,designation',
+                'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id',
+                'complaint.circle:id,name,code',
+            ];
+            if ($hasAccused) {
+                $enquiryWith[] = 'accusedPersons';
+            }
+
+            $forensicRequest->load([
+                'items',
+                'submitter:id,name,email,designation,circle_id',
+                'submitter.circle:id,name,code',
+                'assignee:id,name,email,designation',
+                'adReviewer:id,name,email,designation',
+                'deskOfficer:id,name,email,designation',
+                'handedTo:id,name,email,designation',
+                'enquiry' => function ($q) use ($enquiryWith) {
+                    $q->with($enquiryWith);
+                },
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('safeLoadRelations fallback: ' . $e->getMessage());
+            try {
+                $forensicRequest->load(['items', 'submitter', 'assignee', 'enquiry']);
+            } catch (\Throwable $e2) {
+                try {
+                    $forensicRequest->load('items');
+                } catch (\Throwable $e3) {}
+            }
+        }
+
+        return $forensicRequest;
     }
 
     /** EO / IO / CI submit seizure to Forensic or Technical */
@@ -144,7 +170,7 @@ class ForensicRequestController extends Controller
             'message' => ($fr->destination === 'forensic'
                 ? 'Seized evidence and memo submitted to AD Forensic for review.'
                 : 'Submitted to Technical department.'),
-            'data'    => $fr->load($this->withRelations()),
+            'data'    => $this->safeLoadRelations($fr),
         ], 201);
     }
 
@@ -169,7 +195,7 @@ class ForensicRequestController extends Controller
             return response()->json(['message' => 'enquiry_id or case_id required.'], 422);
         }
 
-        $q = ForensicRequest::with($this->withRelations())->latest();
+        $q = ForensicRequest::latest();
         if (!empty($data['enquiry_id'])) {
             $q->where('enquiry_id', $data['enquiry_id']);
         }
@@ -177,7 +203,12 @@ class ForensicRequestController extends Controller
             $q->where('case_id', $data['case_id']);
         }
 
-        return response()->json(['data' => $q->limit(50)->get()]);
+        $items = $q->limit(50)->get();
+        foreach ($items as $item) {
+            $this->safeLoadRelations($item);
+        }
+
+        return response()->json(['data' => $items]);
     }
 
     public function index(Request $request)
@@ -291,23 +322,34 @@ class ForensicRequestController extends Controller
     public function show(Request $request, ForensicRequest $forensicRequest, ForensicReportCodeGenerator $gen)
     {
         $user = $request->user();
-        abort_unless($user->isForensic() || $user->hasRole('admin'), 403);
+        abort_unless(
+            $user->isForensic() || $user->hasAnyRole([
+                'admin', 'circle_incharge', 'enquiry_officer', 'investigation_officer',
+                'moharrar', 'director_general', 'operator',
+            ]),
+            403
+        );
 
-        // FO first open → generate report code + in_progress
-        if (
-            $user->hasRole('forensic_team')
-            && (int) $forensicRequest->assigned_to === (int) $user->id
-            && in_array($forensicRequest->status, ['assigned', 'in_progress'], true)
-            && empty($forensicRequest->report_code)
-        ) {
-            $forensicRequest->update([
-                'report_code' => $gen->generateReportCode(),
-                'status'      => 'in_progress',
-                'opened_at'   => now(),
-            ]);
+        try {
+            // FO first open → generate report code + in_progress
+            if (
+                $user->hasRole('forensic_team')
+                && (int) $forensicRequest->assigned_to === (int) $user->id
+                && in_array($forensicRequest->status, ['assigned', 'in_progress'], true)
+                && empty($forensicRequest->report_code)
+            ) {
+                $forensicRequest->update([
+                    'report_code' => $gen->generateReportCode(),
+                    'status'      => 'in_progress',
+                    'opened_at'   => now(),
+                ]);
+            }
+
+            return response()->json(['data' => $this->safeLoadRelations($forensicRequest->fresh())]);
+        } catch (\Throwable $e) {
+            Log::error('ForensicRequest show error: ' . $e->getMessage());
+            return response()->json(['data' => $this->safeLoadRelations($forensicRequest)]);
         }
-
-        return response()->json(['data' => $forensicRequest->fresh()->load($this->withRelations())]);
     }
 
     /** AD Forensic assigns FO */
@@ -347,7 +389,7 @@ class ForensicRequestController extends Controller
 
         return response()->json([
             'message' => "Evidence assigned to Forensic Officer {$fo->name}. Notification dispatched.",
-            'data'    => $forensicRequest->fresh()->load($this->withRelations()),
+            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
         ]);
     }
 
@@ -384,7 +426,7 @@ class ForensicRequestController extends Controller
 
         return response()->json([
             'message' => 'Forensic examination findings updated successfully.',
-            'data'    => $forensicRequest->fresh()->load($this->withRelations()),
+            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
         ]);
     }
 
@@ -444,7 +486,7 @@ class ForensicRequestController extends Controller
 
         return response()->json([
             'message' => "Forensic report submitted to AD Forensic for approval. Report Code: {$forensicRequest->report_code}",
-            'data'    => $forensicRequest->fresh()->load($this->withRelations()),
+            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
         ]);
     }
 
@@ -545,7 +587,7 @@ class ForensicRequestController extends Controller
 
         return response()->json([
             'message' => "Forensic report approved. Enquiry Officer notified to collect by-hand with Code: {$forensicRequest->report_code}.",
-            'data'    => $forensicRequest->fresh()->load($this->withRelations()),
+            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
         ]);
     }
 
@@ -600,7 +642,7 @@ class ForensicRequestController extends Controller
 
         return response()->json([
             'message' => 'Physical report and evidence custody handed over to Enquiry Officer. Acknowledgment recorded.',
-            'data'    => $forensicRequest->fresh()->load($this->withRelations()),
+            'data'    => $this->safeLoadRelations($forensicRequest->fresh()),
         ]);
     }
 
@@ -611,15 +653,13 @@ class ForensicRequestController extends Controller
             'report_code' => 'required|string|max:64',
         ]);
 
-        $fr = ForensicRequest::with($this->withRelations())
-            ->where('report_code', trim($data['report_code']))
-            ->first();
+        $fr = ForensicRequest::where('report_code', trim($data['report_code']))->first();
 
         if (!$fr) {
             return response()->json(['message' => 'No forensic report found for this code.'], 404);
         }
 
-        return response()->json(['data' => $fr]);
+        return response()->json(['data' => $this->safeLoadRelations($fr)]);
     }
 
     public function teamOfficers(Request $request)

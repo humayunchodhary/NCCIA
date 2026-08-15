@@ -10,7 +10,20 @@ class CheckRole
 {
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (!$request->user() || !$request->user()->hasAnyRole($roles)) {
+        $user = $request->user();
+        if (!$user) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
+            }
+            abort(401);
+        }
+
+        // Admin superuser always has access
+        if ($user->hasRole('admin')) {
+            return $next($request);
+        }
+
+        if (!$user->hasAnyRole($roles)) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthorized - insufficient permissions'], 403);
             }
