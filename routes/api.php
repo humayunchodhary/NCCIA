@@ -86,10 +86,10 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::put('/verifications/reports/{report}', [VerificationController::class, 'updateReport']);
     Route::delete('/verifications/reports/{report}', [VerificationController::class, 'destroyReport']);
     Route::post('/verifications/reports', [VerificationController::class, 'storeReport']);
-    Route::post('/verifications/bulk-close', [VerificationController::class, 'bulkClose'])
-        ->middleware('role:admin,circle_incharge');
-    Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkAction'])
-        ->middleware('role:admin,circle_incharge');
+Route::post('/verifications/bulk-close', [VerificationController::class, 'bulkClose'])
+        ->middleware('role:admin,circle_incharge,verification_officer');
+Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkAction'])
+        ->middleware('role:admin,circle_incharge,verification_officer');
     Route::get('/verifications/{verification}', [VerificationController::class, 'show'])->name('api.verifications.show');
     Route::get('/verifications/{verification}/officer-history', [OfficerAssignmentHistoryController::class, 'forVerification']);
     Route::put('/verifications/{verification}', [VerificationController::class, 'update'])->name('api.verifications.update');

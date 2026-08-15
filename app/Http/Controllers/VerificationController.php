@@ -824,7 +824,7 @@ class VerificationController extends Controller
     public function bulkClose(Request $request)
     {
         $user = $request->user();
-        abort_unless($user->hasAnyRole(['admin', 'circle_incharge']), 403);
+        abort_unless($user->hasAnyRole(['admin', 'circle_incharge', 'verification_officer']), 403);
 
         $data = $request->validate([
             'ids'            => 'required|array|min:1',
@@ -865,7 +865,7 @@ class VerificationController extends Controller
     public function bulkAction(Request $request)
     {
         $user = $request->user();
-        abort_unless($user->hasAnyRole(['admin', 'circle_incharge']), 403);
+        abort_unless($user->hasAnyRole(['admin', 'circle_incharge', 'verification_officer']), 403);
 
         $data = $request->validate([
             'ids'                 => 'required|array|min:1',
@@ -877,6 +877,7 @@ class VerificationController extends Controller
             'transfer_circle_id'  => 'nullable|integer|exists:circles,id',
         ]);
 
+        // Merge action must not target the verification being merged.
         if ($data['action'] === 'merge' && in_array($data['merge_complaint_id'] ?? null, $data['ids'])) {
             return response()->json(['message' => 'Cannot merge a verification with itself.'], 422);
         }

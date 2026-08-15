@@ -55,7 +55,7 @@ export default function Verifications() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const hasRole = (roleName) => userHasRole(user, roleName);
-  const canBulk = hasRole('admin') || hasRole('circle_incharge');
+  const canBulk = hasRole('admin') || hasRole('circle_incharge') || hasRole('verification_officer');
   const canAssign = canAssignVerification(user);
   const canDelete = hasRole('admin');
 
