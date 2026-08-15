@@ -193,72 +193,111 @@ class ForensicRequestController extends Controller
         $user = $request->user();
         abort_unless($user->isForensic() || $user->hasRole('admin'), 403);
 
-        $q = ForensicRequest::with($this->withRelations())->latest();
-
-        if ($user->hasRole('forensic_team') && !$user->hasAnyRole(['admin_forensic', 'ad_forensic', 'desk_forensic'])) {
-            $q->where('assigned_to', $user->id);
-        } elseif ($user->hasRole('desk_forensic') && !$user->hasAnyRole(['admin_forensic', 'ad_forensic'])) {
-            $q->whereIn('status', ['report_ready', 'handed_over']);
-        } elseif ($user->hasAnyRole(['ad_forensic', 'admin_forensic'])) {
-            $q->where('destination', 'forensic');
+        try {
+            $hasPriority = \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'priority');
+            $hasFindings = \Illuminate\Support\Facades\Schema::hasColumn('forensic_requests', 'findings');
+            $hasImei2    = \Illuminate\Support\Facades\Schema::hasColumn('forensic_request_items', 'imei2');
+        } catch (\Throwable $e) {
+            $hasPriority = false;
+            $hasFindings = false;
+            $hasImei2    = false;
         }
 
-        if ($status = $request->query('status')) {
-            $q->where('status', $status);
-        }
+        try {
+            // Build safe relations list - skip relations that may not have all sub-columns
+            $relations = [
+                'items',
+                'submitter:id,name,email,designation,circle_id',
+                'submitter.circle:id,name,code',
+                'assignee:id,name,email,designation',
+                'adReviewer:id,name,email,designation',
+                'deskOfficer:id,name,email,designation',
+                'handedTo:id,name,email,designation',
+                'enquiry' => function ($q) {
+                    $q->with([
+                        'officer:id,name,email,designation',
+                        'complaint:id,tracking_no,complainant_name,complainant_phone,complainant_cnic,circle_id,zone_id',
+                        'complaint.circle:id,name,code',
+                        'complaint.zone:id,name,code',
+                    ]);
+                },
+            ];
 
-        if ($priority = $request->query('priority')) {
-            $q->where('priority', $priority);
-        }
+            $q = ForensicRequest::with($relations)->latest();
 
-        if ($assignedTo = $request->query('assigned_to')) {
-            $q->where('assigned_to', $assignedTo);
-        }
+            if ($user->hasRole('forensic_team') && !$user->hasAnyRole(['admin_forensic', 'ad_forensic', 'desk_forensic'])) {
+                $q->where('assigned_to', $user->id);
+            } elseif ($user->hasRole('desk_forensic') && !$user->hasAnyRole(['admin_forensic', 'ad_forensic'])) {
+                $q->whereIn('status', ['report_ready', 'handed_over']);
+            } elseif ($user->hasAnyRole(['ad_forensic', 'admin_forensic'])) {
+                $q->where('destination', 'forensic');
+            }
 
-        if ($circleId = $request->query('circle_id')) {
-            $q->whereHas('submitter', function ($sq) use ($circleId) {
-                $sq->where('circle_id', $circleId);
-            });
-        }
+            if ($status = $request->query('status')) {
+                $q->where('status', $status);
+            }
 
-        if ($itemType = $request->query('item_type')) {
-            $q->whereHas('items', function ($iq) use ($itemType) {
-                $iq->where('item_type', $itemType);
-            });
-        }
+            if ($hasPriority && ($priority = $request->query('priority'))) {
+                $q->where('priority', $priority);
+            }
 
-        // Global Search across request_no, report_code, note, items (make_model, imei, serial_no), submitter name, enquiry number
-        if ($search = trim((string) $request->query('search', ''))) {
-            $q->where(function ($sq) use ($search) {
-                $sq->where('request_no', 'like', "%{$search}%")
-                    ->orWhere('report_code', 'like', "%{$search}%")
-                    ->orWhere('note', 'like', "%{$search}%")
-                    ->orWhere('findings', 'like', "%{$search}%")
-                    ->orWhereHas('submitter', function ($subQ) use ($search) {
-                        $subQ->where('name', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('enquiry', function ($enqQ) use ($search) {
-                        $enqQ->where('enquiry_number', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('caseFile', function ($caseQ) use ($search) {
-                        $caseQ->where('fir_no', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('items', function ($itemQ) use ($search) {
-                        $itemQ->where('make_model', 'like', "%{$search}%")
-                            ->orWhere('imei', 'like', "%{$search}%")
-                            ->orWhere('imei2', 'like', "%{$search}%")
-                            ->orWhere('serial_no', 'like', "%{$search}%")
-                            ->orWhere('description', 'like', "%{$search}%");
-                    });
-            });
-        }
+            if ($assignedTo = $request->query('assigned_to')) {
+                $q->where('assigned_to', $assignedTo);
+            }
 
-        $perPage = (int) $request->query('per_page', 30);
-        if ($perPage <= 0 || $perPage > 100) {
-            $perPage = 30;
-        }
+            if ($circleId = $request->query('circle_id')) {
+                $q->whereHas('submitter', function ($sq) use ($circleId) {
+                    $sq->where('circle_id', $circleId);
+                });
+            }
 
-        return response()->json(['data' => $q->paginate($perPage)]);
+            if ($request->query('item_type')) {
+                $itemType = $request->query('item_type');
+                $q->whereHas('items', function ($iq) use ($itemType) {
+                    $iq->where('item_type', $itemType);
+                });
+            }
+
+            if ($search = trim((string) $request->query('search', ''))) {
+                $q->where(function ($sq) use ($search, $hasFindings, $hasImei2) {
+                    $sq->where('request_no', 'like', "%{$search}%")
+                        ->orWhere('report_code', 'like', "%{$search}%")
+                        ->orWhere('note', 'like', "%{$search}%");
+                    if ($hasFindings) {
+                        $sq->orWhere('findings', 'like', "%{$search}%");
+                    }
+                    $sq->orWhereHas('submitter', function ($subQ) use ($search) {
+                            $subQ->where('name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('enquiry', function ($enqQ) use ($search) {
+                            $enqQ->where('enquiry_number', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('items', function ($itemQ) use ($search, $hasImei2) {
+                            $itemQ->where('make_model', 'like', "%{$search}%")
+                                ->orWhere('imei', 'like', "%{$search}%")
+                                ->orWhere('serial_no', 'like', "%{$search}%")
+                                ->orWhere('description', 'like', "%{$search}%");
+                            if ($hasImei2) {
+                                $itemQ->orWhere('imei2', 'like', "%{$search}%");
+                            }
+                        });
+                });
+            }
+
+            $perPage = (int) $request->query('per_page', 30);
+            if ($perPage <= 0 || $perPage > 100) {
+                $perPage = 30;
+            }
+
+            return response()->json(['data' => $q->paginate($perPage)]);
+
+        } catch (\Throwable $e) {
+            Log::error('ForensicRequests index error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            return response()->json([
+                'message' => 'Failed to load forensic requests. Please run: php artisan migrate --force',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Database query error',
+            ], 500);
+        }
     }
 
     public function show(Request $request, ForensicRequest $forensicRequest, ForensicReportCodeGenerator $gen)
