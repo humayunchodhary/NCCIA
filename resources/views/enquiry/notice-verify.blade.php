@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Notice Verification — NCCIA</title>
+    <title>Summon Verification — NCCIA</title>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f2f4f8; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
@@ -34,15 +34,15 @@
                 @elseif(in_array($notice->status, ['issued','unserved']))
                     <span class="badge invalid">Pending Appearance</span>
                 @else
-                    <span class="badge valid">✓ Notice Verified</span>
+                    <span class="badge valid">✓ Summon Verified</span>
                 @endif
             </div>
 
-            <div class="row"><span class="k">Notice No.</span><span class="v">{{ $notice->notice_number ?: 'N-'.$notice->id }}</span></div>
-            <div class="row"><span class="k">Notice Type</span><span class="v">{{ $notice->notice_type ?: 'Notice' }}</span></div>
+            <div class="row"><span class="k">Summon No.</span><span class="v">{{ $notice->notice_number ?: 'N-'.$notice->id }}</span></div>
+            <div class="row"><span class="k">Summon Type</span><span class="v">{{ $notice->notice_type ?: 'Summon' }}</span></div>
             <div class="row"><span class="k">Receiver</span><span class="v">{{ $notice->receiver_name }}</span></div>
             <div class="row"><span class="k">Person Type</span><span class="v">{{ ucfirst($notice->person_type ?? '—') }}</span></div>
-            <div class="row"><span class="k">Notice Date</span><span class="v">{{ $notice->notice_date ? $notice->notice_date->format('d/m/Y') : '—' }}</span></div>
+            <div class="row"><span class="k">Summon Date</span><span class="v">{{ $notice->notice_date ? $notice->notice_date->format('d/m/Y') : '—' }}</span></div>
             <div class="row"><span class="k">Mode</span><span class="v">{{ ucfirst(str_replace('_',' ', $notice->notice_via ?? '—')) }}</span></div>
             <div class="row"><span class="k">Enquiry No.</span><span class="v">{{ $notice->enquiry->enquiry_number ?? ('#'.$notice->enquiry_id) }}</span></div>
             <div class="row"><span class="k">Complaint No.</span><span class="v">{{ $notice->enquiry->complaint->tracking_no ?? '—' }}</span></div>
@@ -51,7 +51,7 @@
                 <div style="margin-top:12px; font-size:13px; color:#334155;">{{ $notice->description }}</div>
             @endif
         </div>
-        <div class="foot">This notice was issued by NCCIA. For queries, please contact the issuing circle office.</div>
+        <div class="foot">This summon was issued by NCCIA. For queries, please contact the issuing circle office.</div>
     </div>
 </body>
 </html>

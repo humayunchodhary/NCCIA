@@ -48,14 +48,14 @@ export const ROLE_DUTIES = {
     stage: 'Enquiry',
     fills: [
       'DAC request, bank record, search & seize',
-      'Notices, diaries, seizures, recoveries',
+      'Summons, diaries, seizures, recoveries',
       'Submit CFR + recommendations',
     ],
   },
   investigation_officer: {
     stage: 'Case / Court',
     fills: [
-      'Mobile/bank record, notices, case diaries',
+      'Mobile/bank record, summons, case diaries',
       'Seizures, forensics, raids, arrest / remand',
       'CFR / challan recommendations & court reports',
     ],

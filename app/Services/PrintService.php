@@ -346,7 +346,7 @@ class PrintService
 
         $via       = $notice->notice_via ? ucfirst(str_replace('_', ' ', $notice->notice_via)) : '—';
         $person    = $notice->person_type ? ucfirst($notice->person_type) : '—';
-        $type      = $notice->notice_type ?: 'Notice';
+        $type      = $notice->notice_type ?: 'Summon';
 
         $enquiryNo = $enquiry?->enquiry_number ?: ('#' . $enquiry?->id);
         $tracking  = $complaint?->tracking_no ?? '—';
@@ -370,7 +370,7 @@ class PrintService
           </div>
 
           <div class="meta">
-            <div class="mrow"><span class="k">Notice No:</span><span>{$number}</span></div>
+            <div class="mrow"><span class="k">Summon No:</span><span>{$number}</span></div>
             <div class="mrow"><span class="k">Date:</span><span>{$date}</span></div>
             <div class="mrow"><span class="k">Mode:</span><span>{$via}</span></div>
             <div class="mrow"><span class="k">Person Type:</span><span>{$person}</span></div>
@@ -399,7 +399,7 @@ class PrintService
           <div class="foot">
             <div class="qrbox">
               <img src="{$qr}" alt="Verify QR" class="qr" />
-              <div class="small center">Scan to verify this notice</div>
+              <div class="small center">Scan to verify this summon</div>
             </div>
             <div class="small center verify">{$verifyUrl}</div>
           </div>

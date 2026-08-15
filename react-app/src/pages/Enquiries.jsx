@@ -259,10 +259,10 @@ export default function Enquiries() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span className={`badge ${STATUS_COLORS[e.status] || 'badge-pending'}`}>{STATUS_LABELS[e.status] || e.status?.replace('_', ' ')}</span>
                           {(e.has_unserved_notice || e.status === 'referred_court') && (
-                            <span title="Notice non-appearance / unserved" style={{ fontSize: 16, lineHeight: 1 }}>⭐</span>
+                            <span title="Summon non-appearance / unserved" style={{ fontSize: 16, lineHeight: 1 }}>⭐</span>
                           )}
                           {e.notice_count > 0 && (
-                            <span className="badge badge-info" style={{ fontSize: 11 }}>{e.notice_count} notice{e.notice_count > 1 ? 's' : ''}</span>
+                            <span className="badge badge-info" style={{ fontSize: 11 }}>{e.notice_count} summon{e.notice_count > 1 ? 's' : ''}</span>
                           )}
                         </div>
                       </td>

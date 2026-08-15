@@ -83,8 +83,8 @@ class SmsTemplates
         $number = $e->enquiry_number ?: ('#' . $e->id);
 
         return $lang === 'ur'
-            ? "Notice: Enquiry {$number} ke mutaliq aap ko pesh hona hai. Waqt par haziri zaroori hai. Mazeed details NCCIA portal par. - NCCIA"
-            : "Notice: You are required to appear in connection with Enquiry {$number}. Timely appearance is mandatory. For details visit NCCIA portal. - NCCIA";
+            ? "Summon: Enquiry {$number} ke mutaliq aap ko pesh hona hai. Waqt par haziri zaroori hai. Mazeed details NCCIA portal par. - NCCIA"
+            : "Summon: You are required to appear in connection with Enquiry {$number}. Timely appearance is mandatory. For details visit NCCIA portal. - NCCIA";
     }
 
     public static function nonAppearance(Enquiry $e, string $lang = 'en'): string

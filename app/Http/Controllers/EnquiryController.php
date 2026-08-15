@@ -86,7 +86,7 @@ class EnquiryController extends Controller
             'dac_request'  => 'DAC Request',
             'bank_record'  => 'Bank Record Obtained',
             'search_seize' => 'Search & Seize',
-            'notices'      => 'Notices Issued',
+            'notices'      => 'Summons Issued',
             'diaries'      => 'Diaries Maintained',
             'seizures'     => 'Seizures Made',
             'recoveries'   => 'Recoveries Effected',

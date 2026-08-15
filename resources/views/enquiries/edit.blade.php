@@ -246,7 +246,7 @@
           <label class="cf-check-item cf-check-sm">
             <input type="checkbox" name="actions[]" value="notices">
             <span class="cf-check-box"></span>
-            <span class="cf-check-title">Notices Issued</span>
+            <span class="cf-check-title">Summons Issued</span>
           </label>
           <label class="cf-check-item cf-check-sm">
             <input type="checkbox" name="actions[]" value="diaries">
@@ -272,13 +272,13 @@
       </div>
 
       <div class="cf-field" id="noticeDetailsWrap" style="display:none;">
-        <label class="cf-label">Notice Details</label>
+        <label class="cf-label">Summon Details</label>
         <div class="cf-row-2">
           <div class="cf-input-wrap">
             <span class="cf-input-icon">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             </span>
-            <input type="text" class="cf-input" name="notice_type" placeholder="Notice type (e.g. S.160 CrPC, PECA)">
+            <input type="text" class="cf-input" name="notice_type" placeholder="Summon type (e.g. S.160 CrPC, PECA)">
           </div>
           <div class="cf-input-wrap">
             <span class="cf-input-icon">

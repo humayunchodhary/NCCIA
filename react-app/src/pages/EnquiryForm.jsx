@@ -35,7 +35,7 @@ const ACTIVITY_TYPES = [
   { value: 'dac_request', name: 'DAC (Departmental Accounts Committee)' },
   { value: 'bank_record', name: 'Bank Enquiry' },
   { value: 'search_seize', name: 'Search Operation' },
-  { value: 'notices', name: 'Notice Issued' },
+  { value: 'notices', name: 'Summon Issued' },
   { value: 'diaries', name: 'Diary Entry' },
   { value: 'seizures', name: 'Seizure Memo' },
   { value: 'recoveries', name: 'Recovery' },
@@ -149,7 +149,7 @@ const NOTICE_STATUS_OPTIONS = [
 const NOTICE_TYPE_OPTIONS = [
   { value: 'Summon', name: 'Summon' },
   { value: 'Warning', name: 'Warning' },
-  { value: 'Final Notice', name: 'Final Notice' },
+  { value: 'Final Summon', name: 'Final Summon' },
   { value: 'Show Cause', name: 'Show Cause' },
   { value: 'Other', name: 'Other' },
 ];
@@ -594,14 +594,14 @@ export default function EnquiryForm() {
   };
 
   const printNotice = async (n) => {
-    if (!id) { alert('Save the enquiry first, then you can print notices.'); return; }
-    if (!n.id) { alert('Save the enquiry first, then you can print notices.'); return; }
+    if (!id) { alert('Save the enquiry first, then you can print summons.'); return; }
+    if (!n.id) { alert('Save the enquiry first, then you can print summons.'); return; }
     try {
       const r = await api.get(`/enquiries/${id}/notice-print`, { params: { notice_id: n.id } });
       const { openPrintWindow } = await import('../utils/print');
       openPrintWindow(r.data.html);
     } catch (e) {
-      alert(e.response?.data?.message || 'Could not print notice.');
+      alert(e.response?.data?.message || 'Could not print summon.');
     }
   };
 
@@ -1469,7 +1469,7 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Receiver Name</label>
                       <input type="text" className="cf-input" value={n.receiver_name} onChange={e => updateNotice(i, 'receiver_name', e.target.value)} placeholder="Recipient name" />
                     </div>
-                    <div className="cf-field"><label className="cf-label">Notice No</label>
+                    <div className="cf-field"><label className="cf-label">Summon No</label>
                       <input type="text" className="cf-input" value={n.notice_number} onChange={e => updateNotice(i, 'notice_number', e.target.value)} placeholder="e.g. NCCIA/N/25" />
                     </div>
                     <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeNotice(i)}>
@@ -1477,16 +1477,16 @@ export default function EnquiryForm() {
                     </button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                    <div className="cf-field"><label className="cf-label">Notice Type</label>
+                    <div className="cf-field"><label className="cf-label">Summon Type</label>
                       <select className="cf-input" value={n.notice_type} onChange={e => updateNotice(i, 'notice_type', e.target.value)}>
                         <option value="">— Select —</option>
                         {NOTICE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
-                    <div className="cf-field"><label className="cf-label">Notice Date</label>
+                    <div className="cf-field"><label className="cf-label">Summon Date</label>
                       <input type="date" className="cf-input" value={n.notice_date} onChange={e => updateNotice(i, 'notice_date', e.target.value)} />
                     </div>
-                    <div className="cf-field"><label className="cf-label">Notice Via</label>
+                    <div className="cf-field"><label className="cf-label">Summon Via</label>
                       <select className="cf-input" value={n.notice_via} onChange={e => updateNotice(i, 'notice_via', e.target.value)}>
                         <option value="">— Select —</option>
                         {NOTICE_VIA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
@@ -1513,14 +1513,15 @@ export default function EnquiryForm() {
                     </div>
                   </div>
                   <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Address</label>
-                    <textarea className="cf-input" rows={2} value={n.address} onChange={e => updateNotice(i, 'address', e.target.value)} placeholder="Delivery / contact address" style={{ width: '100%' }}></textarea>
+<textarea className="cf-input" rows={2} value={n.address} onChange={e => updateNotice(i, 'address', e.target.value)} placeholder="Delivery / contact address" style={{ width: '100%' }}></textarea>
                   </div>
-                  <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Description</label>
-                    <textarea className="cf-input" rows={2} value={n.description} onChange={e => updateNotice(i, 'description', e.target.value)} placeholder="Brief description / instructions on the notice" style={{ width: '100%' }}></textarea>
+                  <div className="cf-field" style={{ gridColumn: '1 / -1' }}>
+                    <label className="cf-label">Description / Instructions</label>
+                    <textarea className="cf-input" rows={2} value={n.description} onChange={e => updateNotice(i, 'description', e.target.value)} placeholder="Brief description / instructions on the summon" style={{ width: '100%' }}></textarea>
                   </div>
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <button type="button" className="btn btn-outline btn-sm" onClick={() => printNotice(n)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Notice
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Summon
                     </button>
                   </div>
                 </div>
@@ -1701,7 +1702,7 @@ export default function EnquiryForm() {
               <div className="cf-section-icon" style={{ background: '#264078' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
               </div>
-              <div><div className="cf-section-title">Enquiry Activities</div><div className="cf-section-sub">DAC, Bank, Search, Seize, Notices, Diaries, Seizures, Recoveries, CFR</div></div>
+              <div><div className="cf-section-title">Enquiry Activities</div><div className="cf-section-sub">DAC, Bank, Search, Seize, Summons, Diaries, Seizures, Recoveries, CFR</div></div>
               <div className="cf-section-badge">STEP 3</div>
             </div>
             <div className="cf-body">

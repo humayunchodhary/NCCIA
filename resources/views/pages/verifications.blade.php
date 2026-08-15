@@ -56,7 +56,7 @@
     <option value="">All Status</option>
     <option value="pending">Pending</option>
     <option value="processed">Processed</option>
-    <option value="notice">Notice Sent</option>
+    <option value="notice">Summon Sent</option>
   </select>
   <div class="filter-spacer"></div>
   <button class="btn btn-primary btn-sm" id="applyFilterBtn">
@@ -98,7 +98,7 @@
           <th class="sortable verif-table-date-col" data-col="date">Registration Date</th>
           <th>Status</th>
           <th style="text-align:center;">Process</th>
-          <th style="text-align:center;">Add Notice</th>
+          <th style="text-align:center;">Add Summon</th>
           <th style="text-align:center;">View</th>
         </tr>
       </thead>
