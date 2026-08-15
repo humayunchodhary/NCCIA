@@ -105,30 +105,30 @@ class PrintService
         return $this->document(
             $this->complaintSlip($complaint),
             '@page { size: 80mm auto; margin: 2mm; }
-             body { margin:0; background:#fff; }
-             .slip { width: 76mm; font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
-             .head { text-align:center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px; }
-             .logo { width:52px; height:52px; object-fit:contain; }
-             .org { font-weight:800; font-size:11px; line-height:1.25; margin-top:3px; letter-spacing:0.2px; }
-             .org-ur { font-size:11px; font-weight:700; margin-top:2px; }
-             .tag { display:inline-block; margin-top:5px; padding:2px 8px; border:1.5px solid #000; font-weight:800; font-size:10px; letter-spacing:1.2px; }
-             .num-box { text-align:center; border:1.5px dashed #000; padding:6px 4px; margin:8px 0; }
+             body { margin:0; padding:0; background:#fff; }
+             .slip { width: 76mm; margin: 0 auto; font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
+             .head { text-align:center; border-bottom: 2px solid #000; padding-bottom: 7px; margin-bottom: 6px; }
+             .logo { display:block; width:56px; height:56px; margin:0 auto 4px; object-fit:contain; border-radius:50%; border:2px solid #264078; padding:3px; background:#fff; }
+             .org { font-weight:800; font-size:11px; line-height:1.3; margin-top:3px; letter-spacing:0.2px; text-align:center; }
+             .org-ur { font-size:11px; font-weight:700; margin-top:2px; text-align:center; }
+             .tag { display:inline-block; margin-top:6px; padding:2px 10px; border:1.5px solid #000; font-weight:800; font-size:10px; letter-spacing:1.2px; text-align:center; }
+             .num-box { text-align:center; border:1.5px dashed #000; padding:6px 4px; margin:8px auto; width:90%; }
              .num-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; }
              .num-val { font-size:16px; font-weight:800; letter-spacing:0.5px; margin-top:2px; }
-             .kv { width:100%; border-collapse:collapse; margin:2px 0 6px; }
+             .kv { width:100%; border-collapse:collapse; margin:2px auto 6px; }
              .kv td { padding:3px 0; vertical-align:top; border-bottom:1px dotted #bbb; }
              .kv tr:last-child td { border-bottom:none; }
              .k { width:78px; font-weight:700; color:#222; }
-             .v { word-break:break-word; }
-             .note { font-size:9.5px; line-height:1.35; text-align:center; border:1px solid #000; padding:5px 4px; margin:6px 0; }
-             .sign-row { width:100%; border-collapse:collapse; margin:10px 0 6px; }
+             .v { word-break:break-word; text-align:right; }
+             .note { font-size:9.5px; line-height:1.35; text-align:center; border:1px solid #000; padding:5px 4px; margin:6px auto; width:92%; }
+             .sign-row { width:100%; border-collapse:collapse; margin:10px auto 6px; }
              .sign { width:50%; text-align:center; vertical-align:top; padding:0 3px; }
              .sign-line { border-top:1px solid #000; margin:18px 0 3px; }
              .qr-block { text-align:center; border-top:1px dashed #000; padding-top:6px; margin-top:4px; }
              .qr { width:92px; height:92px; }
              .foot { text-align:center; margin-top:4px; border-top:1px solid #000; padding-top:4px; }
-             .small { font-size:9.5px; font-weight:700; }
-             .tiny { font-size:8.5px; margin-top:1px; }
+             .small { font-size:9.5px; font-weight:700; text-align:center; }
+             .tiny { font-size:8.5px; margin-top:1px; text-align:center; }
              .muted { color:#444; word-break:break-all; line-height:1.2; }'
         );
     }
