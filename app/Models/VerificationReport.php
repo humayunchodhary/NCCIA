@@ -89,6 +89,10 @@ class VerificationReport extends Model
             });
         }
 
-        return $query->where('created_by', $user->id);
+        // Everyone else (verification/enquiry/investigation officers, operators):
+        // see reports whose complaint is visible to them (assigned/created in scope).
+        return $query->whereHas('complaint', function ($q) use ($user) {
+            (new Complaint())->scopeVisibleTo($q, $user);
+        });
     }
 }
