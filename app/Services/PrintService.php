@@ -38,7 +38,7 @@ class PrintService
         $source   = e($complaint->source ? ucfirst(str_replace('_', ' ', $complaint->source)) : '—');
         $operator = e($complaint->operator_name ?: '—');
         $issuedAt = now()->format('d/m/Y h:i A');
-        $logo     = url('images/NCCIA.webp');
+        $logo     = url('images/images.jpg');
         $numberE  = e($number);
 
         return <<<HTML
@@ -369,7 +369,7 @@ class PrintService
         $enquiry   = $notice->enquiry;
         $complaint = $enquiry?->complaint;
         $circle    = $complaint?->circle?->name ?? '—';
-        $logo      = url('images/NCCIA.webp');
+$logo = url('images/images.jpg');
 
         $via       = $notice->notice_via ? ucfirst(str_replace('_', ' ', $notice->notice_via)) : '—';
         $person    = $notice->person_type ? ucfirst($notice->person_type) : '—';
