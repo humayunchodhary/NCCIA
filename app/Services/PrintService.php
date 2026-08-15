@@ -212,6 +212,7 @@ class PrintService
                 }
                 $n = $index + 1;
                 $aName    = e($a['name'] ?? '—');
+                $aFather  = e($a['father_name'] ?? '—');
                 $aCnic    = e($a['cnic'] ?? '—');
                 $aMobile  = e($a['mobile_no'] ?? '—');
                 $aEmail   = e($a['email'] ?? '—');
@@ -233,7 +234,7 @@ class PrintService
                 $accusedRows .= <<<HTML
                 <tr>
                   <td class="c">{$n}</td>
-                  <td><strong>{$aName}</strong></td>
+                  <td><strong>{$aName}</strong><br/><span class="k" style="font-size:10.5px;">S/O {$aFather}</span></td>
                   <td>{$aCnic}</td>
                   <td>{$aMobile}</td>
                   <td>{$aEmail}</td>

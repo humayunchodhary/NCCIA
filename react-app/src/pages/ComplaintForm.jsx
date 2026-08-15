@@ -68,7 +68,7 @@ const EVIDENCE_OPTIONS = [
 ];
 
 const EMPTY_ACCUSED = {
-  name: '', mobile_no: '', cnic: '', email: '', social_media_url: '', other_info: '', description: '',
+  name: '', father_name: '', mobile_no: '', cnic: '', email: '', social_media_url: '', other_info: '', description: '',
   cnic_front: '', cnic_back: '', picture: '', passport_attachment: '',
   cnic_front_url: '', cnic_back_url: '', picture_url: '', passport_attachment_url: '',
 };
@@ -715,17 +715,21 @@ export default function ComplaintForm() {
                       <input type="text" className="cf-input" value={a.name} onChange={e => updateInitialAccused(i, 'name', e.target.value)} placeholder="Accused name" />
                     </div>
                     <div className="cf-field">
-                      <label className="cf-label">Mobile No</label>
-                      <input type="text" className="cf-input" value={a.mobile_no} onChange={e => formatAccusedMobile(i, e.target.value)} placeholder="3XXXXXXXXX" maxLength={10} />
+                      <label className="cf-label">Father Name</label>
+                      <input type="text" className="cf-input" value={a.father_name} onChange={e => updateInitialAccused(i, 'father_name', e.target.value)} placeholder="Father's name" />
                     </div>
                     <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeInitialAccused(i)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field">
                       <label className="cf-label">CNIC</label>
                       <input type="text" className="cf-input font-mono" value={a.cnic} onChange={e => formatAccusedCnic(i, e.target.value)} maxLength={15} placeholder="00000-0000000-0" />
+                    </div>
+                    <div className="cf-field">
+                      <label className="cf-label">Mobile No</label>
+                      <input type="text" className="cf-input" value={a.mobile_no} onChange={e => formatAccusedMobile(i, e.target.value)} placeholder="3XXXXXXXXX" maxLength={10} />
                     </div>
                     <div className="cf-field">
                       <label className="cf-label">Email</label>

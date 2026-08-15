@@ -146,7 +146,42 @@ class ComplaintController extends Controller
             });
         }
 
-        $rows = $query->latest('id')->limit(20)->get(['id', 'tracking_no', 'diary_no', 'complainant_name', 'cnic', 'contact_no', 'contact_country_code', 'profession', 'offence_type', 'cmu', 'description', 'entry_time', 'created_at', 'status']);
+        $rows = $query->latest('id')->limit(20)->get([
+            'id', 'tracking_no', 'diary_no', 'complainant_name', 'father_name', 'cnic', 'contact_no',
+            'contact_country_code', 'profession', 'offence_type', 'cmu', 'description', 'entry_time',
+            'created_at', 'status', 'gender', 'email', 'whatsapp_no', 'nationality', 'passport_no',
+            'address', 'post_address', 'district', 'priority_type', 'source', 'amount_involved',
+            'crime_mediums', 'bank_name_sender', 'bank_name_receiver', 'account_no_sender',
+            'account_no_receiver', 'transaction_date', 'occurrence_date', 'laws', 'platforms',
+            'platform_profile_page', 'platform_username', 'platform_email_involved',
+            'platform_mobile_involved', 'evidence', 'initial_accused', 'attachment', 'cnic_front',
+            'cnic_back', 'passport_attachment', 'picture', 'report_date', 'reporting_time',
+        ]);
+
+        $rows = $rows->map(function ($c) {
+            $fileAttrs = ['attachment', 'cnic_front', 'cnic_back', 'passport_attachment', 'picture'];
+            foreach ($fileAttrs as $attr) {
+                if (!empty($c->{$attr}) && is_string($c->{$attr}) && !str_starts_with($c->{$attr}, 'http')) {
+                    $c->{$attr . '_url'} = url($c->{$attr});
+                }
+            }
+            $accused = $c->initial_accused;
+            if (is_array($accused)) {
+                foreach ($accused as &$a) {
+                    if (!is_array($a)) {
+                        continue;
+                    }
+                    foreach (['cnic_front', 'cnic_back', 'picture', 'passport_attachment'] as $attr) {
+                        if (!empty($a[$attr]) && is_string($a[$attr]) && !str_starts_with($a[$attr], 'http')) {
+                            $a[$attr . '_url'] = url($a[$attr]);
+                        }
+                    }
+                }
+                unset($a);
+                $c->initial_accused = $accused;
+            }
+            return $c;
+        });
 
         return response()->json(['data' => $rows]);
     }

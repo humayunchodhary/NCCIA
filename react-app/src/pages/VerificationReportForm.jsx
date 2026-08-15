@@ -187,12 +187,12 @@ const [form, setForm] = useState({    tracking_no: '',
           cnic_front: a.cnic_front || '', cnic_back: a.cnic_back || '',
           passport_attachment: a.passport_attachment || '', picture: a.picture || '',
           other_attachment: a.other_attachment || '',
-          photo_url: a.photo ? '/storage/' + a.photo : '',
-          cnic_front_url: a.cnic_front ? '/storage/' + a.cnic_front : '',
-          cnic_back_url: a.cnic_back ? '/storage/' + a.cnic_back : '',
-          passport_attachment_url: a.passport_attachment ? '/storage/' + a.passport_attachment : '',
-          picture_url: a.picture ? '/storage/' + a.picture : '',
-          other_attachment_url: a.other_attachment ? '/storage/' + a.other_attachment : '',
+          photo_url: a.photo_url || (a.photo ? '/storage/' + a.photo : ''),
+          cnic_front_url: a.cnic_front_url || (a.cnic_front ? '/storage/' + a.cnic_front : ''),
+          cnic_back_url: a.cnic_back_url || (a.cnic_back ? '/storage/' + a.cnic_back : ''),
+          passport_attachment_url: a.passport_attachment_url || (a.passport_attachment ? '/storage/' + a.passport_attachment : ''),
+          picture_url: a.picture_url || (a.picture ? '/storage/' + a.picture : ''),
+          other_attachment_url: a.other_attachment_url || (a.other_attachment ? '/storage/' + a.other_attachment : ''),
         }));
         setForm(f => ({
           ...f,
@@ -240,6 +240,30 @@ const [form, setForm] = useState({    tracking_no: '',
     if (comp.verification?.id) setLinkedVerificationId(comp.verification.id);
     const phone = (comp.contact_no || '').replace(/\D/g, '').replace(/^0+/, '');
     const v = comp.verification || {};
+    const mapAccused = (Array.isArray(comp.initial_accused) ? comp.initial_accused : []).map(a => ({
+      name: a.name || '',
+      father_name: a.father_name || '',
+      phone: a.mobile_no || a.phone || '',
+      email: a.email || '',
+      country_code: '+92',
+      cnic: a.cnic || '',
+      address: a.address || '',
+      post_address: a.post_address || '',
+      nationality: a.nationality || 'Pakistani',
+      passport_no: a.passport_no || '',
+      photo: a.photo || null,
+      cnic_front: a.cnic_front || '',
+      cnic_back: a.cnic_back || '',
+      passport_attachment: a.passport_attachment || '',
+      picture: a.picture || '',
+      other_attachment: a.other_attachment || '',
+      photo_url: a.photo_url || '',
+      cnic_front_url: a.cnic_front_url || '',
+      cnic_back_url: a.cnic_back_url || '',
+      passport_attachment_url: a.passport_attachment_url || '',
+      picture_url: a.picture_url || '',
+      other_attachment_url: a.other_attachment_url || '',
+    }));
     setForm(f => ({
       ...f,
       tracking_no: tracking,
@@ -248,13 +272,22 @@ const [form, setForm] = useState({    tracking_no: '',
       assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
       verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
       victim_name: comp.complainant_name || '',
+      victim_father_name: comp.father_name || '',
       victim_cnic: comp.cnic || '',
+      victim_country_code: comp.contact_country_code || '+92',
       victim_phone: phone,
+      victim_occupation: comp.profession || '',
+      victim_gender: comp.gender || '',
+      victim_email: comp.email || '',
+      crime_category: comp.offence_type || '',
       city: comp.cmu || f.city,
+      crime_description: comp.description || '',
+      accused_known: mapAccused.length ? '1' : f.accused_known,
+      accused: mapAccused.length ? mapAccused : f.accused,
     }));
   }, [id, searchParams, complaints]);
 
-  const handleTrackingChange = (e) => {
+const handleTrackingChange = (e) => {
     const tracking = e.target.value;
     setForm(f => ({ ...f, tracking_no: tracking }));
     const comp = complaints.find(c => c.tracking_no === tracking);
@@ -262,6 +295,30 @@ const [form, setForm] = useState({    tracking_no: '',
     if (comp) {
       const phone = (comp.contact_no || '').replace(/\D/g, '').replace(/^0+/, '');
       const v = comp.verification || {};
+      const mapAccused = (Array.isArray(comp.initial_accused) ? comp.initial_accused : []).map(a => ({
+        name: a.name || '',
+        father_name: a.father_name || '',
+        phone: a.mobile_no || a.phone || '',
+        email: a.email || '',
+        country_code: '+92',
+        cnic: a.cnic || '',
+        address: a.address || '',
+        post_address: a.post_address || '',
+        nationality: a.nationality || 'Pakistani',
+        passport_no: a.passport_no || '',
+        photo: a.photo || null,
+        cnic_front: a.cnic_front || '',
+        cnic_back: a.cnic_back || '',
+        passport_attachment: a.passport_attachment || '',
+        picture: a.picture || '',
+        other_attachment: a.other_attachment || '',
+        photo_url: a.photo_url || '',
+        cnic_front_url: a.cnic_front_url || '',
+        cnic_back_url: a.cnic_back_url || '',
+        passport_attachment_url: a.passport_attachment_url || '',
+        picture_url: a.picture_url || '',
+        other_attachment_url: a.other_attachment_url || '',
+      }));
       setForm(f => ({
         ...f,
         tracking_no: tracking,
@@ -270,13 +327,18 @@ const [form, setForm] = useState({    tracking_no: '',
         assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
         verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
         victim_name: comp.complainant_name || '',
-        victim_father_name: '',
+        victim_father_name: comp.father_name || '',
         victim_cnic: comp.cnic || '',
+        victim_country_code: comp.contact_country_code || '+92',
         victim_phone: phone,
         victim_occupation: comp.profession || '',
+        victim_gender: comp.gender || '',
+        victim_email: comp.email || '',
         crime_category: comp.offence_type || '',
         city: comp.cmu || '',
         crime_description: comp.description || '',
+        accused_known: (mapAccused.length ? '1' : f.accused_known),
+        accused: mapAccused.length ? mapAccused : f.accused,
       }));
     }
   };

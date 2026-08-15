@@ -89,9 +89,13 @@ class VerificationController extends Controller
             }
             foreach (array_keys(self::ACCUSED_FILE_FIELDS) as $field) {
                 if (!empty($a[$field]) && is_string($a[$field])) {
-                    $a[$field . '_url'] = str_starts_with($a[$field], 'http')
-                        ? $a[$field]
-                        : Storage::disk('public')->url($a[$field]);
+                    if (str_starts_with($a[$field], 'http')) {
+                        $a[$field . '_url'] = $a[$field];
+                    } elseif (str_starts_with($a[$field], 'uploads/')) {
+                        $a[$field . '_url'] = url($a[$field]);
+                    } else {
+                        $a[$field . '_url'] = Storage::disk('public')->url($a[$field]);
+                    }
                 }
             }
             return $a;
@@ -317,7 +321,10 @@ class VerificationController extends Controller
             404
         );
 
-        return response()->json($report->load('creator', 'complaint'));
+        $payload = $report->load('creator', 'complaint')->toArray();
+        $payload['accused'] = $this->accusedWithUrls($report->accused);
+
+        return response()->json($payload);
     }
 
     public function destroyReport(VerificationReport $report)
