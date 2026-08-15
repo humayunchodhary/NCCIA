@@ -38,9 +38,9 @@ class ForensicRequestController extends Controller
             },
             'caseFile' => function ($q) {
                 $q->with([
-                    'officer:id,name,email,designation',
-                    'circle:id,name,code',
-                    'zone:id,name,code',
+                    'investigationOfficer:id,name,email,designation',
+                    'enquiry.complaint.circle:id,name,code',
+                    'enquiry.complaint.zone:id,name,code',
                 ]);
             },
         ];
