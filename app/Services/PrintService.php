@@ -181,12 +181,27 @@ class PrintService
         ];
         foreach ($complaintDocs as $doc) {
             if (!empty($doc['value'])) {
-                $complaintFiles .= '<div class="flist"><strong>' . $doc['label'] . ':</strong> <a href="' . e(url($doc['value'])) . '">' . e(basename($doc['value'])) . '</a></div>';
+                $complaintFiles .= '<span class="alink"><a href="' . e(url($doc['value'])) . '">' . $doc['label'] . '</a></span>';
             }
         }
         if (!$complaintFiles) {
             $complaintFiles = '<div class="muted">No attachments</div>';
         }
+
+        // Financial record (bank transfer details)
+        $bankSender = trim(($complaint->bank_name_sender ?? '') . ' ' . ($complaint->account_no_sender ?? ''));
+        $bankReceiver = trim(($complaint->bank_name_receiver ?? '') . ' ' . ($complaint->account_no_receiver ?? ''));
+        $transactionDate = $complaint->transaction_date ? \Illuminate\Support\Carbon::parse($complaint->transaction_date)->format('d/m/Y') : '—';
+        $crimeMediums = collect($complaint->crime_mediums ?: [])->implode(', ');
+        $crimeMediums = $crimeMediums ? e($crimeMediums) : '—';
+        $platforms = collect($complaint->platforms ?: [])->implode(', ');
+        $platforms = $platforms ? e($platforms) : '—';
+        $bankSender = $bankSender !== '' ? e($bankSender) : '—';
+        $bankReceiver = $bankReceiver !== '' ? e($bankReceiver) : '—';
+        $platformProfile = e($complaint->platform_profile_page ?: '—');
+        $platformUsername = e($complaint->platform_username ?: '—');
+        $platformEmail = e($complaint->platform_email_involved ?: '—');
+        $platformMobile = e($complaint->platform_mobile_involved ?: '—');
 
         $accusedRows = '';
         $accused = $complaint->initial_accused ?: [];
@@ -267,10 +282,21 @@ class PrintService
           </table>
           <div class="desc"><span class="k">Description:</span><div class="descbox">{$description}</div></div>
 
-          <h3 class="sec">3. Attachments</h3>
+          <h3 class="sec">3. Identity Files &amp; Attachments</h3>
           <div class="flist-wrap">{$complaintFiles}</div>
 
-          <h3 class="sec">4. Accused (Initial Stage)</h3>
+          <h3 class="sec">4. Financial Record</h3>
+          <table class="info">
+            <tr><td class="k">Amount Involved</td><td>{$amount}</td><td class="k">Crime Medium</td><td>{$crimeMediums}</td></tr>
+            <tr><td class="k">Sender Bank / A/C</td><td colspan="3">{$bankSender}</td></tr>
+            <tr><td class="k">Receiver Bank / A/C</td><td colspan="3">{$bankReceiver}</td></tr>
+            <tr><td class="k">Transaction Date</td><td>{$transactionDate}</td><td class="k">Platforms</td><td>{$platforms}</td></tr>
+            <tr><td class="k">Platform Profile</td><td colspan="3">{$platformProfile}</td></tr>
+            <tr><td class="k">Platform Username</td><td>{$platformUsername}</td><td class="k">Email Involved</td><td>{$platformEmail}</td></tr>
+            <tr><td class="k">Mobile Involved</td><td colspan="3">{$platformMobile}</td></tr>
+          </table>
+
+          <h3 class="sec">5. Accused (Initial Stage)</h3>
           <table class="accused">
             <thead>
               <tr><th>#</th><th>Name</th><th>CNIC</th><th>Mobile</th><th>Email</th><th>Identity Files</th></tr>
