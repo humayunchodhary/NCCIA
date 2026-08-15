@@ -238,6 +238,71 @@ export default function Layout() {
     if (item?.process_url) navigate(item.process_url);
   };
 
+  // Complaint quick actions from global top-nav search (Open/Close/Merge/Transfer/Proceed)
+  const [layoutComplaintAction, setLayoutComplaintAction] = useState(null);
+  const [layoutActionForm, setLayoutActionForm] = useState({ closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '' });
+  const [layoutActionCircles, setLayoutActionCircles] = useState([]);
+  const [layoutActionSaving, setLayoutActionSaving] = useState(false);
+
+  const CLOSURE_REASONS = [
+    { value: 'non_pursuance', label: 'Non-Pursuance by Complainant' },
+    { value: 'irrelevant', label: 'Irrelevant' },
+    { value: 'invalid', label: 'Invalid' },
+    { value: 'lack_of_evidence', label: 'Lack of Evidence' },
+  ];
+
+  const openLayoutAction = (item, action) => {
+    if (action === 'proceed') {
+      setSearchOpen(false);
+      setSearchQuery('');
+      setSearchResults([]);
+      navigate(`/verifications/reports/create?tracking=${encodeURIComponent(item.tracking_no)}`);
+      return;
+    }
+    api.get('/lookup/circles').then(r => setLayoutActionCircles(r.data || [])).catch(() => {});
+    setLayoutComplaintAction({ complaint: item, action });
+    setLayoutActionForm({ closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '' });
+  };
+
+  const handleLayoutAction = async () => {
+    if (!layoutComplaintAction) return;
+    const { complaint, action } = layoutComplaintAction;
+    if (action === 'closure' && !layoutActionForm.closure_reason) {
+      alert('Closure reason select karein.');
+      return;
+    }
+    if (action === 'merge' && !layoutActionForm.merge_complaint_id) {
+      alert('Merge wali complaint ID likhein.');
+      return;
+    }
+    if (action === 'transfer' && !layoutActionForm.transfer_department) {
+      alert('Transfer department likhein.');
+      return;
+    }
+    setLayoutActionSaving(true);
+    try {
+      await api.post('/complaints/bulk-action', {
+        ids: [complaint.id],
+        action,
+        closure_reason: layoutActionForm.closure_reason || null,
+        merge_complaint_id: layoutActionForm.merge_complaint_id ? Number(layoutActionForm.merge_complaint_id) : null,
+        transfer_department: layoutActionForm.transfer_department || null,
+        transfer_circle_id: layoutActionForm.transfer_circle_id ? Number(layoutActionForm.transfer_circle_id) : null,
+      });
+      setLayoutComplaintAction(null);
+      setSearchOpen(false);
+      setSearchQuery('');
+      setSearchResults([]);
+      alert('Complaint #' + (complaint.tracking_no || complaint.id) + ' ' + (action === 'closure' ? 'closed' : action === 'merge' ? 'merged' : 'transferred') + ' ho gayi.');
+    } catch (e) {
+      alert(e.response?.data?.message || 'Action failed');
+    } finally {
+      setLayoutActionSaving(false);
+    }
+  };
+
+  const canBulkActions = () => hasRole(user, 'admin') || hasRole(user, 'circle_incharge');
+
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
     : 'U';
@@ -636,9 +701,8 @@ export default function Layout() {
                   <div style={{padding:'14px 16px', fontSize:13, color:'#6c757d'}}>No matching complaints found</div>
                 )}
                 {!searchLoading && searchResults.map((item) => (
-                  <button
+                  <div
                     key={`${item.type}-${item.id}-${item.verification_id || 0}`}
-                    type="button"
                     onClick={() => openSearchResult(item)}
                     style={{
                       display:'block', width:'100%', textAlign:'left', border:'none', background:'transparent',
@@ -660,7 +724,20 @@ export default function Layout() {
                       {item.verification_status ? `Verification: ${item.verification_status.replace(/_/g, ' ')}` : 'No verification assigned'}
                       {item.officer_name ? ` · ${item.officer_name}` : ''}
                     </div>
-                  </button>
+                    {item.type === 'complaint' && (
+                      <div style={{display:'flex', gap:5, marginTop:8, flexWrap:'wrap'}}>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); openSearchResult(item); }} style={{background:'rgba(1,92,148,0.1)', color:'#015C94', border:'none', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Open</button>
+                        {canBulkActions() && (
+                          <>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'closure'); }} style={{background:'#fff', color:'#015C94', border:'1.5px solid rgba(1,92,148,0.35)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Close</button>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'merge'); }} style={{background:'#fff', color:'#ea580c', border:'1.5px solid rgba(234,88,12,0.45)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Merge</button>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'transfer'); }} style={{background:'#fff', color:'#7c3aed', border:'1.5px solid rgba(124,58,237,0.45)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Transfer</button>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'proceed'); }} style={{background:'#fff', color:'#38a169', border:'1.5px solid rgba(56,161,105,0.5)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Proceed to Verification</button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -783,6 +860,67 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {layoutComplaintAction && (
+        <div className="modal-overlay" onClick={() => setLayoutComplaintAction(null)}>
+          <div className="modal-container" style={{maxWidth:'480px'}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Complaint {layoutComplaintAction.action === 'closure' ? 'Closure' : layoutComplaintAction.action === 'merge' ? 'Merge' : 'Transfer'}</h3>
+              <button className="modal-close" onClick={() => setLayoutComplaintAction(null)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p style={{marginBottom:12,fontSize:13,color:'#334155',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,padding:'10px 12px'}}>
+                Complaint <strong>#{layoutComplaintAction.complaint.tracking_no || layoutComplaintAction.complaint.id}</strong>
+                {layoutComplaintAction.complaint.complainant_name ? ` · ${layoutComplaintAction.complaint.complainant_name}` : ''}
+              </p>
+
+              {layoutComplaintAction.action === 'closure' && (
+                <div className="cf-group">
+                  <label className="cf-label">Closure Reason <span className="required">*</span></label>
+                  <select className="cf-input" value={layoutActionForm.closure_reason} onChange={e => setLayoutActionForm(f => ({...f, closure_reason: e.target.value}))} required>
+                    <option value="">Select closure reason...</option>
+                    {CLOSURE_REASONS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {layoutComplaintAction.action === 'merge' && (
+                <div className="cf-group">
+                  <label className="cf-label">Merge with Complaint ID <span className="required">*</span></label>
+                  <input type="number" className="cf-input" value={layoutActionForm.merge_complaint_id} onChange={e => setLayoutActionForm(f => ({...f, merge_complaint_id: e.target.value}))} placeholder="Complaint ID to merge with" required />
+                  <p style={{fontSize:12,color:'#6c757d',marginTop:4}}>Jis complaint se merge karni hai us ka ID likhein.</p>
+                </div>
+              )}
+
+              {layoutComplaintAction.action === 'transfer' && (
+                <>
+                  <div className="cf-group">
+                    <label className="cf-label">Transfer Department <span className="required">*</span></label>
+                    <input type="text" className="cf-input" value={layoutActionForm.transfer_department} onChange={e => setLayoutActionForm(f => ({...f, transfer_department: e.target.value}))} placeholder="e.g. FIA, Police" required />
+                  </div>
+                  <div className="cf-group">
+                    <label className="cf-label">Transfer Circle</label>
+                    <select className="cf-input" value={layoutActionForm.transfer_circle_id} onChange={e => setLayoutActionForm(f => ({...f, transfer_circle_id: e.target.value}))}>
+                      <option value="">Select circle (optional)</option>
+                      {layoutActionCircles.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setLayoutComplaintAction(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleLayoutAction} disabled={layoutActionSaving}>
+                {layoutActionSaving ? 'Processing…' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

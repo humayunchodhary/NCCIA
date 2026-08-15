@@ -45,7 +45,6 @@ export default function Verifications() {
   const [complaintAction, setComplaintAction] = useState(null);
   const [complaintActionForm, setComplaintActionForm] = useState({ closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', verification_officer_id: '', priority_type: 'normal' });
   const [complaintActionSaving, setComplaintActionSaving] = useState(false);
-  const [actionOfficers, setActionOfficers] = useState([]);
   const [actionCircles, setActionCircles] = useState([]);
 
   // Bulk selection + bulk actions (closure / merge / transfer / delete)
@@ -174,13 +173,12 @@ export default function Verifications() {
 
   const openComplaintAction = (c, action) => {
     if (action === 'proceed') {
-      api.get('/lookup/verification-officers').then(r => {
-        const all = r.data?.data || r.data;
-        setActionOfficers(Array.isArray(all) ? all : []);
-      }).catch(() => setActionOfficers([]));
-    } else {
-      api.get('/lookup/circles').then(r => setActionCircles(r.data || [])).catch(() => {});
+      setComplaintSearchOpen(false);
+      setComplaintSearch('');
+      navigate(`/verifications/reports/create?tracking=${encodeURIComponent(c.tracking_no)}`);
+      return;
     }
+    api.get('/lookup/circles').then(r => setActionCircles(r.data || [])).catch(() => {});
     setComplaintAction({ complaint: c, action });
     setComplaintActionForm({ closure_reason: '', merge_complaint_id: '', transfer_department: '', transfer_circle_id: '', verification_officer_id: '', priority_type: 'normal' });
   };
@@ -188,28 +186,6 @@ export default function Verifications() {
   const handleComplaintAction = async () => {
     if (!complaintAction) return;
     const { complaint, action } = complaintAction;
-    if (action === 'proceed') {
-      if (!complaintActionForm.verification_officer_id) {
-        alert('Verification Officer select karein.');
-        return;
-      }
-      setComplaintActionSaving(true);
-      try {
-        await api.post(`/complaints/${complaint.id}/direct-assign`, {
-          verification_officer_id: Number(complaintActionForm.verification_officer_id),
-          priority_type: complaintActionForm.priority_type,
-        });
-        setComplaintAction(null);
-        setComplaintSearchOpen(false);
-        fetchData();
-        alert('Verification officer assign ho gaya. Ab verification in progress hai.');
-      } catch (e) {
-        alert(e.response?.data?.message || 'Failed to assign officer');
-      } finally {
-        setComplaintActionSaving(false);
-      }
-      return;
-    }
 
     if (action === 'closure' && !complaintActionForm.closure_reason) {
       alert('Closure reason select karein.');
@@ -1177,28 +1153,6 @@ export default function Verifications() {
                       {actionCircles.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {complaintAction.action === 'proceed' && (
-                <>
-                  <div className="cf-group">
-                    <label className="cf-label">Verification Officer <span className="required">*</span></label>
-                    <select className="cf-input" value={complaintActionForm.verification_officer_id} onChange={e => setComplaintActionForm(f => ({...f, verification_officer_id: e.target.value}))} required>
-                      <option value="">Select Officer</option>
-                      {actionOfficers.map(o => (
-                        <option key={o.id} value={o.id}>{o.name}{o.designation ? ' (' + o.designation + ')' : ''}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="cf-group">
-                    <label className="cf-label">Priority <span className="required">*</span></label>
-                    <select className="cf-input" value={complaintActionForm.priority_type} onChange={e => setComplaintActionForm(f => ({...f, priority_type: e.target.value}))} required>
-                      <option value="normal">Normal</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
                     </select>
                   </div>
                 </>
