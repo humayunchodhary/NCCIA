@@ -126,6 +126,16 @@ class SmsTemplates
             : "Court verdict for FIR {$fir}: {$verdict}. For further information please contact NCCIA. - NCCIA";
     }
 
+    public static function forensicReportReadyToCollect(ForensicRequest $fr, string $lang = 'en'): string
+    {
+        $code = $fr->report_code ?: ('#' . $fr->id);
+        $enq = $fr->enquiry?->enquiry_number ? "Enquiry {$fr->enquiry->enquiry_number}" : "Case";
+
+        return $lang === 'ur'
+            ? "Mohtaram Enquiry Officer, {$enq} ki Forensic Report (Code: {$code}) tayyar ho chuki hai. Baraye meharbani by-hand NCCIA Digital Forensic Lab say collect kar lein. - NCCIA"
+            : "Dear Enquiry Officer, the Forensic Report (Code: {$code}) for {$enq} is ready. Please collect the physical report by-hand from NCCIA Digital Forensic Lab. - NCCIA";
+    }
+
     public static function forensicHandedOver(ForensicRequest $fr, string $lang = 'en'): string
     {
         $code = $fr->report_code ?: ('#' . $fr->id);

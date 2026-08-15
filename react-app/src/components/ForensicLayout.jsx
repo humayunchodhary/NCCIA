@@ -72,12 +72,7 @@ export default function ForensicLayout() {
       {mobileOpen && <div className="sidebar-overlay active" onClick={closeMobile}></div>}
       <aside className={`sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`} id="sidebar" role="navigation" aria-label="Forensic Navigation">
         <div className="sidebar-logo-area">
-          <div className="sidebar-logo-circle">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <path d="M9 12l2 2 4-4"/>
-            </svg>
-          </div>
+          <img src="/images/NCCIA.webp" alt="NCCIA Logo" className="sidebar-logo-circle" style={{ width: 42, height: 42, objectFit: 'contain', borderRadius: '50%', background: '#fff', padding: 2 }} />
         </div>
         <div className="sidebar-brand-text">
           <div className="brand-name"><b>NCCIA</b></div>

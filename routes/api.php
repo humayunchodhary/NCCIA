@@ -288,8 +288,10 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
         ->middleware('role:admin_forensic,ad_forensic');
     Route::post('/forensic/requests/{forensicRequest}/findings', [ForensicRequestController::class, 'updateFindings'])
         ->middleware('role:admin_forensic,ad_forensic,forensic_team');
+    Route::post('/forensic/requests/{forensicRequest}/submit-to-ad', [ForensicRequestController::class, 'submitToAd'])
+        ->middleware('role:admin_forensic,ad_forensic,forensic_team');
     Route::post('/forensic/requests/{forensicRequest}/mark-ready', [ForensicRequestController::class, 'markReady'])
-        ->middleware('role:admin_forensic,forensic_team');
+        ->middleware('role:admin_forensic,ad_forensic,forensic_team');
     Route::post('/forensic/requests/{forensicRequest}/hand-over', [ForensicRequestController::class, 'handOver'])
         ->middleware('role:admin_forensic,ad_forensic,desk_forensic');
 

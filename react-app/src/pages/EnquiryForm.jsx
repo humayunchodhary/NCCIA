@@ -765,6 +765,51 @@ export default function EnquiryForm() {
     }
   };
 
+  const submitActivityToForensic = async (act) => {
+    if (!id || id === 'new') {
+      alert('Pehle enquiry save karein, phir AD Forensic ko submit karein.');
+      return;
+    }
+    setSendingForensic(true);
+    setForensicSendMsg('');
+    try {
+      await saveEnquiry({ navigateAway: false });
+      const items = (act.seize_items || [])
+        .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
+        .map(it => ({
+          item_type: it.item_type || 'other',
+          make_model: it.make_model || null,
+          imei: it.imei || null,
+          imei2: it.imei2 || null,
+          serial_no: it.serial_no || null,
+          storage_capacity: it.storage_capacity || null,
+          condition: it.condition || null,
+          seized_from: it.seized_from || null,
+          quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+          description: it.description || null,
+        }));
+
+      const fd = new FormData();
+      fd.append('enquiry_id', String(id));
+      fd.append('destination', 'forensic');
+      fd.append('note', act.description || 'Seizure memo evidence submitted for forensic examination.');
+      fd.append('items', JSON.stringify(items.length ? items : [{
+        item_type: 'other',
+        description: act.description || 'Seizure evidence items',
+        quantity: 1,
+      }]));
+      if (act.file) {
+        fd.append('attachment', act.file);
+      }
+      const r = await api.post('/forensic-requests', fd);
+      alert(r.data?.message || 'Seized items successfully submitted to AD Forensic!');
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Submission to AD Forensic failed.');
+    } finally {
+      setSendingForensic(false);
+    }
+  };
+
   const nonAppearanceCount = form.notices.filter(n => n.status === 'non_appearance').length;
   const referredToCourt = nonAppearanceCount >= 3;
   const seizedItemsPreview = useMemo(() => (
@@ -2000,45 +2045,76 @@ export default function EnquiryForm() {
                     <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity..." style={{ width: '100%' }}></textarea>
                   </div>
                   {(a.type === 'seizures' || a.type === 'search_seize') && (
-                    <div style={{ marginTop: 14, padding: 12, background: '#fff', border: '1px solid #d8e2ea', borderRadius: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <strong style={{ fontSize: 13, color: '#015C94' }}>Seized Items</strong>
-                        <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>Add Item</button>
+                    <div style={{ marginTop: 14, padding: 14, background: '#fff', border: '1.5px solid #bfdbfe', borderRadius: 8, boxShadow: '0 2px 8px rgba(1,92,148,0.06)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                        <div>
+                          <strong style={{ fontSize: 13.5, color: '#015C94', display: 'block' }}>📦 Seized Evidence &amp; Digital Devices</strong>
+                          <span style={{ fontSize: 11, color: '#64748b' }}>Enter all seized items below and submit directly to AD Forensic.</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>
+                            + Add Item
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }}
+                            disabled={sendingForensic}
+                            onClick={() => submitActivityToForensic(a)}
+                            title="Submit this activity's seized items directly to AD Forensic Lab"
+                          >
+                            {sendingForensic ? 'Submitting…' : '🔬 Submit to AD Forensic'}
+                          </button>
+                        </div>
                       </div>
+
                       {(a.seize_items || []).map((it, si) => (
-                        <div key={si} style={{ padding: 10, marginBottom: 10, background: '#f7fafc', borderRadius: 8, border: '1px solid #e6eef4' }}>
+                        <div key={si} style={{ padding: 12, marginBottom: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 10, marginBottom: 8 }}>
-                            <div className="cf-field"><label className="cf-label">Item Type</label>
+                            <div className="cf-field"><label className="cf-label required">Item Type</label>
                               <select className="cf-input" value={it.item_type || ''} onChange={e => updateSeizeItem(i, si, 'item_type', e.target.value)}>
                                 <option value="">— Select —</option>
                                 {SEIZE_ITEM_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                               </select>
                             </div>
                             <div className="cf-field"><label className="cf-label">Make / Model</label>
-                              <input type="text" className="cf-input" value={it.make_model || ''} onChange={e => updateSeizeItem(i, si, 'make_model', e.target.value)} />
+                              <input type="text" className="cf-input" placeholder="e.g. iPhone 15 Pro, Dell Inspiron..." value={it.make_model || ''} onChange={e => updateSeizeItem(i, si, 'make_model', e.target.value)} />
                             </div>
-                            <div className="cf-field"><label className="cf-label">IMEI</label>
-                              <input type="text" className="cf-input" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
+                            <div className="cf-field"><label className="cf-label">IMEI / IMEI 2</label>
+                              <input type="text" className="cf-input" placeholder="15 digits" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
                             </div>
-                            <div className="cf-field"><label className="cf-label">Serial No</label>
-                              <input type="text" className="cf-input" value={it.serial_no || ''} onChange={e => updateSeizeItem(i, si, 'serial_no', e.target.value)} />
+                            <div className="cf-field"><label className="cf-label">Serial Number</label>
+                              <input type="text" className="cf-input" placeholder="Device Serial No" value={it.serial_no || ''} onChange={e => updateSeizeItem(i, si, 'serial_no', e.target.value)} />
                             </div>
-                            <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36, alignSelf: 'end' }} onClick={() => removeSeizeItem(i, si)}>
+                            <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36, alignSelf: 'end' }} onClick={() => removeSeizeItem(i, si)} title="Delete Item">
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                             </button>
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 10 }}>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '90px 140px 160px 1fr', gap: 10 }}>
                             <div className="cf-field"><label className="cf-label">Qty</label>
                               <input type="number" min={1} className="cf-input" value={it.quantity ?? 1} onChange={e => updateSeizeItem(i, si, 'quantity', e.target.value)} />
                             </div>
-                            <div className="cf-field"><label className="cf-label">Item Description</label>
-                              <input type="text" className="cf-input" value={it.description || ''} onChange={e => updateSeizeItem(i, si, 'description', e.target.value)} placeholder="Optional details" />
+                            <div className="cf-field"><label className="cf-label">Capacity / Storage</label>
+                              <input type="text" className="cf-input" placeholder="e.g. 256GB, 1TB" value={it.storage_capacity || ''} onChange={e => updateSeizeItem(i, si, 'storage_capacity', e.target.value)} />
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Condition</label>
+                              <select className="cf-input" value={it.condition || 'good'} onChange={e => updateSeizeItem(i, si, 'condition', e.target.value)}>
+                                <option value="good">Intact / Good</option>
+                                <option value="damaged">Damaged / Broken</option>
+                                <option value="locked">PIN / Pattern Locked</option>
+                                <option value="sealed">Sealed / Evidence Bag</option>
+                              </select>
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Item Description / Seized From</label>
+                              <input type="text" className="cf-input" value={it.description || ''} onChange={e => updateSeizeItem(i, si, 'description', e.target.value)} placeholder="e.g. Seized from accused bedroom table, gold color..." />
                             </div>
                           </div>
                         </div>
                       ))}
+
                       {(a.seize_items || []).length === 0 && (
-                        <p style={{ margin: 0, fontSize: 12, color: '#888' }}>No seized items yet. Click Add Item.</p>
+                        <p style={{ margin: 0, fontSize: 12, color: '#888' }}>No seized items entered yet. Click "+ Add Item".</p>
                       )}
                     </div>
                   )}

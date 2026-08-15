@@ -51,11 +51,8 @@ export default function ForensicLogin() {
           <div style={{position:'absolute',width:'320px',height:'320px',borderRadius:'50%',border:'1.5px solid rgba(255,255,255,0.22)',top:'-80px',left:'-80px',animation:'rotateSlow 18s linear infinite'}}></div>
           <div style={{position:'absolute',width:'220px',height:'220px',borderRadius:'50%',border:'1.5px solid rgba(255,255,255,0.18)',bottom:'-60px',right:'-60px',animation:'rotateSlow 22s linear infinite reverse'}}></div>
           <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
-            <div style={{width:'112px',height:'112px',background:'rgba(255,255,255,0.14)',backdropFilter:'blur(4px)',borderRadius:'24px',border:'2px solid rgba(255,255,255,0.5)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 20px rgba(0,0,0,0.3)'}}>
-              <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <path d="M9 12l2 2 4-4"/>
-              </svg>
+            <div style={{width:'112px',height:'112px',background:'rgba(255,255,255,0.18)',backdropFilter:'blur(4px)',borderRadius:'24px',border:'2px solid rgba(255,255,255,0.5)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 20px rgba(0,0,0,0.3)',padding:6}}>
+              <img src="/images/NCCIA.webp" alt="NCCIA Logo" style={{width:'96px',height:'96px',objectFit:'contain',borderRadius:'18px'}} />
             </div>
           </div>
           <div className="brand-name" style={{fontFamily:"'Cinzel', serif",fontSize:'1.8rem',fontWeight:700,letterSpacing:'.06em',color:'#fff',textShadow:'0 2px 8px rgba(0,0,0,0.3)',textAlign:'center'}}>FORENSIC</div>

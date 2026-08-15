@@ -353,16 +353,67 @@ class ForensicRequestController extends Controller
         ]);
     }
 
-    /** FO marks report ready → Desk notified */
-    public function markReady(Request $request, ForensicRequest $forensicRequest)
+    /** FO submits finalized report to AD Forensic for approval */
+    public function submitToAd(Request $request, ForensicRequest $forensicRequest)
     {
         $user = $request->user();
         abort_unless(
-            $user->hasAnyRole(['forensic_team', 'admin_forensic'])
-            && ((int) $forensicRequest->assigned_to === (int) $user->id || $user->hasRole('admin_forensic')),
+            $user->hasAnyRole(['forensic_team', 'admin_forensic', 'ad_forensic'])
+            && ((int) $forensicRequest->assigned_to === (int) $user->id || $user->hasAnyRole(['admin_forensic', 'ad_forensic'])),
             403
         );
-        abort_unless(in_array($forensicRequest->status, ['in_progress', 'assigned'], true), 422);
+        abort_unless(in_array($forensicRequest->status, ['in_progress', 'assigned', 'submitted_to_ad'], true), 422);
+
+        $data = $request->validate([
+            'findings'    => 'nullable|string|max:10000',
+            'lab_notes'   => 'nullable|string|max:10000',
+            'report_file' => 'nullable|file|max:30720',
+        ]);
+
+        if (!$forensicRequest->report_code) {
+            $forensicRequest->report_code = app(ForensicReportCodeGenerator::class)->generateReportCode();
+            $forensicRequest->opened_at = $forensicRequest->opened_at ?: now();
+        }
+
+        $updates = [
+            'status'      => 'submitted_to_ad',
+            'report_code' => $forensicRequest->report_code,
+            'opened_at'   => $forensicRequest->opened_at,
+        ];
+
+        if (array_key_exists('findings', $data) && $data['findings'] !== null) {
+            $updates['findings'] = $data['findings'];
+        }
+        if (array_key_exists('lab_notes', $data) && $data['lab_notes'] !== null) {
+            $updates['lab_notes'] = $data['lab_notes'];
+        }
+        if ($request->hasFile('report_file')) {
+            $updates['report_attachment_path'] = $request->file('report_file')->store('forensic-reports', 'public');
+        }
+
+        $forensicRequest->update($updates);
+
+        // Notify AD Forensic
+        User::role(['ad_forensic', 'admin_forensic'])->get()->each(function (User $ad) use ($forensicRequest) {
+            $ad->notify(new \App\Notifications\GeneralNotification(
+                'forensic_report_submitted_to_ad',
+                "Forensic Officer {$forensicRequest->assignee?->name} completed report for {$forensicRequest->request_no}. Ready for AD review & approval.",
+                "/forensic/requests/{$forensicRequest->id}"
+            ));
+        });
+
+        return response()->json([
+            'message' => "Forensic report submitted to AD Forensic for approval. Report Code: {$forensicRequest->report_code}",
+            'data'    => $forensicRequest->fresh()->load($this->withRelations()),
+        ]);
+    }
+
+    /** AD Forensic approves report & notifies Enquiry Officer (EO) to collect by hand */
+    public function markReady(Request $request, ForensicRequest $forensicRequest)
+    {
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['ad_forensic', 'admin_forensic', 'forensic_team']), 403);
+        abort_unless(in_array($forensicRequest->status, ['submitted_to_ad', 'in_progress', 'assigned'], true), 422);
 
         $data = $request->validate([
             'findings'    => 'nullable|string|max:10000',
@@ -379,6 +430,8 @@ class ForensicRequestController extends Controller
             'status'           => 'report_ready',
             'report_ready_at'  => now(),
             'desk_notified_at' => now(),
+            'ad_reviewed_by'   => $user->id,
+            'ad_reviewed_at'   => now(),
             'report_code'      => $forensicRequest->report_code,
             'opened_at'        => $forensicRequest->opened_at,
         ];
@@ -395,12 +448,38 @@ class ForensicRequestController extends Controller
 
         $forensicRequest->update($updates);
 
+        // Notify Desk Officers
         User::role('desk_forensic')->get()->each(function (User $desk) use ($forensicRequest) {
             $desk->notify(new ForensicReportReadyNotification($forensicRequest->fresh()));
         });
 
+        // Notify Enquiry Officer (EO) that report is ready for by-hand collection
+        $forensicRequest->loadMissing('enquiry', 'submitter');
+        $eoId = $forensicRequest->enquiry?->enquiry_officer_id ?? $forensicRequest->submitted_by;
+        $eo = $eoId ? User::find($eoId) : null;
+
+        if ($eo) {
+            $caseRef = $forensicRequest->enquiry?->enquiry_number ? "Enquiry #{$forensicRequest->enquiry->enquiry_number}" : "Case";
+            $eo->notify(new \App\Notifications\GeneralNotification(
+                'forensic_report_ready_for_eo',
+                "Forensic Report for {$caseRef} is ready (Code: {$forensicRequest->report_code}). Please collect by-hand from NCCIA Digital Forensic Lab.",
+                "/enquiries" . ($forensicRequest->enquiry_id ? "/{$forensicRequest->enquiry_id}/edit" : "")
+            ));
+
+            app(SmsService::class)->sendToUser(
+                $eo,
+                SmsTemplates::forensicReportReadyToCollect($forensicRequest, 'en'),
+                SmsTemplates::forensicReportReadyToCollect($forensicRequest, 'ur'),
+                [
+                    'subject_type' => 'forensic_request',
+                    'subject_id'   => $forensicRequest->id,
+                    'trigger'      => 'forensic_report_ready_for_eo',
+                ]
+            );
+        }
+
         return response()->json([
-            'message' => 'Forensic analysis completed. Report marked ready. Desk Officer notified. Report Code: ' . $forensicRequest->report_code,
+            'message' => "Forensic report approved. Enquiry Officer ({$eo?->name}) notified to collect by-hand with Code: {$forensicRequest->report_code}.",
             'data'    => $forensicRequest->fresh()->load($this->withRelations()),
         ]);
     }

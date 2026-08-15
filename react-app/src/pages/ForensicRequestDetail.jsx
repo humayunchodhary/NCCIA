@@ -7,11 +7,12 @@ import { hasAnyRole, hasRole, isForensicAdmin } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
 
 const STATUS_META = {
-  submitted:    { label: 'Pending AD Review',    sub: 'Received in Lab',     color: '#e5a100', bg: '#fef3c7', icon: '⏳' },
-  assigned:     { label: 'Assigned to FO',       sub: 'Allocated to Officer',color: '#2563eb', bg: '#dbeafe', icon: '👤' },
-  in_progress:  { label: 'Lab Examination',      sub: 'Analysis in Progress',color: '#7c3aed', bg: '#ede9fe', icon: '🔬' },
-  report_ready: { label: 'Report Ready',         sub: 'Awaiting EO Handover',color: '#059669', bg: '#d1fae5', icon: '✅' },
-  handed_over:  { label: 'Handed Over to EO',    sub: 'Custody Completed',   color: '#64748b', bg: '#f1f5f9', icon: '📤' },
+  submitted:       { label: 'Pending AD Review',     sub: 'Received in Lab',       color: '#e5a100', bg: '#fef3c7', icon: '⏳' },
+  assigned:        { label: 'Assigned to FO',        sub: 'Allocated to Officer',  color: '#2563eb', bg: '#dbeafe', icon: '👤' },
+  in_progress:     { label: 'Lab Examination',       sub: 'Analysis in Progress',  color: '#7c3aed', bg: '#ede9fe', icon: '🔬' },
+  submitted_to_ad: { label: 'Submitted to AD',       sub: 'Awaiting AD Approval',  color: '#d97706', bg: '#fef3c7', icon: '📝' },
+  report_ready:    { label: 'Report Approved (EO Notified)', sub: 'Ready for Collection',  color: '#059669', bg: '#d1fae5', icon: '✅' },
+  handed_over:     { label: 'Handed Over to EO',     sub: 'Custody Completed',     color: '#64748b', bg: '#f1f5f9', icon: '📤' },
 };
 
 export default function ForensicRequestDetail() {
@@ -50,7 +51,7 @@ export default function ForensicRequestDetail() {
         setLabNotes(d.lab_notes || '');
         setAssignPriority(d.priority || 'normal');
         if (d.report_code && d.status === 'in_progress') {
-          setMsg(`Report code generated: ${d.report_code}. Enquiry Officer can collect physical report with this code.`);
+          setMsg(`Report code generated: ${d.report_code}. Enquiry Officer will collect physical report with this code.`);
         }
       })
       .catch(e => setErr(e.response?.data?.message || 'Failed to load request details'))
@@ -99,13 +100,32 @@ export default function ForensicRequestDetail() {
       setMsg(r.data.message);
       setReportFile(null);
     } catch (e) {
-      setErr(e.response?.data?.message || 'Failed to save findings');
+      setErr(e.response?.data?.message || 'Failed to save findings draft');
     } finally {
       setBusy(false);
     }
   };
 
-  const markReady = async () => {
+  const submitToAd = async () => {
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      const fd = new FormData();
+      if (findings) fd.append('findings', findings);
+      if (labNotes) fd.append('lab_notes', labNotes);
+      if (reportFile) fd.append('report_file', reportFile);
+
+      const r = await api.post(`/forensic/requests/${id}/submit-to-ad`, fd);
+      setRow(r.data.data);
+      setMsg(r.data.message);
+      setReportFile(null);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to submit report to AD');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approveReportAndNotifyEo = async () => {
     setBusy(true); setErr(''); setMsg('');
     try {
       const fd = new FormData();
@@ -118,7 +138,7 @@ export default function ForensicRequestDetail() {
       setMsg(r.data.message);
       setReportFile(null);
     } catch (e) {
-      setErr(e.response?.data?.message || 'Failed to mark report ready');
+      setErr(e.response?.data?.message || 'Failed to approve report');
     } finally {
       setBusy(false);
     }
@@ -148,10 +168,9 @@ export default function ForensicRequestDetail() {
   if (!row) return null;
 
   const canAssign = isAd && (row.status === 'submitted' || isAdmin) && row.destination === 'forensic';
-  const canWorkFindings = isFo && ['assigned', 'in_progress', 'report_ready'].includes(row.status)
+  const canWorkFindings = isFo && ['assigned', 'in_progress', 'submitted_to_ad'].includes(row.status)
     && ((Number(row.assigned_to) === Number(user?.id)) || isAdmin);
-  const canMarkReady = isFo && ['assigned', 'in_progress'].includes(row.status)
-    && ((Number(row.assigned_to) === Number(user?.id)) || isAdmin);
+  const canApproveAd = isAd && ['submitted_to_ad', 'in_progress', 'assigned'].includes(row.status);
   const canHandOver = isDesk && row.status === 'report_ready';
 
   const sm = STATUS_META[row.status] || { label: row.status, color: '#64748b', bg: '#f1f5f9' };
@@ -236,14 +255,14 @@ export default function ForensicRequestDetail() {
               {row.report_code}
             </div>
             <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>
-              Enquiry Officer presents this code at Forensic Desk for physical report collection.
+              Enquiry Officer presents this code at Forensic Desk for physical report collection (By-Hand).
             </div>
           </div>
 
           <div style={{ background: 'rgba(255,255,255,0.15)', padding: '10px 18px', borderRadius: 10, textAlign: 'center', border: '1px solid rgba(255,255,255,0.3)' }}>
             <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>Status</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: '#a7f3d0' }}>
-              {row.status === 'handed_over' ? 'Handed to EO' : row.status === 'report_ready' ? 'Ready for Handover' : 'In Analysis'}
+              {row.status === 'handed_over' ? 'Handed to EO' : row.status === 'report_ready' ? 'Ready for Handover' : row.status === 'submitted_to_ad' ? 'Submitted to AD' : 'In Analysis'}
             </div>
           </div>
         </div>
@@ -442,7 +461,7 @@ export default function ForensicRequestDetail() {
         </div>
       </div>
 
-      {/* ── Chain of Custody & Laboratory Timeline ── */}
+      {/* ── Chain of Custody Audit Trail ── */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header" style={{ padding: '12px 18px' }}>
           <div className="card-title" style={{ fontSize: 13.5, fontWeight: 700 }}>
@@ -451,7 +470,7 @@ export default function ForensicRequestDetail() {
           </div>
         </div>
         <div className="card-body" style={{ padding: '16px 20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
             <div style={{ borderLeft: '3px solid #0097a7', paddingLeft: 12 }}>
               <div style={{ fontSize: 11, color: '#64748b' }}>1. Seized &amp; Dispatched</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{row.submitter?.name || 'EO'}</div>
@@ -474,10 +493,10 @@ export default function ForensicRequestDetail() {
               <div style={{ fontSize: 11, color: '#64748b' }}>{row.opened_at ? formatDisplayDateTime(row.opened_at) : '—'}</div>
             </div>
 
-            <div style={{ borderLeft: `3px solid ${row.report_ready_at ? '#059669' : '#cbd5e1'}`, paddingLeft: 12 }}>
-              <div style={{ fontSize: 11, color: '#64748b' }}>4. Lab Report Finalized</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: row.report_ready_at ? '#059669' : '#94a3b8' }}>
-                {row.report_ready_at ? `Code: ${row.report_code}` : 'Pending Report'}
+            <div style={{ borderLeft: `3px solid ${row.report_ready_at ? '#059669' : row.status === 'submitted_to_ad' ? '#d97706' : '#cbd5e1'}`, paddingLeft: 12 }}>
+              <div style={{ fontSize: 11, color: '#64748b' }}>4. AD Approval &amp; EO Notification</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: row.report_ready_at ? '#059669' : row.status === 'submitted_to_ad' ? '#d97706' : '#94a3b8' }}>
+                {row.report_ready_at ? `Approved (${row.report_code})` : row.status === 'submitted_to_ad' ? 'Submitted to AD' : 'Pending FO'}
               </div>
               <div style={{ fontSize: 11, color: '#64748b' }}>{row.report_ready_at ? formatDisplayDateTime(row.report_ready_at) : '—'}</div>
             </div>
@@ -588,11 +607,11 @@ export default function ForensicRequestDetail() {
         </div>
       )}
 
-      {/* ── Action Box 2: FO Findings & Examination Workbench ── */}
+      {/* ── Action Box 2: FO Examination Workbench & Submit to AD ── */}
       {canWorkFindings && (
         <div className="card" style={{ marginBottom: 20, border: '1.5px solid #ddd6fe' }}>
           <div className="card-header" style={{ background: '#f5f3ff' }}>
-            <div className="card-title" style={{ color: '#6d28d9' }}>Forensic Examiner Workbench: Findings &amp; Report Submission</div>
+            <div className="card-title" style={{ color: '#6d28d9' }}>Forensic Examiner Workbench: Record Findings &amp; Submit to AD</div>
           </div>
           <div className="card-body">
             <div className="cf-field" style={{ marginBottom: 12 }}>
@@ -631,21 +650,37 @@ export default function ForensicRequestDetail() {
               <button type="button" className="btn btn-outline" disabled={busy} onClick={saveFindings}>
                 {busy ? 'Saving…' : 'Save Findings Draft'}
               </button>
-              {canMarkReady && (
-                <button type="button" className="btn btn-primary" style={{ background: '#059669' }} disabled={busy} onClick={markReady}>
-                  {busy ? 'Processing…' : 'Mark Report Ready → Notify Desk Officer'}
-                </button>
-              )}
+              <button type="button" className="btn btn-primary" style={{ background: '#7c3aed' }} disabled={busy} onClick={submitToAd}>
+                {busy ? 'Submitting…' : 'Submit Report to AD Forensic for Approval'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Action Box 3: Desk Officer Handover ── */}
-      {canHandOver && (
+      {/* ── Action Box 3: AD Review, Approve & Notify EO ── */}
+      {canApproveAd && (
         <div className="card" style={{ marginBottom: 20, border: '1.5px solid #a7f3d0' }}>
           <div className="card-header" style={{ background: '#ecfdf5' }}>
-            <div className="card-title" style={{ color: '#065f46' }}>Desk Officer: Physical Report &amp; Evidence Handover</div>
+            <div className="card-title" style={{ color: '#065f46' }}>AD Forensic Approval: Authorize Report &amp; Notify Enquiry Officer (EO)</div>
+          </div>
+          <div className="card-body">
+            <p style={{ fontSize: 13, color: '#334155', marginBottom: 12, lineHeight: 1.5 }}>
+              Review the Forensic Officer's findings and attachments above. Click below to approve the report.
+              The system will generate report code <strong>{row.report_code || 'Auto-Code'}</strong> and dispatch an immediate <strong>Notification &amp; SMS</strong> to Enquiry Officer ({row.submitter?.name || 'EO'}) informing them to collect the physical report by hand.
+            </p>
+            <button type="button" className="btn btn-primary" style={{ background: '#059669' }} disabled={busy} onClick={approveReportAndNotifyEo}>
+              {busy ? 'Approving & Notifying…' : '✅ Approve Report & Notify EO (By-Hand Collection)'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Action Box 4: Desk Officer Handover ── */}
+      {canHandOver && (
+        <div className="card" style={{ marginBottom: 20, border: '1.5px solid #cbd5e1' }}>
+          <div className="card-header" style={{ background: '#f8fafc' }}>
+            <div className="card-title" style={{ color: '#334155' }}>Desk Officer: Physical Report &amp; Evidence Handover</div>
           </div>
           <div className="card-body">
             <p style={{ fontSize: 13, color: '#334155', marginBottom: 10 }}>
