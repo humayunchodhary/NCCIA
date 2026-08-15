@@ -498,6 +498,20 @@ class ForensicRequestController extends Controller
             }
         } catch (\Throwable $e) {}
 
+        // Notify AD Forensic safely
+        try {
+            $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
+            foreach ($adUsers as $ad) {
+                try {
+                    $ad->notify(new \App\Notifications\GeneralNotification(
+                        'forensic_report_approved_ad',
+                        "Forensic Report for {$forensicRequest->request_no} has been approved (Code: {$forensicRequest->report_code}). EO notified for collection.",
+                        "/forensic/requests/{$forensicRequest->id}"
+                    ));
+                } catch (\Throwable $e) {}
+            }
+        } catch (\Throwable $e) {}
+
         // Notify Enquiry Officer (EO) safely
         try {
             $forensicRequest->loadMissing('enquiry', 'submitter');

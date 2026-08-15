@@ -88,11 +88,16 @@ const EMPTY_SEIZE_ITEM = {
 };
 
 const SEIZE_ITEM_TYPES = [
-  { value: 'mobile', name: 'Mobile Phone' },
+  { value: 'phone', name: 'Mobile Phone' },
   { value: 'laptop', name: 'Laptop' },
-  { value: 'hard_disk', name: 'Hard Disk / SSD' },
+  { value: 'computer', name: 'Computer / Desktop' },
+  { value: 'hdd', name: 'Hard Disk - HDD / SSD' },
+  { value: 'dvr', name: 'DVR' },
+  { value: 'ipad_tablet', name: 'iPad / Tablet' },
+  { value: 'memory_card', name: 'Memory Card' },
   { value: 'sim', name: 'SIM Card' },
   { value: 'usb', name: 'USB / Flash Drive' },
+  { value: 'cd_dvd', name: 'CD / DVD' },
   { value: 'other', name: 'Other' },
 ];
 
