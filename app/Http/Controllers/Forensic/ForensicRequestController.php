@@ -30,9 +30,8 @@ class ForensicRequestController extends Controller
             'enquiry' => function ($q) {
                 $q->with([
                     'officer:id,name,email,designation',
-                    'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id,zone_id',
+                    'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id',
                     'complaint.circle:id,name,code',
-                    'complaint.zone:id,name,code',
                     'accusedPersons:id,enquiry_id,name,father_name,cnic,mobile,address',
                 ]);
             },
@@ -206,9 +205,8 @@ class ForensicRequestController extends Controller
                 'enquiry' => function ($q) {
                     $q->with([
                         'officer:id,name,email,designation',
-                        'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id,zone_id',
+                        'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id',
                         'complaint.circle:id,name,code',
-                        'complaint.zone:id,name,code',
                     ]);
                 },
             ];
