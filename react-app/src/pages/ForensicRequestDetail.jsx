@@ -351,7 +351,7 @@ export default function ForensicRequestDetail() {
                 <span style={{ color: '#64748b', display: 'block', marginBottom: 4, fontWeight: 600 }}>Accused Persons Linked:</span>
                 {accusedList.map((acc, idx) => (
                   <div key={idx} style={{ color: '#1e293b' }}>
-                    • <strong>{acc.name}</strong> {acc.cnic ? `(CNIC: ${acc.cnic})` : ''} {acc.mobile ? `· 📞 ${acc.mobile}` : ''}
+                    • <strong>{acc.name}</strong> {acc.cnic ? `(CNIC: ${acc.cnic})` : ''} {(acc.contact_no || acc.mobile || acc.whatsapp_no) ? `· 📞 ${acc.contact_no || acc.mobile || acc.whatsapp_no}` : ''}
                   </div>
                 ))}
               </div>
@@ -572,7 +572,7 @@ export default function ForensicRequestDetail() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 12 }}>
               <div className="cf-field">
                 <label className="cf-label required">Select Forensic Officer</label>
-                <select className="cf-input" value={assignedTo} onChange={e => setAssigneeId(e.target.value)}>
+                <select className="cf-input" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
                   <option value="">— Select FO —</option>
                   {officers.map(o => (
                     <option key={o.id} value={o.id}>{o.name} ({o.designation || 'Examiner'})</option>

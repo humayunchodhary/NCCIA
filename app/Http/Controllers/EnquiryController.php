@@ -511,11 +511,11 @@ class EnquiryController extends Controller
             $recipients->push($enquiry->officer);
         }
 
-        $recipients = $recipients->merge(
-            \App\Models\User::role(['admin', 'circle_incharge', 'additional_director', 'reader_branch'])->get()
-        );
-
-        $recipients->unique('id')->each(fn ($u) => $u?->notify(new NoticeNonAppearanceNotification($enquiry, null, true)));
+        try {
+            $recipients->unique('id')->each(fn ($u) => $u?->notify(new NoticeNonAppearanceNotification($enquiry, null, true)));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('NoticeNonAppearanceNotification (referral) failed: ' . $e->getMessage());
+        }
     }
 
     private function notifyNonAppearance(Enquiry $enquiry, Request $request): void
@@ -530,26 +530,34 @@ class EnquiryController extends Controller
             \App\Models\User::role(['admin', 'circle_incharge'])->get()
         );
 
-        $recipients->unique('id')->each(fn ($u) => $u?->notify(new NoticeNonAppearanceNotification($enquiry, null, false)));
+        try {
+            $recipients->unique('id')->each(fn ($u) => $u?->notify(new NoticeNonAppearanceNotification($enquiry, null, false)));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('NoticeNonAppearanceNotification failed: ' . $e->getMessage());
+        }
 
         // SMS the person who failed to appear (latest non-appearance notice receiver).
-        $lastNotice = $enquiry->notices()->where('status', 'non_appearance')->latest()->first();
-        if ($lastNotice?->phone) {
-            $digits = preg_replace('/\D+/', '', $lastNotice->phone);
-            if ($digits) {
-                app(SmsService::class)->sendBilingual(
-                    $digits,
-                    SmsTemplates::nonAppearance($enquiry, 'en'),
-                    SmsTemplates::nonAppearance($enquiry, 'ur'),
-                    [
-                        'country_code'   => '+92',
-                        'recipient_type' => 'notice_receiver',
-                        'subject_type'   => 'enquiry_notice',
-                        'subject_id'     => $lastNotice->id,
-                        'trigger'        => 'non_appearance',
-                    ]
-                );
+        try {
+            $lastNotice = $enquiry->notices()->where('status', 'non_appearance')->latest()->first();
+            if ($lastNotice?->phone) {
+                $digits = preg_replace('/\D+/', '', $lastNotice->phone);
+                if ($digits) {
+                    app(SmsService::class)->sendBilingual(
+                        $digits,
+                        SmsTemplates::nonAppearance($enquiry, 'en'),
+                        SmsTemplates::nonAppearance($enquiry, 'ur'),
+                        [
+                            'country_code'   => '+92',
+                            'recipient_type' => 'notice_receiver',
+                            'subject_type'   => 'enquiry_notice',
+                            'subject_id'     => $lastNotice->id,
+                            'trigger'        => 'non_appearance',
+                        ]
+                    );
+                }
             }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Non-appearance SMS failed: ' . $e->getMessage());
         }
     }
 
@@ -670,19 +678,27 @@ class EnquiryController extends Controller
                 (int) $enquiry->enquiry_officer_id,
                 $request->user()->id,
             );
-            $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+            try {
+                $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('EnquiryAssignedNotification failed: ' . $e->getMessage());
+            }
 
-            if ($enquiry->officer) {
-                app(SmsService::class)->sendToUser(
-                    $enquiry->officer,
-                    SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'en'),
-                    SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'ur'),
-                    [
-                        'subject_type' => 'enquiry',
-                        'subject_id'   => $enquiry->id,
-                        'trigger'      => 'enquiry_assigned',
-                    ]
-                );
+            try {
+                if ($enquiry->officer) {
+                    app(SmsService::class)->sendToUser(
+                        $enquiry->officer,
+                        SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'en'),
+                        SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'ur'),
+                        [
+                            'subject_type' => 'enquiry',
+                            'subject_id'   => $enquiry->id,
+                            'trigger'      => 'enquiry_assigned',
+                        ]
+                    );
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
             }
         }
 
@@ -977,19 +993,27 @@ class EnquiryController extends Controller
             });
 
             if ($officerChanged) {
-                $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+                try {
+                    $enquiry->officer?->notify(new EnquiryAssignedNotification($enquiry));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('EnquiryAssignedNotification failed: ' . $e->getMessage());
+                }
 
-                if ($enquiry->officer) {
-                    app(SmsService::class)->sendToUser(
-                        $enquiry->officer,
-                        SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'en'),
-                        SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'ur'),
-                        [
-                            'subject_type' => 'enquiry',
-                            'subject_id'   => $enquiry->id,
-                            'trigger'      => 'enquiry_assigned',
-                        ]
-                    );
+                try {
+                    if ($enquiry->officer) {
+                        app(SmsService::class)->sendToUser(
+                            $enquiry->officer,
+                            SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'en'),
+                            SmsTemplates::enquiryAssigned($enquiry, $enquiry->officer, 'ur'),
+                            [
+                                'subject_type' => 'enquiry',
+                                'subject_id'   => $enquiry->id,
+                                'trigger'      => 'enquiry_assigned',
+                            ]
+                        );
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
                 }
             } else {
                 app(OfficerAssignmentService::class)->touchWorkSnapshot(

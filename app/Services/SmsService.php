@@ -28,28 +28,33 @@ class SmsService
         $lang = $options['lang'] ?? 'en';
         $countryCode = $options['country_code'] ?? '+92';
 
-        $log = SmsLog::create([
-            'phone'          => $phone,
-            'country_code'   => $countryCode,
-            'message'        => $message,
-            'lang'           => $lang,
-            'trigger'        => $options['trigger'] ?? null,
-            'recipient_type' => $options['recipient_type'] ?? null,
-            'subject_type'   => $options['subject_type'] ?? null,
-            'subject_id'     => $options['subject_id'] ?? null,
-            'status'         => 'pending',
-        ]);
+        $log = null;
+        try {
+            $log = SmsLog::create([
+                'phone'          => $phone,
+                'country_code'   => $countryCode,
+                'message'        => $message,
+                'lang'           => $lang,
+                'trigger'        => $options['trigger'] ?? null,
+                'recipient_type' => $options['recipient_type'] ?? null,
+                'subject_type'   => $options['subject_type'] ?? null,
+                'subject_id'     => $options['subject_id'] ?? null,
+                'status'         => 'pending',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('SmsLog create failed: ' . $e->getMessage());
+        }
 
         if (!config('services.sms.enabled')) {
-            $log->update(['status' => 'disabled', 'response' => 'SMS disabled via config']);
-            Log::info('SMS skipped (disabled)', ['id' => $log->id, 'phone' => $phone, 'trigger' => $log->trigger]);
+            $log?->update(['status' => 'disabled', 'response' => 'SMS disabled via config']);
+            Log::info('SMS skipped (disabled)', ['id' => $log?->id, 'phone' => $phone, 'trigger' => $options['trigger'] ?? null]);
             return $log;
         }
 
         $gatewayUrl = config('services.sms.gateway_url');
         if (!$gatewayUrl) {
-            $log->update(['status' => 'failed', 'response' => 'SMS_API_URL not configured']);
-            Log::error('SMS failed: gateway URL not configured', ['id' => $log->id]);
+            $log?->update(['status' => 'failed', 'response' => 'SMS_API_URL not configured']);
+            Log::error('SMS failed: gateway URL not configured', ['id' => $log?->id]);
             return $log;
         }
 

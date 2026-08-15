@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LoginHistory extends Model
 {
+    public $timestamps = false;
+
     protected $fillable = [
         'user_id',
         'ip_address',

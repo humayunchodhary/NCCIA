@@ -32,7 +32,7 @@ class ForensicRequestController extends Controller
                     'officer:id,name,email,designation',
                     'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id',
                     'complaint.circle:id,name,code',
-                    'accusedPersons:id,enquiry_id,name,father_name,cnic,mobile,address',
+                    'accusedPersons:id,enquiry_id,name,father_name,cnic,contact_no,whatsapp_no,postal_address,permanent_address,description',
                 ]);
             },
         ];
