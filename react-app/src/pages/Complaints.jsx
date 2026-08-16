@@ -156,30 +156,41 @@ export default function Complaints() {
 
       <div className="card">
         <div className="card-body" style={{padding:0}}>
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: 900 }}>
               <thead>
-                <tr><th>#</th><th>Complainant</th><th>CNIC</th><th>Crime Category</th><th>Status</th><th>Progress</th><th>Enquiry</th><th>Outcome</th><th>Date</th><th>Actions</th></tr>
+                <tr>
+                  <th style={{ whiteSpace: 'nowrap', width: 90 }}>#</th>
+                  <th style={{ minWidth: 140 }}>Complainant</th>
+                  <th style={{ whiteSpace: 'nowrap', width: 140 }}>CNIC</th>
+                  <th style={{ minWidth: 160 }}>Crime Category</th>
+                  <th style={{ whiteSpace: 'nowrap', width: 110 }}>Status</th>
+                  <th style={{ minWidth: 180, width: 200 }}>Progress</th>
+                  <th style={{ whiteSpace: 'nowrap', width: 110 }}>Enquiry</th>
+                  <th style={{ minWidth: 120 }}>Outcome</th>
+                  <th style={{ whiteSpace: 'nowrap', width: 100 }}>Date</th>
+                  <th style={{ whiteSpace: 'nowrap', width: 110 }}>Actions</th>
+                </tr>
               </thead>
               <tbody>
                 {list.map((c, i) => (
                   <tr key={c.id}>
-                    <td><span className="table-id">#{c.tracking_no || c.id}</span></td>
-                    <td><span style={{fontSize:'13px',fontWeight:500}}>{c.complainant_name}</span></td>
-                    <td>{c.cnic}</td>
-                    <td>{offenceMap[c.offence_type] || c.offence_type}</td>
-                    <td><span className={`badge ${STATUS_COLORS[c.final_status || c.status] || 'badge-pending'}`}>{STATUS_LABELS[c.final_status || c.status] || c.status}</span></td>
-                    <td style={{ minWidth: 200 }}>
+                    <td style={{ whiteSpace: 'nowrap' }}><span className="table-id">#{c.tracking_no || c.id}</span></td>
+                    <td><span style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{c.complainant_name}</span></td>
+                    <td style={{ whiteSpace: 'nowrap', fontSize: '12.5px', fontWeight: 500, letterSpacing: '0.2px' }}>{c.cnic}</td>
+                    <td><span style={{ fontSize: '12.5px', color: '#334155' }}>{offenceMap[c.offence_type] || c.offence_type}</span></td>
+                    <td style={{ whiteSpace: 'nowrap' }}><span className={`badge ${STATUS_COLORS[c.final_status || c.status] || 'badge-pending'}`}>{STATUS_LABELS[c.final_status || c.status] || c.status}</span></td>
+                    <td style={{ minWidth: 180 }}>
                       <WorkflowProgress workflow={c.workflow} percent={c.progress_percent} stage={c.progress_stage} compact />
                     </td>
-                    <td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
                       {c.enquiry ? (
-                        <div style={{display:'flex',flexDirection:'column',gap:'4px',alignItems:'flex-start'}}>
-                          <Link to="/enquiries" style={{fontSize:'13px',fontWeight:600,color:'#015C94'}}>#{c.enquiry.enquiry_number || c.enquiry.id}</Link>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                          <Link to="/enquiries" style={{ fontSize: '12.5px', fontWeight: 700, color: '#0284c7' }}>#{c.enquiry.enquiry_number || c.enquiry.id}</Link>
                           <span className={`badge ${ENQ_STATUS_COLORS[c.enquiry.status] || 'badge-pending'}`}>{c.enquiry.status?.replace('_', ' ')}</span>
                         </div>
                       ) : (
-                        <span style={{color:'#999'}}>—</span>
+                        <span style={{ color: '#94a3b8' }}>—</span>
                       )}
                     </td>
                     <td style={{fontSize:'12px',maxWidth:'200px'}}>
