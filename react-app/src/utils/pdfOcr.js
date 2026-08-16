@@ -91,18 +91,27 @@ function enhanceForOcr(canvas) {
   const ctx = canvas.getContext('2d');
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const d = img.data;
+
+  // 1. Convert to grayscale & find min/max for contrast stretching
   let min = 255;
   let max = 0;
   for (let i = 0; i < d.length; i += 4) {
-    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+    d[i] = d[i + 1] = d[i + 2] = g;
     if (g < min) min = g;
     if (g > max) max = g;
   }
+
+  // 2. High-contrast stretch + binarization for clean text background
   const range = Math.max(max - min, 1);
+  const threshold = min + range * 0.55;
   for (let i = 0; i < d.length; i += 4) {
-    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    const v = ((g - min) / range) * 255;
-    d[i] = d[i + 1] = d[i + 2] = v;
+    const g = d[i];
+    // Contrast stretched value
+    const stretched = ((g - min) / range) * 255;
+    // Sharpen text edges: slightly boost darks and clear off-white scanner noise
+    const finalVal = stretched < threshold ? Math.max(0, stretched * 0.7) : Math.min(255, stretched * 1.15);
+    d[i] = d[i + 1] = d[i + 2] = finalVal;
   }
   ctx.putImageData(img, 0, 0);
 }
@@ -110,103 +119,52 @@ function enhanceForOcr(canvas) {
 function canvasHasInk(canvas) {
   const ctx = canvas.getContext('2d');
   const { width, height } = canvas;
-  const step = Math.max(4, Math.floor(Math.min(width, height) / 200));
+  const step = Math.max(4, Math.floor(Math.min(width, height) / 150));
   const data = ctx.getImageData(0, 0, width, height).data;
   let dark = 0;
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
       const i = (y * width + x) * 4;
-      if (data[i] < 210 || data[i + 1] < 210 || data[i + 2] < 210) dark += 1;
+      if (data[i] < 220 || data[i + 1] < 220 || data[i + 2] < 220) dark += 1;
     }
   }
-  return dark > 80;
+  return dark > 40;
 }
 
-function imgDataToCanvas(imgData) {
-  if (!imgData?.width || !imgData?.height) return null;
-  const { width, height, bitmap, data } = imgData;
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  if (bitmap) {
-    ctx.drawImage(bitmap, 0, 0);
-    return canvas;
-  }
-
-  if (data) {
-    const imageData = ctx.createImageData(width, height);
-    if (data.length === width * height * 4) {
-      imageData.data.set(data);
-    } else if (data.length === width * height * 3) {
-      for (let i = 0, j = 0; i < data.length; i += 3, j += 4) {
-        imageData.data[j] = data[i];
-        imageData.data[j + 1] = data[i + 1];
-        imageData.data[j + 2] = data[i + 2];
-        imageData.data[j + 3] = 255;
-      }
-    } else {
-      return null;
-    }
-    ctx.putImageData(imageData, 0, 0);
-    return canvas;
-  }
-
-  return null;
+function looksLikeVerificationReport(text) {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return t.includes('cnic') || t.includes('complainant') || t.includes('verification')
+    || t.includes('tracking') || t.includes('ccw-') || t.includes('defrauded') || /\d{13}/.test(text);
 }
 
-function collectEmbeddedImageCanvases(page) {
-  const canvases = [];
+async function ocrFromCanvas(worker, canvas, onStatus) {
+  if (!canvasHasInk(canvas)) return '';
+  onStatus?.('Recognizing text…');
+
   try {
-    if (page.objs && typeof page.objs[Symbol.iterator] === 'function') {
-      for (const [, imgData] of page.objs) {
-        const canvas = imgDataToCanvas(imgData);
-        if (canvas && canvas.width > 200 && canvas.height > 200) {
-          enhanceForOcr(canvas);
-          canvases.push(canvas);
-        }
-      }
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
+    const result = await worker.recognize(canvas);
+    let text = (result?.data?.text || '').trim();
+
+    if (text.length >= 30) {
+      return text;
     }
+
+    // Fallback mode if AUTO produced very little text
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
+    const retry = await worker.recognize(canvas);
+    const retryText = (retry?.data?.text || '').trim();
+    return retryText.length > text.length ? retryText : text;
   } catch (err) {
-    console.warn('Embedded image extraction failed', err);
+    console.warn('Canvas OCR recognition error:', err);
+    return '';
   }
-  return canvases.sort((a, b) => (b.width * b.height) - (a.width * a.height));
 }
 
-function cropCanvasTop(canvas, ratio = 0.6) {
-  const h = Math.max(1, Math.floor(canvas.height * ratio));
-  const cropped = document.createElement('canvas');
-  cropped.width = canvas.width;
-  cropped.height = h;
-  const ctx = cropped.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, cropped.width, cropped.height);
-  ctx.drawImage(canvas, 0, 0, canvas.width, h, 0, 0, canvas.width, h);
-  return cropped;
-}
-
-async function dataUrlToCanvas(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      enhanceForOcr(canvas);
-      resolve(canvas);
-    };
-    img.onerror = () => reject(new Error('Server page image could not be loaded'));
-    img.src = dataUrl;
-  });
-}
-
-async function renderPageToCanvas(page, scale) {
-  const viewport = page.getViewport({ scale });
+async function ocrPageWithPdfJs(page, worker, onStatus) {
+  // Scale 2.0 provides ~200 DPI resolution, perfect for fast & accurate OCR
+  const viewport = page.getViewport({ scale: 2.0 });
   const canvas = document.createElement('canvas');
   canvas.width = Math.floor(viewport.width);
   canvas.height = Math.floor(viewport.height);
@@ -221,72 +179,7 @@ async function renderPageToCanvas(page, scale) {
   }).promise;
 
   enhanceForOcr(canvas);
-  return canvas;
-}
-
-async function extractPageText(page) {
-  const content = await page.getTextContent();
-  return content.items.map((item) => item.str).join(' ').trim();
-}
-
-async function ocrCanvas(worker, canvas, onStatus) {
-  const targets = [canvas, cropCanvasTop(canvas, 0.7), cropCanvasTop(canvas, 0.45)];
-  const modes = [PSM.AUTO, PSM.SPARSE_TEXT, PSM.SINGLE_BLOCK];
-  let best = '';
-
-  for (const target of targets) {
-    for (const psm of modes) {
-      onStatus?.('Recognizing text…');
-      await worker.setParameters({ tessedit_pageseg_mode: psm });
-      const result = await worker.recognize(target);
-      const text = (result.data.text || '').trim();
-      if (text.length > best.length) best = text;
-    }
-  }
-  return best;
-}
-
-function looksLikeVerificationReport(text) {
-  const t = text.toLowerCase();
-  return t.includes('cnic') || t.includes('complainant') || t.includes('verification')
-    || t.includes('tracking') || t.includes('ccw-') || /\d{13}/.test(text);
-}
-
-async function ocrFromCanvas(worker, canvas, onStatus) {
-  if (!canvasHasInk(canvas)) return '';
-  return ocrCanvas(worker, canvas, onStatus);
-}
-
-async function ocrPageWithPdfJs(page, worker, onStatus) {
-  let best = '';
-  for (const scale of RENDER_SCALES) {
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    await page.render({
-      canvasContext: ctx,
-      viewport,
-      intent: 'print',
-    }).promise;
-
-    const embedded = collectEmbeddedImageCanvases(page);
-    for (const embeddedCanvas of embedded) {
-      onStatus?.('OCR embedded scan…');
-      const text = await ocrFromCanvas(worker, embeddedCanvas, onStatus);
-      if (text.length > best.length) best = text;
-    }
-
-    enhanceForOcr(canvas);
-    const text = await ocrFromCanvas(worker, canvas, onStatus);
-    if (text.length > best.length) best = text;
-    if (best.length > 400 && looksLikeVerificationReport(best)) break;
-  }
-  return best;
+  return ocrFromCanvas(worker, canvas, onStatus);
 }
 
 /**
