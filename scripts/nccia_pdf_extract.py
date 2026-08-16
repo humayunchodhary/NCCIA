@@ -140,30 +140,80 @@ def ocr_page(page):
 
 
 def extract_text_from_pdf(pdf_path, max_pages=3):
-    import fitz
+    fitz_mod = None
+    try:
+        import fitz as fitz_mod
+    except Exception:
+        try:
+            import pymupdf as fitz_mod
+        except Exception:
+            pass
 
-    doc = fitz.open(pdf_path)
-    page_count = doc.page_count
-    chunks = []
-    used_ocr = False
+    if fitz_mod is not None:
+        try:
+            doc = fitz_mod.open(pdf_path)
+            page_count = doc.page_count
+            chunks = []
+            used_ocr = False
 
-    for i in range(min(max_pages, page_count)):
-        page = doc[i]
-        text = page.get_text("text") or ""
-        if len(text.strip()) < 40:
-            ocr_text = ocr_page(page)
-            if ocr_text.strip():
-                text = ocr_text
-                used_ocr = True
-        chunks.append(text)
-        combined = "\n".join(chunks)
-        if re.search(r"\d{5}[-\s]?\d{7}[-\s]?\d", combined) and re.search(
-            r"verification|complainant|tracking", combined, re.I
-        ):
-            break
+            for i in range(min(max_pages, page_count)):
+                page = doc[i]
+                text = page.get_text("text") or ""
+                if len(text.strip()) < 40:
+                    ocr_text = ocr_page(page)
+                    if ocr_text.strip():
+                        text = ocr_text
+                        used_ocr = True
+                chunks.append(text)
+                combined = "\n".join(chunks)
+                if re.search(r"\d{5}[-\s]?\d{7}[-\s]?\d", combined) and re.search(
+                    r"verification|complainant|tracking", combined, re.I
+                ):
+                    break
 
-    doc.close()
-    return "\n".join(chunks), page_count, used_ocr
+            doc.close()
+            return "\n".join(chunks), page_count, used_ocr
+        except Exception:
+            pass
+
+    # Fallback 1: pypdf / PyPDF2
+    for pypdf_name in ("pypdf", "PyPDF2"):
+        try:
+            pdf_lib = __import__(pypdf_name)
+            reader = pdf_lib.PdfReader(pdf_path)
+            chunks = [p.extract_text() or "" for p in reader.pages[:max_pages]]
+            return "\n".join(chunks), len(reader.pages), False
+        except Exception:
+            pass
+
+    # Fallback 2: pdftotext CLI
+    try:
+        import subprocess
+
+        proc = subprocess.run(
+            ["pdftotext", "-l", str(max_pages), pdf_path, "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if proc.returncode == 0 and len(proc.stdout.strip()) > 10:
+            return proc.stdout.strip(), max_pages, False
+    except Exception:
+        pass
+
+    # Fallback 3: Raw text streams from PDF binary
+    try:
+        with open(pdf_path, "rb") as f:
+            raw_bytes = f.read(2 * 1024 * 1024)
+        matches = re.findall(rb"\(([^()\\\\]*(?:\\\\.[^()\\\\]*)*)\)", raw_bytes)
+        text = " ".join(m.decode("latin1", errors="ignore") for m in matches if len(m) > 2)
+        if len(text.strip()) > 30:
+            return text, 1, False
+    except Exception:
+        pass
+
+    return "", 0, False
 
 
 def split_name_father(full_name):

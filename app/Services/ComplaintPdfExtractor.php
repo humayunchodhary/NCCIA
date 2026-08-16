@@ -473,7 +473,26 @@ class ComplaintPdfExtractor
     private function pythonVersionScore(string $bin): float
     {
         try {
-            $r = Process::timeout(10)->run([$bin, '-c', 'import sys; print("%d.%d" % sys.version_info[:2])']);
+            $code = <<<'PY'
+import sys
+score = sys.version_info[0] * 10 + sys.version_info[1]
+try:
+    import fitz
+    score += 500
+except:
+    try:
+        import pymupdf
+        score += 500
+    except:
+        pass
+try:
+    import pytesseract
+    score += 100
+except:
+    pass
+print(score)
+PY;
+            $r = Process::timeout(10)->run([$bin, '-c', $code]);
             if (!$r->successful()) {
                 return 0;
             }
