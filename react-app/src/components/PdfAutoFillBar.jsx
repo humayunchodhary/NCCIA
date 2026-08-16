@@ -30,28 +30,66 @@ export default function PdfAutoFillBar({ onFilled, hint }) {
   };
 
   return (
-    <div className="cf-section" style={{ marginBottom: 16, border: '1.5px dashed #015C94' }}>
-      <div className="cf-section-header">
-        <div className="cf-section-icon" style={{ background: '#015C94' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <div
+      className="cf-section pdf-autofill-box"
+      style={{
+        marginBottom: 20,
+        border: '2px dashed #0284c7',
+        background: busy ? 'rgba(2, 132, 199, 0.04)' : '#f8fafc',
+        borderRadius: 12,
+        transition: 'all 0.2s ease',
+      }}
+    >
+      <div className="cf-section-header" style={{ flexWrap: 'wrap', gap: 12, padding: '14px 18px' }}>
+        <div className="cf-section-icon" style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', width: 40, height: 40, minWidth: 40, borderRadius: 10 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
-        <div>
-          <div className="cf-section-title">Fill from PDF</div>
-          <div className="cf-section-sub">{hint || 'Upload verification report PDF (e.g. 261-26.PDF) — name, CNIC, phone, offence, amount auto-fill'}</div>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div className="cf-section-title" style={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>⚡ Fill from PDF (AI Auto-Fill)</span>
+            <span style={{ fontSize: 11, background: '#0284c7', color: '#fff', padding: '2px 8px', borderRadius: 12, fontWeight: 700 }}>AI Active</span>
+          </div>
+          <div className="cf-section-sub" style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+            {hint || 'Upload verification report PDF — Complainant, CNIC, Phone, Address, Offence, Amount, & Accused auto-fill.'}
+          </div>
         </div>
       </div>
-      <div className="cf-body">
-        <input
-          ref={inputRef}
-          type="file"
-          className="cf-input"
-          accept="application/pdf,.pdf"
-          disabled={busy}
-          onChange={(e) => handleFile(e.target.files?.[0])}
-        />
-        {busy && <div style={{ marginTop: 8, fontSize: 13, color: '#015C94', fontWeight: 600 }}>{message || 'Working…'}</div>}
-        {!busy && message && <div style={{ marginTop: 8, fontSize: 13, color: '#0d7a4f' }}>{message}</div>}
-        {error && <div className="cf-error" style={{ marginTop: 8 }}>{error}</div>}
+      <div className="cf-body" style={{ padding: '14px 18px' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            ref={inputRef}
+            type="file"
+            className="cf-input"
+            accept="application/pdf,.pdf"
+            disabled={busy}
+            onChange={(e) => handleFile(e.target.files?.[0])}
+            style={{
+              flex: 1,
+              minWidth: 220,
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1.5px solid #cbd5e1',
+              background: '#fff',
+              cursor: busy ? 'not-allowed' : 'pointer',
+            }}
+          />
+        </div>
+        {busy && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, color: '#0284c7', fontWeight: 600, fontSize: 13 }}>
+            <span className="spinner" style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #0284c7', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <span>{message || 'Scanning PDF document…'}</span>
+          </div>
+        )}
+        {!busy && message && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, color: '#16a34a', fontWeight: 600, fontSize: 13, background: '#f0fdf4', padding: '8px 12px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+            <span>✓</span> {message}
+          </div>
+        )}
+        {error && (
+          <div className="cf-error" style={{ marginTop: 10, color: '#dc2626', background: '#fef2f2', padding: '8px 12px', borderRadius: 8, border: '1px solid #fecaca', fontSize: 13 }}>
+            ⚠️ {error}
+          </div>
+        )}
       </div>
     </div>
   );
