@@ -81,56 +81,147 @@ def create_officer_presentation():
                 p2.font.color.rgb = C_GREEN
         return card
 
-    # SLIDE 1: Title
+    # ==========================================
+    # SLIDE 1: WORLD-CLASS PRESIDENTIAL HERO TITLE SLIDE
+    # ==========================================
     s1 = prs.slides.add_slide(blank_layout)
     add_slide_bg(s1)
-    logo_size = 2.4
-    logo_left = (13.333 - logo_size) / 2
-    logo_top = 0.8
-    ring = s1.shapes.add_shape(MSO_SHAPE.OVAL, Inches(logo_left - 0.08), Inches(logo_top - 0.08), Inches(logo_size + 0.16), Inches(logo_size + 0.16))
+
+    # Decorative Outer Frame
+    outer_card = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.6), Inches(0.5), Inches(12.133), Inches(6.5))
+    outer_card.fill.solid()
+    outer_card.fill.fore_color.rgb = RGBColor(14, 28, 54)
+    outer_card.line.color.rgb = RGBColor(41, 74, 110)
+    outer_card.line.width = Pt(2.0)
+
+    # Top Official Ribbon / Government Pill
+    pill = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.0), Inches(0.85), Inches(11.333), Inches(0.55))
+    pill.fill.solid()
+    pill.fill.fore_color.rgb = RGBColor(10, 20, 38)
+    pill.line.color.rgb = C_GOLD
+    pill.line.width = Pt(1.2)
+    ptf = pill.text_frame
+    ptf.word_wrap = True
+    ptf.margin_top = Inches(0.08)
+    pp = ptf.paragraphs[0]
+    pp.alignment = PP_ALIGN.CENTER
+    pp.text = "ISLAMIC REPUBLIC OF PAKISTAN  •  MINISTRY OF INTERIOR & NARCOTICS CONTROL"
+    pp.font.name = "Segoe UI"
+    pp.font.size = Pt(12)
+    pp.font.bold = True
+    pp.font.color.rgb = C_GOLD
+
+    # Left Hero Box: Official Emblem Showcase
+    emblem_card = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.0), Inches(1.65), Inches(4.2), Inches(4.9))
+    emblem_card.fill.solid()
+    emblem_card.fill.fore_color.rgb = RGBColor(18, 34, 64)
+    emblem_card.line.color.rgb = RGBColor(56, 189, 248)
+    emblem_card.line.width = Pt(1.5)
+
+    # Gold Circular Glow Ring
+    ring = s1.shapes.add_shape(MSO_SHAPE.OVAL, Inches(1.7), Inches(2.0), Inches(2.8), Inches(2.8))
     ring.fill.solid()
     ring.fill.fore_color.rgb = C_GOLD
     ring.line.fill.background()
 
+    # NCCIA Official Emblem
     if os.path.isfile(logo_path):
-        s1.shapes.add_picture(logo_path, Inches(logo_left), Inches(logo_top), width=Inches(logo_size), height=Inches(logo_size))
+        s1.shapes.add_picture(logo_path, Inches(1.75), Inches(2.05), width=Inches(2.7), height=Inches(2.7))
 
-    tbox = s1.shapes.add_textbox(Inches(1.0), Inches(3.4), Inches(11.333), Inches(3.7))
-    tf1 = tbox.text_frame
-    tf1.word_wrap = True
-    p1 = tf1.paragraphs[0]
-    p1.alignment = PP_ALIGN.CENTER
-    p1.text = "NATIONAL CYBER CRIME INVESTIGATION AGENCY"
-    p1.font.name = "Georgia"
-    p1.font.size = Pt(28)
-    p1.font.bold = True
-    p1.font.color.rgb = C_GOLD
+    # Badge Sub-banner
+    bb_box = s1.shapes.add_textbox(Inches(1.15), Inches(5.05), Inches(3.9), Inches(1.3))
+    bbtf = bb_box.text_frame
+    bbtf.word_wrap = True
+    bb_p1 = bbtf.paragraphs[0]
+    bb_p1.alignment = PP_ALIGN.CENTER
+    bb_p1.text = "OFFICIAL EMBLEM"
+    bb_p1.font.name = "Segoe UI"
+    bb_p1.font.size = Pt(12)
+    bb_p1.font.bold = True
+    bb_p1.font.color.rgb = C_GOLD
 
-    p2 = tf1.add_paragraph()
-    p2.alignment = PP_ALIGN.CENTER
-    p2.text = "قومی سائبر کرائم تفتیش ایجنسی — وزارت داخلہ حکومت پاکستان"
-    p2.font.name = "Segoe UI"
-    p2.font.size = Pt(15)
-    p2.font.bold = True
-    p2.font.color.rgb = C_WHITE
-    p2.space_before = Pt(4)
+    bb_p2 = bbtf.add_paragraph()
+    bb_p2.alignment = PP_ALIGN.CENTER
+    bb_p2.text = "Combating Cyber Crimes\nFederal Investigation Authority"
+    bb_p2.font.name = "Segoe UI"
+    bb_p2.font.size = Pt(10)
+    bb_p2.font.color.rgb = C_SLATE
+    bb_p2.space_before = Pt(3)
 
-    p3 = tf1.add_paragraph()
-    p3.alignment = PP_ALIGN.CENTER
-    p3.text = "Case Management System (CMS) — Officer Operational & Training Guide"
-    p3.font.name = "Segoe UI"
-    p3.font.size = Pt(20)
-    p3.font.bold = True
-    p3.font.color.rgb = C_CYAN
-    p3.space_before = Pt(10)
+    # Right Content Showcase Box
+    right_card = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(5.45), Inches(1.65), Inches(6.88), Inches(4.9))
+    right_card.fill.solid()
+    right_card.fill.fore_color.rgb = RGBColor(18, 34, 64)
+    right_card.line.color.rgb = RGBColor(41, 74, 110)
+    right_card.line.width = Pt(1.5)
 
-    p4 = tf1.add_paragraph()
-    p4.alignment = PP_ALIGN.CENTER
-    p4.text = "A Complete Practical Manual for Desk Operators, Circle Incharges, VOs, IOs & Forensic Experts"
-    p4.font.name = "Segoe UI"
-    p4.font.size = Pt(13)
-    p4.font.color.rgb = C_SLATE
-    p4.space_before = Pt(6)
+    # Right Content Text
+    rc_box = s1.shapes.add_textbox(Inches(5.75), Inches(1.85), Inches(6.3), Inches(3.2))
+    rctf = rc_box.text_frame
+    rctf.word_wrap = True
+
+    rp1 = rctf.paragraphs[0]
+    rp1.text = "NATIONAL CYBER CRIME\nINVESTIGATION AGENCY"
+    rp1.font.name = "Georgia"
+    rp1.font.size = Pt(26)
+    rp1.font.bold = True
+    rp1.font.color.rgb = C_GOLD
+
+    rp2 = rctf.add_paragraph()
+    rp2.text = "قومی سائبر کرائم تفتیش ایجنسی — حکومت پاکستان"
+    rp2.font.name = "Segoe UI"
+    rp2.font.size = Pt(15)
+    rp2.font.bold = True
+    rp2.font.color.rgb = C_WHITE
+    rp2.space_before = Pt(6)
+
+    # Divider line
+    div_line = s1.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.75), Inches(3.55), Inches(6.25), Inches(0.04))
+    div_line.fill.solid()
+    div_line.fill.fore_color.rgb = C_GOLD
+    div_line.line.fill.background()
+
+    # System Name & Subtitle
+    sys_box = s1.shapes.add_textbox(Inches(5.75), Inches(3.68), Inches(6.3), Inches(1.4))
+    stf = sys_box.text_frame
+    stf.word_wrap = True
+    sp1 = stf.paragraphs[0]
+    sp1.text = "DIGITAL CASE MANAGEMENT SYSTEM (CMS)"
+    sp1.font.name = "Segoe UI"
+    sp1.font.size = Pt(18)
+    sp1.font.bold = True
+    sp1.font.color.rgb = C_CYAN
+
+    sp2 = stf.add_paragraph()
+    sp2.text = "Standard Operating Procedures (SOPs) & Officer Operational Training Manual"
+    sp2.font.name = "Segoe UI"
+    sp2.font.size = Pt(12)
+    sp2.font.bold = True
+    sp2.font.color.rgb = C_WHITE
+    sp2.space_before = Pt(4)
+
+    # 3 Bottom Feature Pills on the Right
+    pill_data = [
+        ("📝 Front Desk & 80mm Slips", C_CYAN, 5.75),
+        ("⚖️ VO & IO Case Enquiries", C_GOLD, 7.85),
+        ("🔬 Digital Forensic Lab", C_GREEN, 9.95)
+    ]
+    for p_text, p_col, p_left in pill_data:
+        spill = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(p_left), Inches(5.65), Inches(2.0), Inches(0.65))
+        spill.fill.solid()
+        spill.fill.fore_color.rgb = RGBColor(10, 22, 44)
+        spill.line.color.rgb = p_col
+        spill.line.width = Pt(1.2)
+        sptf = spill.text_frame
+        sptf.word_wrap = True
+        sptf.margin_top = Inches(0.08)
+        spp = sptf.paragraphs[0]
+        spp.alignment = PP_ALIGN.CENTER
+        spp.text = p_text
+        spp.font.name = "Segoe UI"
+        spp.font.size = Pt(9.5)
+        spp.font.bold = True
+        spp.font.color.rgb = C_WHITE
 
     # SLIDE 2: Purpose & Vision
     s2 = prs.slides.add_slide(blank_layout)
