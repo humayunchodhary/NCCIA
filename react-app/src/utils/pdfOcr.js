@@ -33,40 +33,30 @@ async function initWorker(onStatus) {
   };
 
   try {
-    // Try local assets first
-    const worker = await createWorker('eng', OEM.LSTM_ONLY, {
+    // 1. Try standard worker
+    const worker = await createWorker('eng', 1, {
+      logger,
+      errorHandler: (e) => console.warn('Tesseract warning:', e),
+    });
+    return worker;
+  } catch (err1) {
+    console.warn('Default worker failed, trying local assets:', err1);
+  }
+
+  try {
+    // 2. Try local assets
+    const worker = await createWorker('eng', 1, {
       workerPath: `${TESS_BASE}/worker.min.js`,
       corePath: `${TESS_BASE}`,
       langPath: `${TESS_BASE}/lang`,
-      workerBlobURL: true,
       gzip: true,
       logger,
-      errorHandler: (e) => console.warn('Tesseract local warning:', e),
+      errorHandler: (e) => console.error('Tesseract local error:', e),
     });
-
-    await worker.setParameters({
-      tessedit_pageseg_mode: PSM.AUTO,
-      preserve_interword_spaces: '1',
-      user_defined_dpi: '300',
-    });
-
     return worker;
-  } catch (localErr) {
-    console.warn('Local OCR worker init failed, attempting CDN fallback:', localErr);
-    onStatus?.('Loading online OCR engine…');
-
-    const worker = await createWorker('eng', OEM.LSTM_ONLY, {
-      logger,
-      errorHandler: (e) => console.error('Tesseract fallback error:', e),
-    });
-
-    await worker.setParameters({
-      tessedit_pageseg_mode: PSM.AUTO,
-      preserve_interword_spaces: '1',
-      user_defined_dpi: '300',
-    });
-
-    return worker;
+  } catch (err2) {
+    console.error('All OCR worker initialization attempts failed:', err2);
+    throw err2;
   }
 }
 
@@ -87,50 +77,6 @@ async function getOcrWorker(onStatus) {
   return workerInitPromise;
 }
 
-function enhanceForOcr(canvas) {
-  const ctx = canvas.getContext('2d');
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const d = img.data;
-
-  // 1. Convert to grayscale & find min/max for contrast stretching
-  let min = 255;
-  let max = 0;
-  for (let i = 0; i < d.length; i += 4) {
-    const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
-    d[i] = d[i + 1] = d[i + 2] = g;
-    if (g < min) min = g;
-    if (g > max) max = g;
-  }
-
-  // 2. High-contrast stretch + binarization for clean text background
-  const range = Math.max(max - min, 1);
-  const threshold = min + range * 0.55;
-  for (let i = 0; i < d.length; i += 4) {
-    const g = d[i];
-    // Contrast stretched value
-    const stretched = ((g - min) / range) * 255;
-    // Sharpen text edges: slightly boost darks and clear off-white scanner noise
-    const finalVal = stretched < threshold ? Math.max(0, stretched * 0.7) : Math.min(255, stretched * 1.15);
-    d[i] = d[i + 1] = d[i + 2] = finalVal;
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
-function canvasHasInk(canvas) {
-  const ctx = canvas.getContext('2d');
-  const { width, height } = canvas;
-  const step = Math.max(4, Math.floor(Math.min(width, height) / 150));
-  const data = ctx.getImageData(0, 0, width, height).data;
-  let dark = 0;
-  for (let y = 0; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      const i = (y * width + x) * 4;
-      if (data[i] < 220 || data[i + 1] < 220 || data[i + 2] < 220) dark += 1;
-    }
-  }
-  return dark > 40;
-}
-
 function looksLikeVerificationReport(text) {
   if (!text) return false;
   const t = text.toLowerCase();
@@ -139,23 +85,10 @@ function looksLikeVerificationReport(text) {
 }
 
 async function ocrFromCanvas(worker, canvas, onStatus) {
-  if (!canvasHasInk(canvas)) return '';
   onStatus?.('Recognizing text…');
-
   try {
-    await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
     const result = await worker.recognize(canvas);
-    let text = (result?.data?.text || '').trim();
-
-    if (text.length >= 30) {
-      return text;
-    }
-
-    // Fallback mode if AUTO produced very little text
-    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK });
-    const retry = await worker.recognize(canvas);
-    const retryText = (retry?.data?.text || '').trim();
-    return retryText.length > text.length ? retryText : text;
+    return (result?.data?.text || '').trim();
   } catch (err) {
     console.warn('Canvas OCR recognition error:', err);
     return '';
@@ -163,7 +96,6 @@ async function ocrFromCanvas(worker, canvas, onStatus) {
 }
 
 async function ocrPageWithPdfJs(page, worker, onStatus) {
-  // Scale 2.0 provides ~200 DPI resolution, perfect for fast & accurate OCR
   const viewport = page.getViewport({ scale: 2.0 });
   const canvas = document.createElement('canvas');
   canvas.width = Math.floor(viewport.width);
@@ -178,7 +110,6 @@ async function ocrPageWithPdfJs(page, worker, onStatus) {
     intent: 'print',
   }).promise;
 
-  enhanceForOcr(canvas);
   return ocrFromCanvas(worker, canvas, onStatus);
 }
 
