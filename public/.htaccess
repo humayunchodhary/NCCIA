@@ -1,6 +1,6 @@
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
+        Options -MultiViews -Indexes -ExecCGI
     </IfModule>
 
     RewriteEngine On
@@ -13,8 +13,14 @@
         AddType text/css .css
     </IfModule>
 
-    # Block access to .env and sensitive files (allow version.json)
-    <FilesMatch "^(\.env|\.git|composer\.(json|lock)|package(-lock)?\.json|.*\.log|.*\.md)$">
+    # Strict file blocking: Block access to .env, .git, config, db backups, scripts, logs
+    <FilesMatch "^(\.env|\.git|\.well-known/.*|composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml.*|vite\.config\..*|.*\.log|.*\.md|.*\.sql|.*\.bak|.*\.sh|.*\.py|.*\.ini|.*\.conf)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+
+    # Disable script execution for uploaded assets
+    <FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phar|cgi|pl|py|sh|exe|bat|cmd)$">
         Order allow,deny
         Deny from all
     </FilesMatch>
@@ -32,12 +38,14 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
-    # Security Headers (fallback for nginx-only servers)
+    # Enterprise Security Headers
     <IfModule mod_headers.c>
         Header always set X-Frame-Options "DENY"
         Header always set X-Content-Type-Options "nosniff"
         Header always set X-XSS-Protection "1; mode=block"
         Header always set Referrer-Policy "strict-origin-when-cross-origin"
+        Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+        Header always set X-Permitted-Cross-Domain-Policies "none"
 
         # Never cache SPA shell / version (so deploys appear without Ctrl+F5)
         <FilesMatch "(index\.html|version\.json)$">
