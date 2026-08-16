@@ -306,7 +306,20 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   color: #015C94;
   font-weight: 600;
 }
-/* Mobile sidebar */
+/* Mobile and Desktop Main Layout */
+@media (min-width: 769px) {
+  body:not(.sidebar-collapsed) .main-content {
+    margin-left: 280px !important;
+    width: calc(100% - 280px) !important;
+    max-width: calc(100% - 280px) !important;
+  }
+  body.sidebar-collapsed .main-content {
+    margin-left: var(--sidebar-collapsed, 70px) !important;
+    width: calc(100% - var(--sidebar-collapsed, 70px)) !important;
+    max-width: calc(100% - var(--sidebar-collapsed, 70px)) !important;
+  }
+}
+
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
@@ -326,6 +339,8 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   body.sidebar-collapsed .main-content,
   body:not(.sidebar-collapsed) .main-content {
     margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 
