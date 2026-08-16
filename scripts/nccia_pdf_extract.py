@@ -185,35 +185,105 @@ def map_recommendation(text):
     return None
 
 
+def extract_accused_list_from_text(text):
+    accused = []
+    seen = set()
+
+    for m in re.finditer(r"To\s+([A-Z\s]{3,35})\s+(PK\d{2}[A-Z0-9]{16,24}|\d{10,24})\s+(?:Bank\s+)?([A-Za-z\s]{3,25})?(?:[\s\S]*?(?:Paid|Debited|Amount)[\s\S]*?(?:Rs\.?|PKR)\s*([\d,]+))?", text, re.I):
+        name = clean_value(m.group(1))
+        acc = m.group(2).strip()
+        bank = clean_value(m.group(3)) or ""
+        amount = m.group(4).strip() if m.group(4) else ""
+        if not name or re.match(r"^(abid\s+hussain|customer|service|status|bank|from|amount)", name, re.I):
+            continue
+        key = (name.lower(), acc.lower())
+        if key not in seen:
+            seen.add(key)
+            accused.append({
+                "name": name,
+                "father_name": "",
+                "cnic": "",
+                "mobile_no": "",
+                "phone": "",
+                "bank_account": acc,
+                "bank_name": bank,
+                "description": f"Bank: {bank} | Acc/IBAN: {acc}" + (f" | Amount: Rs. {amount}" if amount else ""),
+            })
+
+    for m in re.finditer(r"Name[\s\=]+([A-Z\s]{3,35})\s+Account[\s\=]+(\d+)(?:\s+IBAN[\s\=]+(PK\d{2}[A-Z0-9]+))?(?:\s+([A-Za-z\s]+)bank)?", text, re.I):
+        name = clean_value(m.group(1))
+        acc = m.group(2).strip()
+        iban = m.group(3).strip() if m.group(3) else ""
+        bank = clean_value(m.group(4)) or ""
+        if not name:
+            continue
+        target_acc = iban or acc
+        key = (name.lower(), target_acc.lower())
+        if key not in seen:
+            seen.add(key)
+            accused.append({
+                "name": name,
+                "father_name": "",
+                "cnic": "",
+                "mobile_no": "",
+                "phone": "",
+                "bank_account": target_acc,
+                "bank_name": bank,
+                "description": f"Bank: {bank} | Acc: {acc}" + (f" | IBAN: {iban}" if iban else ""),
+            })
+
+    m_hira = re.search(r"(?:Sailkot\s+Hira|Hira\s+Rehman)[^\d]{0,20}(\+?92[\s\-]?\d{10}|03\d{9})", text, re.I)
+    if m_hira:
+        phone = re.sub(r"\D", "", m_hira.group(1))
+        if phone.startswith("92") and len(phone) > 10:
+            phone = phone[2:]
+        if len(phone) == 10:
+            phone = "0" + phone
+        key = ("hira", phone)
+        if key not in seen:
+            seen.add(key)
+            accused.append({
+                "name": "Hira Rehman / Sailkot Hira",
+                "father_name": "",
+                "cnic": "",
+                "mobile_no": phone,
+                "phone": phone,
+                "description": "WhatsApp / Fraud App Operator (mallbyvip.com / BestBuy)",
+            })
+
+    return accused
+
+
 def parse_verification_report(text, filename):
     tracking_no = first_match(
         text,
         [
-            r"Tracking\s*No\.?\s*:?\s*([A-Z0-9][A-Z0-9\-\/]+)",
-            r"Tracking\s*Number\s*:?\s*([A-Z0-9][A-Z0-9\-\/]+)",
-            r"VERIFICATION\s*REPORT\s*[\n\r]+No\.?\s*([A-Z0-9][A-Z0-9\-\/]+)",
-            r"No\.?\s*(CCW-[A-Z0-9\-\/]+)",
+            r"Tracking\s*No[\s\.\:\-]+([A-Z0-9][A-Z0-9\-\/]+)",
+            r"Tracking\s*Number[\s\.\:\-]+([A-Z0-9][A-Z0-9\-\/]+)",
+            r"VERIFICATION\s*REPORT[\s\S]{0,100}?No[\s\.\:\-]+([A-Z0-9][A-Z0-9\-\/]+)",
+            r"\b(CCW-[A-Z0-9\-\/]+)\b",
+            r"No[\s\.\:\-]+(CCW-[A-Z0-9\-\/]+)",
         ],
     )
 
     verification_date = parse_date(
-        first_match(text, [r"Verification\s*Date\s*:?\s*([\d\-\/]+)"])
+        first_match(text, [r"Verification\s*Date[\s\.\:\-]+([\d\-\/\.]{8,12})"])
     )
     assignment_date = parse_date(
-        first_match(text, [r"Assignment\s*Date\s*:?\s*([\d\-\/]+)"])
+        first_match(text, [r"Assignment\s*Date[\s\.\:\-]+([\d\-\/\.]{8,12})"])
     )
 
     full_name = first_match(
         text,
         [
-            r"COMPLAINANT\s*DETAILS.*?Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)",
-            r"Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)",
+            r"COMPLAINANT\s*DETAILS[\s\S]{0,80}?Name[\s\.\:\-]+(.+?)(?:Gender|CNIC|Occupation|Contact|Mobile|$)",
+            r"Name[\s\.\:\-]+(.+?)(?:Gender|CNIC|Occupation|Contact|Mobile|$)",
             r"Name\s*:?\s*(.+?)\s+Gender\s*:",
         ],
     )
     victim_name, victim_father_name = split_name_father(full_name)
 
-    gender_raw = first_match(text, [r"Gender\s*:?\s*(Male|Female|Other)", r"Gender\s*:?\s*(\w+)"])
+    gender_raw = first_match(text, [r"Gender[\s\.\:\-]+(Male|Female|Other)", r"Gender[\s\.\:\-]+(\w+)"])
     victim_gender = gender_raw.lower() if gender_raw else None
     if not victim_gender and re.search(r"\bMale\b", text, re.I):
         victim_gender = "male"
@@ -222,21 +292,28 @@ def parse_verification_report(text, filename):
 
     cnic_raw = first_match(
         text,
-        [r"CNIC\s*No\.?\s*:?\s*([\d\-]+)", r"CNIC\s*No\.?\s*([\d]+)", r"CNIC\s*:?\s*([\d\-]+)"],
+        [
+            r"CNIC\s*No[\s\.\:\-]+([\d\-]{13,17})",
+            r"CNIC\s*No[\s\.\:\-]+([\d]{13})",
+            r"CNIC[\s\.\:\-]+([\d\-]{13,17})",
+            r"CNIC[\s\.\:\-]+([\d]{13})",
+        ],
     )
     victim_cnic = normalize_cnic(cnic_raw)
 
     victim_occupation = first_match(
         text,
-        [r"Occupation\s*:?\s*(.+?)(?:Contact|Mobile|Address|$)", r"Occupation\s*:?\s*(.+?)(?:\n|$)"],
+        [r"Occupation[\s\.\:\-]+(.+?)(?:Contact|Mobile|Address|Email|Details|Addresses|$)", r"Occupation[\s\.\:\-]+(.+?)(?:\n|$)"],
     )
 
     victim_phone = first_match(
         text,
         [
-            r"Mobile\s*Number\s*:?\s*([\d\-]+)",
-            r"Details\.?\s*Mobile\s*Number\s*:?\s*([\d\-]+)",
-            r"Contact\s*Details\s*:?\s*([\d\-]+)",
+            r"Mobile\s*Number[\s\.\:\-]+([\d\-\s]+)",
+            r"Contact\s*Details[\s\S]{0,40}?Mobile\s*Number[\s\.\:\-]+([\d\-\s]+)",
+            r"Contact\s*Details[\s\.\:\-]+([\d\-\s]+)",
+            r"Contact\s*(?:No\.?|Number)?[\s\.\:\-]+(0?3\d{9})",
+            r"\b(0?3\d{2}[\-\s]?\d{7})\b",
         ],
     )
     if victim_phone:
@@ -249,19 +326,19 @@ def parse_verification_report(text, filename):
     address = first_match(
         text,
         [
-            r"Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|RECOMMEND|Online|$)",
-            r"Addresses\s*Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|Online|$)",
+            r"Current\s*Address[\s\.\:\-]+(.+?)(?:Permanent|BRIEF|Brief|RECOMMEND|Online|$)",
+            r"Addresses[\s\.\:\-]+Current\s*Address[\s\.\:\-]+(.+?)(?:Permanent|BRIEF|Brief|Online|$)",
         ],
     )
     permanent_address = first_match(
         text,
-        [r"Permanent\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|Online|Contact|$)"],
+        [r"Permanent\s*Address[\s\.\:\-]+(.+?)(?:BRIEF|Brief|RECOMMEND|Online|Contact|$)"],
     )
 
     victim_email = first_match(
         text,
         [
-            r"E-?mail\s*(?:Address)?\s*:?\s*([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})",
+            r"E-?mail\s*(?:Address)?[\s\.\:\-]+([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})",
             r"\b([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})\b",
         ],
     )
@@ -269,9 +346,9 @@ def parse_verification_report(text, filename):
     crime_category = first_match(
         text,
         [
-            r"BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE\s*:?\s*(.+?)(?:accuse|Accuse|During|Online|City|$)",
-            r"BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|Online|$)",
-            r"Crime\s*Categor(?:y|ies)\s*:?\s*(.+?)(?:accuse|City|Amount|$)",
+            r"BRIEF\s*DESCRIPTION\s*&\s*RECOMMENDATIONS?\s*[\n\r]+([^\n\r]+)",
+            r"BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE[\s\.\:\-]+(.+?)(?:accuse|Accuse|During|Online|City|$)",
+            r"Crime\s*Categor(?:y|ies)[\s\.\:\-]+(.+?)(?:accuse|City|Amount|$)",
             r"(Online\s+Job\s+Frauds)",
         ],
     )
@@ -279,25 +356,31 @@ def parse_verification_report(text, filename):
     crime_description = first_match(
         text,
         [
-            r"(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|$)",
+            r"(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|\n\s*\*|$)",
             r"(accuse.+?investment.+?)(?:City|Amount|RECOMMEND|$)",
             r"BRIEF\s*DESCRIPTION[\s\S]{0,80}?((?:During|The|accuse).+?)(?:City\s*of|Amount\s*Involved|RECOMMEND|$)",
         ],
     )
 
-    accused_name = first_match(
+    accused_list = extract_accused_list_from_text(text)
+    primary_accused = accused_list[0] if accused_list else {}
+
+    accused_name = primary_accused.get("name") or first_match(
         text,
         [
-            r"Accuse[d]?\s*(?:Name|Person)?\s*:?\s*(.+?)(?:CNIC|Mobile|Address|City|Amount|$)",
+            r"Accuse[d]?\s*(?:Name|Person)?[\s\.\:\-]+(.+?)(?:CNIC|Mobile|Address|City|Amount|$)",
             r"against\s+(?:the\s+)?accuse[d]?\s+([A-Za-z][A-Za-z\s\./]{2,60})",
         ],
     )
-    accused_cnic = normalize_cnic(
-        first_match(text, [r"Accuse[d]?[^\n]{0,40}CNIC\s*(?:No\.?)?\s*:?\s*([\d\-]+)"])
+    accused_cnic = primary_accused.get("cnic") or normalize_cnic(
+        first_match(text, [r"Accuse[d]?[^\n]{0,40}CNIC\s*(?:No\.?)?[\s\.\:\-]+([\d\-]+)"])
     )
-    accused_phone = first_match(
+    accused_phone = primary_accused.get("mobile_no") or primary_accused.get("phone") or first_match(
         text,
-        [r"Accuse[d]?[^\n]{0,60}(?:Mobile|Phone|Contact)\s*(?:No\.?|Number)?\s*:?\s*([\d\-]+)"],
+        [
+            r"Accuse[d]?[^\n]{0,60}(?:Mobile|Phone|Contact)\s*(?:No\.?|Number)?[\s\.\:\-]+([\d\-]+)",
+            r"واٹس\s*ایپ\s*نمبر[\s\:\-]+(0?3\d{9})",
+        ],
     )
     if accused_phone:
         accused_phone = re.sub(r"\D", "", accused_phone)
@@ -309,17 +392,17 @@ def parse_verification_report(text, filename):
     city = first_match(
         text,
         [
-            r"City\s*of\s*Occurrence\s*:?\s*(.+?)(?:Complaint|Amount|RECOMMEND|$)",
-            r"0f\s*Occurrence\s*(.+?)(?:working|Amount|RECOMMEND|$)",
+            r"City\s*of\s*Occurrence[\s\.\:\-]+(.+?)(?:Complaint|Amount|RECOMMEND|BRIEF|$)",
+            r"0f\s*Occurrence[\s\.\:\-]+(.+?)(?:Complaint|Amount|working|RECOMMEND|BRIEF|$)",
         ],
     )
 
     amount_raw = first_match(
         text,
         [
-            r"Amount\s*Involved\.?\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)",
-            r"Amount\s*Involved\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)",
-            r"Rs\.?\s*([\d,]{3,}(?:\.\d+)?)",
+            r"Amount\s*Involved[\s\.\:\-]+(?:Rs\.?\s*)?([\d,\.]+)",
+            r"defrauded\s+Rs\.?\s*([\d,\.]+)",
+            r"Rs\.?\s*([\d,]{4,}(?:\.\d+)?)",
         ],
     )
     amount_involved = None
@@ -332,7 +415,8 @@ def parse_verification_report(text, filename):
     recommendation_text = first_match(
         text,
         [
-            r"RECOMMENDATIONS?\s*:?\s*(.+?)(?:Justification|Reporting Officer|$)",
+            r"(?:^|\n)\s*RECOMMENDATIONS?\s*[\n\r]+\s*([A-Za-z\s]{5,80})",
+            r"RECOMMENDATIONS?[\s\.\:\-]+(Permission[^\n\r]+)",
             r"Per(?:m|i)ssion\s+to\s+Register\s+Enq(?:u|ui)ry",
         ],
     )
@@ -340,13 +424,17 @@ def parse_verification_report(text, filename):
 
     recommendation_full = first_match(
         text,
-        [r"Justification\s*:?\s*(.+?)(?:Reporting Officer|Assistant Sub|Signature|$)"],
+        [
+            r"(During\s+the\s+course\s+of\s+verification.+?converted\s+into\s+a\s+regular\s+Enquiry[\.]?)",
+            r"Justification[\s\.\:\-]+(.+?)(?:Reporting Officer|Assistant Sub|Signature|$)",
+        ],
     )
     reporting_officer = first_match(
         text,
         [
-            r"Reporting\s*Officer\s*:?\s*(.+?)(?:Designation|Rank|Signature|$)",
-            r"(?:ASP|ASI|SI|Inspector)\s+([A-Za-z][A-Za-z\s\.]{2,40})",
+            r"([A-Z\s]{3,30})\s*[\n\r]+\s*(?:Assistant Sub Inspector|Sub Inspector|Inspector|ASI|SI|ASP|DSP)",
+            r"(?:Assistant Sub Inspector|Sub Inspector|Inspector|ASI|SI|ASP|DSP)[\s\.\:\-]+([A-Za-z\s\.]{2,40})",
+            r"Reporting\s*Officer[\s\.\:\-]+(.+?)(?:Designation|Rank|Signature|$)",
         ],
     )
 

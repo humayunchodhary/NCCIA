@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
+import PdfAutoFillBar from '../components/PdfAutoFillBar';
+import { mapExtractToComplaintForm, matchLookupValue } from '../utils/fillFromPdf';
 import { countryCodes } from '../data/countries';
 import { canAssignVerification, hasRole } from '../utils/permissions';
 import { openPrintWindow } from '../utils/print';
@@ -497,6 +499,30 @@ export default function ComplaintForm() {
     );
   };
 
+  const handlePdfFilled = (extracted, file) => {
+    const mapped = mapExtractToComplaintForm(extracted);
+    setForm(prev => {
+      const next = { ...prev };
+      Object.entries(mapped).forEach(([k, v]) => {
+        if (v !== '' && v != null) {
+          if (k === 'initial_accused' && Array.isArray(v) && v.length > 0) {
+            next[k] = v;
+          } else {
+            next[k] = v;
+          }
+        }
+      });
+      if (extracted.crime_category && offenceTypes?.length) {
+        const matchedOffence = matchLookupValue(offenceTypes, extracted.crime_category);
+        if (matchedOffence) next.offence_type = matchedOffence;
+      }
+      return next;
+    });
+    if (file) {
+      setAttachmentFile(file);
+    }
+  };
+
   return (
     <div className="page-content">
       <div className="page-header">
@@ -506,6 +532,13 @@ export default function ComplaintForm() {
           <div className="title-underline"></div>
         </div>
       </div>
+
+      {!id && (
+        <PdfAutoFillBar
+          onFilled={handlePdfFilled}
+          hint="Upload verification report PDF (e.g. CCW-C-80519/25) — Name, CNIC, Phone, Address, Offence, Amount, and Accused details will auto-fill automatically."
+        />
+      )}
 
       <form onSubmit={handleSubmit} noValidate>
         {serverError && (

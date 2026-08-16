@@ -21,48 +21,53 @@ function asError(err, fallback) {
   return new Error(fallback);
 }
 
-async function verifyOcrAssets(onStatus) {
-  const checks = [
-    `${TESS_BASE}/worker.min.js`,
-    `${TESS_BASE}/tesseract-core-relaxedsimd-lstm.wasm.js`,
-    `${TESS_BASE}/lang/eng.traineddata.gz`,
-  ];
-  onStatus?.('Checking OCR files…');
-  for (const url of checks) {
-    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-    if (!res.ok) {
-      throw new Error(`OCR file not found (${res.status}): ${url}. Run git pull and hard-refresh.`);
-    }
-  }
-}
-
 async function initWorker(onStatus) {
-  await verifyOcrAssets(onStatus);
   onStatus?.('Loading OCR engine…');
 
-  const worker = await createWorker('eng', OEM.LSTM_ONLY, {
-    workerPath: `${TESS_BASE}/worker.min.js`,
-    corePath: `${TESS_BASE}`,
-    langPath: `${TESS_BASE}/lang`,
-    workerBlobURL: true,
-    gzip: true,
-    logger: (m) => {
-      if (!onStatus) return;
-      if (m.status === 'loading tesseract core') onStatus('Loading OCR core…');
-      if (m.status === 'initializing tesseract') onStatus('Initializing OCR…');
-      if (m.status === 'loading language traineddata') onStatus('Loading language data…');
-      if (m.status === 'recognizing text') onStatus(`OCR ${Math.round((m.progress || 0) * 100)}%…`);
-    },
-    errorHandler: (e) => console.error('Tesseract error:', e),
-  });
+  const logger = (m) => {
+    if (!onStatus) return;
+    if (m.status === 'loading tesseract core') onStatus('Loading OCR core…');
+    if (m.status === 'initializing tesseract') onStatus('Initializing OCR…');
+    if (m.status === 'loading language traineddata') onStatus('Loading language data…');
+    if (m.status === 'recognizing text') onStatus(`OCR ${Math.round((m.progress || 0) * 100)}%…`);
+  };
 
-  await worker.setParameters({
-    tessedit_pageseg_mode: PSM.AUTO,
-    preserve_interword_spaces: '1',
-    user_defined_dpi: '300',
-  });
+  try {
+    // Try local assets first
+    const worker = await createWorker('eng', OEM.LSTM_ONLY, {
+      workerPath: `${TESS_BASE}/worker.min.js`,
+      corePath: `${TESS_BASE}`,
+      langPath: `${TESS_BASE}/lang`,
+      workerBlobURL: true,
+      gzip: true,
+      logger,
+      errorHandler: (e) => console.warn('Tesseract local warning:', e),
+    });
 
-  return worker;
+    await worker.setParameters({
+      tessedit_pageseg_mode: PSM.AUTO,
+      preserve_interword_spaces: '1',
+      user_defined_dpi: '300',
+    });
+
+    return worker;
+  } catch (localErr) {
+    console.warn('Local OCR worker init failed, attempting CDN fallback:', localErr);
+    onStatus?.('Loading online OCR engine…');
+
+    const worker = await createWorker('eng', OEM.LSTM_ONLY, {
+      logger,
+      errorHandler: (e) => console.error('Tesseract fallback error:', e),
+    });
+
+    await worker.setParameters({
+      tessedit_pageseg_mode: PSM.AUTO,
+      preserve_interword_spaces: '1',
+      user_defined_dpi: '300',
+    });
+
+    return worker;
+  }
 }
 
 async function getOcrWorker(onStatus) {

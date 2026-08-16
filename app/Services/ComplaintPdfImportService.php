@@ -385,6 +385,11 @@ class ComplaintPdfImportService
             'circle_id'            => $existing?->circle_id ?? $user->circle_id,
         ];
 
+        $accusedList = $data['accused'] ?? $data['initial_accused'] ?? [];
+        if (!empty($accusedList) && is_array($accusedList)) {
+            $payload['initial_accused'] = $accusedList;
+        }
+
         if (!empty($data['tracking_no'])) {
             $payload['tracking_no'] = $data['tracking_no'];
         } elseif (empty($existing?->tracking_no) && !empty($data['inquiry_no'])) {
@@ -411,8 +416,8 @@ class ComplaintPdfImportService
 
         $fullName = $data['complainant_full_name'] ?? $data['victim_name'] ?? $complaint->complainant_name;
 
-        $accused = [];
-        if (!empty($data['accused_name']) || !empty($data['accused_cnic']) || !empty($data['accused_phone'])) {
+        $accused = $data['accused'] ?? [];
+        if (empty($accused) && (!empty($data['accused_name']) || !empty($data['accused_cnic']) || !empty($data['accused_phone']))) {
             $accused[] = array_filter([
                 'name'  => $data['accused_name'] ?? null,
                 'cnic'  => $data['accused_cnic'] ?? null,

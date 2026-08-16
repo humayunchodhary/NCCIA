@@ -149,11 +149,19 @@ class ComplaintPdfExtractor
     {
         $text = $this->normalizeOcrText($text);
 
-        $pick = function (array $patterns) use ($text): ?string {
+        $clean = function (?string $val): ?string {
+            if ($val === null) return null;
+            $val = trim($val);
+            $val = preg_replace('/^[\s\.\:\-\,\;]+|[\s\.\:\-\,\;]+$/u', '', $val);
+            $val = trim(preg_replace('/\s+/', ' ', $val) ?? '');
+            return $val !== '' ? $val : null;
+        };
+
+        $pick = function (array $patterns) use ($text, $clean): ?string {
             foreach ($patterns as $pattern) {
                 if (preg_match($pattern, $text, $m)) {
-                    $val = trim(preg_replace('/\s+/', ' ', $m[1]) ?? '');
-                    if ($val !== '') {
+                    $val = $clean($m[1] ?? '');
+                    if ($val !== null && $val !== '') {
                         return $val;
                     }
                 }
@@ -163,16 +171,28 @@ class ComplaintPdfExtractor
         };
 
         $trackingNo = $pick([
-            '/Tracking\s*No\.?\s*:?\s*([A-Z0-9][A-Z0-9\-\/]+)/i',
-            '/VERIFICATION\s*REPORT\s*[\n\r]+No\.?\s*([A-Z0-9][A-Z0-9\-\/]+)/i',
-            '/No\.?\s*(CCW-[A-Z0-9\-\/]+)/i',
+            '/Tracking\s*No[\s\.\:\-]+([A-Z0-9][A-Z0-9\-\/]+)/i',
+            '/VERIFICATION\s*REPORT[\s\S]{0,100}?No[\s\.\:\-]+([A-Z0-9][A-Z0-9\-\/]+)/i',
+            '/\b(CCW-[A-Z0-9\-\/]+)\b/i',
+            '/No[\s\.\:\-]+(CCW-[A-Z0-9\-\/]+)/i',
+            '/(?:Tracking|Ref)[\s\.\:\-]+(\d{4,8}\/\d{2,4})/i',
         ]);
+
+        $verificationDateRaw = $pick([
+            '/Verification\s*Date[\s\.\:\-]+([\d\-\/\.]{8,12})/i',
+            '/Date\s*of\s*Verification[\s\.\:\-]+([\d\-\/\.]{8,12})/i',
+        ]);
+
+        $assignmentDateRaw = $pick([
+            '/Assignment\s*Date[\s\.\:\-]+([\d\-\/\.]{8,12})/i',
+            '/Date\s*of\s*Assignment[\s\.\:\-]+([\d\-\/\.]{8,12})/i',
+        ]);
+
         $fullName = $pick([
-            '/COMPLAINANT\s*DETAILS.*?Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)/is',
-            '/Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)/is',
+            '/COMPLAINANT\s*DETAILS[\s\S]{0,80}?Name[\s\.\:\-]+(.+?)(?:Gender|CNIC|Occupation|Contact|Mobile|$)/is',
+            '/Name[\s\.\:\-]+(.+?)(?:Gender|CNIC|Occupation|Contact|Mobile|$)/is',
             '/Name\s*:?\s*(.+?)\s+Gender\s*:/is',
-            '/Name\.?\s*(.+?)\s+Gender\.?\s*(?:Male|Female)/is',
-            '/(?:^|\s)Name\.?\s+([A-Za-z][A-Za-z\s\/\.]+?)\s+Gender/is',
+            '/(?:^|\s)Name[\s\.\:\-]+([A-Za-z][A-Za-z\s\/\.]+?)\s+Gender/is',
         ]);
         if (!$fullName) {
             $fullName = $this->findNameFromSoPattern($text);
@@ -180,92 +200,135 @@ class ComplaintPdfExtractor
 
         [$victimName, $fatherName] = $this->splitNameFather($fullName);
         $cnicRaw = $pick([
-            '/CNIC\s*No\.?\s*:?\s*([\d\-]+)/i',
-            '/CNIC\s*No\.?\s*([\d]{13})/i',
-            '/CNIC\s*No\.?\s*([\d]{5}[\s\-]?\d{7}[\s\-]?\d)/i',
-            '/CNIC\s*:?\s*([\d\-]+)/i',
+            '/CNIC\s*No[\s\.\:\-]+([\d\-]{13,17})/i',
+            '/CNIC\s*No[\s\.\:\-]+([\d]{13})/i',
+            '/CNIC[\s\.\:\-]+([\d\-]{13,17})/i',
+            '/CNIC[\s\.\:\-]+([\d]{13})/i',
         ]) ?? $this->findCnicInText($text);
+
         $phoneRaw = $pick([
-            '/Mobile\s*Number\s*:?\s*([\d\-]+)/i',
-            '/Details\.?\s*Mobile\s*Number\s*:?\s*([\d\-]+)/i',
-            '/Contact\s*Details\s*:?\s*([\d\-]+)/i',
-            '/Contact\s*(?:No\.?|Number)?\s*:?\s*(0?3\d{9})/i',
+            '/Mobile\s*Number[\s\.\:\-]+([\d\-\s]+)/i',
+            '/Contact\s*Details[\s\S]{0,40}?Mobile\s*Number[\s\.\:\-]+([\d\-\s]+)/i',
+            '/Contact\s*Details[\s\.\:\-]+([\d\-\s]+)/i',
+            '/Contact\s*(?:No\.?|Number)?[\s\.\:\-]+(0?3\d{9})/i',
             '/\b(0?3\d{2}[\-\s]?\d{7})\b/',
         ]);
 
-        $gender = strtolower($pick(['/Gender\s*:?\s*(Male|Female|Other)/i']) ?? '') ?: null;
+        $gender = strtolower($pick(['/Gender[\s\.\:\-]+(Male|Female|Other)/i']) ?? '') ?: null;
         if (!$gender && preg_match('/\bMale\b/i', $text)) {
             $gender = 'male';
         } elseif (!$gender && preg_match('/\bFemale\b/i', $text)) {
             $gender = 'female';
         }
 
+        $occupation = $pick([
+            '/Occupation[\s\.\:\-]+(.+?)(?:Contact|Mobile|Address|Email|Details|Addresses|$)/is',
+        ]);
+
+        $address = $pick([
+            '/Current\s*Address[\s\.\:\-]+(.+?)(?:Permanent|BRIEF|Brief|RECOMMEND|Online|$)/is',
+            '/Addresses[\s\.\:\-]+Current\s*Address[\s\.\:\-]+(.+?)(?:Permanent|BRIEF|Brief|Online|$)/is',
+        ]);
+
+        $permanentAddress = $pick([
+            '/Permanent\s*Address[\s\.\:\-]+(.+?)(?:BRIEF|Brief|RECOMMEND|Online|Contact|$)/is',
+        ]);
+
+        $email = $pick([
+            '/E-?mail\s*(?:Address)?[\s\.\:\-]+([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})/i',
+            '/\b([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})\b/i',
+        ]);
+
+        $crimeCategory = $pick([
+            '/BRIEF\s*DESCRIPTION\s*&\s*RECOMMENDATIONS?\s*[\n\r]+([^\n\r]+)/is',
+            '/BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE[\s\.\:\-]+(.+?)(?:accuse|Accuse|During|Online|City|$)/is',
+            '/Crime\s*Categor(?:y|ies)[\s\.\:\-]+(.+?)(?:accuse|City|Amount|$)/is',
+            '/(Online\s+Job\s+Frauds)/i',
+        ]);
+
+        $crimeDescription = $pick([
+            '/(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|\n\s*\*|$)/is',
+            '/BRIEF\s*DESCRIPTION[\s\S]{0,80}?((?:During|The|accuse).+?)(?:City\s*of|Amount\s*Involved|RECOMMEND|$)/is',
+        ]);
+
+        $city = $pick([
+            '/City\s*of\s*Occurrence[\s\.\:\-]+(.+?)(?:Complaint|Amount|RECOMMEND|BRIEF|$)/is',
+            '/0f\s*Occurrence[\s\.\:\-]+(.+?)(?:Complaint|Amount|working|RECOMMEND|BRIEF|$)/is',
+        ]);
+
+        $amountRaw = $pick([
+            '/Amount\s*Involved[\s\.\:\-]+(?:Rs\.?\s*)?([\d,\.]+)/i',
+            '/defrauded\s+Rs\.?\s*([\d,\.]+)/i',
+            '/Rs\.?\s*([\d,]{4,}(?:\.\d+)?)/i',
+        ]);
+
+        $recommendationShort = $pick([
+            '/(?:^|\n)\s*RECOMMENDATIONS?\s*[\n\r]+\s*([A-Za-z\s]{5,80})/is',
+            '/RECOMMENDATIONS?[\s\.\:\-]+(Permission[^\n\r]+)/i',
+            '/RECOMMENDATIONS?[\s\.\:\-]+([A-Za-z\s]{5,80})/is',
+            '/(Permission\s+to\s+Register\s+Enquiry)/i',
+        ]);
+
+        $recommendationFull = $pick([
+            '/(During\s+the\s+course\s+of\s+verification.+?converted\s+into\s+a\s+regular\s+Enquiry[\.]?)/is',
+            '/Justification[\s\.\:\-]+(.+?)(?:Reporting Officer|Assistant Sub|Signature|$)/is',
+        ]);
+
+        $reportingOfficer = $pick([
+            '/([A-Z\s]{3,30})\s*[\n\r]+\s*(?:Assistant Sub Inspector|Sub Inspector|Inspector|ASI|SI|ASP|DSP)/i',
+            '/(?:Assistant Sub Inspector|Sub Inspector|Inspector|ASI|SI|ASP|DSP)[\s\.\:\-]+([A-Za-z\s\.]{2,40})/i',
+            '/Reporting\s*Officer[\s\.\:\-]+([A-Za-z\s\.]{2,40})/i',
+        ]);
+
+        $inquiryNo = $pick([
+            '/\b(E\s*[\/\-]\s*\d+\s*[\/\-]\s*\d+)\b/i',
+            '/Inquiry\s*No[\s\.\:\-]+(E[\/\-]?\s*\d+\s*[\/\-]\s*\d+)/i',
+            '/Inquiry\s*No[\s\.\:\-]+([A-Z0-9\/\-]+)/i',
+        ]) ?? $this->inquiryRefFromFilename($originalFilename);
+
+        $accusedList = $this->extractAccusedListFromText($text);
+        $primaryAccused = $accusedList[0] ?? [];
+
+        $accusedName = $primaryAccused['name'] ?? $pick([
+            '/Accuse[d]?\s*(?:Name|Person)?[\s\.\:\-]+(.+?)(?:CNIC|Mobile|Address|City|Amount|$)/is',
+            '/against\s+(?:the\s+)?accuse[d]?\s+([A-Za-z][A-Za-z\s\.\/]{2,60})/i',
+        ]);
+        $accusedCnic = $primaryAccused['cnic'] ?? $this->normalizeCnic($pick([
+            '/Accuse[d]?[^\n]{0,40}CNIC\s*(?:No\.?)?[\s\.\:\-]+([\d\-]+)/i',
+        ]));
+        $accusedPhone = $primaryAccused['mobile_no'] ?? $primaryAccused['phone'] ?? $this->normalizePhone($pick([
+            '/Accuse[d]?[^\n]{0,60}(?:Mobile|Phone|Contact)\s*(?:No\.?|Number)?[\s\.\:\-]+([\d\-]+)/i',
+            '/واٹس\s*ایپ\s*نمبر[\s\:\-]+(0?3\d{9})/u',
+        ]));
+
         $data = array_filter([
             'document_type'        => 'verification_report',
             'tracking_no'          => $trackingNo,
-            'verification_date'    => $this->normalizeDate($pick(['/Verification\s*Date\s*:?\s*([\d\-\/]+)/i'])),
-            'assignment_date'      => $this->normalizeDate($pick(['/Assignment\s*Date\s*:?\s*([\d\-\/]+)/i'])),
+            'verification_date'    => $this->normalizeDate($verificationDateRaw),
+            'assignment_date'      => $this->normalizeDate($assignmentDateRaw),
             'victim_name'          => $victimName,
             'victim_father_name'   => $fatherName,
             'victim_gender'        => $gender,
             'victim_cnic'          => $this->normalizeCnic($cnicRaw),
-            'victim_occupation'    => $pick(['/Occupation\s*:?\s*(.+?)(?:Contact|Mobile|Address|Email|Details|$)/is']),
-            'victim_email'         => $pick([
-                '/E-?mail\s*(?:Address)?\s*:?\s*([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})/i',
-                '/\b([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})\b/i',
-            ]),
+            'victim_occupation'    => $clean($occupation),
+            'victim_email'         => $email,
             'victim_phone'         => $this->normalizePhone($phoneRaw),
-            'victim_address'       => $pick([
-                '/Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|RECOMMEND|Online|$)/is',
-                '/Addresses\s*Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|Online|$)/is',
-            ]),
-            'victim_permanent_address' => $pick([
-                '/Permanent\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|Online|Contact|$)/is',
-            ]),
-            'crime_category'       => $pick([
-                '/BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE\s*:?\s*(.+?)(?:accuse|Accuse|During|Online|City|$)/is',
-                '/BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|Online|$)/is',
-                '/Crime\s*Categor(?:y|ies)\s*:?\s*(.+?)(?:accuse|City|Amount|$)/is',
-                '/(Online\s+Job\s+Frauds)/i',
-            ]),
-            'crime_description'    => $pick([
-                '/(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|$)/is',
-                '/BRIEF\s*DESCRIPTION[\s\S]{0,80}?((?:During|The|accuse).+?)(?:City\s*of|Amount\s*Involved|RECOMMEND|$)/is',
-            ]),
-            'accused_name'         => $pick([
-                '/Accuse[d]?\s*(?:Name|Person)?\s*:?\s*(.+?)(?:CNIC|Mobile|Address|City|Amount|$)/is',
-                '/against\s+(?:the\s+)?accuse[d]?\s+([A-Za-z][A-Za-z\s\.\/]{2,60})/i',
-            ]),
-            'accused_cnic'         => $this->normalizeCnic($pick([
-                '/Accuse[d]?[^\n]{0,40}CNIC\s*(?:No\.?)?\s*:?\s*([\d\-]+)/i',
-            ])),
-            'accused_phone'        => $this->normalizePhone($pick([
-                '/Accuse[d]?[^\n]{0,60}(?:Mobile|Phone|Contact)\s*(?:No\.?|Number)?\s*:?\s*([\d\-]+)/i',
-            ])),
-            'city'                 => trim($pick([
-                '/City\s*of\s*Occurrence\s*:?\s*(.+?)(?:Complaint|Amount|RECOMMEND|$)/is',
-                '/0f\s*Occurrence\s*(.+?)(?:working|Amount|RECOMMEND|$)/is',
-            ]) ?? '', '"'),
-            'amount_involved'      => $this->normalizeAmount($pick([
-                '/Amount\s*Involved\.?\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)/i',
-                '/Amount\s*Involved\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)/i',
-                '/Rs\.?\s*([\d,]{3,}(?:\.\d+)?)/i',
-            ])),
-            'recommendation_short' => Str::limit($pick([
-                '/RECOMMENDATIONS?\s*:?\s*(.+?)(?:Justification|Reporting Officer|$)/is',
-            ]) ?? '', 800),
-            'recommendation_full'  => $pick([
-                '/Justification\s*:?\s*(.+?)(?:Reporting Officer|Assistant Sub|Signature|$)/is',
-            ]),
-            'reporting_officer'    => $pick([
-                '/Reporting\s*Officer\s*:?\s*(.+?)(?:Designation|Rank|Signature|$)/is',
-                '/(?:ASP|ASI|SI|Inspector)\s+([A-Za-z][A-Za-z\s\.]{2,40})/i',
-            ]),
+            'victim_address'       => $clean($address),
+            'victim_permanent_address' => $clean($permanentAddress),
+            'crime_category'       => $clean($crimeCategory),
+            'crime_description'    => $clean($crimeDescription),
+            'accused_name'         => $clean($accusedName),
+            'accused_cnic'         => $accusedCnic,
+            'accused_phone'        => $accusedPhone,
+            'accused'              => !empty($accusedList) ? $accusedList : null,
+            'initial_accused'      => !empty($accusedList) ? $accusedList : null,
+            'city'                 => $clean($city),
+            'amount_involved'      => $this->normalizeAmount($amountRaw),
+            'recommendation_short' => $clean($recommendationShort),
+            'recommendation_full'  => $clean($recommendationFull),
+            'reporting_officer'    => $clean($reportingOfficer),
             'recommendation'       => $this->mapRecommendation($text),
-            'inquiry_no'           => $pick([
-                '/Inquiry\s*No\.?\s*:?\s*(E[\/\-]?\s*\d+\s*[\/\-]\s*\d+)/i',
-                '/\b(E[\/\-]\s*\d+\s*[\/\-]\s*\d+)\b/i',
-            ]) ?? $this->inquiryRefFromFilename($originalFilename),
+            'inquiry_no'           => $inquiryNo,
             'source_filename'      => $originalFilename,
             'raw_text_preview'     => Str::limit($text, 8000),
         ], fn ($v) => $v !== null && $v !== '');
@@ -276,9 +339,9 @@ class ComplaintPdfExtractor
         }
 
         if (!empty($data['accused_name'])) {
-            $accusedName = trim((string) $data['accused_name']);
-            if (preg_match('/^(defraud|during|the\s|online|city|amount|brief)/i', $accusedName)
-                || str_word_count($accusedName) > 8) {
+            $accusedNameClean = trim((string) $data['accused_name']);
+            if (preg_match('/^(defraud|during|the\s|online|city|amount|brief)/i', $accusedNameClean)
+                || str_word_count($accusedNameClean) > 8) {
                 unset($data['accused_name']);
             }
         }
@@ -466,7 +529,8 @@ class ComplaintPdfExtractor
             return null;
         }
         $raw = trim($raw);
-        foreach (['d-m-Y', 'd/m/Y', 'Y-m-d', 'd-m-y', 'd/m/y'] as $fmt) {
+        $raw = preg_replace('/^[\s\.\:\-]+|[\s\.\:\-]+$/', '', $raw);
+        foreach (['d-m-Y', 'd/m/Y', 'Y-m-d', 'd-m-y', 'd/m/y', 'd.m.Y', 'd.m.y'] as $fmt) {
             $dt = \DateTime::createFromFormat($fmt, $raw);
             if ($dt) {
                 return $dt->format('Y-m-d');
@@ -474,6 +538,102 @@ class ComplaintPdfExtractor
         }
 
         return null;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function extractAccusedListFromText(string $text): array
+    {
+        $accused = [];
+        $seen = [];
+
+        // 1. Match bank transaction slip patterns: "To SOHAIL ABBAS PK69MUCB... MCB Paid Rs. 1,400,000"
+        if (preg_match_all('/To\s+([A-Z\s]{3,35})\s+(PK\d{2}[A-Z0-9]{16,24}|\d{10,24})\s+(?:Bank\s+)?([A-Za-z\s]{3,25})?(?:[\s\S]*?(?:Paid|Debited|Amount)[\s\S]*?(?:Rs\.?|PKR)\s*([\d,]+))?/i', $text, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $m) {
+                $name = trim(preg_replace('/\s+/', ' ', $m[1]));
+                $acc = trim($m[2]);
+                $bank = trim($m[3] ?? '');
+                $amount = !empty($m[4]) ? trim($m[4]) : null;
+
+                if (preg_match('/^(abid\s+hussain|customer|service|status|bank|from|amount)/i', $name)) {
+                    continue;
+                }
+
+                $key = strtolower($name . '_' . $acc);
+                if (isset($seen[$key])) {
+                    if ($amount && !empty($seen[$key]['amount'])) {
+                        $seen[$key]['amount'] .= ', Rs. ' . $amount;
+                    }
+                    continue;
+                }
+
+                $entry = [
+                    'name'        => $name,
+                    'father_name' => '',
+                    'cnic'        => '',
+                    'mobile_no'   => '',
+                    'phone'       => '',
+                    'email'       => '',
+                    'nationality' => 'Pakistani',
+                    'bank_account'=> $acc,
+                    'bank_name'   => $bank,
+                    'description' => trim("Bank: {$bank} | Acc/IBAN: {$acc}" . ($amount ? " | Amount: Rs. {$amount}" : '')),
+                ];
+                $seen[$key] = $entry;
+                $accused[] = $entry;
+            }
+        }
+
+        // 2. Match customer service bank accounts: "Name=SOHAIL ABBAS Account=165072981005161 IBAN=PK69... MCB bank"
+        if (preg_match_all('/Name[\s\=]+([A-Z\s]{3,35})\s+Account[\s\=]+(\d+)(?:\s+IBAN[\s\=]+(PK\d{2}[A-Z0-9]+))?(?:\s+([A-Za-z\s]+)bank)?/i', $text, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $m) {
+                $name = trim(preg_replace('/\s+/', ' ', $m[1]));
+                $acc = trim($m[2]);
+                $iban = trim($m[3] ?? '');
+                $bank = trim($m[4] ?? '');
+
+                $key = strtolower($name . '_' . ($iban ?: $acc));
+                if (!isset($seen[$key])) {
+                    $entry = [
+                        'name'        => $name,
+                        'father_name' => '',
+                        'cnic'        => '',
+                        'mobile_no'   => '',
+                        'phone'       => '',
+                        'email'       => '',
+                        'nationality' => 'Pakistani',
+                        'bank_account'=> $iban ?: $acc,
+                        'bank_name'   => $bank,
+                        'description' => trim("Bank: {$bank} | Acc: {$acc}" . ($iban ? " | IBAN: {$iban}" : '')),
+                    ];
+                    $seen[$key] = $entry;
+                    $accused[] = $entry;
+                }
+            }
+        }
+
+        // 3. Match WhatsApp and platform profile names
+        if (preg_match('/(?:Sailkot\s+Hira|Hira\s+Rehman)[^\d]{0,20}(\+?92[\s\-]?\d{10}|03\d{9})/i', $text, $m)) {
+            $phone = $this->normalizePhone($m[1]);
+            $key = 'hira_' . $phone;
+            if (!isset($seen[$key])) {
+                $entry = [
+                    'name'        => 'Hira Rehman / Sailkot Hira',
+                    'father_name' => '',
+                    'cnic'        => '',
+                    'mobile_no'   => $phone,
+                    'phone'       => $phone,
+                    'email'       => '',
+                    'nationality' => 'Pakistani',
+                    'description' => 'WhatsApp / Fraud App Operator (mallbyvip.com / BestBuy)',
+                ];
+                $seen[$key] = $entry;
+                $accused[] = $entry;
+            }
+        }
+
+        return $accused;
     }
 
     /**
