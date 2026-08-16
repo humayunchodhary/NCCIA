@@ -156,110 +156,104 @@ export default function Complaints() {
 
       <div className="card">
         <div className="card-body" style={{padding:0}}>
-          <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <table className="data-table" style={{ width: '100%', minWidth: 900 }}>
+          <div className="table-responsive" style={{ width: '100%', margin: 0 }}>
+            <table className="data-table" style={{ width: '100%', tableLayout: 'auto' }}>
               <thead>
                 <tr>
-                  <th style={{ whiteSpace: 'nowrap', width: 90 }}>#</th>
-                  <th style={{ minWidth: 140 }}>Complainant</th>
-                  <th style={{ whiteSpace: 'nowrap', width: 140 }}>CNIC</th>
-                  <th style={{ minWidth: 160 }}>Crime Category</th>
-                  <th style={{ whiteSpace: 'nowrap', width: 110 }}>Status</th>
-                  <th style={{ minWidth: 180, width: 200 }}>Progress</th>
-                  <th style={{ whiteSpace: 'nowrap', width: 110 }}>Enquiry</th>
-                  <th style={{ minWidth: 120 }}>Outcome</th>
-                  <th style={{ whiteSpace: 'nowrap', width: 100 }}>Date</th>
-                  <th style={{ whiteSpace: 'nowrap', width: 110 }}>Actions</th>
+                  <th style={{ width: '13%', whiteSpace: 'nowrap' }}>Tracking / Date</th>
+                  <th style={{ width: '22%' }}>Complainant & CNIC</th>
+                  <th style={{ width: '18%' }}>Crime Category</th>
+                  <th style={{ width: '12%', whiteSpace: 'nowrap' }}>Status</th>
+                  <th style={{ width: '17%' }}>Progress</th>
+                  <th style={{ width: '10%' }}>Enquiry</th>
+                  <th style={{ width: '8%', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {list.map((c, i) => (
                   <tr key={c.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}><span className="table-id">#{c.tracking_no || c.id}</span></td>
-                    <td><span style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{c.complainant_name}</span></td>
-                    <td style={{ whiteSpace: 'nowrap', fontSize: '12.5px', fontWeight: 500, letterSpacing: '0.2px' }}>{c.cnic}</td>
-                    <td><span style={{ fontSize: '12.5px', color: '#334155' }}>{offenceMap[c.offence_type] || c.offence_type}</span></td>
-                    <td style={{ whiteSpace: 'nowrap' }}><span className={`badge ${STATUS_COLORS[c.final_status || c.status] || 'badge-pending'}`}>{STATUS_LABELS[c.final_status || c.status] || c.status}</span></td>
-                    <td style={{ minWidth: 180 }}>
-                      <WorkflowProgress workflow={c.workflow} percent={c.progress_percent} stage={c.progress_stage} compact />
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span className="table-id" style={{ fontWeight: 700, color: '#0284c7', fontSize: 13 }}>#{c.tracking_no || c.id}</span>
+                        <small style={{ fontSize: 11, color: '#64748b' }}>{new Date(c.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</small>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{c.complainant_name}</span>
+                        <span style={{ fontSize: '11.5px', color: '#64748b', fontFamily: 'monospace' }}>{c.cnic || '—'}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '12.5px', color: '#334155', display: 'block', lineHeight: 1.3 }}>{offenceMap[c.offence_type] || c.offence_type || '—'}</span>
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
+                      <span className={`badge ${STATUS_COLORS[c.final_status || c.status] || 'badge-pending'}`} style={{ fontSize: 11 }}>
+                        {STATUS_LABELS[c.final_status || c.status] || c.status}
+                      </span>
+                    </td>
+                    <td>
+                      <WorkflowProgress workflow={c.workflow} percent={c.progress_percent} stage={c.progress_stage} compact />
+                    </td>
+                    <td>
                       {c.enquiry ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                          <Link to="/enquiries" style={{ fontSize: '12.5px', fontWeight: 700, color: '#0284c7' }}>#{c.enquiry.enquiry_number || c.enquiry.id}</Link>
-                          <span className={`badge ${ENQ_STATUS_COLORS[c.enquiry.status] || 'badge-pending'}`}>{c.enquiry.status?.replace('_', ' ')}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <Link to="/enquiries" style={{ fontSize: '12px', fontWeight: 700, color: '#0284c7' }}>#{c.enquiry.enquiry_number || c.enquiry.id}</Link>
+                          <span className={`badge ${ENQ_STATUS_COLORS[c.enquiry.status] || 'badge-pending'}`} style={{ fontSize: 10 }}>{c.enquiry.status?.replace('_', ' ')}</span>
                         </div>
+                      ) : c.final_status === 'closed' && CLOSURE_REASON_LABELS[c.closure_reason] ? (
+                        <span style={{ fontSize: 11, color: '#e53e3e', fontWeight: 600 }}>{CLOSURE_REASON_LABELS[c.closure_reason]}</span>
+                      ) : c.final_status === 'merged' && c.merged_with_id ? (
+                        <span style={{ fontSize: 11, color: '#64748b' }}>Merged #{c.merged_with_id}</span>
+                      ) : c.final_status === 'transferred' ? (
+                        <span style={{ fontSize: 11, color: '#d97706' }}>{c.transfer_to_department || 'Transferred'}</span>
                       ) : (
                         <span style={{ color: '#94a3b8' }}>—</span>
                       )}
                     </td>
-                    <td style={{fontSize:'12px',maxWidth:'200px'}}>
-                      {c.final_status === 'closed' && CLOSURE_REASON_LABELS[c.closure_reason] && (
-                        <span style={{color:'#e53e3e'}}>{CLOSURE_REASON_LABELS[c.closure_reason]}</span>
-                      )}
-                      {c.final_status === 'merged' && c.merged_with_id && (
-                        <span style={{color:'#6c757d'}}>Merged #{c.merged_with_id}</span>
-                      )}
-                      {c.final_status === 'transferred' && (
-                        <span style={{color:'#d69e2e'}}>{c.transfer_to_department || 'Transferred'}</span>
-                      )}
-                      {c.final_status === 'enquiry_registered' && c.enquiry_id && (
-                        <span style={{color:'#38a169'}}>Enquiry #{c.enquiry_id}</span>
-                      )}
-                      {!c.final_status && <span style={{color:'#999'}}>—</span>}
-                    </td>
-                    <td><span style={{fontSize:'12px',color:'#6c757d'}}>{new Date(c.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})}</span></td>
-<td>
-                       <div style={{display:'flex',gap:'6px'}}>
-                         {canAssign && !c.verification && (
-                           <button onClick={() => openDirectAssign(c)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Assign Verification Officer">
-                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
-                             Assign
-                           </button>
-                         )}
-                         {canEdit && (
-                           <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                          </Link>
-                         )}
-                         {c.tracking_no && canCreate && (
-                           <button
-                             type="button"
-                             onClick={async () => {
-                               try {
-                                 const r = await api.post(`/complaints/${c.id}/notify-complainant`);
-                                 const wa = r.data?.complainant_notify?.whatsapp_url;
-                                 if (wa) window.open(wa, '_blank');
-                                 else alert('Phone missing — WhatsApp message nahi ban saka.');
-                               } catch (e) {
-                                 alert(e.response?.data?.message || 'Notify failed');
-                               }
-                             }}
-                             className="btn btn-sm"
-                             style={{background:'#25D366',color:'#fff',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}
-                             title="Send registration WhatsApp to complainant"
-                           >
-                             Message
-                           </button>
-                         )}
-                        <button onClick={() => printSlip(c)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Print 80mm Slip">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                          Print Slip
-                        </button>
-                        <button onClick={() => printReport(c)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Print Full A4 Report">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                          Print Report
-                        </button>
-                        {canDelete && (
-                          <button onClick={() => setDeleteTarget(c)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', gap: 5, alignItems: 'center', justifyContent: 'flex-end' }}>
+                        {canAssign && !c.verification && (
+                          <button onClick={() => openDirectAssign(c)} className="btn btn-sm" style={{ background: 'rgba(1,92,148,0.1)', color: '#015C94', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }} title="Assign Verification Officer">
+                            Assign
                           </button>
                         )}
+                        {canEdit && (
+                          <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" style={{ padding: '5px 7px', borderRadius: 6 }} title="Edit">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </Link>
+                        )}
+                        {c.tracking_no && canCreate && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const r = await api.post(`/complaints/${c.id}/notify-complainant`);
+                                const wa = r.data?.complainant_notify?.whatsapp_url;
+                                if (wa) window.open(wa, '_blank');
+                                else alert('Phone missing — WhatsApp message nahi ban saka.');
+                              } catch (e) {
+                                alert(e.response?.data?.message || 'Notify failed');
+                              }
+                            }}
+                            className="btn btn-sm"
+                            style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer' }}
+                            title="Send WhatsApp Notification"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+                          </button>
+                        )}
+                        <button onClick={() => printSlip(c)} className="btn btn-sm" style={{ background: 'rgba(56,161,105,0.1)', color: '#38a169', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer' }} title="Print 80mm Slip">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        </button>
+                        <button onClick={() => printReport(c)} className="btn btn-sm" style={{ background: 'rgba(1,92,148,0.1)', color: '#015C94', border: 'none', borderRadius: 6, padding: '5px 7px', cursor: 'pointer' }} title="Print Full Report">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        </button>
                       </div>
                     </td>
                   </tr>
                 ))}
-                {list.length === 0 && <tr><td colSpan={10} style={{textAlign:'center',padding:'24px',color:'#6c757d'}}>No complaints found</td></tr>}
+                {list.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b' }}>No complaints found</td></tr>}
               </tbody>
             </table>
           </div>
