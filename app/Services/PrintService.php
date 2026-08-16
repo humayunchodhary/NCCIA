@@ -154,8 +154,13 @@ class PrintService
      */
     public function complaintReportPrintDocument(Complaint $complaint): string
     {
-        $complaint->loadMissing('circle');
-        $logo = url('images/NCCIA.webp');
+        try {
+            $complaint->loadMissing(['circle', 'verification.officer', 'latestVerificationReport.creator']);
+        } catch (\Throwable $e) {
+            // Safe fallback
+        }
+
+        $logo = url('images/images.jpg');
         $issuedAt = now()->format('d/m/Y h:i A');
 
         $number  = $complaint->tracking_no ?: ($complaint->slip_number ?: ('#' . $complaint->id));
@@ -183,6 +188,16 @@ class PrintService
         $operator = e($complaint->operator_name ?: '—');
         $status   = e(ucfirst(str_replace('_', ' ', $complaint->status ?? '—')));
         $description = nl2br(e($complaint->description ?: '—'));
+
+        $voName = $complaint->verification?->officer?->name
+            ?: ($complaint->latestVerificationReport?->creator?->name
+                ?: ($complaint->verification_officer_name ?: null));
+
+        if (!$voName && $complaint->verification?->verification_officer_id) {
+            $voUser = \App\Models\User::find($complaint->verification->verification_officer_id);
+            $voName = $voUser?->name;
+        }
+        $voDisplay = $voName ? e($voName) : 'Under Verification';
 
         $laws = collect($complaint->laws ?: [])->implode(', ');
         $laws = $laws ? e($laws) : '—';
@@ -275,6 +290,7 @@ class PrintService
           <div class="meta">
             <div class="mrow"><span class="k">Complaint No:</span><span><strong>{$number}</strong></span></div>
             <div class="mrow"><span class="k">Circle:</span><span>{$circle}</span></div>
+            <div class="mrow"><span class="k">Verif. Officer:</span><span><strong>{$voDisplay}</strong></span></div>
             <div class="mrow"><span class="k">Report Date:</span><span>{$reportDate}</span></div>
             <div class="mrow"><span class="k">Status:</span><span>{$status}</span></div>
             <div class="mrow"><span class="k">Diary No:</span><span>{$diary}</span></div>
@@ -478,7 +494,8 @@ $logo = url('images/images.jpg');
 
     public function diaryPrintDocument(Enquiry $enquiry, EnquiryActivity $activity): string
     {
-        $enquiry->loadMissing('complaint.circle');        $logo = url('images/NCCIA.webp');
+        $enquiry->loadMissing('complaint.circle');
+        $logo = url('images/images.jpg');
         $enquiryNo = e($enquiry->enquiry_number ?: ('#' . $enquiry->id));
         $tracking = e($enquiry->complaint?->tracking_no ?? '—');
         $circle = e($enquiry->complaint?->circle?->name ?? '—');
