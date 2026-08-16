@@ -182,6 +182,35 @@ async function ocrPageWithPdfJs(page, worker, onStatus) {
   return ocrFromCanvas(worker, canvas, onStatus);
 }
 
+async function extractPageText(page) {
+  try {
+    const content = await page.getTextContent();
+    return (content?.items || []).map((item) => item.str || '').join(' ').trim();
+  } catch (err) {
+    console.warn('Text content extract failed:', err);
+    return '';
+  }
+}
+
+async function dataUrlToCanvas(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      enhanceForOcr(canvas);
+      resolve(canvas);
+    };
+    img.onerror = () => reject(new Error('Server page image could not be loaded'));
+    img.src = dataUrl;
+  });
+}
+
 /**
  * @param {File} file
  * @param {(msg: string) => void} [onStatus]
@@ -203,7 +232,8 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
       const data = new Uint8Array(await file.arrayBuffer());
       pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
       pageCount = Math.min(pdf.numPages, maxPages);
-    } catch {
+    } catch (pdfErr) {
+      console.warn('PDF.js getDocument failed:', pdfErr);
       pdf = null;
     }
 
@@ -214,14 +244,14 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
       if (pdf) {
         try {
           const page = await pdf.getPage(i + 1);
-          const embedded = await extractPageText(page).catch(() => '');
-          if (embedded.length > 40) {
+          const embedded = await extractPageText(page);
+          if (embedded && embedded.length > 40) {
             parts.push(embedded);
-            // Keep reading remaining pages — recommendations/justification often on page 2+
             continue;
           }
           ocrText = await ocrPageWithPdfJs(page, worker, onStatus);
-        } catch {
+        } catch (pageErr) {
+          console.error(`Page ${i + 1} OCR error:`, pageErr);
           ocrText = '';
         }
       }
@@ -236,7 +266,7 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
             ocrText = await ocrFromCanvas(worker, canvas, onStatus);
           }
         } catch (err) {
-          console.warn('Server page render failed', err);
+          console.warn('Server page render failed:', err);
         }
       }
 
@@ -260,6 +290,7 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
     }
     return combined;
   } catch (err) {
+    console.error('extractTextFromPdf fatal error:', err);
     throw asError(err, 'PDF OCR failed');
   }
 }
