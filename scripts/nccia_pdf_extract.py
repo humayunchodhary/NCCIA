@@ -90,6 +90,8 @@ def configure_tesseract():
 
 def ocr_page(page):
     import fitz
+    import subprocess
+    import tempfile
 
     pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
     png_bytes = pix.tobytes("png")
@@ -106,29 +108,35 @@ def ocr_page(page):
     except Exception:
         pass
 
-    easy_on = os.environ.get("PDF_OCR_EASY", "0").lower() in ("1", "true", "yes")
-    if not easy_on:
-        return ""
-
+    # Node tesseract.js fallback
     try:
-        import tempfile
-        import easyocr
+        script_dir = Path(__file__).resolve().parent
+        node_script = script_dir / "ocr-png.cjs"
+        if node_script.is_file():
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                tmp.write(png_bytes)
+                tmp_path = tmp.name
 
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-            tmp.write(png_bytes)
-            tmp_path = tmp.name
-
-        if not hasattr(ocr_page, "_reader"):
-            ocr_page._reader = easyocr.Reader(["en"], gpu=False, verbose=False)  # type: ignore[attr-defined]
-
-        lines = ocr_page._reader.readtext(tmp_path, detail=0)  # type: ignore[attr-defined]
-        try:
-            os.unlink(tmp_path)
-        except Exception:
-            pass
-        return "\n".join(lines)
+            try:
+                proc = subprocess.run(
+                    ["node", str(node_script), tmp_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=90,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                if proc.returncode == 0 and len(proc.stdout.strip()) > 20:
+                    return proc.stdout.strip()
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
     except Exception:
-        return ""
+        pass
+
+    return ""
 
 
 def extract_text_from_pdf(pdf_path, max_pages=3):

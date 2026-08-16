@@ -18,33 +18,50 @@ export function titleGender(raw) {
 }
 
 export async function ocrAndParsePdf(file, onStatus) {
-  const ocrText = await extractTextFromPdf(file, onStatus, {
-    maxPages: 3,
-    stopWhenUseful: true,
-    serverRenderPage: async (pageIndex) => {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('page', String(pageIndex));
-      try {
-        const r = await api.post('/complaint-pdf-imports/render-page', fd, { timeout: 120000 });
-        return r.data?.image || null;
-      } catch {
-        return null;
-      }
-    },
-  });
-  if (!ocrText || ocrText.trim().length < 20) {
-    throw new Error('PDF se text nahi parha. Scan quality check karein.');
+  let ocrText = '';
+  try {
+    ocrText = await extractTextFromPdf(file, onStatus, {
+      maxPages: 3,
+      stopWhenUseful: true,
+    });
+  } catch (browserErr) {
+    console.warn('Browser OCR note:', browserErr?.message || browserErr);
   }
-  const r = await api.post('/complaint-pdf-imports/preview', {
-    ocr_text: ocrText,
-    filename: file.name,
+
+  // 1. If browser OCR extracted meaningful text, preview it
+  if (ocrText && ocrText.trim().length >= 25) {
+    try {
+      const r = await api.post('/complaint-pdf-imports/preview', {
+        ocr_text: ocrText,
+        filename: file.name,
+      });
+      if (r.data?.extracted && (r.data.extracted.victim_cnic || r.data.extracted.victim_name || r.data.extracted.tracking_no)) {
+        return {
+          extracted: r.data.extracted,
+          fieldsOk: r.data.fields_ok !== false,
+          error: r.data.error || null,
+          ocrText,
+        };
+      }
+    } catch (previewErr) {
+      console.warn('Text preview note:', previewErr);
+    }
+  }
+
+  // 2. Robust Server-side OCR engine fallback (PyMuPDF + Tesseract.js)
+  onStatus?.('Reading with server OCR engine…');
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await api.post('/complaint-pdf-imports/preview', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 180000,
   });
+
   return {
     extracted: r.data?.extracted || {},
     fieldsOk: r.data?.fields_ok !== false,
     error: r.data?.error || null,
-    ocrText,
+    ocrText: r.data?.extracted?.raw_text_preview || '',
   };
 }
 
