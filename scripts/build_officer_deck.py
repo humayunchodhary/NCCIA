@@ -22,7 +22,9 @@ def create_officer_presentation():
     C_WHITE        = RGBColor(255, 255, 255)
     C_SLATE        = RGBColor(160, 174, 192)
 
-    logo_path = os.path.abspath("f:/NCCIA/public/images/images.jpg")
+    logo_path = os.path.abspath("f:/NCCIA/public/images/nccia_circle_logo.png")
+    if not os.path.isfile(logo_path):
+        logo_path = os.path.abspath("f:/NCCIA/public/images/images.jpg")
 
     def add_slide_bg(slide):
         bg = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, Inches(13.333), Inches(7.5))
@@ -118,15 +120,21 @@ def create_officer_presentation():
     emblem_card.line.color.rgb = RGBColor(56, 189, 248)
     emblem_card.line.width = Pt(1.5)
 
-    # Gold Circular Glow Ring
-    ring = s1.shapes.add_shape(MSO_SHAPE.OVAL, Inches(1.7), Inches(2.0), Inches(2.8), Inches(2.8))
-    ring.fill.solid()
-    ring.fill.fore_color.rgb = C_GOLD
-    ring.line.fill.background()
+    # Outer Double Gold Circular Rings for Perfect Round Badge Look
+    ring_outer = s1.shapes.add_shape(MSO_SHAPE.OVAL, Inches(1.55), Inches(1.95), Inches(3.1), Inches(3.1))
+    ring_outer.fill.solid()
+    ring_outer.fill.fore_color.rgb = C_GOLD
+    ring_outer.line.fill.background()
 
-    # NCCIA Official Emblem
+    ring_inner = s1.shapes.add_shape(MSO_SHAPE.OVAL, Inches(1.63), Inches(2.03), Inches(2.94), Inches(2.94))
+    ring_inner.fill.solid()
+    ring_inner.fill.fore_color.rgb = RGBColor(10, 22, 44)
+    ring_inner.line.color.rgb = RGBColor(56, 189, 248)
+    ring_inner.line.width = Pt(1.5)
+
+    # 100% Round Circular NCCIA Official Emblem
     if os.path.isfile(logo_path):
-        s1.shapes.add_picture(logo_path, Inches(1.75), Inches(2.05), width=Inches(2.7), height=Inches(2.7))
+        s1.shapes.add_picture(logo_path, Inches(1.7), Inches(2.1), width=Inches(2.8), height=Inches(2.8))
 
     # Badge Sub-banner
     bb_box = s1.shapes.add_textbox(Inches(1.15), Inches(5.05), Inches(3.9), Inches(1.3))
