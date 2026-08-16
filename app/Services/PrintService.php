@@ -19,7 +19,11 @@ class PrintService
      */
     public function complaintSlip(Complaint $complaint): string
     {
-        $complaint->loadMissing(['circle', 'verification.officer', 'latestVerificationReport.officer']);
+        try {
+            $complaint->loadMissing(['circle', 'verification.officer', 'latestVerificationReport.creator']);
+        } catch (\Throwable $e) {
+            // Safe fallback if relations are missing
+        }
 
         $number   = $complaint->tracking_no ?: ($complaint->slip_number ?: ('#' . $complaint->id));
         $token    = hash_hmac('sha256', 'complaint:' . $complaint->id, (string) config('app.key'));
@@ -39,9 +43,8 @@ class PrintService
         $operator = e($complaint->operator_name ?: '—');
 
         $voName = $complaint->verification?->officer?->name
-            ?: ($complaint->latestVerificationReport?->officer?->name
-                ?: ($complaint->latestVerificationReport?->reporting_officer
-                    ?: ($complaint->verification_officer_name ?: null)));
+            ?: ($complaint->latestVerificationReport?->creator?->name
+                ?: ($complaint->verification_officer_name ?: null));
 
         if (!$voName && $complaint->verification?->verification_officer_id) {
             $voUser = \App\Models\User::find($complaint->verification->verification_officer_id);
