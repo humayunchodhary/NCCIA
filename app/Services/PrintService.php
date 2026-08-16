@@ -19,7 +19,7 @@ class PrintService
      */
     public function complaintSlip(Complaint $complaint): string
     {
-        $complaint->loadMissing('circle');
+        $complaint->loadMissing(['circle', 'verification.officer', 'latestVerificationReport.officer']);
 
         $number   = $complaint->tracking_no ?: ($complaint->slip_number ?: ('#' . $complaint->id));
         $token    = hash_hmac('sha256', 'complaint:' . $complaint->id, (string) config('app.key'));
@@ -37,6 +37,18 @@ class PrintService
         $offence  = e($complaint->offence_type ?? '—');
         $source   = e($complaint->source ? ucfirst(str_replace('_', ' ', $complaint->source)) : '—');
         $operator = e($complaint->operator_name ?: '—');
+
+        $voName = $complaint->verification?->officer?->name
+            ?: ($complaint->latestVerificationReport?->officer?->name
+                ?: ($complaint->latestVerificationReport?->reporting_officer
+                    ?: ($complaint->verification_officer_name ?: null)));
+
+        if (!$voName && $complaint->verification?->verification_officer_id) {
+            $voUser = \App\Models\User::find($complaint->verification->verification_officer_id);
+            $voName = $voUser?->name;
+        }
+
+        $voDisplay = $voName ? e($voName) : 'Pending Assignment';
         $issuedAt = now()->format('d/m/Y h:i A');
         $logo     = url('images/images.jpg');
         $numberE  = e($number);
@@ -60,6 +72,7 @@ class PrintService
             <tr><td class="k">CNIC</td><td class="v">{$cnic}</td></tr>
             <tr><td class="k">Contact</td><td class="v">{$phone}</td></tr>
             <tr><td class="k">Circle</td><td class="v">{$circle}</td></tr>
+            <tr><td class="k">Verif. Officer</td><td class="v"><strong>{$voDisplay}</strong></td></tr>
             <tr><td class="k">Report Date</td><td class="v">{$date}</td></tr>
             <tr><td class="k">Report Time</td><td class="v">{$time}</td></tr>
             <tr><td class="k">Source</td><td class="v">{$source}</td></tr>
@@ -76,8 +89,8 @@ class PrintService
             <tr>
               <td class="sign">
                 <div class="sign-line"></div>
-                <div class="small">Operator / Desk</div>
-                <div class="tiny">{$operator}</div>
+                <div class="small">Verif. Officer / Desk</div>
+                <div class="tiny">{$voDisplay}</div>
               </td>
               <td class="sign">
                 <div class="sign-line"></div>
