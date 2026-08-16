@@ -1,6 +1,6 @@
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes -ExecCGI
+        Options -MultiViews -Indexes
     </IfModule>
 
     RewriteEngine On
@@ -13,14 +13,8 @@
         AddType text/css .css
     </IfModule>
 
-    # Strict file blocking: Block access to .env, .git, config, db backups, scripts, logs
-    <FilesMatch "^(\.env|\.git|\.well-known/.*|composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml.*|vite\.config\..*|.*\.log|.*\.md|.*\.sql|.*\.bak|.*\.sh|.*\.py|.*\.ini|.*\.conf)$">
-        Order allow,deny
-        Deny from all
-    </FilesMatch>
-
-    # Disable script execution for uploaded assets
-    <FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phar|cgi|pl|py|sh|exe|bat|cmd)$">
+    # Block access to .env, .git, composer, package configs, sql backups, logs
+    <FilesMatch "^(\.env|\.git|composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml.*|vite\.config\..*|.*\.log|.*\.md|.*\.sql|.*\.bak|.*\.sh|.*\.py|.*\.ini|.*\.conf)$">
         Order allow,deny
         Deny from all
     </FilesMatch>
