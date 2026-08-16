@@ -134,7 +134,6 @@ async function dataUrlToCanvas(dataUrl) {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
-      enhanceForOcr(canvas);
       resolve(canvas);
     };
     img.onerror = () => reject(new Error('Server page image could not be loaded'));
@@ -161,7 +160,13 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
 
     try {
       const data = new Uint8Array(await file.arrayBuffer());
-      pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
+      try {
+        pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
+      } catch (workerErr) {
+        console.warn('PDF.js worker failed, retrying in main thread:', workerErr);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+        pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true, disableAutoFetch: true, disableStream: true }).promise;
+      }
       pageCount = Math.min(pdf.numPages, maxPages);
     } catch (pdfErr) {
       console.warn('PDF.js getDocument failed:', pdfErr);

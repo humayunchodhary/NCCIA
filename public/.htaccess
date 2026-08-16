@@ -5,8 +5,16 @@
 
     RewriteEngine On
 
-    # Block access to .env and sensitive files
-    <FilesMatch "\.(env|json|lock|log|md|gitignore|gitattributes)$">
+    # MIME types for modern JS/WASM/GZIP assets
+    <IfModule mod_mime.c>
+        AddType application/javascript .js .mjs
+        AddType application/wasm .wasm
+        AddType application/gzip .gz
+        AddType text/css .css
+    </IfModule>
+
+    # Block access to .env and sensitive files (allow version.json)
+    <FilesMatch "^(\.env|\.git|composer\.(json|lock)|package(-lock)?\.json|.*\.log|.*\.md)$">
         Order allow,deny
         Deny from all
     </FilesMatch>
@@ -41,7 +49,7 @@
 
     # Long-cache hashed Vite assets (filename changes on every build)
     <IfModule mod_headers.c>
-        <FilesMatch "\.(?:js|css|woff2?|png|jpe?g|gif|webp|svg)$">
+        <FilesMatch "\.(?:js|mjs|wasm|gz|css|woff2?|png|jpe?g|gif|webp|svg)$">
             Header set Cache-Control "public, max-age=31536000, immutable"
         </FilesMatch>
     </IfModule>
