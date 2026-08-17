@@ -570,19 +570,27 @@ class VerificationController extends Controller
             auth()->id(),
         );
 
-        $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        try {
+            $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('VerificationAssignedNotification failed: ' . $e->getMessage());
+        }
 
-        if ($verification->officer) {
-            app(SmsService::class)->sendToUser(
-                $verification->officer,
-                SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
-                SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
-                [
-                    'subject_type' => 'verification',
-                    'subject_id'   => $verification->id,
-                    'trigger'      => 'verification_assigned',
-                ]
-            );
+        try {
+            if ($verification->officer) {
+                app(SmsService::class)->sendToUser(
+                    $verification->officer,
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                    [
+                        'subject_type' => 'verification',
+                        'subject_id'   => $verification->id,
+                        'trigger'      => 'verification_assigned',
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
         }
 
         if ($request->expectsJson()) {
@@ -687,19 +695,27 @@ class VerificationController extends Controller
         $verification->update($data);
 
         if ($officerChanged) {
-            $verification->officer?->notify(new VerificationAssignedNotification($verification));
+            try {
+                $verification->officer?->notify(new VerificationAssignedNotification($verification));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('VerificationAssignedNotification failed: ' . $e->getMessage());
+            }
 
-            if ($verification->officer) {
-                app(SmsService::class)->sendToUser(
-                    $verification->officer,
-                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
-                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
-                    [
-                        'subject_type' => 'verification',
-                        'subject_id'   => $verification->id,
-                        'trigger'      => 'verification_assigned',
-                    ]
-                );
+            try {
+                if ($verification->officer) {
+                    app(SmsService::class)->sendToUser(
+                        $verification->officer,
+                        SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                        SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                        [
+                            'subject_type' => 'verification',
+                            'subject_id'   => $verification->id,
+                            'trigger'      => 'verification_assigned',
+                        ]
+                    );
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
             }
         } else {
             app(OfficerAssignmentService::class)->touchWorkSnapshot(
@@ -1042,19 +1058,27 @@ class VerificationController extends Controller
             $request->user()->id,
         );
 
-        $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        try {
+            $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('VerificationAssignedNotification failed: ' . $e->getMessage());
+        }
 
-        if ($verification->officer) {
-            app(SmsService::class)->sendToUser(
-                $verification->officer,
-                SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
-                SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
-                [
-                    'subject_type' => 'verification',
-                    'subject_id'   => $verification->id,
-                    'trigger'      => 'verification_assigned',
-                ]
-            );
+        try {
+            if ($verification->officer) {
+                app(SmsService::class)->sendToUser(
+                    $verification->officer,
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                    [
+                        'subject_type' => 'verification',
+                        'subject_id'   => $verification->id,
+                        'trigger'      => 'verification_assigned',
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
         }
 
         return response()->json([
@@ -1291,19 +1315,27 @@ class VerificationController extends Controller
         ]);
 
         $verification->load('officer');
-        $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        try {
+            $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('VerificationAssignedNotification failed: ' . $e->getMessage());
+        }
 
-        if ($verification->officer) {
-            app(SmsService::class)->sendToUser(
-                $verification->officer,
-                SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
-                SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
-                [
-                    'subject_type' => 'verification',
-                    'subject_id'   => $verification->id,
-                    'trigger'      => 'verification_assigned',
-                ]
-            );
+        try {
+            if ($verification->officer) {
+                app(SmsService::class)->sendToUser(
+                    $verification->officer,
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                    [
+                        'subject_type' => 'verification',
+                        'subject_id'   => $verification->id,
+                        'trigger'      => 'verification_assigned',
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
         }
 
         return response()->json([

@@ -21,48 +21,43 @@ function asError(err, fallback) {
   return new Error(fallback);
 }
 
-async function verifyOcrAssets(onStatus) {
-  const checks = [
-    `${TESS_BASE}/worker.min.js`,
-    `${TESS_BASE}/tesseract-core-relaxedsimd-lstm.wasm.js`,
-    `${TESS_BASE}/lang/eng.traineddata.gz`,
-  ];
-  onStatus?.('Checking OCR files…');
-  for (const url of checks) {
-    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-    if (!res.ok) {
-      throw new Error(`OCR file not found (${res.status}): ${url}. Run git pull and hard-refresh.`);
-    }
-  }
-}
-
 async function initWorker(onStatus) {
-  await verifyOcrAssets(onStatus);
   onStatus?.('Loading OCR engine…');
 
-  const worker = await createWorker('eng', OEM.LSTM_ONLY, {
-    workerPath: `${TESS_BASE}/worker.min.js`,
-    corePath: `${TESS_BASE}`,
-    langPath: `${TESS_BASE}/lang`,
-    workerBlobURL: true,
-    gzip: true,
-    logger: (m) => {
-      if (!onStatus) return;
-      if (m.status === 'loading tesseract core') onStatus('Loading OCR core…');
-      if (m.status === 'initializing tesseract') onStatus('Initializing OCR…');
-      if (m.status === 'loading language traineddata') onStatus('Loading language data…');
-      if (m.status === 'recognizing text') onStatus(`OCR ${Math.round((m.progress || 0) * 100)}%…`);
-    },
-    errorHandler: (e) => console.error('Tesseract error:', e),
-  });
+  const logger = (m) => {
+    if (!onStatus) return;
+    if (m.status === 'loading tesseract core') onStatus('Loading OCR core…');
+    if (m.status === 'initializing tesseract') onStatus('Initializing OCR…');
+    if (m.status === 'loading language traineddata') onStatus('Loading language data…');
+    if (m.status === 'recognizing text') onStatus(`OCR ${Math.round((m.progress || 0) * 100)}%…`);
+  };
 
-  await worker.setParameters({
-    tessedit_pageseg_mode: PSM.AUTO,
-    preserve_interword_spaces: '1',
-    user_defined_dpi: '300',
-  });
+  try {
+    // 1. Try standard worker
+    const worker = await createWorker('eng', 1, {
+      logger,
+      errorHandler: (e) => console.warn('Tesseract warning:', e),
+    });
+    return worker;
+  } catch (err1) {
+    console.warn('Default worker failed, trying local assets:', err1);
+  }
 
-  return worker;
+  try {
+    // 2. Try local assets
+    const worker = await createWorker('eng', 1, {
+      workerPath: `${TESS_BASE}/worker.min.js`,
+      corePath: `${TESS_BASE}`,
+      langPath: `${TESS_BASE}/lang`,
+      gzip: true,
+      logger,
+      errorHandler: (e) => console.error('Tesseract local error:', e),
+    });
+    return worker;
+  } catch (err2) {
+    console.error('All OCR worker initialization attempts failed:', err2);
+    throw err2;
+  }
 }
 
 async function getOcrWorker(onStatus) {
@@ -82,126 +77,26 @@ async function getOcrWorker(onStatus) {
   return workerInitPromise;
 }
 
-function enhanceForOcr(canvas) {
-  const ctx = canvas.getContext('2d');
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const d = img.data;
-  let min = 255;
-  let max = 0;
-  for (let i = 0; i < d.length; i += 4) {
-    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    if (g < min) min = g;
-    if (g > max) max = g;
-  }
-  const range = Math.max(max - min, 1);
-  for (let i = 0; i < d.length; i += 4) {
-    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    const v = ((g - min) / range) * 255;
-    d[i] = d[i + 1] = d[i + 2] = v;
-  }
-  ctx.putImageData(img, 0, 0);
+function looksLikeVerificationReport(text) {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return t.includes('cnic') || t.includes('complainant') || t.includes('verification')
+    || t.includes('tracking') || t.includes('ccw-') || t.includes('defrauded') || /\d{13}/.test(text);
 }
 
-function canvasHasInk(canvas) {
-  const ctx = canvas.getContext('2d');
-  const { width, height } = canvas;
-  const step = Math.max(4, Math.floor(Math.min(width, height) / 200));
-  const data = ctx.getImageData(0, 0, width, height).data;
-  let dark = 0;
-  for (let y = 0; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      const i = (y * width + x) * 4;
-      if (data[i] < 210 || data[i + 1] < 210 || data[i + 2] < 210) dark += 1;
-    }
-  }
-  return dark > 80;
-}
-
-function imgDataToCanvas(imgData) {
-  if (!imgData?.width || !imgData?.height) return null;
-  const { width, height, bitmap, data } = imgData;
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  if (bitmap) {
-    ctx.drawImage(bitmap, 0, 0);
-    return canvas;
-  }
-
-  if (data) {
-    const imageData = ctx.createImageData(width, height);
-    if (data.length === width * height * 4) {
-      imageData.data.set(data);
-    } else if (data.length === width * height * 3) {
-      for (let i = 0, j = 0; i < data.length; i += 3, j += 4) {
-        imageData.data[j] = data[i];
-        imageData.data[j + 1] = data[i + 1];
-        imageData.data[j + 2] = data[i + 2];
-        imageData.data[j + 3] = 255;
-      }
-    } else {
-      return null;
-    }
-    ctx.putImageData(imageData, 0, 0);
-    return canvas;
-  }
-
-  return null;
-}
-
-function collectEmbeddedImageCanvases(page) {
-  const canvases = [];
+async function ocrFromCanvas(worker, canvas, onStatus) {
+  onStatus?.('Recognizing text…');
   try {
-    if (page.objs && typeof page.objs[Symbol.iterator] === 'function') {
-      for (const [, imgData] of page.objs) {
-        const canvas = imgDataToCanvas(imgData);
-        if (canvas && canvas.width > 200 && canvas.height > 200) {
-          enhanceForOcr(canvas);
-          canvases.push(canvas);
-        }
-      }
-    }
+    const result = await worker.recognize(canvas);
+    return (result?.data?.text || '').trim();
   } catch (err) {
-    console.warn('Embedded image extraction failed', err);
+    console.warn('Canvas OCR recognition error:', err);
+    return '';
   }
-  return canvases.sort((a, b) => (b.width * b.height) - (a.width * a.height));
 }
 
-function cropCanvasTop(canvas, ratio = 0.6) {
-  const h = Math.max(1, Math.floor(canvas.height * ratio));
-  const cropped = document.createElement('canvas');
-  cropped.width = canvas.width;
-  cropped.height = h;
-  const ctx = cropped.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, cropped.width, cropped.height);
-  ctx.drawImage(canvas, 0, 0, canvas.width, h, 0, 0, canvas.width, h);
-  return cropped;
-}
-
-async function dataUrlToCanvas(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      enhanceForOcr(canvas);
-      resolve(canvas);
-    };
-    img.onerror = () => reject(new Error('Server page image could not be loaded'));
-    img.src = dataUrl;
-  });
-}
-
-async function renderPageToCanvas(page, scale) {
-  const viewport = page.getViewport({ scale });
+async function ocrPageWithPdfJs(page, worker, onStatus) {
+  const viewport = page.getViewport({ scale: 2.0 });
   const canvas = document.createElement('canvas');
   canvas.width = Math.floor(viewport.width);
   canvas.height = Math.floor(viewport.height);
@@ -215,73 +110,35 @@ async function renderPageToCanvas(page, scale) {
     intent: 'print',
   }).promise;
 
-  enhanceForOcr(canvas);
-  return canvas;
+  return ocrFromCanvas(worker, canvas, onStatus);
 }
 
 async function extractPageText(page) {
-  const content = await page.getTextContent();
-  return content.items.map((item) => item.str).join(' ').trim();
-}
-
-async function ocrCanvas(worker, canvas, onStatus) {
-  const targets = [canvas, cropCanvasTop(canvas, 0.7), cropCanvasTop(canvas, 0.45)];
-  const modes = [PSM.AUTO, PSM.SPARSE_TEXT, PSM.SINGLE_BLOCK];
-  let best = '';
-
-  for (const target of targets) {
-    for (const psm of modes) {
-      onStatus?.('Recognizing text…');
-      await worker.setParameters({ tessedit_pageseg_mode: psm });
-      const result = await worker.recognize(target);
-      const text = (result.data.text || '').trim();
-      if (text.length > best.length) best = text;
-    }
+  try {
+    const content = await page.getTextContent();
+    return (content?.items || []).map((item) => item.str || '').join(' ').trim();
+  } catch (err) {
+    console.warn('Text content extract failed:', err);
+    return '';
   }
-  return best;
 }
 
-function looksLikeVerificationReport(text) {
-  const t = text.toLowerCase();
-  return t.includes('cnic') || t.includes('complainant') || t.includes('verification')
-    || t.includes('tracking') || t.includes('ccw-') || /\d{13}/.test(text);
-}
-
-async function ocrFromCanvas(worker, canvas, onStatus) {
-  if (!canvasHasInk(canvas)) return '';
-  return ocrCanvas(worker, canvas, onStatus);
-}
-
-async function ocrPageWithPdfJs(page, worker, onStatus) {
-  let best = '';
-  for (const scale of RENDER_SCALES) {
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    await page.render({
-      canvasContext: ctx,
-      viewport,
-      intent: 'print',
-    }).promise;
-
-    const embedded = collectEmbeddedImageCanvases(page);
-    for (const embeddedCanvas of embedded) {
-      onStatus?.('OCR embedded scan…');
-      const text = await ocrFromCanvas(worker, embeddedCanvas, onStatus);
-      if (text.length > best.length) best = text;
-    }
-
-    enhanceForOcr(canvas);
-    const text = await ocrFromCanvas(worker, canvas, onStatus);
-    if (text.length > best.length) best = text;
-    if (best.length > 400 && looksLikeVerificationReport(best)) break;
-  }
-  return best;
+async function dataUrlToCanvas(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas);
+    };
+    img.onerror = () => reject(new Error('Server page image could not be loaded'));
+    img.src = dataUrl;
+  });
 }
 
 /**
@@ -303,9 +160,16 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
 
     try {
       const data = new Uint8Array(await file.arrayBuffer());
-      pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
+      try {
+        pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
+      } catch (workerErr) {
+        console.warn('PDF.js worker failed, retrying in main thread:', workerErr);
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+        pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true, disableAutoFetch: true, disableStream: true }).promise;
+      }
       pageCount = Math.min(pdf.numPages, maxPages);
-    } catch {
+    } catch (pdfErr) {
+      console.warn('PDF.js getDocument failed:', pdfErr);
       pdf = null;
     }
 
@@ -316,14 +180,14 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
       if (pdf) {
         try {
           const page = await pdf.getPage(i + 1);
-          const embedded = await extractPageText(page).catch(() => '');
-          if (embedded.length > 40) {
+          const embedded = await extractPageText(page);
+          if (embedded && embedded.length > 40) {
             parts.push(embedded);
-            // Keep reading remaining pages — recommendations/justification often on page 2+
             continue;
           }
           ocrText = await ocrPageWithPdfJs(page, worker, onStatus);
-        } catch {
+        } catch (pageErr) {
+          console.error(`Page ${i + 1} OCR error:`, pageErr);
           ocrText = '';
         }
       }
@@ -338,7 +202,7 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
             ocrText = await ocrFromCanvas(worker, canvas, onStatus);
           }
         } catch (err) {
-          console.warn('Server page render failed', err);
+          console.warn('Server page render failed:', err);
         }
       }
 
@@ -362,6 +226,7 @@ export async function extractTextFromPdf(file, onStatus, options = {}) {
     }
     return combined;
   } catch (err) {
+    console.error('extractTextFromPdf fatal error:', err);
     throw asError(err, 'PDF OCR failed');
   }
 }

@@ -306,7 +306,20 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   color: #015C94;
   font-weight: 600;
 }
-/* Mobile sidebar */
+/* Mobile and Desktop Main Layout */
+@media (min-width: 769px) {
+  body:not(.sidebar-collapsed) .main-content {
+    margin-left: 280px !important;
+    width: calc(100% - 280px) !important;
+    max-width: calc(100% - 280px) !important;
+  }
+  body.sidebar-collapsed .main-content {
+    margin-left: var(--sidebar-collapsed, 70px) !important;
+    width: calc(100% - var(--sidebar-collapsed, 70px)) !important;
+    max-width: calc(100% - var(--sidebar-collapsed, 70px)) !important;
+  }
+}
+
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
@@ -326,6 +339,8 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   body.sidebar-collapsed .main-content,
   body:not(.sidebar-collapsed) .main-content {
     margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 
@@ -394,4 +409,193 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   border-radius: 999px;
   transition: width 0.4s ease;
   min-width: 0;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   RESPONSIVE DESIGN SYSTEM (ALL DEVICES)
+   ============================================================ */
+
+/* ── Container & Fluid Typography ── */
+* {
+  box-sizing: border-box;
+}
+
+/* ── Form Grids & Layouts ── */
+.cf-grid-4, .grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.cf-grid-3, .grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.cf-grid-2, .grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* ── Table Horizontal Scroll Wrappers ── */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 16px;
+  border-radius: 8px;
+}
+.table-responsive table {
+  min-width: 600px;
+}
+
+/* ── Large Screens & Desktops (min-width: 1200px) ── */
+@media (min-width: 1200px) {
+  .page-content {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+}
+
+/* ── Tablets & Laptops (max-width: 1024px) ── */
+@media (max-width: 1024px) {
+  .cf-grid-4, .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cf-grid-3, .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cf-section-header {
+    padding: 14px 18px;
+  }
+  .page-content {
+    padding: 18px 14px;
+  }
+}
+
+/* ── Mobile Devices & Small Tablets (max-width: 768px) ── */
+@media (max-width: 768px) {
+  .cf-grid-4, .grid-4,
+  .cf-grid-3, .grid-3,
+  .cf-grid-2, .grid-2,
+  .cf-row-3, .cf-row-2,
+  .cf-row-4 {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  /* Inline styled grid containers on forms */
+  [style*="display: grid"],
+  [style*="display:grid"] {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Section cards */
+  .cf-section {
+    margin-bottom: 14px;
+    border-radius: 10px;
+  }
+  .cf-section-header {
+    padding: 12px 14px;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+  .cf-section-title {
+    font-size: 13.5px;
+  }
+  .cf-section-sub {
+    font-size: 11px;
+  }
+  .cf-body {
+    padding: 14px 12px !important;
+  }
+
+  /* Inputs and controls */
+  .cf-input, .form-control, .cf-select {
+    font-size: 14px !important;
+    min-height: 42px;
+  }
+
+  /* Form action buttons */
+  .cf-form-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    width: 100%;
+  }
+  .cf-form-actions > div,
+  .cf-form-actions button,
+  .cf-form-actions .btn {
+    width: 100% !important;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  /* Step Indicator */
+  .complaint-steps {
+    padding: 10px 12px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+  }
+  .step-label {
+    display: none;
+  }
+  .step-circle {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    font-size: 12px;
+  }
+  .step-line {
+    min-width: 14px;
+    margin: 0 4px;
+  }
+
+  /* Accused item cards */
+  .accused-card,
+  [style*="background: #f8f8f8"],
+  [style*="background: rgb(248, 248, 248)"] {
+    padding: 12px !important;
+  }
+
+  /* Modals */
+  .modal-dialog {
+    margin: 10px;
+    max-width: calc(100vw - 20px) !important;
+  }
+}
+
+/* ── Small Mobile Phones (max-width: 480px) ── */
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 18px !important;
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .header {
+    padding: 0 10px;
+  }
+  .cf-section-icon {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 8px !important;
+  }
+  .pdf-autofill-box {
+    margin-bottom: 14px !important;
+  }
+  .pdf-autofill-box input[type="file"] {
+    min-width: 100% !important;
+  }
 }

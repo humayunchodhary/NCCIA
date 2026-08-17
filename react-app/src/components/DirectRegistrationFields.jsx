@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
+import PdfAutoFillBar from './PdfAutoFillBar';
+import { mapExtractToDirectInfo } from '../utils/fillFromPdf';
 import {
   HIGH_PROFILE_TYPES,
   DEPARTMENT_TYPES,
@@ -46,6 +48,10 @@ export default function DirectRegistrationFields({
 
   const set = (field) => (e) => setDirect(d => ({ ...d, [field]: e.target.value }));
 
+  const handlePdfFilled = (extracted) => {
+    setDirect(d => mapExtractToDirectInfo(extracted, d));
+  };
+
   const Field = ({ label, name, required, children, span }) => (
     <div className="cf-field" style={span ? { gridColumn: span } : undefined}>
       <label className={`cf-label${required ? ' required' : ''}`}>{label}</label>
@@ -73,6 +79,13 @@ export default function DirectRegistrationFields({
           <div className="cf-section-title">{title}</div>
           <div className="cf-section-sub">{subtitle}</div>
         </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <PdfAutoFillBar
+          onFilled={handlePdfFilled}
+          hint="Upload PDF verification report / letter to auto-fill direct registration details."
+        />
       </div>
 
       {/* Meta — Case Registration Form */}

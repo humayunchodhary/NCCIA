@@ -16,6 +16,18 @@ class LoginHistoryController extends Controller
             $query->where('user_id', $request->user_id);
         }
 
+        if ($request->filled('ip')) {
+            $ip = trim($request->ip);
+            $query->where(function ($q) use ($ip) {
+                $q->where('ip_address', 'like', "%{$ip}%")
+                  ->orWhere('real_ip', 'like', "%{$ip}%");
+            });
+        }
+
+        if ($request->filled('method')) {
+            $query->where('login_method', $request->method);
+        }
+
         if ($request->filled('spoofed')) {
             $query->where('is_spoofed', $request->boolean('spoofed'));
         }
@@ -28,7 +40,7 @@ class LoginHistoryController extends Controller
             $query->where('logged_in_at', '<=', $request->to);
         }
 
-        return $query->paginate(20);
+        return $query->paginate(25);
     }
 
     public function userHistory(Request $request, int $user)

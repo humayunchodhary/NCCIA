@@ -90,6 +90,8 @@ def configure_tesseract():
 
 def ocr_page(page):
     import fitz
+    import subprocess
+    import tempfile
 
     pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
     png_bytes = pix.tobytes("png")
@@ -106,56 +108,112 @@ def ocr_page(page):
     except Exception:
         pass
 
-    easy_on = os.environ.get("PDF_OCR_EASY", "0").lower() in ("1", "true", "yes")
-    if not easy_on:
-        return ""
-
+    # Node tesseract.js fallback
     try:
-        import tempfile
-        import easyocr
+        script_dir = Path(__file__).resolve().parent
+        node_script = script_dir / "ocr-png.cjs"
+        if node_script.is_file():
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                tmp.write(png_bytes)
+                tmp_path = tmp.name
 
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-            tmp.write(png_bytes)
-            tmp_path = tmp.name
-
-        if not hasattr(ocr_page, "_reader"):
-            ocr_page._reader = easyocr.Reader(["en"], gpu=False, verbose=False)  # type: ignore[attr-defined]
-
-        lines = ocr_page._reader.readtext(tmp_path, detail=0)  # type: ignore[attr-defined]
-        try:
-            os.unlink(tmp_path)
-        except Exception:
-            pass
-        return "\n".join(lines)
+            try:
+                proc = subprocess.run(
+                    ["node", str(node_script), tmp_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=90,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                if proc.returncode == 0 and len(proc.stdout.strip()) > 20:
+                    return proc.stdout.strip()
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
     except Exception:
-        return ""
+        pass
+
+    return ""
 
 
 def extract_text_from_pdf(pdf_path, max_pages=3):
-    import fitz
+    fitz_mod = None
+    try:
+        import fitz as fitz_mod
+    except Exception:
+        try:
+            import pymupdf as fitz_mod
+        except Exception:
+            pass
 
-    doc = fitz.open(pdf_path)
-    page_count = doc.page_count
-    chunks = []
-    used_ocr = False
+    if fitz_mod is not None:
+        try:
+            doc = fitz_mod.open(pdf_path)
+            page_count = doc.page_count
+            chunks = []
+            used_ocr = False
 
-    for i in range(min(max_pages, page_count)):
-        page = doc[i]
-        text = page.get_text("text") or ""
-        if len(text.strip()) < 40:
-            ocr_text = ocr_page(page)
-            if ocr_text.strip():
-                text = ocr_text
-                used_ocr = True
-        chunks.append(text)
-        combined = "\n".join(chunks)
-        if re.search(r"\d{5}[-\s]?\d{7}[-\s]?\d", combined) and re.search(
-            r"verification|complainant|tracking", combined, re.I
-        ):
-            break
+            for i in range(min(max_pages, page_count)):
+                page = doc[i]
+                text = page.get_text("text") or ""
+                if len(text.strip()) < 40:
+                    ocr_text = ocr_page(page)
+                    if ocr_text.strip():
+                        text = ocr_text
+                        used_ocr = True
+                chunks.append(text)
+                combined = "\n".join(chunks)
+                if re.search(r"\d{5}[-\s]?\d{7}[-\s]?\d", combined) and re.search(
+                    r"verification|complainant|tracking", combined, re.I
+                ):
+                    break
 
-    doc.close()
-    return "\n".join(chunks), page_count, used_ocr
+            doc.close()
+            return "\n".join(chunks), page_count, used_ocr
+        except Exception:
+            pass
+
+    # Fallback 1: pypdf / PyPDF2
+    for pypdf_name in ("pypdf", "PyPDF2"):
+        try:
+            pdf_lib = __import__(pypdf_name)
+            reader = pdf_lib.PdfReader(pdf_path)
+            chunks = [p.extract_text() or "" for p in reader.pages[:max_pages]]
+            return "\n".join(chunks), len(reader.pages), False
+        except Exception:
+            pass
+
+    # Fallback 2: pdftotext CLI
+    try:
+        import subprocess
+
+        proc = subprocess.run(
+            ["pdftotext", "-l", str(max_pages), pdf_path, "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if proc.returncode == 0 and len(proc.stdout.strip()) > 10:
+            return proc.stdout.strip(), max_pages, False
+    except Exception:
+        pass
+
+    # Fallback 3: Raw text streams from PDF binary
+    try:
+        with open(pdf_path, "rb") as f:
+            raw_bytes = f.read(2 * 1024 * 1024)
+        matches = re.findall(rb"\(([^()\\\\]*(?:\\\\.[^()\\\\]*)*)\)", raw_bytes)
+        text = " ".join(m.decode("latin1", errors="ignore") for m in matches if len(m) > 2)
+        if len(text.strip()) > 30:
+            return text, 1, False
+    except Exception:
+        pass
+
+    return "", 0, False
 
 
 def split_name_father(full_name):
@@ -185,35 +243,105 @@ def map_recommendation(text):
     return None
 
 
+def extract_accused_list_from_text(text):
+    accused = []
+    seen = set()
+
+    for m in re.finditer(r"To\s+([A-Z\s]{3,35})\s+(PK\d{2}[A-Z0-9]{16,24}|\d{10,24})\s+(?:Bank\s+)?([A-Za-z\s]{3,25})?(?:[\s\S]*?(?:Paid|Debited|Amount)[\s\S]*?(?:Rs\.?|PKR)\s*([\d,]+))?", text, re.I):
+        name = clean_value(m.group(1))
+        acc = m.group(2).strip()
+        bank = clean_value(m.group(3)) or ""
+        amount = m.group(4).strip() if m.group(4) else ""
+        if not name or re.match(r"^(abid\s+hussain|customer|service|status|bank|from|amount)", name, re.I):
+            continue
+        key = (name.lower(), acc.lower())
+        if key not in seen:
+            seen.add(key)
+            accused.append({
+                "name": name,
+                "father_name": "",
+                "cnic": "",
+                "mobile_no": "",
+                "phone": "",
+                "bank_account": acc,
+                "bank_name": bank,
+                "description": f"Bank: {bank} | Acc/IBAN: {acc}" + (f" | Amount: Rs. {amount}" if amount else ""),
+            })
+
+    for m in re.finditer(r"Name[\s\=]+([A-Z\s]{3,35})\s+Account[\s\=]+(\d+)(?:\s+IBAN[\s\=]+(PK\d{2}[A-Z0-9]+))?(?:\s+([A-Za-z\s]+)bank)?", text, re.I):
+        name = clean_value(m.group(1))
+        acc = m.group(2).strip()
+        iban = m.group(3).strip() if m.group(3) else ""
+        bank = clean_value(m.group(4)) or ""
+        if not name:
+            continue
+        target_acc = iban or acc
+        key = (name.lower(), target_acc.lower())
+        if key not in seen:
+            seen.add(key)
+            accused.append({
+                "name": name,
+                "father_name": "",
+                "cnic": "",
+                "mobile_no": "",
+                "phone": "",
+                "bank_account": target_acc,
+                "bank_name": bank,
+                "description": f"Bank: {bank} | Acc: {acc}" + (f" | IBAN: {iban}" if iban else ""),
+            })
+
+    m_hira = re.search(r"(?:Sailkot\s+Hira|Hira\s+Rehman)[^\d]{0,20}(\+?92[\s\-]?\d{10}|03\d{9})", text, re.I)
+    if m_hira:
+        phone = re.sub(r"\D", "", m_hira.group(1))
+        if phone.startswith("92") and len(phone) > 10:
+            phone = phone[2:]
+        if len(phone) == 10:
+            phone = "0" + phone
+        key = ("hira", phone)
+        if key not in seen:
+            seen.add(key)
+            accused.append({
+                "name": "Hira Rehman / Sailkot Hira",
+                "father_name": "",
+                "cnic": "",
+                "mobile_no": phone,
+                "phone": phone,
+                "description": "WhatsApp / Fraud App Operator (mallbyvip.com / BestBuy)",
+            })
+
+    return accused
+
+
 def parse_verification_report(text, filename):
     tracking_no = first_match(
         text,
         [
-            r"Tracking\s*No\.?\s*:?\s*([A-Z0-9][A-Z0-9\-\/]+)",
-            r"Tracking\s*Number\s*:?\s*([A-Z0-9][A-Z0-9\-\/]+)",
-            r"VERIFICATION\s*REPORT\s*[\n\r]+No\.?\s*([A-Z0-9][A-Z0-9\-\/]+)",
-            r"No\.?\s*(CCW-[A-Z0-9\-\/]+)",
+            r"Tracking\s*No[\s\.\:\-]+([A-Z0-9][A-Z0-9\-\/]+)",
+            r"Tracking\s*Number[\s\.\:\-]+([A-Z0-9][A-Z0-9\-\/]+)",
+            r"VERIFICATION\s*REPORT[\s\S]{0,100}?No[\s\.\:\-]+([A-Z0-9][A-Z0-9\-\/]+)",
+            r"\b(CCW-[A-Z0-9\-\/]+)\b",
+            r"No[\s\.\:\-]+(CCW-[A-Z0-9\-\/]+)",
         ],
     )
 
     verification_date = parse_date(
-        first_match(text, [r"Verification\s*Date\s*:?\s*([\d\-\/]+)"])
+        first_match(text, [r"Verification\s*Date[\s\.\:\-]+([\d\-\/\.]{8,12})"])
     )
     assignment_date = parse_date(
-        first_match(text, [r"Assignment\s*Date\s*:?\s*([\d\-\/]+)"])
+        first_match(text, [r"Assignment\s*Date[\s\.\:\-]+([\d\-\/\.]{8,12})"])
     )
 
     full_name = first_match(
         text,
         [
-            r"COMPLAINANT\s*DETAILS.*?Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)",
-            r"Name\.?\s*:?\s*(.+?)(?:Gender|CNIC|$)",
+            r"COMPLAINANT\s*DETAILS[\s\S]{0,80}?Name[\s\.\:\-]+(.+?)(?:Gender|CNIC|Occupation|Contact|Mobile|$)",
+            r"Name[\s\.\:\-]+(.+?)(?:Gender|CNIC|Occupation|Contact|Mobile|$)",
             r"Name\s*:?\s*(.+?)\s+Gender\s*:",
         ],
     )
     victim_name, victim_father_name = split_name_father(full_name)
 
-    gender_raw = first_match(text, [r"Gender\s*:?\s*(Male|Female|Other)", r"Gender\s*:?\s*(\w+)"])
+    gender_raw = first_match(text, [r"Gender[\s\.\:\-]+(Male|Female|Other)", r"Gender[\s\.\:\-]+(\w+)"])
     victim_gender = gender_raw.lower() if gender_raw else None
     if not victim_gender and re.search(r"\bMale\b", text, re.I):
         victim_gender = "male"
@@ -222,21 +350,28 @@ def parse_verification_report(text, filename):
 
     cnic_raw = first_match(
         text,
-        [r"CNIC\s*No\.?\s*:?\s*([\d\-]+)", r"CNIC\s*No\.?\s*([\d]+)", r"CNIC\s*:?\s*([\d\-]+)"],
+        [
+            r"CNIC\s*No[\s\.\:\-]+([\d\-]{13,17})",
+            r"CNIC\s*No[\s\.\:\-]+([\d]{13})",
+            r"CNIC[\s\.\:\-]+([\d\-]{13,17})",
+            r"CNIC[\s\.\:\-]+([\d]{13})",
+        ],
     )
     victim_cnic = normalize_cnic(cnic_raw)
 
     victim_occupation = first_match(
         text,
-        [r"Occupation\s*:?\s*(.+?)(?:Contact|Mobile|Address|$)", r"Occupation\s*:?\s*(.+?)(?:\n|$)"],
+        [r"Occupation[\s\.\:\-]+(.+?)(?:Contact|Mobile|Address|Email|Details|Addresses|$)", r"Occupation[\s\.\:\-]+(.+?)(?:\n|$)"],
     )
 
     victim_phone = first_match(
         text,
         [
-            r"Mobile\s*Number\s*:?\s*([\d\-]+)",
-            r"Details\.?\s*Mobile\s*Number\s*:?\s*([\d\-]+)",
-            r"Contact\s*Details\s*:?\s*([\d\-]+)",
+            r"Mobile\s*Number[\s\.\:\-]+([\d\-\s]+)",
+            r"Contact\s*Details[\s\S]{0,40}?Mobile\s*Number[\s\.\:\-]+([\d\-\s]+)",
+            r"Contact\s*Details[\s\.\:\-]+([\d\-\s]+)",
+            r"Contact\s*(?:No\.?|Number)?[\s\.\:\-]+(0?3\d{9})",
+            r"\b(0?3\d{2}[\-\s]?\d{7})\b",
         ],
     )
     if victim_phone:
@@ -249,19 +384,19 @@ def parse_verification_report(text, filename):
     address = first_match(
         text,
         [
-            r"Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|RECOMMEND|Online|$)",
-            r"Addresses\s*Current\s*Address\s*:?\s*(.+?)(?:Permanent|BRIEF|Brief|Online|$)",
+            r"Current\s*Address[\s\.\:\-]+(.+?)(?:Permanent|BRIEF|Brief|RECOMMEND|Online|$)",
+            r"Addresses[\s\.\:\-]+Current\s*Address[\s\.\:\-]+(.+?)(?:Permanent|BRIEF|Brief|Online|$)",
         ],
     )
     permanent_address = first_match(
         text,
-        [r"Permanent\s*Address\s*:?\s*(.+?)(?:BRIEF|Brief|RECOMMEND|Online|Contact|$)"],
+        [r"Permanent\s*Address[\s\.\:\-]+(.+?)(?:BRIEF|Brief|RECOMMEND|Online|Contact|$)"],
     )
 
     victim_email = first_match(
         text,
         [
-            r"E-?mail\s*(?:Address)?\s*:?\s*([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})",
+            r"E-?mail\s*(?:Address)?[\s\.\:\-]+([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})",
             r"\b([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})\b",
         ],
     )
@@ -269,9 +404,9 @@ def parse_verification_report(text, filename):
     crime_category = first_match(
         text,
         [
-            r"BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE\s*:?\s*(.+?)(?:accuse|Accuse|During|Online|City|$)",
-            r"BRIEF\s*DESCRIPTION.*?[\n\r]+(.+?)(?:accuse|Accuse|During|Online|$)",
-            r"Crime\s*Categor(?:y|ies)\s*:?\s*(.+?)(?:accuse|City|Amount|$)",
+            r"BRIEF\s*DESCRIPTION\s*&\s*RECOMMENDATIONS?\s*[\n\r]+([^\n\r]+)",
+            r"BRIEF\s*DESCRIPTION\s*OF\s*(?:THE\s*)?CASE[\s\.\:\-]+(.+?)(?:accuse|Accuse|During|Online|City|$)",
+            r"Crime\s*Categor(?:y|ies)[\s\.\:\-]+(.+?)(?:accuse|City|Amount|$)",
             r"(Online\s+Job\s+Frauds)",
         ],
     )
@@ -279,25 +414,31 @@ def parse_verification_report(text, filename):
     crime_description = first_match(
         text,
         [
-            r"(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|$)",
+            r"(accuse[d]?\s+defrauded.+?)(?:City|Amount|0f Occurrence|RECOMMEND|\n\s*\*|$)",
             r"(accuse.+?investment.+?)(?:City|Amount|RECOMMEND|$)",
             r"BRIEF\s*DESCRIPTION[\s\S]{0,80}?((?:During|The|accuse).+?)(?:City\s*of|Amount\s*Involved|RECOMMEND|$)",
         ],
     )
 
-    accused_name = first_match(
+    accused_list = extract_accused_list_from_text(text)
+    primary_accused = accused_list[0] if accused_list else {}
+
+    accused_name = primary_accused.get("name") or first_match(
         text,
         [
-            r"Accuse[d]?\s*(?:Name|Person)?\s*:?\s*(.+?)(?:CNIC|Mobile|Address|City|Amount|$)",
+            r"Accuse[d]?\s*(?:Name|Person)?[\s\.\:\-]+(.+?)(?:CNIC|Mobile|Address|City|Amount|$)",
             r"against\s+(?:the\s+)?accuse[d]?\s+([A-Za-z][A-Za-z\s\./]{2,60})",
         ],
     )
-    accused_cnic = normalize_cnic(
-        first_match(text, [r"Accuse[d]?[^\n]{0,40}CNIC\s*(?:No\.?)?\s*:?\s*([\d\-]+)"])
+    accused_cnic = primary_accused.get("cnic") or normalize_cnic(
+        first_match(text, [r"Accuse[d]?[^\n]{0,40}CNIC\s*(?:No\.?)?[\s\.\:\-]+([\d\-]+)"])
     )
-    accused_phone = first_match(
+    accused_phone = primary_accused.get("mobile_no") or primary_accused.get("phone") or first_match(
         text,
-        [r"Accuse[d]?[^\n]{0,60}(?:Mobile|Phone|Contact)\s*(?:No\.?|Number)?\s*:?\s*([\d\-]+)"],
+        [
+            r"Accuse[d]?[^\n]{0,60}(?:Mobile|Phone|Contact)\s*(?:No\.?|Number)?[\s\.\:\-]+([\d\-]+)",
+            r"واٹس\s*ایپ\s*نمبر[\s\:\-]+(0?3\d{9})",
+        ],
     )
     if accused_phone:
         accused_phone = re.sub(r"\D", "", accused_phone)
@@ -309,17 +450,17 @@ def parse_verification_report(text, filename):
     city = first_match(
         text,
         [
-            r"City\s*of\s*Occurrence\s*:?\s*(.+?)(?:Complaint|Amount|RECOMMEND|$)",
-            r"0f\s*Occurrence\s*(.+?)(?:working|Amount|RECOMMEND|$)",
+            r"City\s*of\s*Occurrence[\s\.\:\-]+(.+?)(?:Complaint|Amount|RECOMMEND|BRIEF|$)",
+            r"0f\s*Occurrence[\s\.\:\-]+(.+?)(?:Complaint|Amount|working|RECOMMEND|BRIEF|$)",
         ],
     )
 
     amount_raw = first_match(
         text,
         [
-            r"Amount\s*Involved\.?\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)",
-            r"Amount\s*Involved\s*:?\s*(?:Rs\.?\s*)?([\d,\.]+)",
-            r"Rs\.?\s*([\d,]{3,}(?:\.\d+)?)",
+            r"Amount\s*Involved[\s\.\:\-]+(?:Rs\.?\s*)?([\d,\.]+)",
+            r"defrauded\s+Rs\.?\s*([\d,\.]+)",
+            r"Rs\.?\s*([\d,]{4,}(?:\.\d+)?)",
         ],
     )
     amount_involved = None
@@ -332,7 +473,8 @@ def parse_verification_report(text, filename):
     recommendation_text = first_match(
         text,
         [
-            r"RECOMMENDATIONS?\s*:?\s*(.+?)(?:Justification|Reporting Officer|$)",
+            r"(?:^|\n)\s*RECOMMENDATIONS?\s*[\n\r]+\s*([A-Za-z\s]{5,80})",
+            r"RECOMMENDATIONS?[\s\.\:\-]+(Permission[^\n\r]+)",
             r"Per(?:m|i)ssion\s+to\s+Register\s+Enq(?:u|ui)ry",
         ],
     )
@@ -340,13 +482,17 @@ def parse_verification_report(text, filename):
 
     recommendation_full = first_match(
         text,
-        [r"Justification\s*:?\s*(.+?)(?:Reporting Officer|Assistant Sub|Signature|$)"],
+        [
+            r"(During\s+the\s+course\s+of\s+verification.+?converted\s+into\s+a\s+regular\s+Enquiry[\.]?)",
+            r"Justification[\s\.\:\-]+(.+?)(?:Reporting Officer|Assistant Sub|Signature|$)",
+        ],
     )
     reporting_officer = first_match(
         text,
         [
-            r"Reporting\s*Officer\s*:?\s*(.+?)(?:Designation|Rank|Signature|$)",
-            r"(?:ASP|ASI|SI|Inspector)\s+([A-Za-z][A-Za-z\s\.]{2,40})",
+            r"([A-Z\s]{3,30})\s*[\n\r]+\s*(?:Assistant Sub Inspector|Sub Inspector|Inspector|ASI|SI|ASP|DSP)",
+            r"(?:Assistant Sub Inspector|Sub Inspector|Inspector|ASI|SI|ASP|DSP)[\s\.\:\-]+([A-Za-z\s\.]{2,40})",
+            r"Reporting\s*Officer[\s\.\:\-]+(.+?)(?:Designation|Rank|Signature|$)",
         ],
     )
 

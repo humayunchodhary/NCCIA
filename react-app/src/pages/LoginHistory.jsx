@@ -9,7 +9,7 @@ export default function LoginHistory() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [filters, setFilters] = useState({ user_id: '', spoofed: '', from: '', to: '' });
+  const [filters, setFilters] = useState({ user_id: '', ip: '', spoofed: '', from: '', to: '' });
   const [sortBy, setSortBy] = useState({ key: 'logged_in_at', direction: 'desc' });
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function LoginHistory() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, per_page: 20 });
+      const params = new URLSearchParams({ page, per_page: 25 });
       Object.entries(filters).forEach(([k, v]) => v && params.append(k, v));
       const res = await api.get('/login-history', { params });
       setHistory(res.data.data || res.data);
@@ -59,14 +59,14 @@ export default function LoginHistory() {
         </span>
       );
     }
-    return ip;
+    return <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{ip}</span>;
   };
 
   return (
     <div className="cf-page">
       <div className="cf-header">
-        <h2 className="mb-0">Login History</h2>
-        <p className="text-muted mb-0">Track user logins, detect IP spoofing, and view access history</p>
+        <h2 className="mb-0">Login & IP Security History</h2>
+        <p className="text-muted mb-0">Track all user logins, client IP addresses, real proxy IPs, and spoofing attempts</p>
       </div>
 
       {/* Stats Cards */}
@@ -112,29 +112,39 @@ export default function LoginHistory() {
         <div className="card-body">
           <div className="row g-3 align-items-end">
             <div className="col-md-3">
+              <label className="form-label small">Search IP Address</label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                value={filters.ip}
+                onChange={(e) => setFilters(f => ({ ...f, ip: e.target.value }))}
+                placeholder="e.g. 192.168.1.1 or 39.40."
+              />
+            </div>
+            <div className="col-md-2">
               <label className="form-label small">User ID</label>
               <input
                 type="number"
                 className="form-control form-control-sm"
                 value={filters.user_id}
                 onChange={(e) => setFilters(f => ({ ...f, user_id: e.target.value }))}
-                placeholder="Filter by user ID"
+                placeholder="Filter user ID"
               />
             </div>
             <div className="col-md-2">
-              <label className="form-label small">Spoofed</label>
+              <label className="form-label small">Spoofed IP</label>
               <select
                 className="form-select form-select-sm"
                 value={filters.spoofed}
                 onChange={(e) => setFilters(f => ({ ...f, spoofed: e.target.value }))}
               >
                 <option value="">All</option>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
+                <option value="true">Yes (Spoofed)</option>
+                <option value="false">No (Normal)</option>
               </select>
             </div>
             <div className="col-md-2">
-              <label className="form-label small">From</label>
+              <label className="form-label small">From Date</label>
               <input
                 type="date"
                 className="form-control form-control-sm"
@@ -143,7 +153,7 @@ export default function LoginHistory() {
               />
             </div>
             <div className="col-md-2">
-              <label className="form-label small">To</label>
+              <label className="form-label small">To Date</label>
               <input
                 type="date"
                 className="form-control form-control-sm"
@@ -151,9 +161,9 @@ export default function LoginHistory() {
                 onChange={(e) => setFilters(f => ({ ...f, to: e.target.value }))}
               />
             </div>
-            <div className="col-md-3">
-              <button className="btn btn-primary w-100" onClick={() => { setPage(1); fetchHistory(); }}>
-                Apply Filters
+            <div className="col-md-1">
+              <button className="btn btn-primary btn-sm w-100" onClick={() => { setPage(1); fetchHistory(); }}>
+                Filter
               </button>
             </div>
           </div>

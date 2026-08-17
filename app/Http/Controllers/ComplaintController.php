@@ -678,20 +678,28 @@ public function create()
         });
 
         $verification->loadMissing('officer');
-        $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        try {
+            $verification->officer?->notify(new VerificationAssignedNotification($verification));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('VerificationAssignedNotification failed: ' . $e->getMessage());
+        }
 
         // SMS the assigned Verification Officer.
-        if ($verification->officer) {
-            app(SmsService::class)->sendToUser(
-                $verification->officer,
-                SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
-                SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
-                [
-                    'subject_type' => 'verification',
-                    'subject_id'   => $verification->id,
-                    'trigger'      => 'verification_assigned',
-                ]
-            );
+        try {
+            if ($verification->officer) {
+                app(SmsService::class)->sendToUser(
+                    $verification->officer,
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'en'),
+                    SmsTemplates::verificationAssigned($verification, $verification->officer, 'ur'),
+                    [
+                        'subject_type' => 'verification',
+                        'subject_id'   => $verification->id,
+                        'trigger'      => 'verification_assigned',
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
         }
 
         return $verification;

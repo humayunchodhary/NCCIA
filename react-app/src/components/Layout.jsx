@@ -675,7 +675,7 @@ export default function Layout() {
               <span style={{color:'#fff'}} className="current">{breadcrumb}</span>
             </nav>
           </div>
-          <div className="header-search" role="search" ref={searchRef} style={{position:'relative', width: 340}}>
+          <div className="header-search" role="search" ref={searchRef} style={{position:'relative', flex: '0 1 320px', minWidth: 180, maxWidth: 360}}>
             <svg className="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/>
               <path d="m21 21-4.35-4.35"/>

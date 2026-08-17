@@ -314,19 +314,27 @@ class CaseFileController extends Controller
         });
 
         if ($caseFile->investigation_officer_id) {
-            $caseFile->investigationOfficer?->notify(new CaseAssignedNotification($caseFile));
+            try {
+                $caseFile->investigationOfficer?->notify(new CaseAssignedNotification($caseFile));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('CaseAssignedNotification failed: ' . $e->getMessage());
+            }
 
-            if ($caseFile->investigationOfficer) {
-                app(SmsService::class)->sendToUser(
-                    $caseFile->investigationOfficer,
-                    SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'en'),
-                    SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'ur'),
-                    [
-                        'subject_type' => 'case_file',
-                        'subject_id'   => $caseFile->id,
-                        'trigger'      => 'case_assigned',
-                    ]
-                );
+            try {
+                if ($caseFile->investigationOfficer) {
+                    app(SmsService::class)->sendToUser(
+                        $caseFile->investigationOfficer,
+                        SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'en'),
+                        SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'ur'),
+                        [
+                            'subject_type' => 'case_file',
+                            'subject_id'   => $caseFile->id,
+                            'trigger'      => 'case_assigned',
+                        ]
+                    );
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
             }
         }
 
@@ -531,17 +539,21 @@ class CaseFileController extends Controller
         });
 
         // SMS the new investigation officer when reassigned via update.
-        if ($officerChanged && $caseFile->investigationOfficer) {
-            app(SmsService::class)->sendToUser(
-                $caseFile->investigationOfficer,
-                SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'en'),
-                SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'ur'),
-                [
-                    'subject_type' => 'case_file',
-                    'subject_id'   => $caseFile->id,
-                    'trigger'      => 'case_assigned',
-                ]
-            );
+        try {
+            if ($officerChanged && $caseFile->investigationOfficer) {
+                app(SmsService::class)->sendToUser(
+                    $caseFile->investigationOfficer,
+                    SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'en'),
+                    SmsTemplates::caseAssigned($caseFile, $caseFile->investigationOfficer, 'ur'),
+                    [
+                        'subject_type' => 'case_file',
+                        'subject_id'   => $caseFile->id,
+                        'trigger'      => 'case_assigned',
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Officer SMS failed: ' . $e->getMessage());
         }
 
         return response()->json([

@@ -18,28 +18,22 @@ export function titleGender(raw) {
 }
 
 export async function ocrAndParsePdf(file, onStatus) {
+  onStatus?.('Scanning PDF document…');
   const ocrText = await extractTextFromPdf(file, onStatus, {
     maxPages: 3,
     stopWhenUseful: true,
-    serverRenderPage: async (pageIndex) => {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('page', String(pageIndex));
-      try {
-        const r = await api.post('/complaint-pdf-imports/render-page', fd, { timeout: 120000 });
-        return r.data?.image || null;
-      } catch {
-        return null;
-      }
-    },
   });
-  if (!ocrText || ocrText.trim().length < 20) {
-    throw new Error('PDF se text nahi parha. Scan quality check karein.');
+
+  if (!ocrText || ocrText.trim().length < 15) {
+    throw new Error('PDF se text nahi parha ja saka. Scan quality check karein.');
   }
+
+  onStatus?.('Parsing verification report details…');
   const r = await api.post('/complaint-pdf-imports/preview', {
     ocr_text: ocrText,
     filename: file.name,
   });
+
   return {
     extracted: r.data?.extracted || {},
     fieldsOk: r.data?.fields_ok !== false,
@@ -113,18 +107,42 @@ function mapOccupation(raw) {
 
 export function mapExtractToComplaintForm(extracted) {
   const phone = digitsPhone(extracted.victim_phone);
-  const accused = [];
-  if (isLikelyPersonName(extracted.accused_name) || extracted.accused_cnic || extracted.accused_phone) {
-    accused.push({
+  const accusedList = [];
+
+  if (Array.isArray(extracted.accused) && extracted.accused.length > 0) {
+    extracted.accused.forEach((a) => {
+      accusedList.push({
+        name: isLikelyPersonName(a.name) ? a.name : (a.name || ''),
+        father_name: a.father_name || '',
+        mobile_no: digitsPhone(a.mobile_no || a.phone),
+        cnic: formatCnic(a.cnic),
+        email: a.email || '',
+        social_media_url: a.social_media_url || '',
+        other_info: a.bank_account ? `${a.bank_name || 'Bank'}: ${a.bank_account}` : (a.other_info || ''),
+        description: a.description || extracted.crime_description || '',
+        cnic_front: '',
+        cnic_back: '',
+        picture: '',
+        passport_attachment: '',
+      });
+    });
+  } else if (isLikelyPersonName(extracted.accused_name) || extracted.accused_cnic || extracted.accused_phone) {
+    accusedList.push({
       name: isLikelyPersonName(extracted.accused_name) ? extracted.accused_name : '',
+      father_name: '',
       mobile_no: digitsPhone(extracted.accused_phone),
       cnic: formatCnic(extracted.accused_cnic),
       email: '',
       social_media_url: '',
       other_info: '',
       description: extracted.crime_description || '',
+      cnic_front: '',
+      cnic_back: '',
+      picture: '',
+      passport_attachment: '',
     });
   }
+
   return compactFilled({
     complainant_name: extracted.victim_name || '',
     father_name: extracted.victim_father_name || '',
@@ -141,18 +159,40 @@ export function mapExtractToComplaintForm(extracted) {
     amount_involved: extracted.amount_involved != null ? String(extracted.amount_involved) : '',
     occurrence_date: dateOnly(extracted.verification_date || extracted.assignment_date),
     report_date: dateOnly(extracted.assignment_date || extracted.verification_date),
-    diary_no: extracted.inquiry_no || '',
+    diary_no: extracted.inquiry_no || extracted.tracking_no || '',
     received_via: 'Online Platform',
     received_from: 'General Public',
     cmu: 'CCRC',
-    initial_accused: accused,
+    initial_accused: accusedList,
   });
 }
 
 export function mapExtractToVerificationReport(extracted) {
-  const accused = [];
-  if (isLikelyPersonName(extracted.accused_name) || extracted.accused_cnic || extracted.accused_phone) {
-    accused.push({
+  const accusedList = [];
+
+  if (Array.isArray(extracted.accused) && extracted.accused.length > 0) {
+    extracted.accused.forEach((a) => {
+      accusedList.push({
+        name: isLikelyPersonName(a.name) ? a.name : (a.name || ''),
+        father_name: a.father_name || '',
+        phone: digitsPhone(a.mobile_no || a.phone),
+        email: a.email || '',
+        country_code: '+92',
+        cnic: formatCnic(a.cnic),
+        address: a.address || '',
+        post_address: a.post_address || '',
+        nationality: 'Pakistani',
+        passport_no: a.passport_no || '',
+        photo: null,
+        cnic_front: '',
+        cnic_back: '',
+        passport_attachment: '',
+        picture: '',
+        other_attachment: '',
+      });
+    });
+  } else if (isLikelyPersonName(extracted.accused_name) || extracted.accused_cnic || extracted.accused_phone) {
+    accusedList.push({
       name: isLikelyPersonName(extracted.accused_name) ? extracted.accused_name : '',
       father_name: '',
       phone: digitsPhone(extracted.accused_phone),
@@ -171,6 +211,7 @@ export function mapExtractToVerificationReport(extracted) {
       other_attachment: '',
     });
   }
+
   return compactFilled({
     tracking_no: extracted.tracking_no || '',
     assignment_date: dateToDateTimeLocal(extracted.assignment_date),
@@ -185,8 +226,8 @@ export function mapExtractToVerificationReport(extracted) {
     crime_category: extracted.crime_category || '',
     city: extracted.city || '',
     crime_description: extracted.crime_description || '',
-    accused_known: accused.length ? '1' : '0',
-    accused,
+    accused_known: accusedList.length ? '1' : '0',
+    accused: accusedList,
     recommendation: extracted.recommendation || '',
     recommendation_short: extracted.recommendation_short || '',
     recommendation_full: extracted.recommendation_full || '',
@@ -199,6 +240,33 @@ export function mapExtractToDirectInfo(extracted, current = {}) {
   const mobile = phone ? (phone.length === 10 ? `0${phone}` : phone) : '';
   const occ = dateToDateTimeLocal(extracted.verification_date || extracted.assignment_date);
   const rec = dateToDateTimeLocal(extracted.assignment_date || extracted.verification_date);
+
+  const mappedAccused = [];
+  if (Array.isArray(extracted.accused) && extracted.accused.length > 0) {
+    extracted.accused.forEach((a) => {
+      const aPhone = digitsPhone(a.mobile_no || a.phone);
+      mappedAccused.push({
+        name: isLikelyPersonName(a.name) ? a.name : (a.name || ''),
+        father_name: a.father_name || '',
+        cnic: String(a.cnic || '').replace(/\D/g, '').slice(0, 13),
+        gender: '',
+        contact_no: aPhone ? (aPhone.length === 10 ? `0${aPhone}` : aPhone) : '',
+        whatsapp_no: aPhone ? (aPhone.length === 10 ? `0${aPhone}` : aPhone) : '',
+        email: a.email || '',
+        postal_address: a.address || '',
+        permanent_address: a.post_address || '',
+        religion: '',
+        district_domicile: '',
+        identification_mark: '',
+        occupation: '',
+        is_government: false,
+        department_name: '',
+        designation: '',
+        description: a.description || extracted.crime_description || '',
+      });
+    });
+  }
+
   return {
     ...current,
     ...compactFilled({
@@ -222,6 +290,7 @@ export function mapExtractToDirectInfo(extracted, current = {}) {
       received_on: rec,
       registration_date: rec,
     }),
+    ...(mappedAccused.length > 0 ? { accused_persons: mappedAccused } : {}),
   };
 }
 

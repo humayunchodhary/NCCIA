@@ -39,11 +39,12 @@ class LoginController extends Controller
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
             RateLimiter::clear($key);
-            $this->recordLoginHistory($request, 'web');
+            $this->recordLoginHistory($request, 'web', Auth::id());
             return redirect('/');
         }
 
         RateLimiter::hit($key);
+        $this->recordLoginHistory($request, 'failed_web');
 
         return back()->withErrors([
             'email' => 'Invalid email or password',
@@ -56,13 +57,17 @@ class LoginController extends Controller
         $clientIp = $request->ip();
 
         // Update the latest login history with logout time
-        if ($userId) {
-            LoginHistory::where('user_id', $userId)
-                ->where('ip_address', $clientIp)
-                ->whereNull('logged_out_at')
-                ->latest('logged_in_at')
-                ->first()
-                ?->update(['logged_out_at' => now()]);
+        try {
+            if ($userId) {
+                LoginHistory::where('user_id', $userId)
+                    ->where('ip_address', $clientIp)
+                    ->whereNull('logged_out_at')
+                    ->latest('logged_in_at')
+                    ->first()
+                    ?->update(['logged_out_at' => now()]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Logout history update failed: ' . $e->getMessage());
         }
 
         Auth::logout();
@@ -82,6 +87,7 @@ class LoginController extends Controller
 
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = RateLimiter::availableIn($key);
+            $this->recordLoginHistory($request, 'rate_limited');
             return response()->json([
                 'message' => "Too many attempts. Try again in {$seconds} seconds.",
                 'retry_after' => $seconds,
@@ -95,18 +101,20 @@ class LoginController extends Controller
             if (!$user->roles()->count()) {
                 Auth::logout();
                 $request->session()->invalidate();
+                $this->recordLoginHistory($request, 'access_revoked', $user->id);
                 return response()->json(['message' => 'Access revoked. Contact administrator.'], 403);
             }
 
             $request->session()->regenerate();
             RateLimiter::clear($key);
-            $this->recordLoginHistory($request, 'api');
+            $this->recordLoginHistory($request, 'api', $user->id);
             return response()->json([
                 'user' => $user->load('roles', 'zone', 'circle', 'permissions'),
             ]);
         }
 
         RateLimiter::hit($key);
+        $this->recordLoginHistory($request, 'failed_api');
         $attempts = RateLimiter::attempts($key);
         $remaining = max(0, 3 - $attempts);
 
@@ -122,43 +130,28 @@ class LoginController extends Controller
         $clientIp = $request->ip();
 
         // Update the latest login history with logout time
-        if ($userId) {
-            LoginHistory::where('user_id', $userId)
-                ->where('ip_address', $clientIp)
-                ->whereNull('logged_out_at')
-                ->latest('logged_in_at')
-                ->first()
-                ?->update(['logged_out_at' => now()]);
+        try {
+            if ($userId) {
+                LoginHistory::where('user_id', $userId)
+                    ->where('ip_address', $clientIp)
+                    ->whereNull('logged_out_at')
+                    ->latest('logged_in_at')
+                    ->first()
+                    ?->update(['logged_out_at' => now()]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('API logout history update failed: ' . $e->getMessage());
         }
 
-        Auth::logout();
-        $request->session()->flush();
+        Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        // Delete all sessions for this user to ensure complete logout
-        if ($userId) {
-            \DB::table('sessions')->where('user_id', $userId)->delete();
-        }
-
-        $domain = config('session.domain');
-        $secure = config('session.secure', false);
-        $sameSite = config('session.same_site', 'lax');
-        $sessionCookie = config('session.cookie');
-
-        $response = response()->json(['message' => 'Logged out']);
-
-        // Clear session cookie (httpOnly: true)
-        $response->withCookie(cookie($sessionCookie, null, -2628000, '/', $domain, $secure, true, false, $sameSite));
-        // Clear XSRF-TOKEN cookie (httpOnly: false so JS can read it)
-        $response->withCookie(cookie('XSRF-TOKEN', null, -2628000, '/', $domain, $secure, false, false, $sameSite));
-
-        return $response;
+        return response()->json(['message' => 'Logged out successfully']);
     }
 
     /**
-     * Login for the isolated Forensic portal — only accounts holding a
-     * forensic role are allowed to sign in here.
+     * Authenticate for the Forensic Portal (only users with forensic access).
      */
     public function apiForensicLogin(Request $request)
     {
@@ -171,6 +164,7 @@ class LoginController extends Controller
 
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = RateLimiter::availableIn($key);
+            $this->recordLoginHistory($request, 'rate_limited');
             return response()->json([
                 'message' => "Too many attempts. Try again in {$seconds} seconds.",
                 'retry_after' => $seconds,
@@ -179,6 +173,7 @@ class LoginController extends Controller
 
         if (!Auth::attempt($credentials, $request->filled('remember'))) {
             RateLimiter::hit($key);
+            $this->recordLoginHistory($request, 'failed_forensic');
             $attempts = RateLimiter::attempts($key);
             $remaining = max(0, 3 - $attempts);
             return response()->json([
@@ -192,12 +187,14 @@ class LoginController extends Controller
         if (!$user->roles()->count()) {
             Auth::logout();
             $request->session()->invalidate();
+            $this->recordLoginHistory($request, 'access_revoked', $user->id);
             return response()->json(['message' => 'Access revoked. Contact administrator.'], 403);
         }
 
         if (!$user->isForensic()) {
             Auth::logout();
             $request->session()->invalidate();
+            $this->recordLoginHistory($request, 'denied_forensic', $user->id);
             return response()->json([
                 'message' => 'This account does not have Forensic Portal access.',
             ], 403);
@@ -205,30 +202,43 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
         RateLimiter::clear($key);
-        $this->recordLoginHistory($request, 'forensic');
+        $this->recordLoginHistory($request, 'forensic', $user->id);
 
         return response()->json([
             'user' => $user->load('roles', 'zone', 'circle', 'permissions'),
         ]);
     }
 
-    private function recordLoginHistory(Request $request, string $method): void
+    private function recordLoginHistory(Request $request, string $method, ?int $userId = null): void
     {
-        $ipService = app(IpDetectionService::class);
-        $clientIp = $ipService->getClientIp($request);
-        $realIp = $ipService->getRealIp($request);
-        $proxyHeaders = $ipService->getProxyHeaders($request);
-        $isSpoofed = $ipService->detectSpoofing($request);
+        try {
+            $targetUserId = $userId ?: auth()->id();
+            if (!$targetUserId) {
+                $targetUser = \App\Models\User::where('email', $request->input('email'))->first();
+                $targetUserId = $targetUser?->id;
+            }
 
-        LoginHistory::create([
-            'user_id' => auth()->id(),
-            'ip_address' => $clientIp,
-            'real_ip' => $realIp,
-            'proxy_headers' => $proxyHeaders ?: null,
-            'is_spoofed' => $isSpoofed,
-            'user_agent' => $request->userAgent(),
-            'login_method' => $method,
-        ]);
+            if ($targetUserId) {
+                $ipService = app(IpDetectionService::class);
+                $clientIp = $ipService->getClientIp($request);
+                $realIp = $ipService->getRealIp($request);
+                $proxyHeaders = $ipService->getProxyHeaders($request);
+                $isSpoofed = $ipService->detectSpoofing($request);
+
+                LoginHistory::create([
+                    'user_id' => $targetUserId,
+                    'ip_address' => $clientIp ?: '0.0.0.0',
+                    'real_ip' => $realIp ?: $clientIp,
+                    'proxy_headers' => $proxyHeaders ?: null,
+                    'is_spoofed' => $isSpoofed,
+                    'user_agent' => substr((string) $request->userAgent(), 0, 500),
+                    'login_method' => $method,
+                    'logged_in_at' => now(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Login history recording failed: ' . $e->getMessage());
+        }
     }
 
     private function throttleKey(Request $request): string

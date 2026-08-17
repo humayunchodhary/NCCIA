@@ -88,11 +88,16 @@ const EMPTY_SEIZE_ITEM = {
 };
 
 const SEIZE_ITEM_TYPES = [
-  { value: 'mobile', name: 'Mobile Phone' },
+  { value: 'phone', name: 'Mobile Phone' },
   { value: 'laptop', name: 'Laptop' },
-  { value: 'hard_disk', name: 'Hard Disk / SSD' },
+  { value: 'computer', name: 'Computer / Desktop' },
+  { value: 'hdd', name: 'Hard Disk - HDD / SSD' },
+  { value: 'dvr', name: 'DVR' },
+  { value: 'ipad_tablet', name: 'iPad / Tablet' },
+  { value: 'memory_card', name: 'Memory Card' },
   { value: 'sim', name: 'SIM Card' },
   { value: 'usb', name: 'USB / Flash Drive' },
+  { value: 'cd_dvd', name: 'CD / DVD' },
   { value: 'other', name: 'Other' },
 ];
 
@@ -112,7 +117,7 @@ const EMPTY_REQUISITION = {
 };
 
 const BASE_TAB_ORDER = [
-  'details', 'accused', 'witnesses', 'notices', 'attachments', 'reports',
+  'details', 'accused', 'witnesses', 'notices', 'attachments',
   'activities', 'requisitions', 'legal', 'approvals', 'outcome', 'chat',
 ];
 
@@ -221,6 +226,22 @@ export default function EnquiryForm() {
   const [direct, setDirect] = useState(emptyDirectInfo());
   const [editingAccusedIndex, setEditingAccusedIndex] = useState(null);
   const [editingNoticeIndex, setEditingNoticeIndex] = useState(null);
+  const [linkedForensicRequests, setLinkedForensicRequests] = useState([]);
+  const [loadingLinkedReports, setLoadingLinkedReports] = useState(false);
+
+  const loadLinkedForensicRequests = async (enquiryId) => {
+    const targetId = enquiryId || id;
+    if (!targetId || targetId === 'new') return;
+    setLoadingLinkedReports(true);
+    try {
+      const res = await api.get(`/forensic-requests?enquiry_id=${targetId}`);
+      setLinkedForensicRequests(res.data?.data || []);
+    } catch (e) {
+      console.warn('Could not load linked forensic requests', e);
+    } finally {
+      setLoadingLinkedReports(false);
+    }
+  };
 
   const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
@@ -419,6 +440,7 @@ export default function EnquiryForm() {
       api.get(`/enquiries/${id}`).then(r => {
         applyEnquiryPayload(r.data.data || r.data);
       }).catch(() => navigate('/enquiries'));
+      loadLinkedForensicRequests(id);
     }
   }, [id, navigate]);
 
@@ -765,9 +787,9 @@ export default function EnquiryForm() {
     }
   };
 
-  const submitActivityToForensic = async (act) => {
+  const submitActivityToForensic = async (act, destination = 'forensic') => {
     if (!id || id === 'new') {
-      alert('Pehle enquiry save karein, phir AD Forensic ko submit karein.');
+      alert('Pehle enquiry save karein, phir submit karein.');
       return;
     }
     setSendingForensic(true);
@@ -791,8 +813,8 @@ export default function EnquiryForm() {
 
       const fd = new FormData();
       fd.append('enquiry_id', String(id));
-      fd.append('destination', 'forensic');
-      fd.append('note', act.description || 'Seizure memo evidence submitted for forensic examination.');
+      fd.append('destination', destination);
+      fd.append('note', act.description || `Seizure memo evidence submitted for ${destination === 'forensic' ? 'forensic' : 'technical'} examination.`);
       fd.append('items', JSON.stringify(items.length ? items : [{
         item_type: 'other',
         description: act.description || 'Seizure evidence items',
@@ -802,9 +824,10 @@ export default function EnquiryForm() {
         fd.append('attachment', act.file);
       }
       const r = await api.post('/forensic-requests', fd);
-      alert(r.data?.message || 'Seized items successfully submitted to AD Forensic!');
+      alert(r.data?.message || `Seized items successfully submitted to ${destination === 'forensic' ? 'AD Forensic' : 'Technical Department'}!`);
+      await loadLinkedForensicRequests(id);
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Submission to AD Forensic failed.');
+      alert(err.response?.data?.message || err.message || 'Submission failed.');
     } finally {
       setSendingForensic(false);
     }
@@ -1068,8 +1091,7 @@ export default function EnquiryForm() {
               {tab === 'witnesses' && `Witnesses${form.witnesses?.length ? ` (${form.witnesses.length})` : ''}`}
               {tab === 'notices' && `Summons${nonAppearanceCount ? ' !' : ''}${form.notices?.length ? ` (${form.notices.length})` : ''}`}
               {tab === 'attachments' && `Attachments${form.attachments?.length ? ` (${form.attachments.length})` : ''}`}
-              {tab === 'reports' && 'Reports'}
-              {tab === 'activities' && 'Activities'}
+              {tab === 'activities' && `Activities${form.activities?.length ? ` (${form.activities.length})` : ''}${linkedForensicRequests?.length ? ` · 🔬${linkedForensicRequests.length}` : ''}`}
               {tab === 'requisitions' && `Requisitions${form.requisitions?.length ? ` (${form.requisitions.length})` : ''}`}
               {tab === 'legal' && 'Legal Opinions'}
               {tab === 'approvals' && 'Approvals'}
@@ -1875,134 +1897,6 @@ export default function EnquiryForm() {
           </div>
         )}
 
-        {/* REPORTS TAB */}
-        {activeTab === 'reports' && (
-          <div className="cf-section">
-            <div className="cf-section-header">
-              <div className="cf-section-icon" style={{ background: '#015C94' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
-              </div>
-              <div><div className="cf-section-title">Technical &amp; Forensic Reports</div><div className="cf-section-sub">Required reports for this enquiry</div></div>
-              <div className="cf-section-badge">STEP 3</div>
-            </div>
-            <div className="cf-body">
-              {seizedItemsPreview.length > 0 && (
-                <div style={{ marginBottom: 16, padding: 12, background: '#f0f7fb', border: '1px solid #c5d9e8', borderRadius: 8 }}>
-                  <strong style={{ display: 'block', marginBottom: 8, color: '#015C94', fontSize: 13 }}>
-                    Seized items (auto from Activities)
-                  </strong>
-                  <div style={{ fontSize: 12, color: '#444' }}>
-                    {seizedItemsPreview.map((it, idx) => (
-                      <div key={idx} style={{ marginBottom: 4 }}>
-                        {idx + 1}. {SEIZE_ITEM_TYPES.find(o => o.value === it.item_type)?.name || it.item_type || 'Item'}
-                        {it.make_model ? ` — ${it.make_model}` : ''}
-                        {it.imei ? ` | IMEI: ${it.imei}` : ''}
-                        {it.serial_no ? ` | S/N: ${it.serial_no}` : ''}
-                        {it.quantity ? ` | Qty: ${it.quantity}` : ''}
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: 8, fontSize: 11, color: '#666' }}>
-                    Submit to AD Forensic / Technical will auto-attach these item details.
-                  </div>
-                </div>
-              )}
-              <div className="cf-field" style={{ marginBottom: 16 }}>
-                <label className="cf-label required">Technical Report</label>
-                <textarea
-                  className="cf-input"
-                  rows={4}
-                  value={form.technical_report || ''}
-                  onChange={setF('technical_report')}
-                  placeholder="Technical analysis / report findings..."
-                  style={{ width: '100%' }}
-                />
-                {technicalReportUrl ? (
-                  <div style={{ fontSize: 12, marginTop: 6 }}>
-                    Current file:{' '}
-                    <a href={technicalReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>
-                      Open ↗
-                    </a>
-                  </div>
-                ) : null}
-                {technicalFile ? (
-                  <div style={{ fontSize: 12, marginTop: 6, color: '#0d7a4f' }}>Selected: {technicalFile.name}</div>
-                ) : null}
-                <input
-                  type="file"
-                  className="cf-input"
-                  style={{ marginTop: 8 }}
-                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  onChange={e => setTechnicalFile(e.target.files?.[0] || null)}
-                />
-                <div style={{ marginTop: 10 }}>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    disabled={sendingForensic || !id}
-                    onClick={() => sendReportToDepartment('technical')}
-                  >
-                    {sendingForensic ? 'Sending…' : 'Submit to Technical Department'}
-                  </button>
-                </div>
-              </div>
-              <div className="cf-field">
-                <label className="cf-label required">Forensic Report</label>
-                <textarea
-                  className="cf-input"
-                  rows={4}
-                  value={form.forensic_report || ''}
-                  onChange={setF('forensic_report')}
-                  placeholder="Forensic analysis / report findings..."
-                  style={{ width: '100%' }}
-                />
-                {forensicReportUrl ? (
-                  <div style={{ fontSize: 12, marginTop: 6 }}>
-                    Current file:{' '}
-                    <a href={forensicReportUrl} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>
-                      Open ↗
-                    </a>
-                  </div>
-                ) : null}
-                {forensicFile ? (
-                  <div style={{ fontSize: 12, marginTop: 6, color: '#0d7a4f' }}>Selected: {forensicFile.name}</div>
-                ) : null}
-                <input
-                  type="file"
-                  className="cf-input"
-                  style={{ marginTop: 8 }}
-                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  onChange={e => setForensicFile(e.target.files?.[0] || null)}
-                />
-                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={sendingForensic || !id}
-                    onClick={() => sendReportToDepartment('forensic')}
-                  >
-                    {sendingForensic ? 'Sending…' : 'Submit to AD Forensic'}
-                  </button>
-                  <span style={{ fontSize: 12, color: '#64748b' }}>
-                    AD Forensic review → assign FO → report code
-                  </span>
-                </div>
-                {forensicSendMsg ? (
-                  <div style={{
-                    marginTop: 10, fontSize: 13, padding: '8px 10px', borderRadius: 8,
-                    background: forensicSendMsg.toLowerCase().includes('fail') || forensicSendMsg.toLowerCase().includes('likhein') || forensicSendMsg.toLowerCase().includes('pehle')
-                      ? '#fef2f2' : '#ecfdf5',
-                    color: forensicSendMsg.toLowerCase().includes('fail') || forensicSendMsg.toLowerCase().includes('likhein') || forensicSendMsg.toLowerCase().includes('pehle')
-                      ? '#b91c1c' : '#047857',
-                  }}>
-                    {forensicSendMsg}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ACTIVITIES TAB */}
         {activeTab === 'activities' && (
           <div className="cf-section">
@@ -2010,10 +1904,122 @@ export default function EnquiryForm() {
               <div className="cf-section-icon" style={{ background: '#264078' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
               </div>
-              <div><div className="cf-section-title">Enquiry Activities</div><div className="cf-section-sub">DAC, Bank, Search, Seize, Summons, Diaries, Seizures, Recoveries, CFR</div></div>
+              <div><div className="cf-section-title">Enquiry Activities &amp; Forensic Seizures</div><div className="cf-section-sub">DAC, Bank, Search, Seize, Summons, Diaries, Seizures, Recoveries, CFR &amp; Lab Reports</div></div>
               <div className="cf-section-badge">STEP 3</div>
             </div>
             <div className="cf-body">
+              {/* Linked Forensic & Technical Reports Status Banner */}
+              {linkedForensicRequests.length > 0 && (
+                <div style={{ marginBottom: 20, padding: 16, background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>🔬</span>
+                      <strong style={{ fontSize: 13.5, color: '#0f172a' }}>
+                        Lab Examination &amp; Forensic Reports Status ({linkedForensicRequests.length})
+                      </strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => loadLinkedForensicRequests(id)}
+                      disabled={loadingLinkedReports}
+                      style={{ fontSize: 11.5 }}
+                    >
+                      {loadingLinkedReports ? 'Refreshing…' : '🔄 Refresh Status'}
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {linkedForensicRequests.map((fr) => {
+                      const isReady = fr.status === 'report_ready' || fr.status === 'handed_over';
+                      return (
+                        <div
+                          key={fr.id}
+                          style={{
+                            padding: '14px 18px',
+                            borderRadius: 8,
+                            background: isReady ? '#ecfdf5' : '#fffbeb',
+                            border: `1.5px solid ${isReady ? '#6ee7b7' : '#fde68a'}`,
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
+                            <div style={{ flex: 1, minWidth: 260 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <strong style={{ fontSize: 13.5, color: '#0f172a' }}>{fr.request_no}</strong>
+                                <span style={{
+                                  fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 12,
+                                  background: isReady ? '#d1fae5' : '#fef3c7',
+                                  color: isReady ? '#065f46' : '#92400e',
+                                }}>
+                                  {isReady
+                                    ? (fr.status === 'handed_over' ? '📦 Custody Handed Over to EO' : '✅ Forensic Report Approved & Ready')
+                                    : (fr.status === 'submitted'
+                                      ? '⏳ Pending AD Review'
+                                      : fr.status === 'assigned'
+                                        ? `👤 Assigned to FO (${fr.assignee?.name || 'FO'})`
+                                        : fr.status === 'submitted_to_ad'
+                                          ? '📝 Submitted to AD for Approval'
+                                          : '🔬 In Lab Examination')}
+                                </span>
+                                <span style={{ fontSize: 11, color: '#64748b', textTransform: 'capitalize' }}>
+                                  ({fr.destination === 'forensic' ? 'Digital Forensic Lab' : 'Technical Dept'})
+                                </span>
+                              </div>
+
+                              {fr.report_code && (
+                                <div style={{ marginTop: 8, fontSize: 13 }}>
+                                  <span style={{ color: '#334155' }}>Official Report Code: </span>
+                                  <strong style={{ fontFamily: 'monospace', fontSize: 14, background: '#fff', padding: '2px 8px', borderRadius: 4, border: '1px solid #10b981', color: '#065f46' }}>
+                                    {fr.report_code}
+                                  </strong>
+                                  <span style={{ fontSize: 11.5, color: '#059669', marginLeft: 8, fontWeight: 600 }}>
+                                    (Collect physical report by-hand from Forensic Lab using this code)
+                                  </span>
+                                </div>
+                              )}
+
+                              {fr.findings && (
+                                <div style={{ marginTop: 8, fontSize: 12.5, color: '#1e293b', background: '#fff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0', whiteSpace: 'pre-wrap' }}>
+                                  <strong>Lab Examination Findings:</strong> {fr.findings}
+                                </div>
+                              )}
+
+                              <div style={{ marginTop: 6, fontSize: 11.5, color: '#64748b' }}>
+                                {fr.items?.length > 0 && <span>Evidence: {fr.items.length} item(s) • </span>}
+                                {fr.created_at && <span>Submitted: {new Date(fr.created_at).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })} • </span>}
+                                {fr.assignee?.name && <span>FO: {fr.assignee.name}</span>}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                              {fr.report_attachment_path && (
+                                <a
+                                  href={`/storage/${fr.report_attachment_path}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-primary btn-sm"
+                                  style={{ background: '#059669', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+                                >
+                                  📥 Download Lab Report PDF
+                                </a>
+                              )}
+                              <Link
+                                to={`/forensic/requests/${fr.id}`}
+                                target="_blank"
+                                className="btn btn-outline btn-sm"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+                              >
+                                🔍 View Forensic Details &amp; F-31 ↗
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <button type="button" className="btn btn-outline btn-sm" onClick={addActivity} style={{ marginBottom: 16 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Activity
               </button>
@@ -2049,18 +2055,28 @@ export default function EnquiryForm() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                         <div>
                           <strong style={{ fontSize: 13.5, color: '#015C94', display: 'block' }}>📦 Seized Evidence &amp; Digital Devices</strong>
-                          <span style={{ fontSize: 11, color: '#64748b' }}>Enter all seized items below and submit directly to AD Forensic.</span>
+                          <span style={{ fontSize: 11, color: '#64748b' }}>Enter all seized items below and submit directly to AD Forensic or Technical Department.</span>
                         </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>
                             + Add Item
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{ color: '#0f766e', borderColor: '#0f766e', fontSize: 12, fontWeight: 700 }}
+                            disabled={sendingForensic}
+                            onClick={() => submitActivityToForensic(a, 'technical')}
+                            title="Submit this activity's seized items to Technical Department"
+                          >
+                            {sendingForensic ? 'Submitting…' : '⚙️ Submit to Technical'}
                           </button>
                           <button
                             type="button"
                             className="btn btn-primary btn-sm"
                             style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }}
                             disabled={sendingForensic}
-                            onClick={() => submitActivityToForensic(a)}
+                            onClick={() => submitActivityToForensic(a, 'forensic')}
                             title="Submit this activity's seized items directly to AD Forensic Lab"
                           >
                             {sendingForensic ? 'Submitting…' : '🔬 Submit to AD Forensic'}

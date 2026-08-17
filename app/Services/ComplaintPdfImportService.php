@@ -214,18 +214,19 @@ class ComplaintPdfImportService
 
         try {
             $attachmentPath = null;
+            $hierarchy = $this->resolveHierarchy($import->stored_path, $data);
 
-            $result = DB::transaction(function () use ($import, $data, $user, $createIfMissing, $copyAttachment, &$attachmentPath) {
-                $complaint = $this->findOrCreateComplaint($data, $user, $createIfMissing, $import);
+            $result = DB::transaction(function () use ($import, $data, $user, $createIfMissing, $copyAttachment, $hierarchy, &$attachmentPath) {
+                $complaint = $this->findOrCreateComplaint($data, $user, $createIfMissing, $import, $hierarchy);
                 if (!$complaint) {
                     throw new \RuntimeException('Complaint not found and create_if_missing is disabled.');
                 }
 
                 $attachmentPath = $copyAttachment ? $this->attachPdfToComplaint($complaint, $import) : null;
 
-                $report = $this->upsertVerificationReport($complaint, $data, $user, $import, $attachmentPath);
+                $report = $this->upsertVerificationReport($complaint, $data, $user, $import, $attachmentPath, $hierarchy);
 
-                $this->linkEnquiryInquiryNo($data, $report);
+                $this->linkEnquiryInquiryNo($data, $report, $hierarchy);
 
                 return [
                     'complaint_id'           => $complaint->id,
@@ -234,6 +235,8 @@ class ComplaintPdfImportService
                     'inquiry_no'             => $data['inquiry_no'] ?? null,
                     'cnic'                   => $complaint->cnic,
                     'complainant_name'       => $complaint->complainant_name,
+                    'circle_id'              => $complaint->circle_id,
+                    'io_id'                  => $hierarchy['io_user_id'] ?? null,
                     'attachment'             => $attachmentPath,
                 ];
             });
@@ -285,8 +288,9 @@ class ComplaintPdfImportService
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array{circle_id: ?int, io_user_id: ?int, io_name: ?string, moharrar_id: ?int, circle_name: ?string}  $hierarchy
      */
-    private function findOrCreateComplaint(array $data, User $user, bool $createIfMissing, ComplaintPdfImport $import): ?Complaint
+    private function findOrCreateComplaint(array $data, User $user, bool $createIfMissing, ComplaintPdfImport $import, array $hierarchy = []): ?Complaint
     {
         $complaint = null;
 
@@ -310,7 +314,7 @@ class ComplaintPdfImportService
         }
 
         if ($complaint) {
-            $complaint->update($this->buildComplaintPayload($data, $user, $import, $complaint));
+            $complaint->update($this->buildComplaintPayload($data, $user, $import, $complaint, $hierarchy));
 
             return $complaint->fresh();
         }
@@ -319,14 +323,15 @@ class ComplaintPdfImportService
             return null;
         }
 
-        return Complaint::create($this->buildComplaintPayload($data, $user, $import));
+        return Complaint::create($this->buildComplaintPayload($data, $user, $import, null, $hierarchy));
     }
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array{circle_id: ?int, io_user_id: ?int, io_name: ?string, moharrar_id: ?int, circle_name: ?string}  $hierarchy
      * @return array<string, mixed>
      */
-    private function buildComplaintPayload(array $data, User $user, ComplaintPdfImport $import, ?Complaint $existing = null): array
+    private function buildComplaintPayload(array $data, User $user, ComplaintPdfImport $import, ?Complaint $existing = null, array $hierarchy = []): array
     {
         $fullName = $data['complainant_full_name']
             ?? $data['victim_name']
@@ -352,6 +357,9 @@ class ComplaintPdfImportService
             !empty($data['recommendation_full']) ? $data['recommendation_full'] : null,
             !empty($data['reporting_officer']) ? 'Reporting Officer: ' . $data['reporting_officer'] : null,
         ]))) ?: ($existing?->description ?? 'Imported verification report');
+
+        $circleId = $hierarchy['circle_id'] ?? $existing?->circle_id ?? $user->circle_id;
+        $operatorId = $hierarchy['moharrar_id'] ?? $existing?->operator_id ?? $user->id;
 
         $payload = [
             'complainant_name'     => $fullName,
@@ -381,9 +389,14 @@ class ComplaintPdfImportService
             'status'               => 'complete',
             'source'               => 'pdf_import',
             'user_id'              => $existing?->user_id ?? $user->id,
-            'operator_id'          => $existing?->operator_id ?? $user->id,
-            'circle_id'            => $existing?->circle_id ?? $user->circle_id,
+            'operator_id'          => $operatorId,
+            'circle_id'            => $circleId,
         ];
+
+        $accusedList = $data['accused'] ?? $data['initial_accused'] ?? [];
+        if (!empty($accusedList) && is_array($accusedList)) {
+            $payload['initial_accused'] = $accusedList;
+        }
 
         if (!empty($data['tracking_no'])) {
             $payload['tracking_no'] = $data['tracking_no'];
@@ -396,13 +409,15 @@ class ComplaintPdfImportService
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array{circle_id: ?int, io_user_id: ?int, io_name: ?string, moharrar_id: ?int, circle_name: ?string}  $hierarchy
      */
     private function upsertVerificationReport(
         Complaint $complaint,
         array $data,
         User $user,
         ComplaintPdfImport $import,
-        ?string $attachmentPath
+        ?string $attachmentPath,
+        array $hierarchy = []
     ): ?VerificationReport {
         $trackingNo = $data['tracking_no'] ?? $complaint->tracking_no;
         if (!$trackingNo && empty($data['victim_name']) && empty($complaint->complainant_name)) {
@@ -411,8 +426,8 @@ class ComplaintPdfImportService
 
         $fullName = $data['complainant_full_name'] ?? $data['victim_name'] ?? $complaint->complainant_name;
 
-        $accused = [];
-        if (!empty($data['accused_name']) || !empty($data['accused_cnic']) || !empty($data['accused_phone'])) {
+        $accused = $data['accused'] ?? [];
+        if (empty($accused) && (!empty($data['accused_name']) || !empty($data['accused_cnic']) || !empty($data['accused_phone']))) {
             $accused[] = array_filter([
                 'name'  => $data['accused_name'] ?? null,
                 'cnic'  => $data['accused_cnic'] ?? null,
@@ -435,7 +450,7 @@ class ComplaintPdfImportService
             'victim_email'         => $data['victim_email'] ?? null,
             'crime_category'       => $data['crime_category'] ?? $complaint->offence_type,
             'crime_description'    => $data['crime_description'] ?? $complaint->description,
-            'city'                 => $data['city'] ?? 'Unknown',
+            'city'                 => $data['city'] ?? ($hierarchy['circle_name'] ?? 'Unknown'),
             'accused_known'        => !empty($accused),
             'accused'              => $accused ?: null,
             'recommendation'       => $data['recommendation'] ?? 'enquiry_registration',
@@ -444,7 +459,7 @@ class ComplaintPdfImportService
                 : null,
             'recommendation_full'  => $data['recommendation_full'] ?? null,
             'inquiry_no'           => $data['inquiry_no'] ?? null,
-            'created_by'           => $user->id,
+            'created_by'           => $hierarchy['moharrar_id'] ?? $user->id,
         ];
 
         $existing = VerificationReport::where(function ($q) use ($complaint, $data) {
@@ -456,7 +471,7 @@ class ComplaintPdfImportService
 
         if ($attachmentPath) {
             $evidence = $existing?->evidence ?? [];
-            $already = collect($evidence)->contains(fn ($e) => ($e['original_name'] ?? '') === $import->original_filename);
+            $already = collect($evidence)->contains(fn ($e) => ($e['file'] ?? '') === $attachmentPath || ($e['original_name'] ?? '') === $import->original_filename);
             if (!$already) {
                 $evidence[] = [
                     'file'          => $attachmentPath,
@@ -467,30 +482,167 @@ class ComplaintPdfImportService
             $reportData['evidence'] = $evidence;
         }
 
+        $report = null;
         if ($existing) {
             $existing->update(array_filter($reportData, fn ($v) => $v !== null && $v !== ''));
-
-            return $existing->fresh();
+            $report = $existing->fresh();
+        } else {
+            $report = VerificationReport::create(array_filter($reportData, fn ($v) => $v !== null && $v !== ''));
         }
 
-        return VerificationReport::create(array_filter($reportData, fn ($v) => $v !== null && $v !== ''));
+        // Link Verification record to IO if present
+        if (!empty($hierarchy['io_user_id'])) {
+            \App\Models\Verification::updateOrCreate(
+                ['complaint_id' => $complaint->id],
+                [
+                    'verification_officer_id' => $hierarchy['io_user_id'],
+                    'priority_type'           => $complaint->priority_type ?? 'normal',
+                    'assigned_by'             => $user->id,
+                    'assigned_at'             => now(),
+                    'status'                  => 'assigned',
+                ]
+            );
+        }
+
+        return $report;
     }
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array{circle_id: ?int, io_user_id: ?int, io_name: ?string, moharrar_id: ?int, circle_name: ?string}  $hierarchy
      */
-    private function linkEnquiryInquiryNo(array $data, ?VerificationReport $report): void
+    private function linkEnquiryInquiryNo(array $data, ?VerificationReport $report, array $hierarchy = []): void
     {
         if (!$report || empty($data['inquiry_no'])) {
             return;
         }
 
-        Enquiry::where('complaint_id', $report->complaint_id)
-            ->where(function ($q) use ($data) {
-                $q->whereNull('enquiry_number')->orWhere('enquiry_number', '');
-            })
-            ->limit(1)
-            ->update(['enquiry_number' => $data['inquiry_no']]);
+        $enquiry = Enquiry::where('complaint_id', $report->complaint_id)->first();
+        if ($enquiry) {
+            $enquiry->update(array_filter([
+                'enquiry_number'     => $data['inquiry_no'],
+                'enquiry_officer_id' => $hierarchy['io_user_id'] ?? $enquiry->enquiry_officer_id,
+                'circle_id'          => $hierarchy['circle_id'] ?? $enquiry->circle_id,
+            ]));
+        } elseif (!empty($hierarchy['io_user_id'])) {
+            Enquiry::create([
+                'complaint_id'       => $report->complaint_id,
+                'enquiry_number'     => $data['inquiry_no'],
+                'enquiry_officer_id' => $hierarchy['io_user_id'],
+                'circle_id'          => $hierarchy['circle_id'] ?? $report->complaint->circle_id,
+                'status'             => 'assigned',
+                'tracking_no'        => $report->complaint->tracking_no ?? $data['inquiry_no'],
+                'complainant_name'   => $report->victim_name,
+                'registration_date'  => $report->assignment_date ?? now(),
+            ]);
+        }
+    }
+
+    /**
+     * Resolve Circle, IO (Enquiry Officer), and Moharar from directory path and text.
+     *
+     * @param  array<string, mixed>  $extractedData
+     * @return array{circle_id: ?int, io_user_id: ?int, io_name: ?string, moharrar_id: ?int, circle_name: ?string}
+     */
+    public function resolveHierarchy(string $pdfPath, array $extractedData = []): array
+    {
+        $hierarchy = [
+            'circle_id'    => null,
+            'circle_name'  => null,
+            'io_user_id'   => null,
+            'io_name'      => null,
+            'moharrar_id'  => null,
+        ];
+
+        $normalized = str_replace('\\', '/', $pdfPath);
+        $parts = array_values(array_filter(explode('/', $normalized)));
+
+        static $circlesCache = null;
+        static $iosCache = null;
+        static $usersCache = null;
+
+        if ($circlesCache === null) {
+            $circlesCache = \App\Models\Circle::all();
+            $iosCache = \App\Models\InvestigationOfficer::with('user')->get();
+            $usersCache = \App\Models\User::all();
+        }
+
+        // 1. Check directory path segments
+        foreach ($parts as $segment) {
+            $segLower = strtolower(trim($segment));
+            if ($segLower === '' || str_ends_with($segLower, '.pdf')) {
+                continue;
+            }
+
+            // Match Circle
+            if (!$hierarchy['circle_id']) {
+                foreach ($circlesCache as $c) {
+                    $cName = strtolower($c->name);
+                    if ($cName !== '' && (str_contains($segLower, $cName) || str_contains($cName, $segLower))) {
+                        $hierarchy['circle_id'] = $c->id;
+                        $hierarchy['circle_name'] = $c->name;
+                        break;
+                    }
+                }
+            }
+
+            // Match IO
+            if (!$hierarchy['io_user_id']) {
+                foreach ($iosCache as $io) {
+                    $ioName = strtolower(trim($io->name));
+                    if (strlen($ioName) > 3 && str_contains($segLower, $ioName)) {
+                        $hierarchy['io_user_id'] = $io->user_id;
+                        $hierarchy['io_name'] = $io->name;
+                        break;
+                    }
+                }
+            }
+
+            // Match Moharar / User
+            if (!$hierarchy['moharrar_id']) {
+                foreach ($usersCache as $u) {
+                    $uName = strtolower(trim($u->name));
+                    if (strlen($uName) > 3 && str_contains($segLower, $uName) && in_array($u->role, ['moharrar', 'reader_branch', 'operator'], true)) {
+                        $hierarchy['moharrar_id'] = $u->id;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback to document text (Reporting Officer, City, etc.)
+        if (!$hierarchy['circle_id'] && !empty($extractedData['city'])) {
+            $cityLower = strtolower($extractedData['city']);
+            foreach ($circlesCache as $c) {
+                if (str_contains($cityLower, strtolower($c->name))) {
+                    $hierarchy['circle_id'] = $c->id;
+                    $hierarchy['circle_name'] = $c->name;
+                    break;
+                }
+            }
+        }
+
+        if (!$hierarchy['io_user_id'] && !empty($extractedData['reporting_officer'])) {
+            $repOfficerLower = strtolower($extractedData['reporting_officer']);
+            foreach ($iosCache as $io) {
+                if (str_contains($repOfficerLower, strtolower(trim($io->name)))) {
+                    $hierarchy['io_user_id'] = $io->user_id;
+                    $hierarchy['io_name'] = $io->name;
+                    break;
+                }
+            }
+            if (!$hierarchy['io_user_id']) {
+                foreach ($usersCache as $u) {
+                    if (str_contains($repOfficerLower, strtolower(trim($u->name)))) {
+                        $hierarchy['io_user_id'] = $u->id;
+                        $hierarchy['io_name'] = $u->name;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $hierarchy;
     }
 
     private function attachPdfToComplaint(Complaint $complaint, ComplaintPdfImport $import): string
