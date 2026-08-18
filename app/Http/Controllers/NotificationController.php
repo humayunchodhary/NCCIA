@@ -15,22 +15,37 @@ class NotificationController extends Controller
     {
         $user = $request->user();
 
-        $notifications = $user->notifications()
-            ->latest()
-            ->limit(30)
-            ->get()
-            ->map(function ($n) {
-                return [
-                    'id'         => $n->id,
-                    'type'       => class_basename($n->type),
-                    'data'       => $n->data,
-                    'read_at'    => $n->read_at?->toISOString(),
-                    'created_at' => $n->created_at?->toISOString(),
-                ];
-            });
+        if (!$user) {
+            return response()->json([
+                'unread_count'  => 0,
+                'notifications' => [],
+            ]);
+        }
+
+        try {
+            $notifications = $user->notifications()
+                ->latest()
+                ->limit(30)
+                ->get()
+                ->map(function ($n) {
+                    return [
+                        'id'         => $n->id,
+                        'type'       => class_basename($n->type),
+                        'data'       => $n->data,
+                        'read_at'    => $n->read_at?->toISOString(),
+                        'created_at' => $n->created_at?->toISOString(),
+                    ];
+                });
+
+            $unreadCount = $user->unreadNotifications()->count();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to fetch notifications: ' . $e->getMessage());
+            $notifications = collect();
+            $unreadCount = 0;
+        }
 
         return response()->json([
-            'unread_count'  => $user->unreadNotifications()->count(),
+            'unread_count'  => $unreadCount,
             'notifications' => $notifications,
         ]);
     }

@@ -82,9 +82,30 @@ export default function Layout() {
     return () => clearInterval(timer);
   }, [location.pathname]);
 
+  const playNotificationSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {
+      // Ignored if sound blocked by browser policy
+    }
+  };
+
   const fetchNotifications = () => {
     api.get('/notifications').then(r => {
-      const data = r.data;
+      const data = r.data || { unread_count: 0, notifications: [] };
       const unread = (data.notifications || []).filter(n => !n.read_at);
       const unreadIds = new Set(unread.map(n => n.id));
       const knownIds = new Set(prevNotifIds.current);
@@ -96,12 +117,13 @@ export default function Layout() {
         const brandNew = unread.filter(n => !knownIds.has(n.id));
         if (brandNew.length > 0) {
           const n = brandNew[0];
+          playNotificationSound();
           showToast(n.data?.message || n.type || 'New notification', n.data?.url);
         }
       }
       prevNotifIds.current = Array.from(unreadIds);
     }).catch(() => {});
-    api.get('/notifications/pending-tasks').then(r => setPendingTasks(r.data)).catch(() => {});
+    api.get('/notifications/pending-tasks').then(r => setPendingTasks(r.data || { tasks: [], count: 0 })).catch(() => {});
   };
 
   const showToast = (message, url) => {
@@ -112,8 +134,13 @@ export default function Layout() {
 
   useEffect(() => {
     fetchNotifications();
-    const timer = setInterval(fetchNotifications, 45000);
-    return () => clearInterval(timer);
+    const timer = setInterval(fetchNotifications, 15000);
+    const onRefresh = () => fetchNotifications();
+    window.addEventListener('nccia:refresh-notifications', onRefresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('nccia:refresh-notifications', onRefresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -760,8 +787,8 @@ export default function Layout() {
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 </svg>
-                {(notifications.unread_count) > 0 && (
-                  <span className="notif-badge">{notifications.unread_count}</span>
+                {((notifications.unread_count || 0) + (pendingTasks.count || 0)) > 0 && (
+                  <span className="notif-badge">{(notifications.unread_count || 0) + (pendingTasks.count || 0)}</span>
                 )}
               </button>
               {notifOpen && (
