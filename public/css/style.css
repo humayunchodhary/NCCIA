@@ -467,6 +467,8 @@ body:not(.sidebar-collapsed) .main-content {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
 }
 .header-icon-btn {
     width: 38px;
@@ -479,6 +481,7 @@ body:not(.sidebar-collapsed) .main-content {
     justify-content: center;
     font-size: 17px;
     position: relative;
+    flex-shrink: 0;
 }
 .header-icon-btn:hover {
     background: rgba(1, 92, 148, 0.2);
@@ -509,22 +512,31 @@ body:not(.sidebar-collapsed) .main-content {
     height: 28px;
     background: rgba(1, 92, 148, 0.4);
     margin: 0 4px;
+    flex-shrink: 0;
 }
 .header-user {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 10px;
+    padding: 6px 12px;
     border-radius: 10px;
     cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+    user-select: none;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 .header-user:hover {
-    background: rgba(1, 92, 148, 0.15);
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.3);
     color: white;
 }
 .header-avatar {
     width: 34px;
     height: 34px;
+    min-width: 34px;
     border-radius: 50%;
     background: #27adff;
     display: flex;
@@ -534,9 +546,11 @@ body:not(.sidebar-collapsed) .main-content {
     font-weight: 700;
     color: #fff;
     border: 2px solid rgba(253, 223, 0, 0.4);
+    flex-shrink: 0;
 }
 .header-user-info {
     line-height: 1.3;
+    text-align: left;
 }
 .header-user-name {
     font-size: 13px;
@@ -545,7 +559,278 @@ body:not(.sidebar-collapsed) .main-content {
 }
 .header-user-role {
     font-size: 11px;
-    color: #ffffff;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* User Dropdown */
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 290px;
+    background: #ffffff !important;
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 9999;
+    overflow: hidden;
+    border: 1px solid rgba(1, 92, 148, 0.25);
+    display: block;
+    animation: dropdownFade 0.15s ease-out;
+}
+@keyframes dropdownFade {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.user-dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: #1e293b;
+    color: #fff;
+}
+.user-dropdown-avatar {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 50%;
+    background: #015C94;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}
+.user-dropdown-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+}
+.user-dropdown-role {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.75);
+    margin-top: 1px;
+}
+.user-dropdown-circle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.15);
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+.user-online-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    flex-shrink: 0;
+}
+.user-dropdown-body {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(1, 92, 148, 0.12);
+    background: #fff;
+}
+.user-dropdown-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 9px 16px !important;
+    color: #2b2b2b !important;
+    text-decoration: none !important;
+    transition: background 0.15s ease;
+    cursor: pointer;
+    background: #fff !important;
+    border: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+.user-dropdown-item:hover {
+    background: #f0f7ff !important;
+}
+.user-dropdown-item-icon {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #015C94;
+    color: #fff;
+    flex-shrink: 0;
+}
+.user-dropdown-item-text {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    text-align: left !important;
+}
+.user-dropdown-item-text span {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+    line-height: 1.3 !important;
+    display: block !important;
+}
+.user-dropdown-item:hover .user-dropdown-item-text span {
+    color: #015C94 !important;
+}
+.user-dropdown-item-text small {
+    font-size: 11px !important;
+    color: #64748b !important;
+    font-weight: 400 !important;
+    display: block !important;
+}
+.user-dropdown-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #f8fafc;
+}
+.user-dropdown-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid rgba(43,43,43,0.15);
+    background: #015C94;
+    color: #fff;
+    cursor: pointer;
+}
+.user-dropdown-logout:hover {
+    background: #024168;
+}
+.user-dropdown-version {
+    font-size: 11px;
+    color: #64748b;
+}
+
+/* Notification Dropdown */
+.notif-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 360px;
+    max-width: calc(100vw - 24px);
+    background: #ffffff !important;
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 9999;
+    overflow: hidden;
+    border: 1px solid rgba(1, 92, 148, 0.25);
+    display: block;
+    animation: dropdownFade 0.15s ease-out;
+}
+.notif-dropdown-header {
+    color: #fff;
+    background: #1e293b;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+}
+.notif-dropdown-header button {
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
+}
+.notif-dropdown-header button:hover {
+    color: #fff;
+}
+.notif-dropdown-body {
+    max-height: 380px;
+    padding: 4px 0;
+    overflow-y: auto;
+    background: #fff;
+}
+.notif-section-title {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #015C94;
+    padding: 8px 16px 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+.notif-item {
+    color: #2b2b2b;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 16px;
+    text-decoration: none;
+    transition: background 0.15s;
+    display: flex;
+}
+.notif-item:hover {
+    background: #f0f7ff;
+}
+.notif-item.unread {
+    background: rgba(1, 92, 148, 0.06);
+    border-left-color: #015C94;
+}
+.notif-item-dot {
+    background: #015C94;
+    border-radius: 50%;
+    width: 8px;
+    min-width: 8px;
+    height: 8px;
+    margin-top: 5px;
+}
+.notif-item.pending .notif-item-dot {
+    background: #e67e22;
+}
+.notif-item-text {
+    flex-direction: column;
+    flex: 1;
+    gap: 2px;
+    display: flex;
+}
+.notif-item-text span {
+    color: #1e293b;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.35;
+}
+.notif-item-text small {
+    color: #64748b;
+    text-transform: capitalize;
+    font-size: 11px;
+}
+.notif-empty {
+    text-align: center;
+    color: #64748b;
+    padding: 24px 16px;
+    font-size: 12px;
+}
+.notif-dropdown-footer {
+    text-align: center;
+    border-top: 1px solid rgba(1, 92, 148, 0.12);
+    padding: 10px 16px;
+    background: #f8fafc;
+}
+.notif-dropdown-footer a {
+    color: #015C94;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 .page-content {

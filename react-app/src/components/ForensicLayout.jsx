@@ -175,57 +175,59 @@ export default function ForensicLayout() {
 
             <div className="header-divider"></div>
 
-            <div ref={userMenuRef} style={{ position: 'relative' }}>
+            <div ref={userMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
               <div className={`header-user${userMenuOpen ? ' open' : ''}`} onClick={() => setUserMenuOpen(!userMenuOpen)} style={{ cursor: 'pointer' }}>
                 <div className="header-avatar">{initials}</div>
                 <div className="header-user-info">
                   <div className="header-user-name">{user?.name || 'User'}</div>
                   <div className="header-user-role">{user?.designation || user?.role || 'Forensic Officer'}</div>
                 </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: '2px', color: 'rgba(255,255,255,0.6)', transition: 'transform 0.25s', transform: userMenuOpen ? 'rotate(180deg)' : '' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: '2px', color: 'rgba(255,255,255,0.7)', transition: 'transform 0.25s', transform: userMenuOpen ? 'rotate(180deg)' : '' }}>
                   <polyline points="6 9 12 15 18 9"/>
                 </svg>
               </div>
 
-              <div className={`user-dropdown${userMenuOpen ? ' open' : ''}`} role="menu">
-                <div className="user-dropdown-header">
-                  <div className="user-dropdown-avatar">{initials}</div>
-                  <div>
-                    <div className="user-dropdown-name">{user?.name || 'User'}</div>
-                    <div className="user-dropdown-role">{user?.designation || user?.role || 'Forensic Officer'}</div>
-                    <div className="user-dropdown-circle">
-                      <span className="user-online-dot"></span>
-                      NCCIA Forensic Lab
+              {userMenuOpen && (
+                <div className="user-dropdown" role="menu">
+                  <div className="user-dropdown-header">
+                    <div className="user-dropdown-avatar">{initials}</div>
+                    <div>
+                      <div className="user-dropdown-name">{user?.name || 'User'}</div>
+                      <div className="user-dropdown-role">{user?.designation || user?.role || 'Forensic Officer'}</div>
+                      <div className="user-dropdown-circle">
+                        <span className="user-online-dot"></span>
+                        NCCIA Forensic Lab
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="user-dropdown-body">
-                  <a href="#profile" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/forensic/profile'); }}>
-                    <div className="user-dropdown-item-icon" style={{ background: '#015C94', color: '#fff' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
-                    </div>
-                    <div className="user-dropdown-item-text"><span>My Profile</span><small>View & edit your profile</small></div>
-                  </a>
-
-                  {isAdmin && (
-                    <a href="#users" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/forensic/users'); }}>
-                      <div className="user-dropdown-item-icon" style={{ background: '#015C94', color: '#fff' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <div className="user-dropdown-body">
+                    <a href="#profile" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/forensic/profile'); }}>
+                      <div className="user-dropdown-item-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
                       </div>
-                      <div className="user-dropdown-item-text"><span>Forensic Users</span><small>Manage users & credentials</small></div>
+                      <div className="user-dropdown-item-text"><span>My Profile</span><small>View & edit your profile</small></div>
                     </a>
-                  )}
-                </div>
 
-                <div className="user-dropdown-footer">
-                  <button className="user-dropdown-logout btn btn-primary btn-sm" onClick={logout}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    Sign Out
-                  </button>
-                  <span className="user-dropdown-version">Forensic Portal · NCCIA</span>
+                    {isAdmin && (
+                      <a href="#users" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/forensic/users'); }}>
+                        <div className="user-dropdown-item-icon">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <div className="user-dropdown-item-text"><span>Forensic Users</span><small>Manage users & credentials</small></div>
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="user-dropdown-footer">
+                    <button className="user-dropdown-logout" onClick={() => { setUserMenuOpen(false); logout(); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                      Sign Out
+                    </button>
+                    <span className="user-dropdown-version">Forensic Portal · NCCIA</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </header>

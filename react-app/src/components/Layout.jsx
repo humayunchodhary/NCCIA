@@ -754,8 +754,8 @@ export default function Layout() {
               </svg>
             </button>
             <div className="header-divider"></div>
-            <div ref={notifRef} style={{position:'relative'}}>
-              <button className="header-icon-btn notif-btn" title="Notifications" aria-label="Notifications" onClick={() => setNotifOpen(!notifOpen)}>
+            <div ref={notifRef} style={{position:'relative', flexShrink:0}}>
+              <button className="header-icon-btn notif-btn" title="Notifications" aria-label="Notifications" onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -764,99 +764,103 @@ export default function Layout() {
                   <span className="notif-badge">{notifications.unread_count}</span>
                 )}
               </button>
-              <div className={`notif-dropdown${notifOpen ? ' open' : ''}`}>
-                <div className="notif-dropdown-header">
-                  <span>Notifications</span>
-                  <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>
+              {notifOpen && (
+                <div className="notif-dropdown" role="menu">
+                  <div className="notif-dropdown-header">
+                    <span>Notifications</span>
+                    <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>
+                  </div>
+                  <div className="notif-dropdown-body">
+                    {pendingTasks.count > 0 && (
+                      <>
+                        <div className="notif-section-title">Pending Tasks ({pendingTasks.count})</div>
+                        {pendingTasks.tasks.map((t, i) => (
+                          <a key={`task-${i}`} href={t.url} className="notif-item pending" onClick={(e) => { e.preventDefault(); setNotifOpen(false); openNotification(t.url); }}>
+                            <span className="notif-item-dot"></span>
+                            <div className="notif-item-text">
+                              <span>{t.title}</span>
+                              <small>{t.status.replace(/_/g, ' ')}</small>
+                            </div>
+                          </a>
+                        ))}
+                      </>
+                    )}
+                    <div className="notif-section-title">Notifications</div>
+                    {notifications.notifications.length === 0 && (
+                      <div className="notif-empty">No notifications yet</div>
+                    )}
+                    {notifications.notifications.map(n => (
+                      <a key={n.id} href={n.data?.url || '/dashboard'} className={`notif-item${n.read_at ? '' : ' unread'}`}
+                         onClick={(e) => { e.preventDefault(); setNotifOpen(false); markNotificationRead(n); openNotification(n.data?.url); }}>
+                        <span className="notif-item-dot"></span>
+                        <div className="notif-item-text">
+                          <span>{n.data?.message || 'Notification'}</span>
+                          <small>{timeAgo(n.created_at)}</small>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                  <div className="notif-dropdown-footer">
+                    <a href="#tasks" onClick={(e) => { e.preventDefault(); setNotifOpen(false); navigate(isOperatorOnly ? '/complaints/create' : '/verifications'); }}>View my tasks</a>
+                  </div>
                 </div>
-                <div className="notif-dropdown-body">
-                  {pendingTasks.count > 0 && (
-                    <>
-                      <div className="notif-section-title">Pending Tasks ({pendingTasks.count})</div>
-                      {pendingTasks.tasks.map((t, i) => (
-                        <a key={`task-${i}`} href={t.url} className="notif-item pending" onClick={(e) => { e.preventDefault(); openNotification(t.url); }}>
-                          <span className="notif-item-dot"></span>
-                          <div className="notif-item-text">
-                            <span>{t.title}</span>
-                            <small>{t.status.replace(/_/g, ' ')}</small>
-                          </div>
-                        </a>
-                      ))}
-                    </>
-                  )}
-                  <div className="notif-section-title">Notifications</div>
-                  {notifications.notifications.length === 0 && (
-                    <div className="notif-empty">No notifications yet</div>
-                  )}
-                  {notifications.notifications.map(n => (
-                    <a key={n.id} href={n.data?.url || '/dashboard'} className={`notif-item${n.read_at ? '' : ' unread'}`}
-                       onClick={(e) => { e.preventDefault(); markNotificationRead(n); openNotification(n.data?.url); }}>
-                      <span className="notif-item-dot"></span>
-                      <div className="notif-item-text">
-                        <span>{n.data?.message || 'Notification'}</span>
-                        <small>{timeAgo(n.created_at)}</small>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-                <div className="notif-dropdown-footer">
-                  <a href="#tasks" onClick={(e) => { e.preventDefault(); setNotifOpen(false); navigate(isOperatorOnly ? '/complaints/create' : '/verifications'); }}>View my tasks</a>
-                </div>
-              </div>
+              )}
             </div>
-            <div ref={userMenuRef} style={{position:'relative'}}>
-              <div className={`header-user${userMenuOpen ? ' open' : ''}`} onClick={() => setUserMenuOpen(!userMenuOpen)} style={{cursor:'pointer'}}>
+            <div ref={userMenuRef} style={{position:'relative', flexShrink:0}}>
+              <div className={`header-user${userMenuOpen ? ' open' : ''}`} onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }} style={{cursor:'pointer'}}>
                 <div className="header-avatar">{initials}</div>
                 <div className="header-user-info">
                   <div className="header-user-name">{user?.name || 'User'}</div>
                   <div className="header-user-role">{user?.designation || user?.role || 'Officer'} · {user?.circle_code || 'NCCIA'}</div>
                 </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft:'2px',color:'rgba(255,255,255,0.6)',transition:'transform 0.25s',transform:userMenuOpen?'rotate(180deg)':''}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft:'2px',color:'rgba(255,255,255,0.7)',transition:'transform 0.25s',transform:userMenuOpen?'rotate(180deg)':''}}>
                   <polyline points="6 9 12 15 18 9"/>
                 </svg>
               </div>
-              <div className={`user-dropdown${userMenuOpen ? ' open' : ''}`} role="menu">
-                <div className="user-dropdown-header">
-                  <div className="user-dropdown-avatar">{initials}</div>
-                  <div>
-                    <div className="user-dropdown-name">{user?.name || 'User'}</div>
-                    <div className="user-dropdown-role">{user?.designation || user?.role || 'Officer'}</div>
-                    <div className="user-dropdown-circle">
-                      <span className="user-online-dot"></span>
-                      {user?.circle_code || 'NCCIA'} Circle
+              {userMenuOpen && (
+                <div className="user-dropdown" role="menu">
+                  <div className="user-dropdown-header">
+                    <div className="user-dropdown-avatar">{initials}</div>
+                    <div>
+                      <div className="user-dropdown-name">{user?.name || 'User'}</div>
+                      <div className="user-dropdown-role">{user?.designation || user?.role || 'Officer'}</div>
+                      <div className="user-dropdown-circle">
+                        <span className="user-online-dot"></span>
+                        {user?.circle_code || 'NCCIA'} Circle
+                      </div>
                     </div>
                   </div>
+                  <div className="user-dropdown-body">
+                    <a href="#profile" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/profile'); }}>
+                      <div className="user-dropdown-item-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg></div>
+                      <div className="user-dropdown-item-text"><span>My Profile</span><small>View & edit your profile</small></div>
+                    </a>
+                    <a href="#my-cases" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/cases'); }}>
+                      <div className="user-dropdown-item-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+                      <div className="user-dropdown-item-text"><span>My Assigned Cases</span><small>284 pending · 953 processed</small></div>
+                    </a>
+                    <a href="#activity" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/profile'); }}>
+                      <div className="user-dropdown-item-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+                      <div className="user-dropdown-item-text"><span>Activity Log</span><small>Your recent actions</small></div>
+                    </a>
+                    <a href="#settings" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/profile'); }}>
+                      <div className="user-dropdown-item-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/></svg></div>
+                      <div className="user-dropdown-item-text"><span>Account Settings</span><small>Password, preferences</small></div>
+                    </a>
+                    <a href="#help" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/profile'); }}>
+                      <div className="user-dropdown-item-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+                      <div className="user-dropdown-item-text"><span>Help & Support</span><small>Docs, FAQs, contact</small></div>
+                    </a>
+                  </div>
+                  <div className="user-dropdown-footer">
+                    <button className="user-dropdown-logout" onClick={() => { setUserMenuOpen(false); logout(); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                      Sign Out
+                    </button>
+                    <span className="user-dropdown-version">v2.4.1 · NCCIA CMS</span>
+                  </div>
                 </div>
-                <div className="user-dropdown-body">
-                  <a href="#profile" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/profile'); }}>
-                    <div className="user-dropdown-item-icon" style={{background:'#015C94',color:'#fff'}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg></div>
-                    <div className="user-dropdown-item-text"><span>My Profile</span><small>View & edit your profile</small></div>
-                  </a>
-                  <a href="#my-cases" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/cases'); }}>
-                    <div className="user-dropdown-item-icon" style={{background:'#015C94',color:'#fff'}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-                    <div className="user-dropdown-item-text"><span>My Assigned Cases</span><small>284 pending · 953 processed</small></div>
-                  </a>
-                  <a href="#activity" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/profile'); }}>
-                    <div className="user-dropdown-item-icon" style={{background:'#015C94',color:'#fff'}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
-                    <div className="user-dropdown-item-text"><span>Activity Log</span><small>Your recent actions</small></div>
-                  </a>
-                  <a href="#settings" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/profile'); }}>
-                    <div className="user-dropdown-item-icon" style={{background:'#015C94',color:'#fff'}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/></svg></div>
-                    <div className="user-dropdown-item-text"><span>Account Settings</span><small>Password, preferences</small></div>
-                  </a>
-                  <a href="#help" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); go('/profile'); }}>
-                    <div className="user-dropdown-item-icon" style={{background:'#015C94',color:'#fff'}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-                    <div className="user-dropdown-item-text"><span>Help & Support</span><small>Docs, FAQs, contact</small></div>
-                  </a>
-                </div>
-                <div className="user-dropdown-footer">
-                  <button className="user-dropdown-logout btn btn-primary btn-sm" onClick={logout}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    Sign Out
-                  </button>
-                  <span className="user-dropdown-version">v2.4.1 · NCCIA CMS</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </header>
