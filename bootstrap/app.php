@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->append(\App\Http\Middleware\SanitizeAndBlockAttacks::class);
         $middleware->append(\App\Http\Middleware\IdleTimeout::class);
 
         $middleware->alias([
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->api(prepend: [
+            \App\Http\Middleware\SanitizeAndBlockAttacks::class,
             \App\Http\Middleware\IdleTimeout::class,
         ]);
     })

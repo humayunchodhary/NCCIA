@@ -10,8 +10,11 @@ use App\Policies\ComplaintPolicy;
 use App\Policies\EnquiryPolicy;
 use App\Policies\InvestigationOfficerPolicy;
 use App\Policies\VerificationPolicy;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -27,6 +30,25 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Verification::class, VerificationPolicy::class);
         Gate::policy(Enquiry::class, EnquiryPolicy::class);
         Gate::policy(InvestigationOfficer::class, InvestigationOfficerPolicy::class);
+
+        // Standard API Rate Limiter
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(180)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // Anti-Brute-Force Login Rate Limiter (Max 5 attempts / min per IP)
+        RateLimiter::for('auth_login', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip())->response(function () {
+                return response()->json([
+                    'message' => 'Too many login attempts detected. For security reasons, please wait 1 minute before trying again.',
+                ], 429);
+            });
+        });
+
+        // Sensitive Action Rate Limiter (Password Reset, Permission Edit)
+        RateLimiter::for('sensitive', function (Request $request) {
+            return Limit::perMinute(15)->by($request->user()?->id ?: $request->ip());
+        });
 
         $this->registerSqliteCompatibilityFunctions();
     }
