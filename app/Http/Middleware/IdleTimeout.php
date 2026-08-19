@@ -32,6 +32,7 @@ class IdleTimeout
             }
 
             session(['last_activity' => now()]);
+            \Illuminate\Support\Facades\Cache::put('user_online_' . Auth::id(), true, now()->addMinutes(2));
         }
 
         return $next($request);

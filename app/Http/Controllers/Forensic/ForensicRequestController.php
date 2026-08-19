@@ -794,7 +794,7 @@ class ForensicRequestController extends Controller
             ->pluck('count', 'circle_name')
             ->all();
 
-        return response()->json([
+        $response = [
             'submitted'     => $submitted,
             'assigned'      => $assigned,
             'in_progress'   => $inProgress,
@@ -813,6 +813,12 @@ class ForensicRequestController extends Controller
                 'other'     => (int) ($itemCounts['other'] ?? 0),
             ],
             'by_circle'     => $circleCounts,
-        ]);
+        ];
+
+        if (\Illuminate\Support\Facades\Cache::has('login_alert_' . $user->id)) {
+            $response['security_alert'] = 'Security Alert: Someone just tried to login to your account using correct credentials from IP: ' . \Illuminate\Support\Facades\Cache::pull('login_alert_' . $user->id);
+        }
+
+        return response()->json($response);
     }
 }

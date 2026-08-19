@@ -36,6 +36,18 @@ class LoginController extends Controller
             ]);
         }
 
+        $userForCheck = \App\Models\User::where('email', $credentials['email'])->first();
+        if ($userForCheck && \Illuminate\Support\Facades\Hash::check($credentials['password'], $userForCheck->password)) {
+            if (\Illuminate\Support\Facades\Cache::has('user_online_' . $userForCheck->id)) {
+                $ip = $request->ip();
+                try {
+                    \Illuminate\Support\Facades\Mail::to($userForCheck->email)->send(new \App\Mail\ConcurrentLoginAlert($userForCheck, $ip));
+                } catch (\Throwable $e) {}
+                \Illuminate\Support\Facades\Cache::put('login_alert_' . $userForCheck->id, $ip, now()->addMinutes(2));
+                return back()->withErrors(['email' => 'Your account is currently logged in elsewhere. We have sent an alert to your email.']);
+            }
+        }
+
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
             RateLimiter::clear($key);
@@ -92,6 +104,18 @@ class LoginController extends Controller
                 'message' => "Too many attempts. Try again in {$seconds} seconds.",
                 'retry_after' => $seconds,
             ], 429);
+        }
+
+        $userForCheck = \App\Models\User::where('email', $credentials['email'])->first();
+        if ($userForCheck && \Illuminate\Support\Facades\Hash::check($credentials['password'], $userForCheck->password)) {
+            if (\Illuminate\Support\Facades\Cache::has('user_online_' . $userForCheck->id)) {
+                $ip = $request->ip();
+                try {
+                    \Illuminate\Support\Facades\Mail::to($userForCheck->email)->send(new \App\Mail\ConcurrentLoginAlert($userForCheck, $ip));
+                } catch (\Throwable $e) {}
+                \Illuminate\Support\Facades\Cache::put('login_alert_' . $userForCheck->id, $ip, now()->addMinutes(2));
+                return response()->json(['message' => 'Your account is currently logged in elsewhere. We have sent an alert to your email.'], 403);
+            }
         }
 
         if (Auth::attempt($credentials, $request->filled('remember'))) {
@@ -169,6 +193,18 @@ class LoginController extends Controller
                 'message' => "Too many attempts. Try again in {$seconds} seconds.",
                 'retry_after' => $seconds,
             ], 429);
+        }
+
+        $userForCheck = \App\Models\User::where('email', $credentials['email'])->first();
+        if ($userForCheck && \Illuminate\Support\Facades\Hash::check($credentials['password'], $userForCheck->password)) {
+            if (\Illuminate\Support\Facades\Cache::has('user_online_' . $userForCheck->id)) {
+                $ip = $request->ip();
+                try {
+                    \Illuminate\Support\Facades\Mail::to($userForCheck->email)->send(new \App\Mail\ConcurrentLoginAlert($userForCheck, $ip));
+                } catch (\Throwable $e) {}
+                \Illuminate\Support\Facades\Cache::put('login_alert_' . $userForCheck->id, $ip, now()->addMinutes(2));
+                return response()->json(['message' => 'Your account is currently logged in elsewhere. We have sent an alert to your email.'], 403);
+            }
         }
 
         if (!Auth::attempt($credentials, $request->filled('remember'))) {

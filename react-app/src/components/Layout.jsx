@@ -76,6 +76,11 @@ export default function Layout() {
         enquiries: Number(d.enquiries) || 0,
         messages: Number(d.messages) || 0,
       });
+      if (d.security_alert) {
+        playNotificationSound();
+        showToast(d.security_alert);
+        alert(d.security_alert);
+      }
     }).catch(() => {});
     fetchCounts();
     const timer = setInterval(fetchCounts, 45000);

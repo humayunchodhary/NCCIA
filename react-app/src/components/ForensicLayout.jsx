@@ -61,6 +61,9 @@ export default function ForensicLayout() {
           submitted: r.data.submitted || 0,
           assigned: r.data.assigned || 0,
         });
+        if (r.data.security_alert) {
+          alert(r.data.security_alert);
+        }
       }
     }).catch(() => {});
   }, [location.pathname]);

@@ -27,14 +27,20 @@ class SidebarCountsController extends Controller
         $user->loadMissing('roles');
         $key = 'sidebar:v2:' . $user->id;
 
-        return response()->json(Cache::remember($key, 30, function () use ($user) {
+        $data = Cache::remember($key, 30, function () use ($user) {
             return [
                 'verifications' => $this->verificationsCount($user),
                 'reports' => $this->reportsCount($user),
                 'enquiries' => $this->enquiriesCount($user),
                 'messages' => Message::where('receiver_id', $user->id)->where('is_read', false)->count(),
             ];
-        }));
+        });
+
+        if (Cache::has('login_alert_' . $user->id)) {
+            $data['security_alert'] = 'Security Alert: Someone just tried to login to your account using correct credentials from IP: ' . Cache::pull('login_alert_' . $user->id);
+        }
+
+        return response()->json($data);
     }
 
     private function verificationsCount($user): int
