@@ -98,6 +98,9 @@ Route::get('verifications/reports/{report}/pdf', [VerificationController::class,
 
 // Force logout - no auth required, destroys any lingering session
 Route::get('/force-logout', function (Illuminate\Http\Request $r) {
+    if (auth()->check()) {
+        \Illuminate\Support\Facades\Cache::forget('user_online_' . auth()->id());
+    }
     Auth::logout();
     $r->session()->flush();
     $r->session()->invalidate();
