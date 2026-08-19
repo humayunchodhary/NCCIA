@@ -123,7 +123,7 @@ const [form, setForm] = useState({    tracking_no: '',
     complaint_id: '',
       registration_at: '',
       assignment_date: '',
-      verification_date: toLocalInput(new Date()),
+      verification_date: '',
       victim_name: '',
     victim_father_name: '',
     victim_occupation: '',
@@ -200,7 +200,7 @@ const [form, setForm] = useState({    tracking_no: '',
           tracking_no: d.tracking_no || '',
           registration_at: toLocalInput(d.registration_at || d.complaint?.created_at || d.complaint?.entry_time),
           assignment_date: toLocalInput(d.assignment_date),
-          verification_date: toLocalInput(d.verification_date || new Date()),
+          verification_date: toLocalInput(d.verification_date),
           victim_name: d.victim_name || '',
           victim_father_name: d.victim_father_name || '',
           victim_occupation: d.victim_occupation || '',
@@ -270,7 +270,7 @@ const [form, setForm] = useState({    tracking_no: '',
       complaint_id: comp.id,
       registration_at: toLocalInput(comp.entry_time || comp.created_at),
       assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
-      verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at || new Date()) || f.verification_date,
+      verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
       victim_name: comp.complainant_name || '',
       victim_father_name: comp.father_name || '',
       victim_cnic: comp.cnic || '',
@@ -325,7 +325,7 @@ const handleTrackingChange = (e) => {
         complaint_id: comp.id,
         registration_at: toLocalInput(comp.entry_time || comp.created_at),
         assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
-        verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at || new Date()) || f.verification_date,
+        verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
         victim_name: comp.complainant_name || '',
         victim_father_name: comp.father_name || '',
         victim_cnic: comp.cnic || '',
@@ -343,9 +343,10 @@ const handleTrackingChange = (e) => {
     }
   };
 
-  const buildFormData = () => {
+  const buildFormData = (overrides = {}) => {
     const fd = new FormData();
-    Object.entries(form).forEach(([k, v]) => {
+    const dataToSubmit = { ...form, ...overrides };
+    Object.entries(dataToSubmit).forEach(([k, v]) => {
       if (v === null || v === undefined || v === '') return;
       if (k === 'evidence') {
         let existingCount = 0, newIdx = 0;
@@ -389,8 +390,8 @@ const handleTrackingChange = (e) => {
     return fd;
   };
 
-  const saveReport = async () => {
-    const fd = buildFormData();
+  const saveReport = async (overrides = {}) => {
+    const fd = buildFormData(overrides);
     const url = id ? `/verifications/reports/${id}` : '/verifications/reports';
     if (id) {
       fd.append('_method', 'PUT');
@@ -449,8 +450,10 @@ const handleTrackingChange = (e) => {
     setSubmittingCi(true);
     setServerError('');
     setErrors({});
+    const autoDate = toLocalInput(new Date());
+    setForm(f => ({ ...f, verification_date: autoDate }));
     try {
-      await saveReport();
+      await saveReport({ verification_date: autoDate });
       await api.post(`/verifications/${verificationId}/submit-report`, {
         report_text: reportText,
         recommendation: form.recommendation,
