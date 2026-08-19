@@ -325,6 +325,8 @@ public function create()
             $data['operator_id'] = $data['operator_id'] ?? Auth::id();
             $data['operator_name'] = $data['operator_name'] ?? Auth::user()?->name ?? 'System';
             $data['operator_designation'] = $data['operator_designation'] ?? Auth::user()?->designation ?? 'Operator';
+            $data['diary_no'] = $data['diary_no'] ?? '';
+            $data['source'] = $data['source'] ?? 'Walk-in';
             // Bind complaint to operator's circle so same-circle CI (e.g. Lahore) receives work
             if (empty($data['circle_id']) && Auth::user()?->circle_id) {
                 $data['circle_id'] = Auth::user()->circle_id;
