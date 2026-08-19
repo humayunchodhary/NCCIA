@@ -20,13 +20,13 @@ const RECEIVED_VIA_OPTIONS = [
   { value: 'Email', name: 'Email' },
   { value: 'Telephone', name: 'Telephone' },
   { value: 'Postal Service', name: 'Postal Service' },
-  { value: 'Individually', name: 'Individually' },
   { value: 'Mobile Apps', name: 'Mobile Apps' },
   { value: 'Online Form', name: 'Online Form' },
   { value: 'In person', name: 'In person' },
   { value: 'Online Platform', name: 'Online Platform' },
   { value: 'Government Department', name: 'Government Department' },
   { value: 'Source Report', name: 'Source Report' },
+  { value: 'Within the Organization', name: 'Within the Organization' },
 ];
 
 const RECEIVED_FROM_OPTIONS = [
@@ -43,6 +43,10 @@ const RECEIVED_FROM_OPTIONS = [
   { value: 'Organizations', name: 'Organizations' },
   { value: 'Universities', name: 'Universities' },
   { value: 'Companies', name: 'Companies' },
+  { value: 'AD', name: 'AD' },
+  { value: 'DD', name: 'DD' },
+  { value: 'ADG', name: 'ADG' },
+  { value: 'DG', name: 'DG' },
   { value: 'NGOs', name: 'NGOs' },
   { value: 'Other Offices', name: 'Other Offices' },
   { value: 'General Public', name: 'General Public' },
@@ -127,7 +131,7 @@ const initialForm = {
   entry_time: '',
   operator_remarks: '',
   source: '',
-  scrutiny_result: '',
+  scrutiny_result: 'complete',
   verification_officer_id: '',
   assign_priority_type: 'normal',
 };
@@ -286,9 +290,19 @@ export default function ComplaintForm() {
           return;
         }
 
+        const parsePlatformObj = (val) => {
+          if (!val) return {};
+          if (typeof val === 'string' && val.startsWith('{')) {
+            try { return JSON.parse(val); } catch(e) {}
+          }
+          return val;
+        };
+
         setForm({
           ...initialForm,
           ...d,
+          platform_profile_page: parsePlatformObj(d.platform_profile_page),
+          platform_username: parsePlatformObj(d.platform_username),
           laws: d.laws || [],
           evidence: d.evidence || [],
           platforms: d.platforms || [],
@@ -373,6 +387,10 @@ export default function ComplaintForm() {
       ]);
       Object.entries(payload).forEach(([k, v]) => {
         if (skipKeys.has(k)) return;
+        if (k === 'platform_profile_page' || k === 'platform_username') {
+          fd.append(k, typeof v === 'object' && v !== null ? JSON.stringify(v) : (v || ''));
+          return;
+        }
         if (ARRAY_FORM_FIELDS.includes(k) && Array.isArray(v)) {
           v.forEach(item => fd.append(`${k}[]`, item));
           return;
@@ -646,7 +664,7 @@ export default function ComplaintForm() {
                 ].map(doc => (
                   <div key={doc.key} className="cf-field">
                     <label className="cf-label">{doc.label}</label>
-                    {!isOperator && <input type="file" className="cf-input" accept={doc.accept} onChange={e => doc.setFile(e.target.files?.[0] || null)} />}
+                    <input type="file" className="cf-input" accept={doc.accept} onChange={e => doc.setFile(e.target.files?.[0] || null)} />
                     {doc.file ? (
                       <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {doc.file.name}</span>
                     ) : doc.url ? (
@@ -670,12 +688,28 @@ export default function ComplaintForm() {
           </div>
           <div className="cf-body">
             {renderCheckboxGroup('Platforms Used', 'platforms', PLATFORM_OPTIONS)}
-            <div className="cf-row-2">
-              {renderField('Profile Page', 'platform_profile_page', { placeholder: 'URL or profile link' })}
-              {renderField('User Name', 'platform_username')}
-            </div>
-            <div className="cf-row-2">
-              {renderField('Email ID Involved', 'platform_email_involved', { type: 'email' })}
+            
+            {form.platforms?.map(plat => (
+              <div key={plat} className="cf-row-2" style={{marginTop: 12, padding: 12, border: '1px solid #e2e8f0', borderRadius: 8}}>
+                <div className="cf-field">
+                  <label className="cf-label">{plat} Profile Page URL</label>
+                  <input className="cf-input" value={(typeof form.platform_profile_page === 'object' ? form.platform_profile_page : {})[plat] || ''} onChange={e => setForm(f => ({...f, platform_profile_page: {...(typeof f.platform_profile_page === 'object' ? f.platform_profile_page : {}), [plat]: e.target.value}}))} placeholder="URL or profile link" />
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label">{plat} User Name</label>
+                  <input className="cf-input" value={(typeof form.platform_username === 'object' ? form.platform_username : {})[plat] || ''} onChange={e => setForm(f => ({...f, platform_username: {...(typeof f.platform_username === 'object' ? f.platform_username : {}), [plat]: e.target.value}}))} placeholder="User name" />
+                </div>
+              </div>
+            ))}
+
+            {(!form.platforms || form.platforms.length === 0) && typeof form.platform_profile_page === 'string' && form.platform_profile_page && !form.platform_profile_page.startsWith('{') && (
+              <div className="cf-row-2" style={{marginTop: 12}}>
+                {renderField('Profile Page', 'platform_profile_page', { placeholder: 'URL or profile link' })}
+                {renderField('User Name', 'platform_username')}
+              </div>
+            )}
+
+            <div className="cf-row-2" style={{marginTop: 12}}>
               {renderField('Mobile No. Involved', 'platform_mobile_involved', { placeholder: 'Mobile number on platform' })}
             </div>
           </div>
@@ -690,19 +724,18 @@ export default function ComplaintForm() {
             <div className="cf-section-badge">Step 3</div>
           </div>
           <div className="cf-body">
-            <div className="cf-row-3">
+            <div className="cf-row-2">
               {renderField('Report Date', 'report_date', { type: 'date', required: true })}
-              {renderField('Reporting Time', 'reporting_time', { type: 'datetime-local' })}
-              {renderField('Diary No', 'diary_no')}
+              {renderField('Reporting Time', 'reporting_time', { type: 'datetime-local', readOnly: true })}
             </div>
             <div className="cf-row-2">
               {renderField('Received Via', 'received_via', { required: true, options: RECEIVED_VIA_OPTIONS })}
               {renderField('Received From', 'received_from', { required: true, options: RECEIVED_FROM_OPTIONS })}
             </div>
             <div className="cf-row-3">
-              {renderField('CMU', 'cmu', { options: circleOptions })}
+              {renderField('CCRC', 'cmu', { options: circleOptions })}
               {renderField('Priority', 'priority_type', { options: PRIORITY_OPTIONS })}
-              {renderField('Occurrence Date', 'occurrence_date', { type: 'date', required: true })}
+              {renderField('Incident Occurrence Date', 'occurrence_date', { type: 'date', required: true })}
             </div>
             <div className="cf-row-2">
               {renderField('Crime Category', 'offence_type', { required: true, options: offenceTypes })}
@@ -741,7 +774,7 @@ export default function ComplaintForm() {
             <div className="cf-section-icon" style={{ background: '#015C94' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
-            <div><div className="cf-section-title">Accused Information (Initial Stage)</div><div className="cf-section-sub">Known accused details at registration</div></div>
+            <div><div className="cf-section-title">Accused Detail (if any)</div><div className="cf-section-sub">Known accused details at registration</div></div>
             <div className="cf-section-badge">Step 5</div>
           </div>
           <div className="cf-body">
@@ -847,11 +880,10 @@ export default function ComplaintForm() {
             </div>
             <div className="cf-row-2">
               {renderField('Entry Time', 'entry_time', { type: 'datetime-local', readOnly: true })}
+              {renderField('FDO Remarks', 'operator_remarks')}
             </div>
-            {renderField('Scrutiny Result', 'scrutiny_result', { required: true, options: SCRUTINY_OPTIONS })}
-            {renderField('FDO Remarks', 'operator_remarks', { rows: 2 })}
 
-            {showAssignVo && form.scrutiny_result === 'complete' && (
+            {showAssignVo && (
               <div className="cf-section" style={{ marginTop: 16, border: '1px solid #bfdbfe', borderRadius: 10 }}>
                 <div className="cf-section-header" style={{ background: 'rgba(1,92,148,0.06)' }}>
                   <div className="cf-section-icon" style={{ background: '#015C94' }}>
