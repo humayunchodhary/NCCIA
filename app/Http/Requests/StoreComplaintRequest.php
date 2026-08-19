@@ -65,21 +65,22 @@ class StoreComplaintRequest extends FormRequest
             'initial_accused'  => 'nullable',
 
             // Step 4
-            'operator_name'         => 'required|string|max:255',
-            'operator_designation'  => 'required|string|max:255',
+            'operator_name'         => 'nullable|string|max:255',
+            'operator_designation'  => 'nullable|string|max:255',
             'entry_time'            => 'required|date',
             'operator_remarks'      => 'nullable|string|max:2000',
-
-            // New fields
-            'source'     => 'nullable|string|max:50',
-            'circle_id'  => 'nullable|integer|exists:circles,id',
             'operator_id' => 'nullable|integer|exists:users,id',
-            'scrutiny_result' => 'nullable|string|in:complete,incomplete,invalid,irrelevant',
-            'attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx|max:10240',
+            'circle_id' => 'nullable|integer|exists:circles,id',
+            'attachment' => 'nullable',
+            'attachment.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx|max:10240',
             'cnic_front' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
             'cnic_back' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
             'passport_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
             'picture' => 'nullable|file|mimes:jpg,jpeg,png|max:10240',
+
+            // New fields
+            'source'     => 'nullable|string|max:50',
+            'scrutiny_result' => 'nullable|string|in:complete,incomplete,invalid,irrelevant',
 
             // Assign VO on Complete Registration (same form)
             'verification_officer_id' => 'nullable|integer|exists:users,id',
