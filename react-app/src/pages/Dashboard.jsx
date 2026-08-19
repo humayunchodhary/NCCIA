@@ -133,18 +133,8 @@ export default function Dashboard() {
           </div>
           <div className="stat-card orange">
             <div className="stat-value">{stats.incomplete_registrations || 0}</div>
-            <div className="stat-label">Incomplete / Pending</div>
+            <div className="stat-label">Incomplete / Draft</div>
             <div className="stat-footer"><span>Scrutiny baqi</span></div>
-          </div>
-          <div className="stat-card teal">
-            <div className="stat-value">{stats.with_verification || 0}</div>
-            <div className="stat-label">VO Assigned</div>
-            <div className="stat-footer"><span>Under process</span></div>
-          </div>
-          <div className="stat-card purple">
-            <div className="stat-value">{stats.avg_completion || 0}%</div>
-            <div className="stat-label">Avg Progress</div>
-            <div className="stat-footer"><span>Workflow</span></div>
           </div>
         </div>
 
@@ -168,18 +158,15 @@ export default function Dashboard() {
                       <th>Tracking / Diary</th>
                       <th>Complainant</th>
                       <th>Category</th>
-                      <th>VO / Stage</th>
-                      <th style={{ minWidth: 140 }}>Progress</th>
                       <th>Date</th>
                       <th style={{ textAlign: 'center' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recent.length === 0 ? (
-                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: 28, color: '#6c757d' }}>Abhi koi complaint nahi — Complete Registration se shuru karein</td></tr>
+                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: 28, color: '#6c757d' }}>Abhi koi complaint nahi — Complete Registration se shuru karein</td></tr>
                     ) : recent.map(c => {
-                      const pct = c.progress_percent ?? 0;
-                      const barColor = pct >= 100 ? '#38a169' : pct >= 60 ? '#267859' : pct >= 40 ? '#d69e2e' : pct >= 25 ? '#e5a100' : '#e53e3e';
+                      const canEditRow = !(c.status === 'complete' || !!c.verification);
                       return (
                         <tr key={c.id}>
                           <td>
@@ -188,21 +175,15 @@ export default function Dashboard() {
                           </td>
                           <td><span style={{ fontSize: 13, fontWeight: 500 }}>{c.complainant_name || '-'}</span></td>
                           <td><span style={{ fontSize: 12.5 }}>{c.offence_type || '-'}</span></td>
-                          <td>
-                            <div style={{ fontSize: 12.5, fontWeight: 600, color: '#015C94' }}>{c.progress_stage || '-'}</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>{c.officer_name ? `VO: ${c.officer_name}` : (c.tracking_no ? 'VO pending' : '—')}</div>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{ flex: 1, minWidth: 70 }}><ProgressBar value={pct} color={barColor} /></div>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: barColor, minWidth: 36 }}>{pct}%</span>
-                            </div>
-                          </td>
                           <td><span style={{ fontSize: 12, color: '#6c757d' }}>{c.created_at ? new Date(c.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span></td>
                           <td style={{ textAlign: 'center' }}>
-                            <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit / Complete">
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            </Link>
+                            {canEditRow ? (
+                              <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit / Complete">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                              </Link>
+                            ) : (
+                              <span style={{fontSize: 11, color: '#267859', fontWeight: 600}}>Forwarded</span>
+                            )}
                           </td>
                         </tr>
                       );

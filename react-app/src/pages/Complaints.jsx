@@ -58,6 +58,7 @@ export default function Complaints() {
   // Assign VO for operator is on Complete Registration form only
   const canAssign = canAssignVerification(user) && !hasRole(user, 'operator');
   const canCreate = canCreateComplaint(user);
+  const isOperatorOnly = hasRole(user, 'operator') && !hasRole(user, 'admin') && !hasRole(user, 'circle_incharge');
   const canDelete = hasRole(user, 'admin');
   const canEdit = canCreate || hasRole(user, 'circle_incharge') || hasRole(user, 'admin');
 
@@ -165,8 +166,8 @@ export default function Complaints() {
                   <th style={{ width: '20%' }}>Complainant & CNIC</th>
                   <th style={{ width: '16%' }}>Crime Category</th>
                   <th style={{ width: '11%', whiteSpace: 'nowrap' }}>Status</th>
-                  <th style={{ width: '15%' }}>Progress</th>
-                  <th style={{ width: '10%' }}>Enquiry</th>
+                  {!isOperatorOnly && <th style={{ width: '15%' }}>Progress</th>}
+                  {!isOperatorOnly && <th style={{ width: '10%' }}>Enquiry</th>}
                   <th style={{ width: '16%', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
@@ -193,25 +194,29 @@ export default function Complaints() {
                         {STATUS_LABELS[c.final_status || c.status] || c.status}
                       </span>
                     </td>
-                    <td>
-                      <WorkflowProgress workflow={c.workflow} percent={c.progress_percent} stage={c.progress_stage} compact />
-                    </td>
-                    <td>
-                      {c.enquiry ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <Link to="/enquiries" style={{ fontSize: '12.5px', fontWeight: 700, color: '#0284c7' }}>#{c.enquiry.enquiry_number || c.enquiry.id}</Link>
-                          <span className={`badge ${ENQ_STATUS_COLORS[c.enquiry.status] || 'badge-pending'}`} style={{ fontSize: 10 }}>{c.enquiry.status?.replace('_', ' ')}</span>
-                        </div>
-                      ) : c.final_status === 'closed' && CLOSURE_REASON_LABELS[c.closure_reason] ? (
-                        <span style={{ fontSize: 11.5, color: '#e53e3e', fontWeight: 600 }}>{CLOSURE_REASON_LABELS[c.closure_reason]}</span>
-                      ) : c.final_status === 'merged' && c.merged_with_id ? (
-                        <span style={{ fontSize: 11.5, color: '#64748b' }}>Merged #{c.merged_with_id}</span>
-                      ) : c.final_status === 'transferred' ? (
-                        <span style={{ fontSize: 11.5, color: '#d97706' }}>{c.transfer_to_department || 'Transferred'}</span>
-                      ) : (
-                        <span style={{ color: '#94a3b8' }}>—</span>
-                      )}
-                    </td>
+                    {!isOperatorOnly && (
+                      <td>
+                        <WorkflowProgress workflow={c.workflow} percent={c.progress_percent} stage={c.progress_stage} compact />
+                      </td>
+                    )}
+                    {!isOperatorOnly && (
+                      <td>
+                        {c.enquiry ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Link to="/enquiries" style={{ fontSize: '12.5px', fontWeight: 700, color: '#0284c7' }}>#{c.enquiry.enquiry_number || c.enquiry.id}</Link>
+                            <span className={`badge ${ENQ_STATUS_COLORS[c.enquiry.status] || 'badge-pending'}`} style={{ fontSize: 10 }}>{c.enquiry.status?.replace('_', ' ')}</span>
+                          </div>
+                        ) : c.final_status === 'closed' && CLOSURE_REASON_LABELS[c.closure_reason] ? (
+                          <span style={{ fontSize: 11.5, color: '#e53e3e', fontWeight: 600 }}>{CLOSURE_REASON_LABELS[c.closure_reason]}</span>
+                        ) : c.final_status === 'merged' && c.merged_with_id ? (
+                          <span style={{ fontSize: 11.5, color: '#64748b' }}>Merged #{c.merged_with_id}</span>
+                        ) : c.final_status === 'transferred' ? (
+                          <span style={{ fontSize: 11.5, color: '#d97706' }}>{c.transfer_to_department || 'Transferred'}</span>
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>—</span>
+                        )}
+                      </td>
+                    )}
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
                         {canAssign && !c.verification && (
@@ -220,7 +225,7 @@ export default function Complaints() {
                             <span>Assign</span>
                           </button>
                         )}
-                        {canEdit && (
+                        { (canEdit && !(hasRole(user, 'operator') && !hasRole(user, 'admin') && (c.status === 'complete' || c.verification))) && (
                           <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm" style={{ height: 34, width: 34, padding: 0, borderRadius: 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #cbd5e1', background: '#fff', color: '#475569' }} title="Edit Complaint">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </Link>
@@ -257,7 +262,7 @@ export default function Complaints() {
                     </td>
                   </tr>
                 ))}
-                {list.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b' }}>No complaints found</td></tr>}
+                {list.length === 0 && <tr><td colSpan={isOperatorOnly ? 5 : 7} style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b' }}>No complaints found</td></tr>}
               </tbody>
             </table>
           </div>

@@ -279,6 +279,13 @@ export default function ComplaintForm() {
         if (d.whatsapp_no) d.whatsapp_no = d.whatsapp_no.replace(/\D/g, '').replace(/^0+/, '');
         if (!d.contact_country_code) d.contact_country_code = '+92';
         setHasVerification(!!d.verification);
+        
+        if (isOperator && (d.status === 'complete' || !!d.verification)) {
+          alert('You cannot edit a complete or assigned complaint.');
+          navigate('/');
+          return;
+        }
+
         setForm({
           ...initialForm,
           ...d,
