@@ -538,7 +538,7 @@ const handleTrackingChange = (e) => {
                 <label className="cf-label required">Tracking No.</label>
                 <div className="cf-input-wrap">
                   <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-                  <select name="tracking_no" className="cf-input cf-select" required value={form.tracking_no} onChange={handleTrackingChange}>
+                  <select name="tracking_no" className="cf-input cf-select" required value={form.tracking_no} onChange={handleTrackingChange} disabled={!!id}>
                     <option value="">— Select Tracking No. —</option>
                     {complaints.map(c => <option key={c.id} value={c.tracking_no} data-complaint={c.id} data-cnic={c.cnic} data-phone={c.contact_no}>{c.tracking_no} — {c.complainant_name}{c.verification ? ` · V-${c.verification.id}` : ''}</option>)}
                   </select>
@@ -549,7 +549,7 @@ const handleTrackingChange = (e) => {
               <div className="cf-field">
                 <label className="cf-label">Registration Date &amp; Time</label>
                 <div className="cf-input-wrap">
-                  <input type="datetime-local" className="cf-input" name="registration_at" value={form.registration_at} onChange={setF('registration_at')} />
+                  <input type="datetime-local" className="cf-input" name="registration_at" value={form.registration_at} onChange={setF('registration_at')} readOnly style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}} />
                 </div>
                 <span className="cf-hint">When complaint was registered</span>
               </div>
@@ -558,7 +558,7 @@ const handleTrackingChange = (e) => {
               <div className="cf-field">
                 <label className="cf-label">Assignment Date &amp; Time</label>
                 <div className="cf-input-wrap">
-                  <input type="datetime-local" className="cf-input" name="assignment_date" value={form.assignment_date} onChange={setF('assignment_date')} />
+                  <input type="datetime-local" className="cf-input" name="assignment_date" value={form.assignment_date} onChange={setF('assignment_date')} readOnly style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}} />
                 </div>
                 <span className="cf-hint">When assigned to verification officer</span>
               </div>

@@ -31,6 +31,8 @@ export default function Verifications() {
   const [stats, setStats] = useState({ total: 0, pending: 0, progress: 0, approved: 0 });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [proceedConfirm, setProceedConfirm] = useState(false);
 
@@ -409,7 +411,18 @@ export default function Verifications() {
       v.complaint?.complainant_name?.toLowerCase().includes(search.toLowerCase()) ||
       v.direct_info?.complainant_name?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = !statusFilter || v.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    let matchesDate = true;
+    if (dateFilter) {
+      const dt = new Date(v.assigned_at || v.created_at);
+      const dStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+      matchesDate = dStr === dateFilter;
+    }
+    let matchesYear = true;
+    if (yearFilter) {
+      const dt = new Date(v.assigned_at || v.created_at);
+      matchesYear = String(dt.getFullYear()) === String(yearFilter);
+    }
+    return matchesSearch && matchesStatus && matchesDate && matchesYear;
   });
 
   const filteredIds = useMemo(() => filteredList.map(v => v.id), [filteredList]);
@@ -479,9 +492,10 @@ export default function Verifications() {
         <span style={{fontSize:'13px',fontWeight:600,color:'#2b2b2b'}}>{selected.length} selected</span>
         <div style={{flex:1}}></div>
         {btn('Closure', '#015C94', () => openBulkModal('closure'))}
-        {btn('Merge', '#015C94', () => openBulkModal('merge'))}
-        {btn('Transfer', '#015C94', () => openBulkModal('transfer'))}
-        {btn('Delete', '#e53e3e', () => setBulkDeleteOpen(true))}
+        {btn('Proceed to Verification', '#264078', () => operateOnFiltered('proceed_to_verification'))}
+        {btn('Merge', '#ea580c', () => openBulkModal('merge'))}
+        {btn('Transfer to Circle', '#7c3aed', () => openBulkModal('transfer_circle'))}
+        {btn('Transfer to Dept', '#7c3aed', () => openBulkModal('transfer_dept'))}
         {btn('Clear', '#374151', () => setSelected([]))}
       </div>
     );
@@ -594,16 +608,8 @@ export default function Verifications() {
             <option value="sent_back">Sent Back</option>
             <option value="closed">Closed</option>
           </select>
-          {canBulk && (
-            <>
-              <span style={{fontSize:'12px',fontWeight:600,color:'#2b2b2b'}}>Quick Actions (applied to current search results):</span>
-              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('closure')} style={{background:'#fff',color:'#015C94',border:'1.5px solid rgba(1,92,148,0.35)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Closure</button>
-              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('proceed_to_verification')} style={{background:'#fff',color:'#264078',border:'1.5px solid rgba(38,64,120,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Proceed to Verification</button>
-              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('transfer')} style={{background:'#fff',color:'#7c3aed',border:'1.5px solid rgba(124,58,237,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Transfer</button>
-              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('merge')} style={{background:'#fff',color:'#ea580c',border:'1.5px solid rgba(234,88,12,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Merge</button>
-              <button type="button" className="btn btn-sm" onClick={() => operateOnFiltered('delete')} style={{background:'#fff',color:'#e53e3e',border:'1.5px solid rgba(229,62,62,0.45)',borderRadius:'6px',height:'32px',padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}}>Delete</button>
-            </>
-          )}
+          <input type="date" className="filter-select" value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={{height:'34px',padding:'0 12px',border:'1.5px solid #264078',borderRadius:'8px',fontSize:'13px'}} title="Filter by Exact Date" />
+          <input type="number" className="filter-select" placeholder="Year (e.g. 2026)" value={yearFilter} onChange={e => setYearFilter(e.target.value)} style={{height:'34px',padding:'0 12px',width:'140px',border:'1.5px solid #264078',borderRadius:'8px',fontSize:'13px'}} min="2000" max="2100" />
           <div className="filter-spacer" style={{flex:1}}></div>
         </div>
 
@@ -705,11 +711,6 @@ export default function Verifications() {
                           </button>
                         )}
 
-                        {canDelete && (
-                          <button onClick={() => setDeleteTarget(v)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -729,8 +730,6 @@ export default function Verifications() {
           )}
         </div>
       </div>
-
-      {renderBulkBar()}
 
       <ConfirmModal
         open={!!deleteTarget}

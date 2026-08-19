@@ -1151,8 +1151,8 @@ class VerificationController extends Controller
             if ($data['recommendation'] === 'merge' && empty($data['merge_complaint_id'])) {
                 return response()->json(['message' => 'Please select the complaint to merge with.'], 422);
             }
-            if ($data['recommendation'] === 'transfer' && empty($data['transfer_department'])) {
-                return response()->json(['message' => 'Transfer department is required.'], 422);
+            if ($data['recommendation'] === 'transfer' && empty($data['transfer_department']) && empty($data['transfer_circle_id'])) {
+                return response()->json(['message' => 'Transfer department or Circle is required.'], 422);
             }
             if ($data['recommendation'] === 'enquiry_registration' && empty($data['enquiry_officer_id'])) {
                 return response()->json(['message' => 'Please select an Enquiry Officer before approving enquiry registration.'], 422);
