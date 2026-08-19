@@ -540,7 +540,7 @@ export default function ComplaintForm() {
         </div>
       </div>
 
-      {!id && (
+      {!id && !isOperator && (
         <PdfAutoFillBar
           onFilled={handlePdfFilled}
           hint="Upload verification report PDF (e.g. CCW-C-80519/25) — Name, CNIC, Phone, Address, Offence, Amount, and Accused details will auto-fill automatically."
@@ -646,7 +646,7 @@ export default function ComplaintForm() {
                 ].map(doc => (
                   <div key={doc.key} className="cf-field">
                     <label className="cf-label">{doc.label}</label>
-                    <input type="file" className="cf-input" accept={doc.accept} onChange={e => doc.setFile(e.target.files?.[0] || null)} />
+                    {!isOperator && <input type="file" className="cf-input" accept={doc.accept} onChange={e => doc.setFile(e.target.files?.[0] || null)} />}
                     {doc.file ? (
                       <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {doc.file.name}</span>
                     ) : doc.url ? (
@@ -800,7 +800,7 @@ export default function ComplaintForm() {
                     {ACCUSED_DOC_FIELDS.map(doc => (
                       <div key={doc.key} className="cf-field">
                         <label className="cf-label">{doc.label}</label>
-                        <input type="file" className="cf-input" accept={doc.accept} onChange={e => addInitialAccusedDoc(i, doc.key, e.target.files?.[0] || '')} />
+                        {!isOperator && <input type="file" className="cf-input" accept={doc.accept} onChange={e => addInitialAccusedDoc(i, doc.key, e.target.files?.[0] || '')} />}
                         {a[doc.key] instanceof File ? (
                           <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {a[doc.key].name}</span>
                         ) : (a[`${doc.key}_url`] || (typeof a[doc.key] === 'string' && a[doc.key])) ? (
@@ -906,12 +906,14 @@ export default function ComplaintForm() {
                       <a href={existingAttachment} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open attachment ↗</a>
                     </div>
                   )}
-                  <input
-                    type="file"
-                    className="cf-input"
-                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
-                    onChange={e => setAttachmentFile(e.target.files[0] || null)}
-                  />
+                  {!isOperator && (
+                    <input
+                      type="file"
+                      className="cf-input"
+                      accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={e => setAttachmentFile(e.target.files[0] || null)}
+                    />
+                  )}
                   <span className="cf-hint">Optional extra file (PDF, image, Word, Excel).</span>
                 </div>
               </div>
