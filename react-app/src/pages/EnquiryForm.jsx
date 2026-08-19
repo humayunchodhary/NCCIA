@@ -1091,11 +1091,11 @@ export default function EnquiryForm() {
               {tab === 'witnesses' && `Witnesses${form.witnesses?.length ? ` (${form.witnesses.length})` : ''}`}
               {tab === 'notices' && `Summons${nonAppearanceCount ? ' !' : ''}${form.notices?.length ? ` (${form.notices.length})` : ''}`}
               {tab === 'attachments' && `Attachments${form.attachments?.length ? ` (${form.attachments.length})` : ''}`}
-              {tab === 'activities' && `Activities${form.activities?.length ? ` (${form.activities.length})` : ''}${linkedForensicRequests?.length ? ` · 🔬${linkedForensicRequests.length}` : ''}`}
+              {tab === 'activities' && `Enquiry Diary${form.activities?.length ? ` (${form.activities.length})` : ''}${linkedForensicRequests?.length ? ` · 🔬${linkedForensicRequests.length}` : ''}`}
               {tab === 'requisitions' && `Requisitions${form.requisitions?.length ? ` (${form.requisitions.length})` : ''}`}
               {tab === 'legal' && 'Legal Opinions'}
               {tab === 'approvals' && 'Approvals'}
-              {tab === 'outcome' && 'Outcome'}
+              {tab === 'outcome' && 'CFR'}
               {tab === 'chat' && 'Case Discussion 💬'}
             </button>
           ))}
@@ -1514,7 +1514,7 @@ export default function EnquiryForm() {
                   <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Address</label><textarea className="cf-input" rows={2} value={w.address} onChange={e => updateWitness(i, 'address', e.target.value)} style={{ width: '100%' }} /></div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                     {[
-                      ['attachment', 'Attachment'],
+                      ['attachment', 'CNIC Attachment'],
                       ['picture', 'Picture'],
                       ['statement_attachment', 'Statement Attachment'],
                     ].map(([field, label]) => (
@@ -1904,7 +1904,7 @@ export default function EnquiryForm() {
               <div className="cf-section-icon" style={{ background: '#264078' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
               </div>
-              <div><div className="cf-section-title">Enquiry Activities &amp; Forensic Seizures</div><div className="cf-section-sub">DAC, Bank, Search, Seize, Summons, Diaries, Seizures, Recoveries, CFR &amp; Lab Reports</div></div>
+              <div><div className="cf-section-title">Enquiry Diary &amp; Forensic Seizures</div><div className="cf-section-sub">DAC, Bank, Search, Seize, Summons, Diaries, Seizures, Recoveries, Lab Reports</div></div>
               <div className="cf-section-badge">STEP 3</div>
             </div>
             <div className="cf-body">

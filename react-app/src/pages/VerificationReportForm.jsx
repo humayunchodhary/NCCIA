@@ -5,6 +5,8 @@ import { countryCodes } from '../data/countries';
 import { toLocalInput } from '../utils/datetime';
 import PdfAutoFillBar from '../components/PdfAutoFillBar';
 import { mapExtractToVerificationReport, matchLookupValue } from '../utils/fillFromPdf';
+import { useAuth } from '../contexts/AuthContext';
+import { hasRole } from '../utils/permissions';
 
 const SearchableSelect = ({ options, value, onChange, placeholder, name, required }) => {
   const [open, setOpen] = useState(false);
@@ -111,6 +113,7 @@ export default function VerificationReportForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [crimeCategories, setCrimeCategories] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -119,12 +122,13 @@ export default function VerificationReportForm() {
   const [serverError, setServerError] = useState('');
   const [linkedVerificationId, setLinkedVerificationId] = useState(null);
 
-const [form, setForm] = useState({    tracking_no: '',
+  const [form, setForm] = useState({
+    tracking_no: '',
     complaint_id: '',
-      registration_at: '',
-      assignment_date: '',
-      verification_date: '',
-      victim_name: '',
+    registration_at: '',
+    assignment_date: '',
+    verification_date: '',
+    victim_name: '',
     victim_father_name: '',
     victim_occupation: '',
     victim_gender: '',
@@ -133,12 +137,13 @@ const [form, setForm] = useState({    tracking_no: '',
     victim_phone: '',
     victim_email: '',
     crime_category: '',
+    initial_crime_category: '',
     city: '',
     crime_description: '',
     accused_known: '0',
     accused: [],
     recommendation: '',
-    closure_reason: '',
+    closure_reason: '', merge_type: 'enquiry', merge_reference: '',
     recommendation_short: '',
     recommendation_full: '',
     comments: '',
@@ -209,13 +214,13 @@ const [form, setForm] = useState({    tracking_no: '',
           victim_country_code: d.victim_country_code || '+92',
           victim_phone: d.victim_phone || '',
           victim_email: d.victim_email || '',
-          crime_category: d.crime_category || '',
+          crime_category: d.crime_category || '', initial_crime_category: d.complaint?.crime_category || '',
           city: d.city || '',
           crime_description: d.crime_description || '',
           accused_known: d.accused_known ? '1' : '0',
           accused,
           recommendation: d.recommendation || '',
-          closure_reason: d.closure_reason || '',
+          closure_reason: d.closure_reason || '', merge_type: d.merge_type || 'enquiry', merge_reference: d.merge_reference || '',
           recommendation_short: d.recommendation_short || '',
           recommendation_full: d.recommendation_full || '',
           comments: d.comments || '',
@@ -279,7 +284,7 @@ const [form, setForm] = useState({    tracking_no: '',
       victim_occupation: comp.profession || '',
       victim_gender: comp.gender || '',
       victim_email: comp.email || '',
-      crime_category: comp.offence_type || '',
+      crime_category: comp.offence_type || '', initial_crime_category: comp.offence_type || '',
       city: comp.cmu || f.city,
       crime_description: comp.description || '',
       accused_known: mapAccused.length ? '1' : f.accused_known,
@@ -334,7 +339,7 @@ const handleTrackingChange = (e) => {
         victim_occupation: comp.profession || '',
         victim_gender: comp.gender || '',
         victim_email: comp.email || '',
-        crime_category: comp.offence_type || '',
+        crime_category: comp.offence_type || '', initial_crime_category: comp.offence_type || '',
         city: comp.cmu || '',
         crime_description: comp.description || '',
         accused_known: (mapAccused.length ? '1' : f.accused_known),
@@ -348,6 +353,7 @@ const handleTrackingChange = (e) => {
     const dataToSubmit = { ...form, ...overrides };
     Object.entries(dataToSubmit).forEach(([k, v]) => {
       if (v === null || v === undefined || v === '') return;
+        if (k === 'initial_crime_category') return;
       if (k === 'evidence') {
         let existingCount = 0, newIdx = 0;
         v.forEach((ev) => {
@@ -447,6 +453,10 @@ const handleTrackingChange = (e) => {
       return;
     }
 
+    if (form.recommendation === 'merge' && !form.merge_reference) {
+      setServerError('Merge recommendation ke liye Merge Reference No. zaroori hai.');
+      return;
+    }
     setSubmittingCi(true);
     setServerError('');
     setErrors({});
@@ -457,7 +467,7 @@ const handleTrackingChange = (e) => {
       await api.post(`/verifications/${verificationId}/submit-report`, {
         report_text: reportText,
         recommendation: form.recommendation,
-        closure_reason: form.closure_reason || null,
+        closure_reason: form.closure_reason || null, merge_type: form.merge_type, merge_reference: form.merge_reference,
       });
       alert('Verification report Circle Incharge ko submit ho gayi.');
       navigate('/verifications');
@@ -702,7 +712,7 @@ const handleTrackingChange = (e) => {
               <div className="cf-field">
                 <label className="cf-label required">Crime Category</label>
                 <div className="cf-input-wrap">
-                  <select className="cf-input" name="crime_category" value={form.crime_category} onChange={setF('crime_category')} required>
+                  <select className="cf-input" name="crime_category" value={form.crime_category} onChange={setF('crime_category')} required disabled={!!form.initial_crime_category && !hasRole('circle_incharge') && !hasRole('admin') && !hasRole('super_admin') && !hasRole('deputy_director')}>
                     <option value="">— Select Category —</option>
                     {crimeCategories.map(c => <option key={c.value||c.name} value={c.value||c.name}>{c.name}</option>)}
                   </select>
@@ -825,6 +835,28 @@ const handleTrackingChange = (e) => {
                 <span className="cf-hint">Select the verification outcome</span>
               </div>
 
+              {form.recommendation === 'merge' && (
+                <div className="cf-row-2" style={{ marginTop: '12px' }}>
+                  <div className="cf-field">
+                    <label className="cf-label required">Merge Type</label>
+                    <div className="cf-input-wrap">
+                      <select className="cf-input" name="merge_type" value={form.merge_type} onChange={setF('merge_type')} required>
+                        <option value="enquiry">Enquiry Merge</option>
+                        <option value="fir">FIR Merge</option>
+                      </select>
+                    </div>
+                    <span className="cf-hint">Type of record to merge with</span>
+                  </div>
+                  <div className="cf-field">
+                    <label className="cf-label required">Merge Reference No.</label>
+                    <div className="cf-input-wrap">
+                      <input type="text" className="cf-input" name="merge_reference" value={form.merge_reference} onChange={setF('merge_reference')} placeholder="e.g. ENQ-001/24" required />
+                    </div>
+                    <span className="cf-hint">kis kay sath merge karna hay</span>
+                  </div>
+                </div>
+              )}
+
               {form.recommendation === 'closure' && (
                 <div className="cf-field">
                   <label className="cf-label required">Closure Reason</label>
@@ -886,36 +918,7 @@ const handleTrackingChange = (e) => {
           </div>
         </div>
 
-        <div className="cf-section">
-          <div className="cf-section-header">
-            <div className="cf-section-icon" style={{background:'#015C94'}}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M4 4h16v16H4z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
-            </div>
-            <div>
-              <div className="cf-section-title">Reference Numbers</div>
-              <div className="cf-section-sub">Inquiry & case references</div>
-            </div>
-            <div className="cf-section-badge">STEP 07</div>
-          </div>
-          <div className="cf-body">
-            <div className="cf-row-2">
-              <div className="cf-field">
-                <label className="cf-label">Inquiry No.</label>
-                <div className="cf-input-wrap">
-                  <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-                  <input type="text" className="cf-input font-mono" name="inquiry_no" placeholder="e.g. INQ-0001/25" value={form.inquiry_no} onChange={setF('inquiry_no')} />
-                </div>
-              </div>
-              <div className="cf-field">
-                <label className="cf-label">Case No.</label>
-                <div className="cf-input-wrap">
-                  <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
-                  <input type="text" className="cf-input font-mono" name="case_no" placeholder="e.g. CCW-C-0001/25" value={form.case_no} onChange={setF('case_no')} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+
 
         {serverError && (
           <div className="cf-alert cf-alert-error">{serverError}</div>
