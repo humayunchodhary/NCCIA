@@ -731,45 +731,84 @@ export default function Layout() {
                 {!searchLoading && searchResults.length === 0 && (
                   <div style={{padding:'14px 16px', fontSize:13, color:'#6c757d'}}>No matching complaints found</div>
                 )}
-                {!searchLoading && searchResults.map((item) => (
-                  <div
-                    key={`${item.type}-${item.id}-${item.verification_id || 0}`}
-                    onClick={() => openSearchResult(item)}
-                    style={{
-                      display:'block', width:'100%', textAlign:'left', border:'none', background:'transparent',
-                      padding:'12px 14px', cursor:'pointer', borderBottom:'1px solid #f0f2f5'
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f8fb'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <div style={{display:'flex', justifyContent:'space-between', gap:8, alignItems:'baseline'}}>
-                      <strong style={{fontSize:13, color:'#015C94'}}>{item.tracking_no || `Complaint #${item.id}`}</strong>
-                      {item.verification_no && (
-                        <span style={{fontSize:11, fontWeight:700, color:'#264078', background:'rgba(38,64,120,0.1)', padding:'2px 8px', borderRadius:999}}>
-                          {item.verification_no}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{fontSize:12.5, color:'#2b2b2b', marginTop:3}}>{item.complainant_name}</div>
-                    <div style={{fontSize:11.5, color:'#6c757d', marginTop:2}}>
-                      {item.verification_status ? `Verification: ${item.verification_status.replace(/_/g, ' ')}` : 'No verification assigned'}
-                      {item.officer_name ? ` · ${item.officer_name}` : ''}
-                    </div>
-                    {item.type === 'complaint' && (
-                      <div style={{display:'flex', gap:5, marginTop:8, flexWrap:'wrap'}}>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); openSearchResult(item); }} style={{background:'rgba(1,92,148,0.1)', color:'#015C94', border:'none', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Open</button>
-                        {canBulkActions() && (
-                          <>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'closure'); }} style={{background:'#fff', color:'#015C94', border:'1.5px solid rgba(1,92,148,0.35)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Close</button>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'merge'); }} style={{background:'#fff', color:'#ea580c', border:'1.5px solid rgba(234,88,12,0.45)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Merge</button>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'transfer'); }} style={{background:'#fff', color:'#7c3aed', border:'1.5px solid rgba(124,58,237,0.45)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Transfer</button>
-                            <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'proceed'); }} style={{background:'#fff', color:'#38a169', border:'1.5px solid rgba(56,161,105,0.5)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Proceed to Verification</button>
-                          </>
+                {!searchLoading && searchResults.map((item) => {
+                  const isEnquiry = item.type === 'enquiry';
+                  const isComplaint = item.type === 'complaint';
+                  return (
+                    <div
+                      key={`${item.type}-${item.id}-${item.verification_id || 0}`}
+                      onClick={() => openSearchResult(item)}
+                      style={{
+                        display:'block', width:'100%', textAlign:'left', border:'none', background:'transparent',
+                        padding:'12px 14px', cursor:'pointer', borderBottom:'1px solid #f0f2f5'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f8fb'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <div style={{display:'flex', justifyContent:'space-between', gap:8, alignItems:'baseline'}}>
+                        <strong style={{fontSize:13, color: isEnquiry ? '#7c3aed' : '#015C94'}}>
+                          {isEnquiry
+                            ? (item.enquiry_number ? `Enquiry #${item.enquiry_number}` : `Enquiry #${item.enquiry_id}`)
+                            : (item.tracking_no || `Complaint #${item.id}`)
+                          }
+                        </strong>
+                        <div style={{display:'flex', gap:5, alignItems:'center'}}>
+                          {isEnquiry && (
+                            <span style={{fontSize:11, fontWeight:700, color:'#7c3aed', background:'rgba(124,58,237,0.1)', padding:'2px 8px', borderRadius:999}}>
+                              Enquiry
+                            </span>
+                          )}
+                          {item.verification_no && (
+                            <span style={{fontSize:11, fontWeight:700, color:'#264078', background:'rgba(38,64,120,0.1)', padding:'2px 8px', borderRadius:999}}>
+                              {item.verification_no}
+                            </span>
+                          )}
+                          {item.tracking_no && isEnquiry && (
+                            <span style={{fontSize:11, color:'#94a3b8', fontWeight:400}}>
+                              {item.tracking_no}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{fontSize:12.5, color:'#2b2b2b', marginTop:3}}>
+                        {item.complainant_name}
+                        {item.accused_name && (
+                          <span style={{color:'#64748b'}}> · Accused: {item.accused_name}</span>
                         )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                      <div style={{fontSize:11.5, color:'#6c757d', marginTop:2}}>
+                        {isEnquiry
+                          ? `Status: ${(item.status || 'open').replace(/_/g, ' ')}`
+                          : (item.verification_status
+                              ? `Verification: ${item.verification_status.replace(/_/g, ' ')}`
+                              : (item.enquiry_number ? `Enquiry: #${item.enquiry_number}` : 'No verification assigned'))
+                        }
+                        {item.officer_name ? ` · ${item.officer_name}` : ''}
+                      </div>
+                      {isComplaint && (
+                        <div style={{display:'flex', gap:5, marginTop:8, flexWrap:'wrap'}}>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); openSearchResult(item); }} style={{background:'rgba(1,92,148,0.1)', color:'#015C94', border:'none', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Open</button>
+                          {canBulkActions() && (
+                            <>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'closure'); }} style={{background:'#fff', color:'#015C94', border:'1.5px solid rgba(1,92,148,0.35)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Close</button>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'merge'); }} style={{background:'#fff', color:'#ea580c', border:'1.5px solid rgba(234,88,12,0.45)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Merge</button>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'transfer'); }} style={{background:'#fff', color:'#7c3aed', border:'1.5px solid rgba(124,58,237,0.45)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Transfer</button>
+                              <button type="button" onClick={(e) => { e.stopPropagation(); openLayoutAction(item, 'proceed'); }} style={{background:'#fff', color:'#38a169', border:'1.5px solid rgba(56,161,105,0.5)', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>Proceed to Verification</button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {isEnquiry && (
+                        <div style={{display:'flex', gap:5, marginTop:8}}>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); openSearchResult(item); }} style={{background:'rgba(124,58,237,0.1)', color:'#7c3aed', border:'none', borderRadius:6, padding:'4px 9px', cursor:'pointer', fontSize:11, fontWeight:600}}>
+                            🔍 Open Enquiry
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
               </div>
             )}
           </div>
@@ -791,47 +830,45 @@ export default function Layout() {
                   <span className="notif-badge">{(notifications.unread_count || 0) + (pendingTasks.count || 0)}</span>
                 )}
               </button>
-              {notifOpen && (
-                <div className="notif-dropdown" role="menu">
-                  <div className="notif-dropdown-header">
-                    <span>Notifications</span>
-                    <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>
-                  </div>
-                  <div className="notif-dropdown-body">
-                    {pendingTasks.count > 0 && (
-                      <>
-                        <div className="notif-section-title">Pending Tasks ({pendingTasks.count})</div>
-                        {pendingTasks.tasks.map((t, i) => (
-                          <a key={`task-${i}`} href={t.url} className="notif-item pending" onClick={(e) => { e.preventDefault(); setNotifOpen(false); openNotification(t.url); }}>
-                            <span className="notif-item-dot"></span>
-                            <div className="notif-item-text">
-                              <span>{t.title}</span>
-                              <small>{t.status.replace(/_/g, ' ')}</small>
-                            </div>
-                          </a>
-                        ))}
-                      </>
-                    )}
-                    <div className="notif-section-title">Notifications</div>
-                    {notifications.notifications.length === 0 && (
-                      <div className="notif-empty">No notifications yet</div>
-                    )}
-                    {notifications.notifications.map(n => (
-                      <a key={n.id} href={n.data?.url || '/dashboard'} className={`notif-item${n.read_at ? '' : ' unread'}`}
-                         onClick={(e) => { e.preventDefault(); setNotifOpen(false); markNotificationRead(n); openNotification(n.data?.url); }}>
-                        <span className="notif-item-dot"></span>
-                        <div className="notif-item-text">
-                          <span>{n.data?.message || 'Notification'}</span>
-                          <small>{timeAgo(n.created_at)}</small>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                  <div className="notif-dropdown-footer">
-                    <a href="#tasks" onClick={(e) => { e.preventDefault(); setNotifOpen(false); navigate(isOperatorOnly ? '/complaints/create' : '/verifications'); }}>View my tasks</a>
-                  </div>
+              <div className={`notif-dropdown ${notifOpen ? 'open' : ''}`} role="menu">
+                <div className="notif-dropdown-header">
+                  <span>Notifications</span>
+                  <button type="button" onClick={markAllNotificationsRead}>Mark all read</button>
                 </div>
-              )}
+                <div className="notif-dropdown-body">
+                  {pendingTasks.count > 0 && (
+                    <>
+                      <div className="notif-section-title">Pending Tasks ({pendingTasks.count})</div>
+                      {pendingTasks.tasks.map((t, i) => (
+                        <a key={`task-${i}`} href={t.url} className="notif-item pending" onClick={(e) => { e.preventDefault(); setNotifOpen(false); openNotification(t.url); }}>
+                          <span className="notif-item-dot"></span>
+                          <div className="notif-item-text">
+                            <span>{t.title}</span>
+                            <small>{t.status.replace(/_/g, ' ')}</small>
+                          </div>
+                        </a>
+                      ))}
+                    </>
+                  )}
+                  <div className="notif-section-title">Notifications</div>
+                  {notifications.notifications.length === 0 && (
+                    <div className="notif-empty">No notifications yet</div>
+                  )}
+                  {notifications.notifications.map(n => (
+                    <a key={n.id} href={n.data?.url || '/dashboard'} className={`notif-item${n.read_at ? '' : ' unread'}`}
+                       onClick={(e) => { e.preventDefault(); setNotifOpen(false); markNotificationRead(n); openNotification(n.data?.url); }}>
+                      <span className="notif-item-dot"></span>
+                      <div className="notif-item-text">
+                        <span>{n.data?.message || 'Notification'}</span>
+                        <small>{timeAgo(n.created_at)}</small>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+                <div className="notif-dropdown-footer">
+                  <a href="#tasks" onClick={(e) => { e.preventDefault(); setNotifOpen(false); navigate(isOperatorOnly ? '/complaints/create' : '/verifications'); }}>View my tasks</a>
+                </div>
+              </div>
             </div>
             <div ref={userMenuRef} style={{position:'relative', flexShrink:0}}>
               <div className={`header-user${userMenuOpen ? ' open' : ''}`} onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }} style={{cursor:'pointer'}}>

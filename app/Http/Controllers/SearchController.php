@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Complaint;
+use App\Models\Enquiry;
 use App\Models\User;
 use App\Models\Verification;
 use App\Models\VerificationReport;
@@ -12,7 +13,8 @@ class SearchController extends Controller
 {
     /**
      * Global header search: tracking no / complainant / CNIC / verification id.
-     * process_url is role + lifecycle aware (VO → report, not assignment edit).
+     * For EO role: also searches by enquiry_number, accused name, and returns enquiry-aware results.
+     * process_url is role + lifecycle aware.
      */
     public function __invoke(Request $request)
     {
@@ -24,7 +26,55 @@ class SearchController extends Controller
 
         $user = $request->user();
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+        $isEo = $user?->hasRole('enquiry_officer')
+            && !$user?->hasAnyRole(['admin', 'circle_incharge', 'director_general']);
 
+        // ── EO-specific: search enquiries directly by enquiry_number or accused name ──
+        $enquiryResults = collect();
+        if ($isEo) {
+            $enquiryQuery = Enquiry::with([
+                    'complaint:id,tracking_no,complainant_name,cnic,circle_id',
+                    'accusedPersons:id,enquiry_id,name,cnic',
+                ])
+                ->where('enquiry_officer_id', $user->id)
+                ->where(function ($eq) use ($like, $q) {
+                    $eq->where('enquiry_number', 'like', $q . '%')
+                       ->orWhere('enquiry_number', 'like', $like);
+
+                    // search by accused name or cnic
+                    $eq->orWhereHas('accusedPersons', function ($aq) use ($like) {
+                        $aq->where('name', 'like', $like)
+                           ->orWhere('cnic', 'like', $like);
+                    });
+
+                    // if numeric, match enquiry id too
+                    if (ctype_digit($q)) {
+                        $eq->orWhere('id', (int) $q);
+                    }
+                })
+                ->orderByDesc('id')
+                ->limit(8)
+                ->get();
+
+            $enquiryResults = $enquiryQuery->map(function (Enquiry $e) {
+                $c = $e->complaint;
+                $accused = $e->accusedPersons->first();
+                return [
+                    'type'             => 'enquiry',
+                    'id'               => $e->id,
+                    'enquiry_id'       => $e->id,
+                    'enquiry_number'   => $e->enquiry_number,
+                    'tracking_no'      => $c?->tracking_no,
+                    'complainant_name' => $c?->complainant_name,
+                    'cnic'             => $c?->cnic,
+                    'status'           => $e->status,
+                    'accused_name'     => $accused?->name,
+                    'process_url'      => '/enquiries/' . $e->id . '/edit',
+                ];
+            });
+        }
+
+        // ── Complaint search (all roles) ──
         $complaints = Complaint::visibleTo($user)
             ->with(['verification.officer', 'enquiry', 'caseFiles'])
             ->where(function ($query) use ($like, $q) {
@@ -75,6 +125,8 @@ class SearchController extends Controller
                 'verification_no'     => $v ? ('V-' . $v->id) : null,
                 'verification_status' => $v?->status,
                 'officer_name'        => $v?->officer?->name,
+                'enquiry_number'      => $c->enquiry?->enquiry_number,
+                'enquiry_id'          => $c->enquiry?->id,
                 'process_url'         => $this->resolveProcessUrl($c, $user, $reportId),
             ];
         });
@@ -102,7 +154,10 @@ class SearchController extends Controller
             ]);
         }
 
-        return response()->json(['data' => $results->values()]);
+        // Merge EO enquiry results at the top, then complaint results
+        $merged = $enquiryResults->values()->merge($results->values())->values();
+
+        return response()->json(['data' => $merged]);
     }
 
     /**
@@ -113,6 +168,15 @@ class SearchController extends Controller
         $case = $c->caseFiles->first();
         $enquiry = $c->enquiry;
         $v = $c->verification;
+
+        // EO: go directly to enquiry edit if one exists
+        if ($user && $user->hasRole('enquiry_officer')
+            && !$user->hasAnyRole(['admin', 'circle_incharge', 'director_general'])) {
+            if ($enquiry) {
+                return '/enquiries/' . $enquiry->id . '/edit';
+            }
+            return '/complaints/' . $c->id . '/edit';
+        }
 
         // Verification officer: always open the victim verification REPORT (not assignment edit)
         if ($user && $user->hasRole('verification_officer') && !$user->hasAnyRole(['admin', 'circle_incharge', 'director_general'])) {
