@@ -161,9 +161,11 @@ export default function VerificationReports() {
                     <td><span style={{fontSize:'12.5px'}}>{r.creator?.name || 'N/A'}</span></td>
                     <td><span style={{fontSize:'12px',color:'#6c757d'}}>{formatDisplayDateTime(r.created_at)}</span></td>
                     <td style={{textAlign:'center', whiteSpace:'nowrap'}}>
-                      <Link to={`/verifications/reports/${r.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit Report">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                      </Link>
+                      {(!r.complaint?.verification || ['assigned', 'in_progress', 'sent_back'].includes(r.complaint.verification.status)) && (
+                        <Link to={`/verifications/reports/${r.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit Report">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </Link>
+                      )}
                       <a href={`/verifications/reports/${r.id}/pdf`} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm btn-icon" title="Download PDF">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="12 10 12 18 15 15"/></svg>
                       </a>

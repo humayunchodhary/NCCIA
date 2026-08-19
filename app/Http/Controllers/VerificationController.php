@@ -157,7 +157,7 @@ class VerificationController extends Controller
 
     public function listReports()
     {
-        $query = VerificationReport::visibleTo(request()->user())->with(['creator', 'complaint']);
+        $query = VerificationReport::visibleTo(request()->user())->with(['creator', 'complaint.verification']);
 
         $reports = $query->latest()->paginate(15);
 
