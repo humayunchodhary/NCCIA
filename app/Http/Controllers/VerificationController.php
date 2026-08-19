@@ -246,6 +246,16 @@ class VerificationController extends Controller
             'case_no'             => 'nullable|string|max:255',
             'evidence_file'       => 'nullable|array',
             'evidence_file.*'     => 'file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'transaction_bank'    => 'nullable|array',
+            'transaction_account' => 'nullable|array',
+            'transaction_amount'  => 'nullable|array',
+            'transaction_date'    => 'nullable|array',
+            'transaction_file'    => 'nullable|array',
+            'transaction_bank'    => 'nullable|array',
+            'transaction_account' => 'nullable|array',
+            'transaction_amount'  => 'nullable|array',
+            'transaction_date'    => 'nullable|array',
+            'transaction_file'    => 'nullable|array',
         ]);
 
         // Handle evidence uploads: files + per-file description
@@ -261,6 +271,36 @@ class VerificationController extends Controller
             ];
         }
         $data['evidence'] = $evidence ?: null;
+
+        $transactions = [];
+        foreach ($request->input('existing_transactions', []) as $t) {
+            if (is_array($t) && !empty($t['bank'])) {
+                $transactions[] = $t;
+            }
+        }
+        
+        $tBanks   = $request->input('transaction_bank', []);
+        $tAccs    = $request->input('transaction_account', []);
+        $tAmts    = $request->input('transaction_amount', []);
+        $tDates   = $request->input('transaction_date', []);
+        $tFiles   = $request->file('transaction_file', []);
+        
+        foreach ($tBanks as $idx => $bank) {
+            if (!empty($bank) || !empty($tAccs[$idx]) || !empty($tAmts[$idx])) {
+                $attachment = null;
+                if (isset($tFiles[$idx])) {
+                    $attachment = $tFiles[$idx]->store('verification-reports/transactions', 'public');
+                }
+                $transactions[] = [
+                    'bank'    => $bank,
+                    'account' => $tAccs[$idx] ?? null,
+                    'amount'  => $tAmts[$idx] ?? null,
+                    'date'    => $tDates[$idx] ?? null,
+                    'file'    => $attachment,
+                ];
+            }
+        }
+        $data['transactions'] = $transactions ?: null;
 
         // Handle accused identity uploads (photo, CNIC, passport, picture)
         $accusedData = $data['accused'] ?? [];
@@ -425,6 +465,16 @@ class VerificationController extends Controller
             'case_no'             => 'nullable|string|max:255',
             'evidence_file'       => 'nullable|array',
             'evidence_file.*'     => 'file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'transaction_bank'    => 'nullable|array',
+            'transaction_account' => 'nullable|array',
+            'transaction_amount'  => 'nullable|array',
+            'transaction_date'    => 'nullable|array',
+            'transaction_file'    => 'nullable|array',
+            'transaction_bank'    => 'nullable|array',
+            'transaction_account' => 'nullable|array',
+            'transaction_amount'  => 'nullable|array',
+            'transaction_date'    => 'nullable|array',
+            'transaction_file'    => 'nullable|array',
         ]);
 
         // Existing evidence (kept from previous state), then newly uploaded files
@@ -450,6 +500,36 @@ class VerificationController extends Controller
             ];
         }
         $data['evidence'] = $evidence ?: null;
+
+        $transactions = [];
+        foreach ($request->input('existing_transactions', []) as $t) {
+            if (is_array($t) && !empty($t['bank'])) {
+                $transactions[] = $t;
+            }
+        }
+        
+        $tBanks   = $request->input('transaction_bank', []);
+        $tAccs    = $request->input('transaction_account', []);
+        $tAmts    = $request->input('transaction_amount', []);
+        $tDates   = $request->input('transaction_date', []);
+        $tFiles   = $request->file('transaction_file', []);
+        
+        foreach ($tBanks as $idx => $bank) {
+            if (!empty($bank) || !empty($tAccs[$idx]) || !empty($tAmts[$idx])) {
+                $attachment = null;
+                if (isset($tFiles[$idx])) {
+                    $attachment = $tFiles[$idx]->store('verification-reports/transactions', 'public');
+                }
+                $transactions[] = [
+                    'bank'    => $bank,
+                    'account' => $tAccs[$idx] ?? null,
+                    'amount'  => $tAmts[$idx] ?? null,
+                    'date'    => $tDates[$idx] ?? null,
+                    'file'    => $attachment,
+                ];
+            }
+        }
+        $data['transactions'] = $transactions ?: null;
 
         // Accused identity uploads (photo, CNIC, passport, picture)
         $accusedData = $data['accused'] ?? [];

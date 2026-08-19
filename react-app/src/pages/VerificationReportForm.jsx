@@ -147,7 +147,7 @@ export default function VerificationReportForm() {
     recommendation_short: '',
     recommendation_full: '',
     comments: '',
-    evidence: [],
+    evidence: [], transactions: [{ bank: '', account: '', amount: '', date: '', file: null }],
     inquiry_no: '',
     case_no: '',
   });
@@ -490,6 +490,10 @@ const handleTrackingChange = (e) => {
   const updateAccusedFile = (i, field, file) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
 
   const addEvidence = () => setForm(f => ({ ...f, evidence: [...f.evidence, { file: null, desc: '' }] }));
+  const addTransaction = () => setForm(f => ({ ...f, transactions: [...(f.transactions || []), { bank: '', account: '', amount: '', date: '', file: null }] }));
+  const removeTransaction = (i) => setForm(f => ({ ...f, transactions: (f.transactions || []).filter((_, idx) => idx !== i) }));
+  const updateTransaction = (i, field, value) => setForm(f => ({ ...f, transactions: (f.transactions || []).map((t, idx) => idx === i ? { ...t, [field]: value } : t) }));
+  const updateTransactionFile = (i, file) => setForm(f => ({ ...f, transactions: (f.transactions || []).map((t, idx) => idx === i ? { ...t, file } : t) }));
   const removeEvidence = (i) => setForm(f => ({ ...f, evidence: f.evidence.filter((_, idx) => idx !== i) }));
   const updateEvidence = (i, field, value) => setForm(f => ({ ...f, evidence: f.evidence.map((e, idx) => idx === i ? { ...e, [field]: value } : e) }));
 
