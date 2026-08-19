@@ -667,6 +667,40 @@ export default function EnquiryForm() {
     }
   };
 
+  const printDocument = async (endpoint, payload = {}) => {
+    if (!id) { alert('Save the enquiry first before printing documents.'); return; }
+    try {
+      const r = await api.get(`/enquiries/${id}/${endpoint}`, { params: payload });
+      const { openPrintWindow } = await import('../utils/print');
+      openPrintWindow(r.data.html);
+    } catch (e) {
+      alert(e.response?.data?.message || `Could not print document (${endpoint}).`);
+    }
+  };
+
+  const printForensicRequest = () => {
+    // Extract devices from all activities that have seize_items
+    const devices = [];
+    form.activities.forEach(a => {
+      if (a.seize_items && a.seize_items.length > 0) {
+        a.seize_items.forEach(si => {
+          devices.push({
+            type: si.item_type || 'Digital Device',
+            model: si.make_model || 'Unknown',
+            imei: si.imei || si.serial_no || 'N/A'
+          });
+        });
+      }
+    });
+    printDocument('forensic-request-print', { devices: JSON.stringify(devices) });
+  };
+
+  const printRaidPermission = () => {
+    // A placeholder - normally you'd extract raiding team from the form if it was tracked.
+    const teamMembers = [];
+    printDocument('raid-permission-print', { team_members: JSON.stringify(teamMembers) });
+  };
+
   const sendSummonWhatsApp = (n) => {
     let phoneRaw = (n.phone || '').replace(/\D/g, '');
     if (!phoneRaw) {
@@ -1082,12 +1116,25 @@ export default function EnquiryForm() {
   return (
     <div className="page-content" style={{ margin: '0 auto' }}>
       <form onSubmit={handleSubmit}>
-        <div className="page-header">
+        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div className="page-title-group">
             <h1 className="page-title">{id ? 'Edit Enquiry' : 'New Enquiry'}</h1>
             <p className="page-subtitle">{id ? 'Update enquiry details' : 'Register a new enquiry'}</p>
             <div className="title-underline"></div>
           </div>
+          {id && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => printDocument('search-warrant-print')} title="Print Search Warrant U/S 33">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Warrant
+              </button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={printRaidPermission} title="Print Raid Permission">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Raid
+              </button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={printForensicRequest} title="Print Forensic Request">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Forensic
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px', flexWrap: 'wrap' }}>
@@ -2417,6 +2464,19 @@ export default function EnquiryForm() {
               style={{ background: '#015C94', color: '#fff', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(1,92,148,0.35)' }}
             >
               {submittingCfr ? 'Submitting...' : 'Submit CFR'}
+            </button>
+          )}
+          {id && activeTab === 'outcome' && (
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => printDocument('cfr-print')}
+              style={{ padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8, verticalAlign: 'text-bottom' }}>
+                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+              </svg>
+              Print CFR
             </button>
           )}
           {showRegisterCase && (

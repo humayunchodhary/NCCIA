@@ -384,11 +384,11 @@ class PrintService
     }
 
     /**
-     * Printable notice document with QR verification code at the bottom.
+     * Printable Call Up Notice document (Notice For Attendance U/S 160 Cr.PC) with QR verification.
      */
     public function noticeDocument(EnquiryNotice $notice): string
     {
-        $notice->loadMissing('enquiry.complaint.circle');
+        $notice->loadMissing(['enquiry.complaint.circle', 'enquiry.enquiryOfficer', 'enquiry.accused', 'enquiry.notices']);
 
         if (!$notice->verification_token) {
             $notice->verification_token = \Illuminate\Support\Str::random(32);
@@ -400,67 +400,167 @@ class PrintService
 
         $enquiry   = $notice->enquiry;
         $complaint = $enquiry?->complaint;
-        $circle    = $complaint?->circle?->name ?? '—';
-$logo = url('images/images.jpg');
+        $circle    = $complaint?->circle;
+        $circleName = e($circle?->name ?? 'Lahore');
+        $circleCity = e($circle?->city ?? 'Lahore');
+        $circleCode = e($circle?->code ?? 'LHR');
 
-        $via       = $notice->notice_via ? ucfirst(str_replace('_', ' ', $notice->notice_via)) : '—';
-        $person    = $notice->person_type ? ucfirst($notice->person_type) : '—';
-        $type      = $notice->notice_type ?: 'Summon';
+        $logo = url('images/images.jpg');
 
-        $enquiryNo = $enquiry?->enquiry_number ?: ('#' . $enquiry?->id);
-        $tracking  = $complaint?->tracking_no ?? '—';
-        $receiver  = e($notice->receiver_name);
-        $addr      = e($notice->address ?? '—');
-        $phone     = e($notice->phone ?? '—');
-        $desc      = e($notice->description ?? '');
-        $date      = $notice->notice_date ? $notice->notice_date->format('d/m/Y') : '—';
-        $number    = e($notice->notice_number ?: ('N-' . $notice->id));
+        $enquiryNo = e($enquiry?->enquiry_number ?: ($complaint?->tracking_no ?: ('ENQ-CCRC-' . $circleCode . '-' . $enquiry?->id)));
+        $regDate   = $enquiry?->reg_date ? $enquiry->reg_date->format('d-m-Y') : ($complaint?->report_date ? \Carbon\Carbon::parse($complaint->report_date)->format('d-m-Y') : date('d-m-Y'));
+        
+        $receiverName = e($notice->receiver_name ?: '—');
+        $fatherName   = e($notice->father_name ?: ($complaint?->father_name ?: ''));
+        $parentageStr = $fatherName ? ' S/O ' . $fatherName : '';
+        $cnic         = e($notice->cnic ?: ($complaint?->cnic ?: '0000000000000'));
+        $address      = e($notice->address ?: ($complaint?->address ?: 'Cyber Crime Reporting Center Area'));
+        $phone        = e($notice->phone ?: ($complaint?->contact_no ?: '—'));
+        
+        $noticeDate   = $notice->notice_date ? $notice->notice_date->format('d-m-Y') : date('d-m-Y');
+        
+        // Appearance Date & Time
+        $appDate = $notice->appearance_date ? \Carbon\Carbon::parse($notice->appearance_date)->format('d-m-Y') : date('d-m-Y', strtotime('+1 day'));
+        $appTime = $notice->appearance_date ? \Carbon\Carbon::parse($notice->appearance_date)->format('H:i') : ($notice->appearance_time ?: '11:00');
+        
+        // Gist of Allegation
+        $gistOfAllegation = e($enquiry?->charge_against ?: ($complaint?->offence_type ?: ($complaint?->description ? \Illuminate\Support\Str::limit($complaint->description, 120) : 'Financial Fraud / Cyber Crime Allegation')));
+
+        // Officer Info
+        $officerName = e($enquiry?->enquiryOfficer?->name ?: 'NABEEL HUSSAIN');
+        $officerDesig = e($enquiry?->enquiryOfficer?->designation ?: 'Sub Inspector');
+
+        // Address & Phone of reporting center
+        $stationAddress = 'Cyber Crime Reporting Center, ' . $circleName . ', Police Station, National Cybercrime Investigation Agency (NCCIA), Street No 15, Wafaqi Colony, Canal Road ' . $circleCity . '., Phone No.042-99268527';
+
+        // Multi-notice history tracking (Notice 1, 2, 3)
+        $allNotices = $enquiry ? $enquiry->notices()->orderBy('id')->get() : collect([$notice]);
+        $noticeIndex = 0;
+        foreach ($allNotices as $idx => $n) {
+            if ($n->id === $notice->id) {
+                $noticeIndex = $idx;
+                break;
+            }
+        }
+        $seq = $notice->sequence_no ?: ($noticeIndex + 1);
+        $noticeLabel = 'No. ' . $seq;
+
+        // Build Notice History Box for 2nd and 3rd Notices
+        $historyHtml = '';
+        if ($seq >= 2 && $allNotices->count() > 0) {
+            $historyRows = '';
+            for ($i = 0; $i < min($seq - 1, $allNotices->count()); $i++) {
+                $prev = $allNotices[$i];
+                $prevNum = ($i + 1) . ($i === 0 ? 'st' : ($i === 1 ? 'nd' : 'rd')) . ' Notice';
+                $pDate = $prev->notice_date ? $prev->notice_date->format('d-m-Y') : '—';
+                $pAppDate = $prev->appearance_date ? \Carbon\Carbon::parse($prev->appearance_date)->format('d-m-Y') : '—';
+                
+                $pStatus = 'Not Appeared';
+                $statusColor = '#dc2626';
+                if ($prev->status === 'appeared' || $prev->appeared_at || $prev->appearance_remarks === 'appeared') {
+                    $pStatus = 'Appeared';
+                    $statusColor = '#16a34a';
+                } elseif ($prev->status === 'served') {
+                    $pStatus = 'Served (Non-Appearance)';
+                }
+
+                $historyRows .= <<<HTML
+                <tr>
+                  <td style="padding: 4px 8px; border: 1px solid #cbd5e1; font-weight: 700;">{$prevNum}</td>
+                  <td style="padding: 4px 8px; border: 1px solid #cbd5e1;">{$pDate}</td>
+                  <td style="padding: 4px 8px; border: 1px solid #cbd5e1;">{$pAppDate}</td>
+                  <td style="padding: 4px 8px; border: 1px solid #cbd5e1; color: {$statusColor}; font-weight: 700;">{$pStatus}</td>
+                </tr>
+                HTML;
+            }
+
+            $historyHtml = <<<HTML
+            <div style="margin: 14px 0; border: 1.5px solid #1e293b; padding: 8px 10px; background: #f8fafc; border-radius: 4px;">
+              <div style="font-weight: 800; font-size: 11px; color: #0f172a; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">
+                Previous Call Up Notice Record / Attendance Status:
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                <thead>
+                  <tr style="background: #e2e8f0;">
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Notice Level</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Issue Date</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Appearance Date</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {$historyRows}
+                </tbody>
+              </table>
+            </div>
+            HTML;
+        }
 
         return <<<HTML
-        <div class="notice">
-          <div class="head">
-            <div class="center">
-              <img src="{$logo}" alt="NCCIA" class="logo" />
-              <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
-              <div class="addr">Islamabad — Pakistan &nbsp;|&nbsp; Circle: {$circle}</div>
+        <div class="callup-notice">
+          <table class="notice-top-table">
+            <tr>
+              <td class="top-logo-cell">
+                <img src="{$logo}" alt="NCCIA" class="notice-logo" />
+              </td>
+              <td class="notice-center-cell">
+                <div class="agency-title">NATIONAL CYBER CRIME INVESTIGATION AGENCY</div>
+                <div class="center-name">Cyber Crime Reporting Center, {$circleName}</div>
+                <div class="station-addr">{$stationAddress}</div>
+                <div class="notice-main-heading">NOTICE FOR ATTENDANCE U/S 160 Cr.PC</div>
+              </td>
+              <td class="top-qr-cell">
+                <img src="{$qr}" alt="QR" class="notice-qr" />
+                <div class="qr-label">QR Scan</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="notice-meta-row">
+            <div class="notice-no"><strong>{$noticeLabel}</strong></div>
+            <div class="notice-date"><strong>Dated:</strong>{$noticeDate}</div>
+          </div>
+
+          <div class="to-block">
+            <div class="to-line"><strong>To,</strong></div>
+            <div class="to-name"><strong>{$receiverName}{$parentageStr}</strong></div>
+            <div class="to-cnic"><strong>CNIC No.</strong> {$cnic}</div>
+            <div class="to-addr">{$address}</div>
+            <div class="to-phone">{$phone}</div>
+          </div>
+
+          <div class="subject-line">
+            <strong>SUBJECT: 160 Cr.PC Enquiry NO. {$enquiryNo} OF Cyber Crime Reporting Center, {$circleName}</strong>
+          </div>
+
+          <div class="notice-body-text">
+            <p style="margin: 6px 0;">
+              NCCIA, Cyber Crime Reporting Center, {$circleName}, is conducting a probe on the above titled Enquiry. The details are mentioned below:
+            </p>
+            <div class="enq-details-box">
+              <div><strong>Enquiry No.</strong> {$enquiryNo}</div>
+              <div><strong>Enquiry Registration Date:</strong> {$regDate}</div>
+              <div><strong>Gist of Allegation:</strong> {$gistOfAllegation}</div>
             </div>
-            <hr/>
-            <div class="center title">{$type}</div>
+
+            {$historyHtml}
+
+            <p style="margin: 12px 0 6px 0; text-align: justify; line-height: 1.6;">
+              Therefore, you are directed to appear in person before the undersigned to record your version, on date: <strong>{$appDate}</strong> time <strong>{$appTime}</strong> at the following address <strong>{$stationAddress}</strong>
+            </p>
+            <p style="margin: 8px 0; text-align: justify;">
+              In case of non-appearance, it will be assumed that you have nothing to present or state in your defense.
+            </p>
           </div>
 
-          <div class="meta">
-            <div class="mrow"><span class="k">Summon No:</span><span>{$number}</span></div>
-            <div class="mrow"><span class="k">Date:</span><span>{$date}</span></div>
-            <div class="mrow"><span class="k">Mode:</span><span>{$via}</span></div>
-            <div class="mrow"><span class="k">Person Type:</span><span>{$person}</span></div>
-            <div class="mrow"><span class="k">Enquiry:</span><span>{$enquiryNo}</span></div>
-            <div class="mrow"><span class="k">Complaint:</span><span>{$tracking}</span></div>
+          <div class="officer-sign-block">
+            <div class="off-name"><strong>{$officerName}</strong></div>
+            <div class="off-desig">{$officerDesig}</div>
+            <div class="off-branch">Cyber Crime Reporting Center, {$circleName}</div>
           </div>
 
-          <div class="to">
-            <div class="mrow"><span class="k">To:</span><span><strong>{$receiver}</strong></span></div>
-            <div class="mrow"><span class="k">Address:</span><span>{$addr}</span></div>
-            <div class="mrow"><span class="k">Phone:</span><span>{$phone}</span></div>
-          </div>
-
-          <div class="body">
-            <p>You are hereby directed to appear before the undersigned on the date specified
-            in connection with the enquiry being conducted by NCCIA. Please bring all relevant
-            documents with you. Failure to appear may result in further action as per law.</p>
-            <p class="desc">{$desc}</p>
-          </div>
-
-          <div class="sign">
-            <div class="center small">Signature &amp; Stamp</div>
-          </div>
-
-          <hr/>
-          <div class="foot">
-            <div class="qrbox">
-              <img src="{$qr}" alt="Verify QR" class="qr" />
-              <div class="small center">Scan to verify this summon</div>
-            </div>
-            <div class="small center verify">{$verifyUrl}</div>
+          <div class="notice-warning-footer">
+            (Non-compliance to said notice is punishable under sec 174 PPC 1860)
           </div>
         </div>
         HTML;
@@ -470,25 +570,514 @@ $logo = url('images/images.jpg');
     {
         return $this->document(
             $this->noticeDocument($notice),
-            '@page { size: A4; margin: 12mm; }
-             body { margin:0; font-family: Arial, Helvetica, sans-serif; color:#000; }
-             .notice { max-width: 170mm; margin: 0 auto; font-size: 13px; line-height:1.5; }
-             .center { text-align:center; }
-             .head .logo { width:70px; height:70px; object-fit:contain; }
-             .head .org { font-size:16px; font-weight:700; margin-top:2px; }
-             .head .addr { font-size:11px; color:#333; margin-top:2px; }
-             .head .title { font-size:17px; font-weight:800; letter-spacing:1px; margin-top:4px; }
-             .meta { margin-top:8px; }
-             .mrow { margin:2px 0; }
-             .mrow .k { display:inline-block; width:110px; font-weight:600; }
-             .to { margin-top:8px; border:1px solid #000; padding:8px; }
-             .body { margin-top:8px; text-align:justify; }
-             .body .desc { white-space:pre-wrap; }
-             .sign { margin-top:26px; border-top:1px solid #000; width:140px; text-align:center; padding-top:4px; }
-             .foot { margin-top:14px; text-align:center; }
-             .qr { width:110px; height:110px; }
-             .verify { font-size:10px; color:#333; word-break:break-all; }
-             hr { border:none; border-top:1px solid #000; margin:8px 0; }'
+            '@page { size: A4 portrait; margin: 12mm 14mm; }
+             body { margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; color:#000; background:#fff; }
+             .callup-notice { width: 100%; max-width: 175mm; margin: 0 auto; font-size: 13px; line-height: 1.45; }
+             .notice-top-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+             .notice-top-table td { vertical-align: top; padding: 0; }
+             .top-logo-cell { width: 75px; text-align: left; }
+             .notice-logo { width: 70px; height: 70px; object-fit: contain; }
+             .notice-center-cell { text-align: center; padding: 0 10px; }
+             .agency-title { font-size: 15px; font-weight: 800; letter-spacing: 0.5px; color: #000; text-transform: uppercase; margin-bottom: 2px; }
+             .center-name { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 2px; }
+             .station-addr { font-size: 10px; color: #333; line-height: 1.3; margin-bottom: 6px; }
+             .notice-main-heading { font-size: 14px; font-weight: 800; text-transform: uppercase; text-decoration: underline; letter-spacing: 0.5px; margin-top: 4px; }
+             .top-qr-cell { width: 75px; text-align: right; }
+             .notice-qr { width: 70px; height: 70px; }
+             .qr-label { font-size: 9px; text-align: center; font-weight: 700; margin-top: 2px; }
+             .notice-meta-row { display: flex; justify-content: space-between; width: 100%; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin: 10px 0 14px 0; font-size: 13px; }
+             .to-block { margin-bottom: 14px; font-size: 13px; line-height: 1.4; }
+             .to-name { font-size: 13.5px; margin: 2px 0; }
+             .subject-line { font-size: 13px; font-weight: 800; margin: 14px 0 10px 0; text-transform: uppercase; border-bottom: 1px solid #bbb; padding-bottom: 4px; }
+             .enq-details-box { margin: 8px 0; line-height: 1.6; }
+             .officer-sign-block { margin-top: 40px; margin-left: auto; width: 260px; text-align: left; font-size: 13px; }
+             .off-name { font-size: 13.5px; text-transform: uppercase; }
+             .notice-warning-footer { margin-top: 40px; text-align: center; font-size: 11.5px; font-weight: 700; color: #111; }'
+        );
+    }
+
+    /**
+     * Printable Confidential Final Report (CFR) matching PDF Page 1 layout.
+     */
+    public function cfrPrintDocument(Enquiry $enquiry): string
+    {
+        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accused']);
+
+        $circle     = $enquiry->complaint?->circle;
+        $circleName = e($circle?->name ?? 'LAHORE');
+        $circleCode = e($circle?->code ?? 'LHR');
+        $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
+        $cfrDate    = $enquiry->cfr_date ? \Carbon\Carbon::parse($enquiry->cfr_date)->format('d-m-Y') : date('d-m-Y');
+
+        // 3: Complainant details
+        $compName    = e($enquiry->complaint?->complainant_name ?: ($enquiry->direct_info['complainant_name'] ?? '—'));
+        $compFather  = e($enquiry->complaint?->father_name ?: '—');
+        $compAddr    = e($enquiry->complaint?->address ?: '—');
+        $compPhone   = e($enquiry->complaint?->contact_no ?: '—');
+        $compStr     = "<strong>{$compName}</strong> S/O {$compFather}, Permanent/Temporary Address: {$compAddr}, Phone: {$compPhone}";
+
+        // 4: Accused details
+        $accusedList = $enquiry->accused;
+        $accStr = '';
+        if ($accusedList && $accusedList->count() > 0) {
+            foreach ($accusedList as $i => $acc) {
+                $aNum = $i + 1;
+                $aName = e($acc->name ?: '—');
+                $aFather = e($acc->father_name ?: '—');
+                $aCnic = e($acc->cnic ?: '—');
+                $aAddr = e($acc->address ?: '—');
+                $accStr .= "<div><strong>{$aNum}. {$aName}</strong> S/O {$aFather}, CNIC: {$aCnic}, Address: {$aAddr}</div>";
+            }
+        } else {
+            $initialAcc = $enquiry->complaint?->initial_accused;
+            if (is_array($initialAcc) && count($initialAcc) > 0) {
+                foreach ($initialAcc as $i => $acc) {
+                    $aNum = $i + 1;
+                    $aName = e($acc['name'] ?? '—');
+                    $aFather = e($acc['father_name'] ?? '—');
+                    $aCnic = e($acc['cnic'] ?? '—');
+                    $aAddr = e($acc['other_info'] ?? '—');
+                    $accStr .= "<div><strong>{$aNum}. {$aName}</strong> S/O {$aFather}, CNIC: {$aCnic}, Address: {$aAddr}</div>";
+                }
+            } else {
+                $accStr = '<div>Unknown / To be traced</div>';
+            }
+        }
+
+        // 5: Status of alleged (service / private)
+        $serviceStatus = 'Private person(s) / Not in government service.';
+
+        // 6: Brief allegation
+        $briefAllegation = nl2br(e($enquiry->complaint?->description ?: ($enquiry->cfr_summary ?: 'The complainant alleged fraudulent and cyber offense activities.')));
+
+        // 7: Charge against alleged
+        $chargeAgainst = nl2br(e($enquiry->charge_against ?: 'Offence under Prevention of Electronic Crimes Act (PECA) 2016.'));
+
+        // 8: Oral evidence
+        $oralEvidence = nl2br(e($enquiry->oral_evidence ?: 'Statements of complainant and witnesses recorded during enquiry proceedings.'));
+
+        // 9: Documentary evidence
+        $docEvidence = nl2br(e($enquiry->documentary_evidence ?: 'Forensic data extraction reports, bank statement records, Call Detail Records (CDR), and identity documents.'));
+
+        // 10: Conclusion of Enquiry Officer
+        $conclusion = nl2br(e($enquiry->conclusion ?: ($enquiry->cfr_summary ?: 'Based on the oral and documentary evidence gathered, the allegations stand substantiated against the accused person(s). Regular Case/FIR is recommended for registration.')));
+
+        // Officer Info
+        $officerName  = e($enquiry->enquiryOfficer?->name ?: 'Sub Inspector');
+        $officerDesig = e($enquiry->enquiryOfficer?->designation ?: 'Sub Inspector');
+
+        $body = <<<HTML
+        <div class="cfr-doc">
+          <div class="cfr-title">CONFIDENTIAL FINAL REPORT</div>
+
+          <table class="cfr-table">
+            <tr>
+              <td class="col-num">1</td>
+              <td class="col-content">
+                <strong>NCCIA (National Cyber Crime Investigation Agency) CIRCLE, {$circleName}.</strong>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">2</td>
+              <td class="col-content">
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="width: 50%; font-weight: 700; border: none; padding: 0;">ENQUIRY NO. {$enquiryNo}</td>
+                    <td style="width: 50%; font-weight: 700; border: none; padding: 0; text-align: right;">DATED: {$cfrDate}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">3</td>
+              <td class="col-content">
+                <div class="cfr-heading">NAME OF COMPLAINANT WITH PARENTAGE, PERMANENT/ TEMPORARY ADDRESS, PH.</div>
+                <div class="cfr-val">{$compStr}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">4</td>
+              <td class="col-content">
+                <div class="cfr-heading">NAME OF ALLEGED/ EACH ALLEGED WITH PARENTAGE, CNIC NO. AND PERMANENT/ TEMPORARY ADDRESS.</div>
+                <div class="cfr-val">{$accStr}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">5</td>
+              <td class="col-content">
+                <div class="cfr-heading">PRESENT STATUS OF EACH ALLEGED WHETHER IN SERVICE OR NOT.</div>
+                <div class="cfr-val">{$serviceStatus}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">6</td>
+              <td class="col-content">
+                <div class="cfr-heading">BRIEF ALLEGATION</div>
+                <div class="cfr-val">{$briefAllegation}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">7</td>
+              <td class="col-content">
+                <div class="cfr-heading">CHARGE AGAINST ALLEGED.</div>
+                <div class="cfr-val">{$chargeAgainst}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">8</td>
+              <td class="col-content">
+                <div class="cfr-heading">ORAL EVIDENCE AGAINST ALLEGED.</div>
+                <div class="cfr-val">{$oralEvidence}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">9</td>
+              <td class="col-content">
+                <div class="cfr-heading">DOCUMENTARY EVIDENCE AGAINST ALLEGED.</div>
+                <div class="cfr-val">{$docEvidence}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="col-num">10</td>
+              <td class="col-content">
+                <div class="cfr-heading">CONCLUSION OF ENQUIRY OFFICER WITH CONVINCING REASONS AGAINST ALLEGED.</div>
+                <div class="cfr-val">{$conclusion}</div>
+              </td>
+            </tr>
+          </table>
+
+          <div class="cfr-submit-note">
+            CFR is submitted for your kind perusal please.
+          </div>
+
+          <div class="cfr-sign-block">
+            <strong>{$officerName}</strong><br/>
+            {$officerDesig}<br/>
+            <strong>NCCIA/CCRC/{$circleCode}</strong>
+          </div>
+        </div>
+        HTML;
+
+        return $this->document(
+            $body,
+            '@page { size: A4 portrait; margin: 12mm 14mm; }
+             body { margin:0; padding:0; font-family: "Times New Roman", Times, serif, Arial; color:#000; background:#fff; }
+             .cfr-doc { width: 100%; max-width: 175mm; margin: 0 auto; font-size: 12.5px; line-height: 1.45; }
+             .cfr-title { text-align: center; font-size: 16px; font-weight: 800; text-decoration: underline; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.8px; }
+             .cfr-table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; }
+             .cfr-table td { border: 1px solid #000; padding: 6px 8px; vertical-align: top; }
+             .col-num { width: 30px; text-align: center; font-weight: 800; font-size: 12.5px; }
+             .col-content { font-size: 12.5px; }
+             .cfr-heading { font-weight: 800; text-transform: uppercase; font-size: 11.5px; margin-bottom: 3px; }
+             .cfr-val { font-size: 12.5px; line-height: 1.4; }
+             .cfr-submit-note { margin-top: 14px; font-size: 11.5px; font-style: italic; }
+             .cfr-sign-block { margin-top: 30px; margin-left: auto; width: 220px; text-align: center; font-size: 13px; line-height: 1.4; }'
+        );
+    }
+
+    /**
+     * Printable Request for Providing Forensic Analysis Report matching PDF Page 3.
+     */
+    public function forensicRequestPrintDocument(Enquiry $enquiry, array $devices = []): string
+    {
+        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accused']);
+
+        $circle     = $enquiry->complaint?->circle;
+        $circleName = e($circle?->name ?? 'LAHORE');
+        $circleZone = e($circle?->name ? $circle->name . ' ZONE' : 'LAHORE ZONE');
+        $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
+
+        // Accused List
+        $accList = $enquiry->accused;
+        $accRows = '';
+        if ($accList && $accList->count() > 0) {
+            foreach ($accList as $i => $acc) {
+                $n = $i + 1;
+                $accRows .= "<div><strong>{$n}. " . e($acc->name) . '</strong> S/O ' . e($acc->father_name ?: '—') . ' R/O ' . e($acc->address ?: '—') . '</div>';
+            }
+        } else {
+            $accRows = '<div>1. Name S/o R/o ________________________________________________</div>';
+        }
+
+        $briefContents = e($enquiry->charge_against ?: ($enquiry->complaint?->description ? \Illuminate\Support\Str::limit($enquiry->complaint->description, 160) : 'alleged cybercrime offences.'));
+
+        // Seized Devices Table
+        $deviceRows = '';
+        if (count($devices) > 0) {
+            foreach ($devices as $i => $dev) {
+                $n = $i + 1;
+                $devType = e($dev['type'] ?? 'Mobile Phone');
+                $devModel = e($dev['model'] ?? '—');
+                $devImei = e($dev['imei'] ?? '—');
+                $deviceRows .= "<tr><td style=\"text-align:center;\">{$n}</td><td>{$devType}</td><td>{$devModel}</td><td>{$devImei}</td></tr>";
+            }
+        } else {
+            $deviceRows = <<<HTML
+            <tr><td style="text-align:center; height:24px;">1</td><td>Mobile Phone / Smartphone</td><td>Apple / Samsung</td><td>358900000000000</td></tr>
+            <tr><td style="text-align:center; height:24px;">2</td><td>SIM Card / Memory Card</td><td>SanDisk 64GB</td><td>N/A</td></tr>
+            <tr><td style="text-align:center; height:24px;">3</td><td>Laptop / Hard Drive</td><td>Dell Inspiron</td><td>SN: 4598000</td></tr>
+            HTML;
+        }
+
+        $officerName  = e($enquiry->enquiryOfficer?->name ?: 'Investigation Officer');
+        $officerDesig = e($enquiry->enquiryOfficer?->designation ?: 'Investigation Officer');
+
+        $body = <<<HTML
+        <div class="forensic-req-doc">
+          <div class="to-header">
+            <strong>THE INCHARGE</strong><br/>
+            <strong>NCCIA, CCRC, {$circleName}.</strong>
+          </div>
+
+          <div class="subject-block">
+            <strong>SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / Case FIR NO. {$enquiryNo} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, {$circleName}.</strong>
+          </div>
+
+          <div class="salutation"><strong>SIR,</strong></div>
+
+          <div class="req-body">
+            <p><strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC {$circleName}, NCCIA, AND THE BELOW DIGITAL MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,</p>
+            <div class="accused-list" style="margin: 6px 0 10px 16px;">
+              {$accRows}
+            </div>
+
+            <p>THE BRIEF CONTENTS OF THE CASE ARE THAT THE ALLEGED PERSON IS INVOLVED IN <strong>{$briefContents}</strong></p>
+
+            <p>DURING THE COURSE OF ENQUIRY/INVESTIGATION, THE RELEVANT DIGITAL MEDIA WAS TAKEN INTO POSSESSION FOR FORENSIC EXAMINATION. THE DETAIL OF THE DIGITAL MEDIA IS AS UNDER:</p>
+
+            <div class="sec-title">DIGITAL MEDIA RECOVERED</div>
+            <table class="forensic-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">SR. NO.</th>
+                  <th>TYPE OF EVIDENTIARY DEVICE</th>
+                  <th>MAKE / MODEL</th>
+                  <th>IMEI / SERIAL NO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {$deviceRows}
+              </tbody>
+            </table>
+
+            <div class="sec-title" style="margin-top: 14px;">SCOPE FOR FORENSIC ANALYSIS</div>
+            <p><strong>YOU ARE REQUESTED TO CONDUCT FORENSIC EXAMINATION AND PROVIDE REPORT ON THE FOLLOWING SCOPE:</strong></p>
+            <p style="margin: 4px 0;">Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.</p>
+            <div style="margin: 4px 0 10px 0;">
+              <strong>Social Media Profile URL:</strong><br/>
+              1. Facebook: ________________________________________________<br/>
+              2. Instagram: ________________________________________________<br/>
+              3. Twitter: __________________________________________________
+            </div>
+
+            <p style="margin-top: 10px;">
+              It is therefore requested that the allied forensic analysis report, as per the above scope, may kindly be furnished at the earliest to enable the undersigned to finalize the instant case/enquiry on merit, please.
+            </p>
+
+            <div class="enclosures-block" style="margin-top: 14px;">
+              <strong>ENCLOSURES:</strong><br/>
+              1. COPY OF ENQ NO. <strong>{$enquiryNo}</strong><br/>
+              2. COPY OF SEIZURE MEMO (RECOVERY MEMO) OF DIGITAL DEVICE
+            </div>
+          </div>
+
+          <div class="req-sign-block">
+            <strong>{$officerName}</strong><br/>
+            {$officerDesig}<br/>
+            <strong>NCCIA, {$circleZone}</strong>
+          </div>
+        </div>
+        HTML;
+
+        return $this->document(
+            $body,
+            '@page { size: A4 portrait; margin: 12mm 14mm; }
+             body { margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; color:#000; background:#fff; }
+             .forensic-req-doc { width: 100%; max-width: 175mm; margin: 0 auto; font-size: 12.5px; line-height: 1.45; }
+             .to-header { font-size: 13px; line-height: 1.4; margin-bottom: 12px; }
+             .subject-block { font-size: 13px; font-weight: 800; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1.5px solid #000; padding-bottom: 4px; }
+             .salutation { font-size: 13px; margin-bottom: 8px; }
+             .req-body p { margin: 6px 0; text-align: justify; }
+             .sec-title { font-size: 13px; font-weight: 800; text-transform: uppercase; margin: 12px 0 6px 0; text-decoration: underline; }
+             .forensic-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px; }
+             .forensic-table th, .forensic-table td { border: 1px solid #000; padding: 5px 8px; }
+             .forensic-table th { background: #f0f0f0; text-align: left; }
+             .req-sign-block { margin-top: 30px; margin-left: auto; width: 240px; text-align: right; font-size: 13px; line-height: 1.4; }'
+        );
+    }
+
+    /**
+     * Printable Permission to Conduct a Raid in Case FIR No. matching PDF Page 4.
+     */
+    public function raidPermissionPrintDocument(Enquiry $enquiry, array $teamMembers = []): string
+    {
+        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accused']);
+
+        $circle     = $enquiry->complaint?->circle;
+        $circleName = e($circle?->name ?? 'Lahore');
+        $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
+
+        // Accused List
+        $accList = $enquiry->accused;
+        $accRows = '';
+        if ($accList && $accList->count() > 0) {
+            foreach ($accList as $i => $acc) {
+                $n = $i + 1;
+                $accRows .= "<div><strong>{$n}: " . e($acc->name) . ' s/o ' . e($acc->father_name ?: '—') . ' r/o ' . e($acc->address ?: '—') . ' .</strong></div>';
+            }
+        } else {
+            $accRows = '<div><strong>1: Name of Accused s/o r/o .</strong></div><div><strong>2: ABC s/o r/o .</strong></div>';
+        }
+
+        // Raiding team
+        $teamRows = '';
+        if (count($teamMembers) > 0) {
+            foreach ($teamMembers as $i => $tm) {
+                $n = $i + 1;
+                $teamRows .= "<div>{$n}. " . e($tm) . "</div>";
+            }
+        } else {
+            $teamRows = <<<HTML
+            <div>1. Sub Inspector ____________________________________</div>
+            <div>2. Assistant Sub Inspector ___________________________</div>
+            <div>3. Constable / Technical Officer _____________________</div>
+            HTML;
+        }
+
+        $officerName  = e($enquiry->enquiryOfficer?->name ?: 'Sub-Inspector');
+        $officerDesig = e($enquiry->enquiryOfficer?->designation ?: 'Sub-Inspector');
+
+        $body = <<<HTML
+        <div class="raid-doc">
+          <div class="raid-to">
+            To<br/>
+            <strong>The Additional Director</strong><br/>
+            <strong>NCCIA Cybercrime Zone</strong><br/>
+            <strong>{$circleName}.</strong>
+          </div>
+
+          <div class="raid-subj">
+            <strong>Subject: - PERMISSION TO CONDUCT A RAID IN CASE FIR NO. {$enquiryNo} .</strong>
+          </div>
+
+          <div class="raid-body">
+            <p>
+              Brief facts of the subject investigation are that the complainant alleged that he has been scammed / Harassed by which results. The complainant requested to trace the culprit and take legal action against him.
+            </p>
+
+            <div class="raid-accused" style="margin: 12px 0;">
+              {$accRows}
+            </div>
+
+            <p>
+              However, it is strongly believed that the sufficient evidence / digital media is present at subject cited premises. It is therefore, requested that the Search Warrant of the subject cited places / locations may kindly be granted to proceed further into the matter.
+            </p>
+
+            <p>
+              Therefore, it is therefore requested that following raiding team may kindly be allowed to conduct a raid as per law to stop the illegal acts of the alleged persons, please.
+            </p>
+
+            <div class="raid-team" style="margin: 14px 0 20px 10px; line-height: 1.8;">
+              {$teamRows}
+            </div>
+          </div>
+
+          <div class="raid-sign">
+            <strong>{$officerName}</strong><br/>
+            {$officerDesig}<br/>
+            <strong>NCCIA/CCRC/{$circleName}</strong>
+          </div>
+        </div>
+        HTML;
+
+        return $this->document(
+            $body,
+            '@page { size: A4 portrait; margin: 16mm 18mm; }
+             body { margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; color:#000; background:#fff; }
+             .raid-doc { width: 100%; max-width: 170mm; margin: 0 auto; font-size: 13px; line-height: 1.5; }
+             .raid-to { font-size: 13.5px; line-height: 1.4; margin-bottom: 16px; }
+             .raid-subj { font-size: 13.5px; font-weight: 800; text-transform: uppercase; margin-bottom: 16px; border-bottom: 1.5px solid #000; padding-bottom: 4px; }
+             .raid-body p { margin: 10px 0; text-align: justify; }
+             .raid-sign { margin-top: 45px; margin-left: auto; width: 240px; text-align: center; font-size: 13px; line-height: 1.4; }'
+        );
+    }
+
+    /**
+     * Printable Search Warrant U/S 33 of PECA-2016 matching PDF Page 5.
+     */
+    public function searchWarrantPrintDocument(Enquiry $enquiry): string
+    {
+        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accused']);
+
+        $circle     = $enquiry->complaint?->circle;
+        $circleName = e($circle?->name ?? 'LAHORE');
+        $circleCode = e($circle?->code ?? 'LHR');
+        $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
+
+        $compName   = e($enquiry->complaint?->complainant_name ?: 'the complainant');
+        $firstAcc   = $enquiry->accused?->first();
+        $accName    = e($firstAcc?->name ?: 'Accused Person');
+        $accFather  = e($firstAcc?->father_name ?: '');
+        $accAddr    = e($firstAcc?->address ?: 'subject cited location');
+        $accStr     = $accName . ($accFather ? ' S/O ' . $accFather : '') . ($accAddr ? ' R/O ' . $accAddr : '');
+        $allegation = e($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access'));
+
+        $body = <<<HTML
+        <div class="warrant-doc">
+          <div class="court-header">
+            <strong>IN THE HONORABLE COURT OF JUDICIAL MAGISTRATE,</strong><br/>
+            <strong>{$circleName}.</strong>
+          </div>
+
+          <table class="court-meta">
+            <tr>
+              <td style="text-align: left;"><strong>P.S: Cyber Crime Circle</strong></td>
+              <td style="text-align: right;"><strong>Distt: {$circleName}</strong></td>
+            </tr>
+          </table>
+
+          <div class="warrant-banner">
+            SEARCH WARRANT U/S 33 OF PECA-2016
+          </div>
+
+          <div class="warrant-salutation"><strong>Respected Sir</strong></div>
+
+          <div class="warrant-body">
+            <p>
+              An enquiry no <strong>{$enquiryNo}</strong> was registered on the complaint of <strong>{$compName}</strong> that a person namely <strong>{$accName}</strong> r/o <strong>{$accAddr}</strong>, found involved in <strong>{$allegation}</strong>. The complainant requested for strict legal action against the culprits.
+            </p>
+
+            <div class="warrant-accused-box" style="margin: 14px 0;">
+              <strong>1: ACCUSED {$accStr} .</strong>
+            </div>
+
+            <p>
+              However, it is strongly believed that the sufficient evidence / digital media is present at mentioned locations.
+            </p>
+
+            <p>
+              It is however, requested that the Search Warrant of the above said premises may kindly be granted in order to conduct search and seize on the pretext to effect the arrest of accused persons to proceed further into the matter.
+            </p>
+          </div>
+
+          <div class="warrant-sign-block">
+            <strong>SI</strong><br/>
+            <strong>NCCIA/CCRC/{$circleCode}</strong>
+          </div>
+        </div>
+        HTML;
+
+        return $this->document(
+            $body,
+            '@page { size: A4 portrait; margin: 16mm 18mm; }
+             body { margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; color:#000; background:#fff; }
+             .warrant-doc { width: 100%; max-width: 170mm; margin: 0 auto; font-size: 13.5px; line-height: 1.55; }
+             .court-header { text-align: center; font-size: 14px; font-weight: 800; text-transform: uppercase; margin-bottom: 12px; }
+             .court-meta { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; }
+             .warrant-banner { text-align: center; font-size: 14px; font-weight: 800; text-transform: uppercase; text-decoration: underline; margin-bottom: 16px; letter-spacing: 0.5px; }
+             .warrant-salutation { font-size: 13.5px; margin-bottom: 10px; }
+             .warrant-body p { margin: 12px 0; text-align: justify; }
+             .warrant-sign-block { margin-top: 50px; margin-left: auto; width: 200px; text-align: center; font-size: 13.5px; line-height: 1.4; }'
         );
     }
 

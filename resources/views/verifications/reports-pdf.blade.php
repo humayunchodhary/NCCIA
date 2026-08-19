@@ -4,232 +4,273 @@
   <meta charset="utf-8">
   <title>Verification Report - {{ $report->tracking_no }}</title>
   <style>
-    @page { margin: 14mm 12mm; }
+    @page {
+      size: A4 portrait;
+      margin: 8mm 10mm;
+    }
     body {
       font-family: 'DejaVu Sans', sans-serif;
-      font-size: 9.5pt;
-      color: #1a1a1a;
-      line-height: 1.5;
-      border: 2px solid #1a3d6b;
-      padding: 8px 10px;
+      font-size: 8pt;
+      color: #111;
+      line-height: 1.3;
+      margin: 0;
+      padding: 0;
     }
     .watermark {
       position: fixed;
-      top: 35%;
-      left: 6%;
-      right: 6%;
+      top: 30%;
+      left: 5%;
+      right: 5%;
       text-align: center;
-      font-size: 52pt;
+      font-size: 44pt;
       font-weight: bold;
-      color: rgba(0, 40, 80, 0.05);
+      color: rgba(0, 40, 80, 0.04);
       text-transform: uppercase;
-      letter-spacing: 14px;
+      letter-spacing: 10px;
       z-index: -1;
-      line-height: 1.7;
+      line-height: 1.5;
     }
-    .top-header-table {
+    .page-container {
       width: 100%;
-      margin-bottom: 6px;
+      height: 100%;
+      box-sizing: border-box;
     }
-    .top-header-table td {
+    .top-half {
+      border: 1.5px solid #1a3d6b;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+      background: #fff;
+    }
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 4px;
+    }
+    .header-table td {
       vertical-align: middle;
       padding: 0;
     }
     .top-logo {
-      width: 60px;
+      width: 50px;
       text-align: left;
     }
     .top-logo img {
-      width: 60px;
-      height: auto;
+      width: 46px;
+      height: 46px;
+      object-fit: contain;
     }
     .top-right-logo {
-      width: 60px;
+      width: 50px;
       text-align: right;
     }
     .top-right-logo img {
-      width: 60px;
-      height: auto;
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
     }
-    .top-header-text {
+    .header-center {
       text-align: center;
     }
-    .top-header-text .govt-line {
-      font-size: 10pt;
+    .header-center .agency-title {
+      font-size: 10.5pt;
       font-weight: bold;
       color: #1a3d6b;
       text-transform: uppercase;
-      letter-spacing: 3px;
-    }
-    .top-header-text .govt-sub {
-      font-size: 7.5pt;
-      color: #555;
-      margin-top: 1px;
-    }
-    .agency-bar {
-      text-align: center;
-      margin-bottom: 8px;
-    }
-    .agency-bar .agency-name {
-      font-size: 12pt;
-      font-weight: bold;
-      color: #1a3d6b;
+      letter-spacing: 0.5px;
       margin: 0;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
     }
-    .agency-bar .branch-name {
-      font-size: 10pt;
-      font-weight: bold;
-      color: #1a1a1a;
-      margin: 1px 0 0;
-    }
-    .agency-bar .branch-sub {
+    .header-center .govt-sub {
       font-size: 7pt;
-      color: #666;
-      margin: 0;
-    }
-    .report-title {
-      text-align: center;
-      border-top: 2px solid #1a3d6b;
-      border-bottom: 2px solid #1a3d6b;
-      padding: 5px 0;
-      margin-bottom: 12px;
-    }
-    .report-title h1 {
-      font-size: 11pt;
-      margin: 0;
-      color: #1a3d6b;
+      color: #444;
+      font-weight: 600;
+      margin: 1px 0;
       text-transform: uppercase;
-      letter-spacing: 3px;
     }
-    .report-title p {
-      font-size: 7.5pt;
-      color: #555;
-      margin: 1px 0 0;
-    }
-    .section {
-      margin-bottom: 9px;
-    }
-    .section-title {
-      font-size: 9pt;
+    .header-center .circle-title {
+      font-size: 8pt;
       font-weight: bold;
-      color: #fff;
-      background: #1a3d6b;
-      padding: 3px 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 5px;
+      color: #222;
+      margin: 0;
     }
-    table.data {
+    .report-banner {
+      background: #1a3d6b;
+      color: #fff;
+      text-align: center;
+      font-size: 8.5pt;
+      font-weight: bold;
+      letter-spacing: 1px;
+      padding: 3px 0;
+      margin: 4px 0 6px 0;
+      text-transform: uppercase;
+    }
+    .meta-table {
       width: 100%;
       border-collapse: collapse;
+      margin-bottom: 4px;
+      font-size: 7.5pt;
     }
-    table.data td {
-      padding: 2.5px 6px;
-      font-size: 8.5pt;
+    .meta-table td {
+      padding: 2px 4px;
+      border: 1px solid #ccc;
+    }
+    .meta-table .lbl {
+      font-weight: bold;
+      background: #f1f5f9;
+      color: #1a3d6b;
+      width: 15%;
+    }
+    .meta-table .val {
+      width: 35%;
+    }
+    .section-head {
+      font-size: 7.5pt;
+      font-weight: bold;
+      color: #1a3d6b;
+      background: #e2e8f0;
+      padding: 2px 5px;
+      margin: 4px 0 2px 0;
+      border-left: 3px solid #1a3d6b;
+      text-transform: uppercase;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 3px;
+      font-size: 7.5pt;
+    }
+    .info-table td {
+      padding: 2px 4px;
+      border: 1px solid #dcdcdc;
       vertical-align: top;
     }
-    table.data td.label {
+    .info-table .lbl {
       font-weight: bold;
-      width: 155px;
+      background: #f8fafc;
       color: #333;
-      border-bottom: 1px dotted #ddd;
+      width: 18%;
     }
-    table.data td.value {
-      border-bottom: 1px dotted #ddd;
+    .info-table .val {
+      width: 32%;
     }
-    table.data tr:last-child td {
-      border-bottom: none;
+    .accused-box {
+      font-size: 7pt;
+      border: 1px solid #ddd;
+      padding: 2px 4px;
+      background: #fafafa;
+      margin-bottom: 3px;
     }
-    .accused-table {
+    .vo-sig-row {
       width: 100%;
       border-collapse: collapse;
       margin-top: 4px;
-      border: 1px solid #ccc;
     }
-    .accused-table td {
-      padding: 2px 6px;
-      font-size: 8.5pt;
-      vertical-align: top;
-      border-bottom: 1px solid #eee;
+    .vo-sig-row td {
+      padding: 0;
+      vertical-align: bottom;
     }
-    .accused-table td.label {
+    .vo-sig-box {
+      text-align: right;
+      font-size: 7.5pt;
+    }
+    .vo-sig-line {
+      border-top: 1px solid #1a3d6b;
+      width: 180px;
+      margin-left: auto;
+      margin-top: 16px;
+      margin-bottom: 2px;
+    }
+
+    /* BOTTOM HALF - CIRCLE INCHARGE SECTION */
+    .bottom-half {
+      border: 2px solid #0f172a;
+      padding: 8px 10px;
+      background: #fcfdfe;
+      page-break-inside: avoid;
+    }
+    .ci-banner {
+      background: #0f172a;
+      color: #fff;
+      text-align: center;
+      font-size: 9pt;
       font-weight: bold;
-      width: 140px;
-      color: #444;
-      background: #f5f5f5;
+      letter-spacing: 1.2px;
+      padding: 4px 0;
+      margin: 0 0 6px 0;
+      text-transform: uppercase;
     }
-    .badge {
-      display: inline-block;
-      padding: 1px 10px;
-      font-size: 8pt;
-      background: #e8f0fe;
-      color: #1a3d6b;
-      border: 1px solid #1a3d6b;
+    .ci-sub {
+      font-size: 7.5pt;
+      font-weight: bold;
+      color: #0f172a;
+      margin: 4px 0 2px 0;
+      text-transform: uppercase;
     }
-    .sig-table {
+    .notes-box {
+      border: 1.5px dashed #475569;
+      background: #fff;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+      min-height: 120px;
+    }
+    .ruled-line {
+      border-bottom: 1px dotted #94a3b8;
+      height: 18px;
+      margin: 0;
+    }
+    .marking-table {
       width: 100%;
-      margin-top: 28px;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+      font-size: 8pt;
     }
-    .sig-table td {
+    .marking-table td {
+      padding: 4px 6px;
+      border: 1px solid #cbd5e1;
+      vertical-align: middle;
+    }
+    .marking-table .m-lbl {
+      font-weight: bold;
+      background: #f1f5f9;
+      color: #0f172a;
+      width: 30%;
+    }
+    .marking-table .m-val {
+      width: 70%;
+    }
+    .ci-sig-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    .ci-sig-table td {
       vertical-align: bottom;
       padding: 0;
     }
-    .sig-box {
+    .ci-sig-box {
       text-align: center;
-    }
-    .sig-box .sig-label {
+      width: 220px;
+      margin-left: auto;
       font-size: 7.5pt;
-      color: #555;
-      margin-bottom: 2px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
     }
-    .sig-box .sig-stamp {
-      margin-bottom: 2px;
+    .ci-sig-line {
+      border-top: 1.5px solid #0f172a;
+      margin: 28px auto 3px auto;
+      width: 180px;
     }
-    .sig-box .sig-stamp img {
-      max-height: 45px;
-    }
-    .sig-box .sig-line {
-      border-top: 1.5px solid #1a3d6b;
-      margin: 32px auto 0;
-      width: 250px;
-    }
-    .sig-box .sig-name {
-      font-weight: bold;
-      font-size: 9.5pt;
-      color: #1a3d6b;
-      margin-top: 5px;
-    }
-    .sig-box .sig-desig {
-      font-size: 8pt;
-      color: #2b2b2b;
-    }
-    .sig-box .sig-branch {
-      font-size: 7.5pt;
-      color: #555;
-    }
-    .sig-box .sig-nccia {
-      font-size: 7.5pt;
-      font-weight: bold;
-      color: #1a3d6b;
-    }
-    .sig-box .sig-date {
-      font-size: 7.5pt;
-      color: #777;
-      margin-top: 2px;
-    }
-    .footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
+    .divider-tag {
       text-align: center;
       font-size: 6.5pt;
-      color: #999;
-      border-top: 1px solid #ccc;
+      color: #64748b;
+      margin: 2px 0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .footer {
+      text-align: center;
+      font-size: 6.5pt;
+      color: #64748b;
+      margin-top: 4px;
+      border-top: 1px solid #cbd5e1;
       padding-top: 2px;
     }
   </style>
@@ -240,140 +281,201 @@
   NCCIA<br>GOVERNMENT OF PAKISTAN
 </div>
 
-<table class="top-header-table">
-  <tr>
-    <td class="top-logo">
-      <img src="data:image/jpeg;base64,{{ base64_encode(file_get_contents(public_path('images/images.jpg'))) }}" alt="NCCIA Logo">
-    </td>
-    <td class="top-header-text">
-      <div class="govt-line">Government of Pakistan</div>
-      <div class="govt-sub">Ministry of Interior</div>
-    </td>
-    <td class="top-right-logo">
-      <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/pak-govt-logo.png'))) }}" alt="Government of Pakistan">
-    </td>
-  </tr>
-</table>
+<div class="page-container">
 
-<div class="agency-bar">
-  <div class="agency-name">National Cyber Crime Investigation Agency</div>
-  <div class="branch-name">{{ $report->creator?->circle?->name ?? 'NCCIA Circle' }}</div>
-  <div class="branch-sub">{{ $report->creator?->circle?->city ?? 'Pakistan' }}</div>
-</div>
+  <!-- TOP HALF: VERIFICATION DETAILS -->
+  <div class="top-half">
+    <table class="header-table">
+      <tr>
+        <td class="top-logo">
+          @if(file_exists(public_path('images/images.jpg')))
+          <img src="data:image/jpeg;base64,{{ base64_encode(file_get_contents(public_path('images/images.jpg'))) }}" alt="NCCIA">
+          @endif
+        </td>
+        <td class="header-center">
+          <div class="agency-title">National Cyber Crime Investigation Agency</div>
+          <div class="govt-sub">Government of Pakistan &bull; Ministry of Interior</div>
+          <div class="circle-title">{{ $report->creator?->circle?->name ?? 'Cyber Crime Reporting Center' }} ({{ $report->creator?->circle?->city ?? 'Pakistan' }})</div>
+        </td>
+        <td class="top-right-logo">
+          @if(file_exists(public_path('images/pak-govt-logo.png')))
+          <img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('images/pak-govt-logo.png'))) }}" alt="Govt Logo">
+          @endif
+        </td>
+      </tr>
+    </table>
 
-<div class="report-title">
-  <h1>Victim Verification Report</h1>
-  <p>Report No: <strong>{{ $report->tracking_no }}</strong></p>
-</div>
+    <div class="report-banner">
+      VICTIM VERIFICATION REPORT &mdash; {{ $report->tracking_no }}
+    </div>
 
-<div class="section">
-  <div class="section-title">1. Tracking Information</div>
-  <table class="data">
-    <tr><td class="label">Tracking No</td><td class="value">{{ $report->tracking_no }}</td></tr>
-    <tr><td class="label">Registration Date</td><td class="value">{{ $report->registration_at?->format('d M Y h:i A') ?? '—' }}</td></tr>
-    <tr><td class="label">Assignment Date</td><td class="value">{{ $report->assignment_date?->format('d M Y h:i A') ?? '—' }}</td></tr>
-    <tr><td class="label">Verification Date</td><td class="value">{{ $report->verification_date?->format('d M Y h:i A') ?? '—' }}</td></tr>
-    @if($report->comments)
-    <tr><td class="label">Comments</td><td class="value">{{ $report->comments }}</td></tr>
-    @endif
-  </table>
-</div>
+    <table class="meta-table">
+      <tr>
+        <td class="lbl">Tracking No:</td>
+        <td class="val"><strong>{{ $report->tracking_no }}</strong></td>
+        <td class="lbl">Verif. Date:</td>
+        <td class="val">{{ $report->verification_date?->format('d-m-Y h:i A') ?? now()->format('d-m-Y') }}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Registration:</td>
+        <td class="val">{{ $report->registration_at?->format('d-m-Y') ?? '—' }}</td>
+        <td class="lbl">Assigned Date:</td>
+        <td class="val">{{ $report->assignment_date?->format('d-m-Y') ?? '—' }}</td>
+      </tr>
+    </table>
 
-<div class="section">
-  <div class="section-title">2. Victim Details</div>
-  <table class="data">
-    <tr><td class="label">Full Name</td><td class="value">{{ $report->victim_name }}</td></tr>
-    <tr><td class="label">Father / Husband Name</td><td class="value">{{ $report->victim_father_name ?? '—' }}</td></tr>
-    <tr><td class="label">Occupation</td><td class="value">{{ $report->victim_occupation ?? '—' }}</td></tr>
-    <tr><td class="label">Gender</td><td class="value">{{ ucfirst($report->victim_gender ?? '—') }}</td></tr>
-    <tr><td class="label">CNIC Number</td><td class="value">{{ $report->victim_cnic }}</td></tr>
-    <tr><td class="label">Contact Number</td><td class="value">{{ $report->victim_country_code ?? '+92' }} {{ $report->victim_phone }}</td></tr>
-    <tr><td class="label">Email</td><td class="value">{{ $report->victim_email ?? '—' }}</td></tr>
-  </table>
-</div>
-
-<div class="section">
-  <div class="section-title">3. Crime Details</div>
-  <table class="data">
-    <tr><td class="label">Crime Category</td><td class="value"><span class="badge">{{ $report->crime_category }}</span></td></tr>
-    <tr><td class="label">City / District</td><td class="value">{{ $report->city }}</td></tr>
-    @if($report->crime_description)
-    <tr><td class="label">Crime Description</td><td class="value">{{ $report->crime_description }}</td></tr>
-    @endif
-  </table>
-</div>
-
-<div class="section">
-  <div class="section-title">4. Accused Details</div>
-  <table class="data">
-    <tr><td class="label">Accused Known</td><td class="value">{{ $report->accused_known ? 'Yes' : 'No' }}</td></tr>
-  </table>
-  @if($report->accused_known && $report->accused)
-    @foreach($report->accused as $i => $a)
-      <table class="accused-table">
-        <tr><td class="label">Accused #{{ $i + 1 }} Name</td><td>{{ $a['name'] ?? '—' }}</td></tr>
-        <tr><td class="label">Father Name</td><td>{{ $a['father_name'] ?? '—' }}</td></tr>
-        <tr><td class="label">Phone</td><td>{{ $a['phone'] ?? '—' }}</td></tr>
-        <tr><td class="label">Email</td><td>{{ $a['email'] ?? '—' }}</td></tr>
-        <tr><td class="label">CNIC</td><td>{{ $a['cnic'] ?? '—' }}</td></tr>
-        <tr><td class="label">Address</td><td>{{ $a['address'] ?? '—' }}</td></tr>
-      </table>
-    @endforeach
-  @else
-    <p style="font-size:8pt;color:#888;margin:3px 0;">No accused details provided.</p>
-  @endif
-</div>
-
-@if($report->recommendation_short || $report->recommendation_full)
-<div class="section">
-  <div class="section-title">5. Recommendations</div>
-  <table class="data">
-    @if($report->recommendation_short)
-    <tr><td class="label">Short Recommendation</td><td class="value">{{ $report->recommendation_short }}</td></tr>
-    @endif
-    @if($report->recommendation_full)
-    <tr><td class="label">Detailed Recommendation</td><td class="value">{{ $report->recommendation_full }}</td></tr>
-    @endif
-  </table>
-</div>
-@endif
-
-@if($report->inquiry_no || $report->case_no)
-<div class="section">
-  <div class="section-title">6. Reference Numbers</div>
-  <table class="data">
-    @if($report->inquiry_no)
-    <tr><td class="label">Inquiry No</td><td class="value">{{ $report->inquiry_no }}</td></tr>
-    @endif
-    @if($report->case_no)
-    <tr><td class="label">Case No</td><td class="value">{{ $report->case_no }}</td></tr>
-    @endif
-  </table>
-</div>
-@endif
-
-<table class="sig-table">
-  <tr>
-    <td width="55%"></td>
-    <td width="45%" class="sig-box">
-      <div class="sig-label">Verified By</div>
-      @if($report->signature && file_exists(storage_path('app/public/' . $report->signature)))
-      <div class="sig-stamp">
-        <img src="data:image/png;base64,{{ base64_encode(file_get_contents(storage_path('app/public/' . $report->signature))) }}" alt="Digital Signature">
-      </div>
+    <div class="section-head">1. Complainant / Victim &amp; Offence Information</div>
+    <table class="info-table">
+      <tr>
+        <td class="lbl">Victim Name:</td>
+        <td class="val"><strong>{{ $report->victim_name }}</strong></td>
+        <td class="lbl">Father / Husband:</td>
+        <td class="val">{{ $report->victim_father_name ?? '—' }}</td>
+      </tr>
+      <tr>
+        <td class="lbl">CNIC No:</td>
+        <td class="val">{{ $report->victim_cnic ?: '—' }}</td>
+        <td class="lbl">Contact No:</td>
+        <td class="val">{{ $report->victim_country_code ?? '+92' }} {{ $report->victim_phone }}</td>
+      </tr>
+      <tr>
+        <td class="lbl">City / District:</td>
+        <td class="val">{{ $report->city ?? '—' }}</td>
+        <td class="lbl">Crime Category:</td>
+        <td class="val"><strong>{{ $report->crime_category ?? '—' }}</strong></td>
+      </tr>
+      @if($report->crime_description)
+      <tr>
+        <td class="lbl">Crime Gist:</td>
+        <td class="val" colspan="3">{{ Str::limit($report->crime_description, 220) }}</td>
+      </tr>
       @endif
-      <div class="sig-line"></div>
-      <div class="sig-name">{{ $report->creator?->name ?? '—' }}</div>
-      <div class="sig-desig">{{ $report->creator?->designation ?? 'Investigation Officer' }}</div>
-      <div class="sig-branch">{{ $report->creator?->circle?->name ?? 'NCCIA' }}</div>
-      <div class="sig-nccia">National Cyber Crime Investigation Agency</div>
-      <div class="sig-date">Dated: {{ $report->verification_date?->format('d M Y h:i A') ?? now()->format('d M Y h:i A') }}</div>
-    </td>
-  </tr>
-</table>
+    </table>
 
-<div class="footer">
-  This is a computer-generated document &mdash; Generated on {{ now()->format('d M Y h:i A') }} &mdash; NCCIA Case Management System
+    <div class="section-head">2. Accused Details &amp; Verification Findings</div>
+    <table class="info-table">
+      <tr>
+        <td class="lbl">Accused Details:</td>
+        <td class="val" colspan="3">
+          @if($report->accused_known && is_array($report->accused) && count($report->accused) > 0)
+            @foreach($report->accused as $idx => $acc)
+              <strong>#{{ $idx + 1 }}: {{ $acc['name'] ?? 'Unknown' }}</strong> 
+              @if(!empty($acc['father_name'])) S/O {{ $acc['father_name'] }} @endif
+              @if(!empty($acc['cnic'])) &bull; CNIC: {{ $acc['cnic'] }} @endif
+              @if(!empty($acc['phone'])) &bull; Ph: {{ $acc['phone'] }} @endif
+              @if(!empty($acc['address'])) &bull; Addr: {{ $acc['address'] }} @endif
+              <br>
+            @endforeach
+          @else
+            <em>No accused identified / recorded at verification stage.</em>
+          @endif
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">VO Recommendation:</td>
+        <td class="val" colspan="3">
+          <strong>{{ $report->recommendation_short ?: 'Regular Enquiry Recommended' }}</strong>
+          @if($report->recommendation_full)
+            &mdash; {{ Str::limit($report->recommendation_full, 220) }}
+          @endif
+        </td>
+      </tr>
+    </table>
+
+    <table class="vo-sig-row">
+      <tr>
+        <td style="width: 50%; font-size: 7pt; color: #555;">
+          @if($report->inquiry_no) Inquiry Ref: <strong>{{ $report->inquiry_no }}</strong> &nbsp;|&nbsp; @endif
+          @if($report->case_no) FIR Ref: <strong>{{ $report->case_no }}</strong> @endif
+        </td>
+        <td style="width: 50%;">
+          <div class="vo-sig-box">
+            <div class="vo-sig-line"></div>
+            <strong>{{ $report->creator?->name ?? 'Verification Officer' }}</strong><br>
+            {{ $report->creator?->designation ?? 'Investigation / Verification Officer' }}<br>
+            NCCIA {{ $report->creator?->circle?->name ?? 'Circle' }}
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="divider-tag">&bull; &bull; &bull; CIRCLE INCHARGE REVIEW &amp; MARKING SECTION (BOTTOM HALF) &bull; &bull; &bull;</div>
+
+  <!-- BOTTOM HALF: CIRCLE INCHARGE NOTES & MARKING TO ENQUIRY OFFICER -->
+  <div class="bottom-half">
+    <div class="ci-banner">
+      FOR USE OF CIRCLE INCHARGE &mdash; ORDER / MARKING TO ENQUIRY OFFICER
+    </div>
+
+    <div class="ci-sub">1. Directions &amp; Notes of Circle Incharge:</div>
+    <div class="notes-box">
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+    </div>
+
+    <div class="ci-sub">2. Enquiry Officer Assignment Order:</div>
+    <table class="marking-table">
+      <tr>
+        <td class="m-lbl">Marked / Assigned to Enquiry Officer:</td>
+        <td class="m-val">
+          @if($report->complaint?->enquiry?->enquiryOfficer)
+            <strong>{{ $report->complaint->enquiry->enquiryOfficer->name }}</strong> ({{ $report->complaint->enquiry->enquiryOfficer->designation ?? 'Enquiry Officer' }})
+          @else
+            ____________________________________________________________________
+          @endif
+        </td>
+      </tr>
+      <tr>
+        <td class="m-lbl">Enquiry Number (if registered):</td>
+        <td class="m-val">
+          @if($report->complaint?->enquiry?->enquiry_number)
+            <strong>{{ $report->complaint->enquiry->enquiry_number }}</strong>
+          @elseif($report->inquiry_no)
+            <strong>{{ $report->inquiry_no }}</strong>
+          @else
+            ENQ-CCRC-____________________________________
+          @endif
+        </td>
+      </tr>
+      <tr>
+        <td class="m-lbl">Marking Date &amp; Target Disposal:</td>
+        <td class="m-val">
+          Marking Date: <strong>________________________</strong> &nbsp;&nbsp;|&nbsp;&nbsp; 
+          Target Date: <strong>________________________</strong>
+        </td>
+      </tr>
+    </table>
+
+    <table class="ci-sig-table">
+      <tr>
+        <td style="width: 45%; font-size: 7.5pt; color: #475569;">
+          <strong>Official Stamp:</strong>
+          <div style="border: 1px dashed #94a3b8; width: 140px; height: 50px; margin-top: 4px; text-align: center; line-height: 50px; color: #cbd5e1; font-size: 7pt;">
+            [ SEAL / STAMP ]
+          </div>
+        </td>
+        <td style="width: 55%; text-align: right;">
+          <div class="ci-sig-box">
+            <div class="ci-sig-line"></div>
+            <strong style="font-size: 8.5pt; color: #0f172a;">Circle Incharge / Assistant Director</strong><br>
+            National Cyber Crime Investigation Agency (NCCIA)<br>
+            {{ $report->creator?->circle?->name ?? 'Cyber Crime Reporting Center' }}<br>
+            Date: ____________________
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="footer">
+    National Cyber Crime Investigation Agency &bull; Verification Document &bull; Generated: {{ now()->format('d/m/Y h:i A') }}
+  </div>
+
 </div>
 
 </body>

@@ -128,6 +128,10 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
         ->name('api.enquiries.destroy');
     Route::get('/enquiries/{enquiry}/notice-print', [EnquiryController::class, 'noticePrint'])->name('api.enquiries.notice-print');
     Route::get('/enquiries/{enquiry}/diary-print', [EnquiryController::class, 'diaryPrint'])->name('api.enquiries.diary-print');
+    Route::get('/enquiries/{enquiry}/cfr-print', [EnquiryController::class, 'cfrPrint'])->name('api.enquiries.cfr-print');
+    Route::get('/enquiries/{enquiry}/forensic-request-print', [EnquiryController::class, 'forensicRequestPrint'])->name('api.enquiries.forensic-request-print');
+    Route::get('/enquiries/{enquiry}/raid-permission-print', [EnquiryController::class, 'raidPermissionPrint'])->name('api.enquiries.raid-permission-print');
+    Route::get('/enquiries/{enquiry}/search-warrant-print', [EnquiryController::class, 'searchWarrantPrint'])->name('api.enquiries.search-warrant-print');
     Route::get('/enquiries/stats', [EnquiryController::class, 'stats']);
     Route::post('/enquiries/{enquiry}/assign', [EnquiryController::class, 'assign'])
         ->middleware('role:admin,circle_incharge');

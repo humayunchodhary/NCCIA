@@ -1105,6 +1105,76 @@ class EnquiryController extends Controller
         ]);
     }
 
+    /**
+     * Printable Confidential Final Report (CFR) HTML.
+     */
+    public function cfrPrint(Request $request, Enquiry $enquiry, PrintService $print)
+    {
+        abort_unless(
+            Enquiry::visibleTo(request()->user())->whereKey($enquiry->id)->exists(),
+            404
+        );
+
+        return response()->json([
+            'html' => $print->cfrPrintDocument($enquiry),
+        ]);
+    }
+
+    /**
+     * Printable Forensic Analysis Request HTML.
+     */
+    public function forensicRequestPrint(Request $request, Enquiry $enquiry, PrintService $print)
+    {
+        abort_unless(
+            Enquiry::visibleTo(request()->user())->whereKey($enquiry->id)->exists(),
+            404
+        );
+
+        $devices = $request->input('devices', []);
+        if (is_string($devices)) {
+            $devices = json_decode($devices, true) ?: [];
+        }
+
+        return response()->json([
+            'html' => $print->forensicRequestPrintDocument($enquiry, is_array($devices) ? $devices : []),
+        ]);
+    }
+
+    /**
+     * Printable Permission to Conduct a Raid HTML.
+     */
+    public function raidPermissionPrint(Request $request, Enquiry $enquiry, PrintService $print)
+    {
+        abort_unless(
+            Enquiry::visibleTo(request()->user())->whereKey($enquiry->id)->exists(),
+            404
+        );
+
+        $teamMembers = $request->input('team_members', []);
+        if (is_string($teamMembers)) {
+            $teamMembers = json_decode($teamMembers, true) ?: [];
+        }
+
+        return response()->json([
+            'html' => $print->raidPermissionPrintDocument($enquiry, is_array($teamMembers) ? $teamMembers : []),
+        ]);
+    }
+
+    /**
+     * Printable Search Warrant U/S 33 of PECA-2016 HTML.
+     */
+    public function searchWarrantPrint(Request $request, Enquiry $enquiry, PrintService $print)
+    {
+        abort_unless(
+            Enquiry::visibleTo(request()->user())->whereKey($enquiry->id)->exists(),
+            404
+        );
+
+        return response()->json([
+            'html' => $print->searchWarrantPrintDocument($enquiry),
+        ]);
+    }
+
     public function destroy(Enquiry $enquiry)
     {
         $this->authorize('delete', $enquiry);
