@@ -85,6 +85,11 @@ class LoginController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($userId) {
+            \Illuminate\Support\Facades\Cache::forget('user_online_' . $userId);
+        }
+
         return redirect()->route('login');
     }
 
@@ -170,6 +175,10 @@ class LoginController extends Controller
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($userId) {
+            \Illuminate\Support\Facades\Cache::forget('user_online_' . $userId);
+        }
 
         return response()->json(['message' => 'Logged out successfully']);
     }

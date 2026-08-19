@@ -25,6 +25,10 @@ class SidebarCountsController extends Controller
         }
 
         $user->loadMissing('roles');
+        
+        // Track that the user is online right now
+        \Illuminate\Support\Facades\Cache::put('user_online_' . $user->id, true, now()->addMinutes(2));
+
         $key = 'sidebar:v2:' . $user->id;
 
         $data = Cache::remember($key, 30, function () use ($user) {

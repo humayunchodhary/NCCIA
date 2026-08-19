@@ -753,6 +753,9 @@ class ForensicRequestController extends Controller
         $user = $request->user();
         abort_unless($user->isForensic() || $user->hasRole('admin'), 403);
 
+        // Track that the user is online right now
+        \Illuminate\Support\Facades\Cache::put('user_online_' . $user->id, true, now()->addMinutes(2));
+
         $base = ForensicRequest::query()->where('destination', 'forensic');
 
         // Pipeline stage counts
