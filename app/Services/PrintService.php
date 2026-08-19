@@ -601,7 +601,7 @@ class PrintService
      */
     public function cfrPrintDocument(Enquiry $enquiry): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accused']);
+        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'LAHORE');
@@ -610,14 +610,15 @@ class PrintService
         $cfrDate    = $enquiry->cfr_date ? \Carbon\Carbon::parse($enquiry->cfr_date)->format('d-m-Y') : date('d-m-Y');
 
         // 3: Complainant details
-        $compName    = e($enquiry->complaint?->complainant_name ?: ($enquiry->direct_info['complainant_name'] ?? '—'));
+        $directInfo  = is_array($enquiry->direct_info) ? $enquiry->direct_info : [];
+        $compName    = e($enquiry->complaint?->complainant_name ?: ($directInfo['complainant_name'] ?? '—'));
         $compFather  = e($enquiry->complaint?->father_name ?: '—');
         $compAddr    = e($enquiry->complaint?->address ?: '—');
         $compPhone   = e($enquiry->complaint?->contact_no ?: '—');
         $compStr     = "<strong>{$compName}</strong> S/O {$compFather}, Permanent/Temporary Address: {$compAddr}, Phone: {$compPhone}";
 
         // 4: Accused details
-        $accusedList = $enquiry->accused;
+        $accusedList = $enquiry->accusedPersons;
         $accStr = '';
         if ($accusedList && $accusedList->count() > 0) {
             foreach ($accusedList as $i => $acc) {
@@ -633,10 +634,11 @@ class PrintService
             if (is_array($initialAcc) && count($initialAcc) > 0) {
                 foreach ($initialAcc as $i => $acc) {
                     $aNum = $i + 1;
-                    $aName = e($acc['name'] ?? '—');
-                    $aFather = e($acc['father_name'] ?? '—');
-                    $aCnic = e($acc['cnic'] ?? '—');
-                    $aAddr = e($acc['other_info'] ?? '—');
+                    $accArray = is_array($acc) ? $acc : [];
+                    $aName = e($accArray['name'] ?? '—');
+                    $aFather = e($accArray['father_name'] ?? '—');
+                    $aCnic = e($accArray['cnic'] ?? '—');
+                    $aAddr = e($accArray['other_info'] ?? '—');
                     $accStr .= "<div><strong>{$aNum}. {$aName}</strong> S/O {$aFather}, CNIC: {$aCnic}, Address: {$aAddr}</div>";
                 }
             } else {
@@ -780,7 +782,7 @@ class PrintService
      */
     public function forensicRequestPrintDocument(Enquiry $enquiry, array $devices = []): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accused']);
+        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'LAHORE');
@@ -788,7 +790,7 @@ class PrintService
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
 
         // Accused List
-        $accList = $enquiry->accused;
+        $accList = $enquiry->accusedPersons;
         $accRows = '';
         if ($accList && $accList->count() > 0) {
             foreach ($accList as $i => $acc) {
@@ -911,14 +913,14 @@ class PrintService
      */
     public function raidPermissionPrintDocument(Enquiry $enquiry, array $teamMembers = []): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accused']);
+        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'Lahore');
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
 
         // Accused List
-        $accList = $enquiry->accused;
+        $accList = $enquiry->accusedPersons;
         $accRows = '';
         if ($accList && $accList->count() > 0) {
             foreach ($accList as $i => $acc) {
@@ -1007,7 +1009,7 @@ class PrintService
      */
     public function searchWarrantPrintDocument(Enquiry $enquiry): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accused']);
+        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'LAHORE');
@@ -1015,7 +1017,7 @@ class PrintService
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
 
         $compName   = e($enquiry->complaint?->complainant_name ?: 'the complainant');
-        $firstAcc   = $enquiry->accused?->first();
+        $firstAcc   = $enquiry->accusedPersons?->first();
         $accName    = e($firstAcc?->name ?: 'Accused Person');
         $accFather  = e($firstAcc?->father_name ?: '');
         $accAddr    = e($firstAcc?->address ?: 'subject cited location');
@@ -1138,3 +1140,4 @@ class PrintService
         return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' . $css . '</style></head><body>' . $body . '</body></html>';
     }
 }
+
