@@ -129,7 +129,7 @@ export default function UserForm() {
                 <label className="cf-label required">Role</label>
                 <select className="cf-input" value={form.role} onChange={setF('role')} required>
                   <option value="">— Select Role —</option>
-                  {roles.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
+                  {roles.map(r => <option key={r} value={r}>{r === 'operator' ? 'Front Desk Officer' : r.replace(/_/g, ' ')}</option>)}
                 </select>
                 {errors.role && <span className="cf-error">{errors.role[0]}</span>}
               </div>

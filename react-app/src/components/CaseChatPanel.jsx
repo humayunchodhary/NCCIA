@@ -30,7 +30,7 @@ const ROLE_BADGES = {
   circle_incharge: { label: 'Circle Incharge', color: '#B7791F' },
   enquiry_officer: { label: 'Enquiry Officer', color: '#015C94' },
   investigation_officer: { label: 'Investigation Officer', color: '#2d6a4f' },
-  operator: { label: 'Operator', color: '#4a5568' },
+  operator: { label: 'Front Desk Officer', color: '#4a5568' },
   verification_officer: { label: 'Verification Officer', color: '#5a189a' },
   moharrar: { label: 'Moharrar', color: '#319795' },
   reader_branch: { label: 'Reader', color: '#805ad5' },

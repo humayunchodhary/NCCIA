@@ -830,19 +830,19 @@ export default function ComplaintForm() {
             <div className="cf-section-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
-            <div><div className="cf-section-title">Operator / Scrutiny</div><div className="cf-section-sub">Entry and scrutiny details</div></div>
+            <div><div className="cf-section-title">Front Desk Officer / Scrutiny</div><div className="cf-section-sub">Entry and scrutiny details</div></div>
             <div className="cf-section-badge">Step 7</div>
           </div>
           <div className="cf-body">
             <div className="cf-row-2">
-              {renderField('Operator Name', 'operator_name', { readOnly: true })}
-              {renderField('Operator Designation', 'operator_designation', { readOnly: true })}
+              {renderField('FDO Name', 'operator_name', { readOnly: true })}
+              {renderField('FDO Designation', 'operator_designation', { readOnly: true })}
             </div>
             <div className="cf-row-2">
               {renderField('Entry Time', 'entry_time', { type: 'datetime-local', readOnly: true })}
             </div>
             {renderField('Scrutiny Result', 'scrutiny_result', { required: true, options: SCRUTINY_OPTIONS })}
-            {renderField('Operator Remarks', 'operator_remarks', { rows: 2 })}
+            {renderField('FDO Remarks', 'operator_remarks', { rows: 2 })}
 
             {showAssignVo && form.scrutiny_result === 'complete' && (
               <div className="cf-section" style={{ marginTop: 16, border: '1px solid #bfdbfe', borderRadius: 10 }}>

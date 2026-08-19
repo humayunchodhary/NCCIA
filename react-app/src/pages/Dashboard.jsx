@@ -14,7 +14,7 @@ const ROLE_PORTALS = {
   investigation_officer:{ icon: '🕵️', name: 'Investigation Officer Portal', desc: 'Case/Court stage — investigation, challan, court reports.' },
   moharrar:            { icon: '📝', name: 'Moharrar Portal', desc: 'FIR number & case registry (Case stage).' },
   reader_branch:       { icon: '📂', name: 'Reader Branch Portal', desc: 'Enquiry number registration (Enquiry stage).' },
-  operator:            { icon: '💻', name: 'Operator / CMU Portal', desc: 'Complete Registration, apni complaints aur unki progress track karein.' },
+  operator:            { icon: '💻', name: 'Front Desk Officer / CMU Portal', desc: 'Complete Registration, apni complaints aur unki progress track karein.' },
   ad_legal:            { icon: '⚖️', name: 'AD Legal Portal', desc: 'Legal opinions on enquiry / case / court.' },
   dd_legal:            { icon: '⚖️', name: 'DD Legal Portal', desc: 'Legal opinions on enquiry / case / court.' },
   additional_director: { icon: '⚖️', name: 'Additional Director Portal', desc: 'Opinion / approval on legal reports.' },
@@ -93,7 +93,7 @@ export default function Dashboard() {
       <div className="dashboard_page">
         <div className="page-header">
           <div className="page-title-group">
-            <div className="page-label">Operator / CMU</div>
+            <div className="page-label">Front Desk Officer / CMU</div>
             <h1 className="page-title">Dashboard</h1>
             <p className="page-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} &nbsp;·&nbsp; Aap ki complaints & progress</p>
             <div className="title-underline"></div>
@@ -110,7 +110,7 @@ export default function Dashboard() {
           <div style={{display:'flex',alignItems:'center',gap:16}}>
             <div style={{fontSize:36}}>{portal.icon}</div>
             <div>
-              <div style={{fontSize:13,opacity:0.85}}>Welcome, <strong>{user?.name?.split(' ')[0] || 'Operator'}</strong></div>
+              <div style={{fontSize:13,opacity:0.85}}>Welcome, <strong>{user?.name?.split(' ')[0] || 'Front Desk Officer'}</strong></div>
               <div style={{fontSize:20,fontWeight:700}}>{portal.name}</div>
               <div style={{fontSize:13,opacity:0.9,marginTop:4}}>{portal.desc}</div>
             </div>
