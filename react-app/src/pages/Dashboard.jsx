@@ -138,91 +138,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="dashboard-grid" style={{ gridTemplateColumns: '2fr 1fr', marginTop: 8 }}>
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <div className="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-                Meri Complaints — Progress
-              </div>
-              <div className="section-actions">
-                <Link to="/complaints" className="btn btn-outline btn-sm">View All</Link>
-                <Link to="/complaints/create" className="btn btn-primary btn-sm">New</Link>
-              </div>
-            </div>
-            <div className="card-body" style={{ padding: 0 }}>
-              <div className="table-responsive">
-                <table className="data-table" style={{ display: 'table', width: '100%' }} aria-label="Operator complaints progress">
-                  <thead>
-                    <tr>
-                      <th>Tracking / Diary</th>
-                      <th>Complainant</th>
-                      <th>Category</th>
-                      <th>Date</th>
-                      <th style={{ textAlign: 'center' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recent.length === 0 ? (
-                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: 28, color: '#6c757d' }}>Abhi koi complaint nahi — Complete Registration se shuru karein</td></tr>
-                    ) : recent.map(c => {
-                      const canEditRow = !(c.status === 'complete' || !!c.verification);
-                      return (
-                        <tr key={c.id}>
-                          <td>
-                            <span className="table-id">#{c.tracking_no || c.diary_no || c.id}</span>
-                            {!c.tracking_no && <div style={{fontSize:11,color:'#94a3b8'}}>No tracking yet</div>}
-                          </td>
-                          <td><span style={{ fontSize: 13, fontWeight: 500 }}>{c.complainant_name || '-'}</span></td>
-                          <td><span style={{ fontSize: 12.5 }}>{c.offence_type || '-'}</span></td>
-                          <td><span style={{ fontSize: 12, color: '#6c757d' }}>{c.created_at ? new Date(c.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span></td>
-                          <td style={{ textAlign: 'center' }}>
-                            {canEditRow ? (
-                              <Link to={`/complaints/${c.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit / Complete">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                              </Link>
-                            ) : (
-                              <span style={{fontSize: 11, color: '#267859', fontWeight: 600}}>Forwarded</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div className="card">
-              <div className="card-header">
-                <div className="card-title">
-                  <div className="card-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-                  Workflow Stages
-                </div>
-              </div>
-              <div className="card-body">
-                <div className="progress-list">
-                  <div className="progress-item">
-                    <div className="progress-header"><span className="progress-name">Avg Workflow Completion</span><span className="progress-count">{stats.avg_completion || 0}%</span></div>
-                    <ProgressBar value={stats.avg_completion || 0} color="#015C94" />
-                  </div>
-                  {stageRows.filter(([, n]) => n > 0).map(([name, n, color]) => (
-                    <div className="progress-item" key={name}>
-                      <div className="progress-header">
-                        <span className="progress-name">{name}</span>
-                        <span className="progress-count">{n} · {totalCmp ? Math.round((n / totalCmp) * 100) : 0}%</span>
-                      </div>
-                      <ProgressBar value={totalCmp ? (n / totalCmp) * 100 : 0} color={color} />
-                    </div>
-                  ))}
-                  {stageRows.every(([, n]) => !n) && (
-                    <div style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: 12 }}>No stage data yet</div>
-                  )}
-                </div>
-              </div>
-            </div>
+        <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', marginTop: 8 }}>
 
             <div className="card" style={{border:'1px solid #bfdbfe'}}>
               <div className="card-body" style={{padding:18}}>
@@ -259,7 +175,6 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
-          </div>
         </div>
       </div>
     );
