@@ -375,7 +375,7 @@ export default function EnquiryForm() {
         id: n.id,
         notice_number: n.notice_number || '',
         notice_type: n.notice_type || '',
-        receiver_name: n.receiver_name || '',
+        receiver_name: n.receiver_name || '', cnic: n.cnic || '',
         person_type: n.person_type || '',
         person_ref: n.person_ref ?? '',
         notice_via: n.notice_via || '',
@@ -588,7 +588,15 @@ export default function EnquiryForm() {
   const addNotice = () => {
     setForm(f => {
       setEditingNoticeIndex(f.notices.length);
-      return { ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] };
+      return { ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', cnic: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] };
+    });
+  };
+  const duplicateNotice = (i) => {
+    setForm(f => {
+      const existing = f.notices[i];
+      const newNotice = { ...existing, id: undefined, notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', status: 'issued' };
+      setEditingNoticeIndex(f.notices.length);
+      return { ...f, notices: [...f.notices, newNotice] };
     });
   };
   const removeNotice = (i) => {
@@ -642,7 +650,7 @@ export default function EnquiryForm() {
     setForm(f => ({
       ...f,
       notices: f.notices.map((n, idx) => idx === noticeIndex
-        ? { ...n, person_type: personType, person_ref: '', receiver_name: '', phone: '', address: '' }
+        ? { ...n, person_type: personType, person_ref: '', receiver_name: '', cnic: '', phone: '', address: '' }
         : n),
     }));
   };
@@ -1756,6 +1764,9 @@ export default function EnquiryForm() {
                     )}
                     <div className="cf-field"><label className="cf-label">Receiver Name</label>
                       <input type="text" className="cf-input" value={n.receiver_name} onChange={e => updateNotice(i, 'receiver_name', e.target.value)} placeholder="Recipient name" />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">CNIC</label>
+                      <input type="text" className="cf-input" value={n.cnic || ''} onChange={e => updateNotice(i, 'cnic', e.target.value.replace(/\D/g, '').slice(0,13))} placeholder="CNIC Number" />
                     </div>
                     <div className="cf-field"><label className="cf-label">Summon No</label>
                       <input type="text" className="cf-input" value={n.notice_number} onChange={e => updateNotice(i, 'notice_number', e.target.value)} placeholder="e.g. NCCIA/N/25" />

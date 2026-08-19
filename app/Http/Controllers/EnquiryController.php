@@ -295,6 +295,7 @@ class EnquiryController extends Controller
                 'notice_number'       => $n['notice_number'] ?? null,
                 'notice_type'         => $n['notice_type'] ?? null,
                 'receiver_name'       => $n['receiver_name'] ?? null,
+                'cnic'                => $n['cnic'] ?? null,
                 'person_type'         => $n['person_type'] ?? null,
                 'notice_via'          => !empty($n['notice_via']) ? $n['notice_via'] : null,
                 'address'             => $n['address'] ?? null,
