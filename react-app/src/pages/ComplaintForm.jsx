@@ -333,11 +333,13 @@ export default function ComplaintForm() {
     return v;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, action = null) => {
     e.preventDefault();
     setSaving(true);
     setErrors({});
     setServerError('');
+
+    const currentScrutiny = action || form.scrutiny_result;
 
     const fixedEmail = normalizeEmail(form.email);
     if (fixedEmail !== form.email) {
@@ -352,7 +354,7 @@ export default function ComplaintForm() {
       localErrors.cnic = 'CNIC format: XXXXX-XXXXXXX-X';
     }
 
-    const needsVo = form.scrutiny_result === 'complete' && showAssignVo && !hasVerification;
+    const needsVo = currentScrutiny === 'complete' && showAssignVo && !hasVerification;
     if (needsVo && !form.verification_officer_id) {
       localErrors.verification_officer_id = 'Verification Officer select karein (Complete Registration).';
     }
@@ -367,7 +369,7 @@ export default function ComplaintForm() {
 
     try {
       const fd = new FormData();
-      const payload = { ...form, email: fixedEmail };
+      const payload = { ...form, email: fixedEmail, scrutiny_result: currentScrutiny };
       if (!payload.entry_time) {
         payload.entry_time = new Date().toISOString().slice(0, 16);
       }
@@ -943,7 +945,10 @@ export default function ComplaintForm() {
             </button>
           )}
           <button type="button" className="btn btn-outline" onClick={() => navigate(isOperator ? '/' : '/complaints')}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
+          <button type="button" className="btn btn-outline" onClick={(e) => handleSubmit(e, 'incomplete')} disabled={saving}>
+            Save as Draft
+          </button>
+          <button type="submit" className="btn btn-primary" onClick={(e) => handleSubmit(e, 'complete')} disabled={saving}>
             {saving ? 'Saving...' : (id ? 'Update Registration' : 'Complete Registration')}
           </button>
         </div>
