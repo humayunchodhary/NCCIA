@@ -31,20 +31,44 @@ class ComplaintController extends Controller
             return $existing;
         }
 
-        $file = $request->file($field);
+        $files = $request->file($field);
         $dir = public_path('uploads/complaints');
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
+
+        if (is_array($files)) {
+            $paths = [];
+            if ($existing) {
+                $decoded = json_decode($existing, true);
+                if (is_array($decoded)) {
+                    $paths = $decoded;
+                } else {
+                    $paths[] = $existing;
+                }
+            }
+            foreach ($files as $file) {
+                if ($file) {
+                    $name = Str::random(24) . '.' . ($file->getClientOriginalExtension() ?: 'bin');
+                    $file->move($dir, $name);
+                    $paths[] = 'uploads/complaints/' . $name;
+                }
+            }
+            return count($paths) > 0 ? json_encode($paths) : null;
+        }
+
+        // Single file
+        $file = $files;
         $name = Str::random(24) . '.' . ($file->getClientOriginalExtension() ?: 'bin');
         $file->move($dir, $name);
 
-        if ($existing && is_file(public_path($existing))) {
+        if ($existing && !json_decode($existing) && is_file(public_path($existing))) {
             @unlink(public_path($existing));
         }
 
         return 'uploads/complaints/' . $name;
     }
+
 
     /** @deprecated use uploadComplaintFile */
     protected function uploadAttachment(Request $request, ?Complaint $complaint = null): ?string

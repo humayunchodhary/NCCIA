@@ -126,10 +126,7 @@ const initialForm = {
   platform_mobile_involved: '',
   evidence: [],
   initial_accused: [],
-  operator_name: '',
-  operator_designation: '',
   entry_time: '',
-  operator_remarks: '',
   source: '',
   scrutiny_result: 'complete',
   verification_officer_id: '',
@@ -153,7 +150,7 @@ export default function ComplaintForm() {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
-  const [attachmentFile, setAttachmentFile] = useState(null);
+  const [attachmentFiles, setAttachmentFiles] = useState([]);
   const [cnicFrontFile, setCnicFrontFile] = useState(null);
   const [cnicBackFile, setCnicBackFile] = useState(null);
   const [passportFile, setPassportFile] = useState(null);
@@ -425,7 +422,9 @@ export default function ComplaintForm() {
           fd.append(k, v);
         }
       });
-      if (attachmentFile) fd.append('attachment', attachmentFile);
+      if (attachmentFiles && attachmentFiles.length > 0) {
+        attachmentFiles.forEach(file => fd.append('attachment[]', file));
+      }
       if (cnicFrontFile) fd.append('cnic_front', cnicFrontFile);
       if (cnicBackFile) fd.append('cnic_back', cnicBackFile);
       if (passportFile) fd.append('passport_attachment', passportFile);
@@ -709,9 +708,6 @@ export default function ComplaintForm() {
               </div>
             )}
 
-            <div className="cf-row-2" style={{marginTop: 12}}>
-              {renderField('Mobile No. Involved', 'platform_mobile_involved', { placeholder: 'Mobile number on platform' })}
-            </div>
           </div>
         </div>
 
@@ -865,24 +861,6 @@ export default function ComplaintForm() {
           </div>
         </div>
 
-        <div className="cf-section">
-          <div className="cf-section-header">
-            <div className="cf-section-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-            <div><div className="cf-section-title">Front Desk Officer / Scrutiny</div><div className="cf-section-sub">Entry and scrutiny details</div></div>
-            <div className="cf-section-badge">Step 7</div>
-          </div>
-          <div className="cf-body">
-            <div className="cf-row-2">
-              {renderField('FDO Name', 'operator_name', { readOnly: true })}
-              {renderField('FDO Designation', 'operator_designation', { readOnly: true })}
-            </div>
-            <div className="cf-row-2">
-              {renderField('Entry Time', 'entry_time', { type: 'datetime-local', readOnly: true })}
-              {renderField('FDO Remarks', 'operator_remarks')}
-            </div>
-
             {showAssignVo && (
               <div className="cf-section" style={{ marginTop: 16, border: '1px solid #bfdbfe', borderRadius: 10 }}>
                 <div className="cf-section-header" style={{ background: 'rgba(1,92,148,0.06)' }}>
@@ -931,27 +909,28 @@ export default function ComplaintForm() {
               </div>
               <div className="cf-body">
                 <div className="cf-field">
-                  <label className="cf-label">Other Supporting Document</label>
+                  <label className="cf-label">Other Supporting Documents</label>
                   {existingAttachment && (
                     <div style={{ marginBottom: 8, fontSize: 13 }}>
-                      Current file:{' '}
-                      <a href={existingAttachment} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open attachment ↗</a>
+                      Current files:{' '}
+                      {Array.isArray(existingAttachment) ? existingAttachment.map((url, i) => (
+                         <div key={i}><a href={url} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open attachment {i+1} ↗</a></div>
+                      )) : (
+                         <a href={existingAttachment} target="_blank" rel="noreferrer" style={{ color: '#015C94', fontWeight: 600 }}>Open attachment ↗</a>
+                      )}
                     </div>
                   )}
-                  {!isOperator && (
-                    <input
-                      type="file"
-                      className="cf-input"
-                      accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
-                      onChange={e => setAttachmentFile(e.target.files[0] || null)}
-                    />
-                  )}
-                  <span className="cf-hint">Optional extra file (PDF, image, Word, Excel).</span>
+                  <input
+                    type="file"
+                    multiple
+                    className="cf-input"
+                    accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={e => setAttachmentFiles(Array.from(e.target.files))}
+                  />
+                  <span className="cf-hint">Optional extra files (PDF, image, Word, Excel). Hold Ctrl to select multiple.</span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
         {serverError && (
           <div className="cf-alert cf-alert-error">{serverError}</div>

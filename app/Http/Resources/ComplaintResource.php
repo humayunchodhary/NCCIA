@@ -101,7 +101,7 @@ class ComplaintResource extends JsonResource
             'circle_id'            => $this->circle_id,
             'circle_name'          => $this->whenLoaded('circle', fn () => $this->circle?->name),
             'attachment'           => $this->attachment,
-            'attachment_url'       => $this->attachment ? url($this->attachment) : null,
+            'attachment_url'       => $this->attachment ? (is_array(json_decode($this->attachment, true)) ? array_map(fn($p) => url($p), json_decode($this->attachment, true)) : url($this->attachment)) : null,
             'cnic_front'           => $this->cnic_front,
             'cnic_front_url'       => $this->cnic_front ? url($this->cnic_front) : null,
             'cnic_back'            => $this->cnic_back,
