@@ -121,10 +121,10 @@ export default function VerificationReportForm() {
 
 const [form, setForm] = useState({    tracking_no: '',
     complaint_id: '',
-    registration_at: '',
-    assignment_date: '',
-    verification_date: '',
-    victim_name: '',
+      registration_at: '',
+      assignment_date: '',
+      verification_date: toLocalInput(new Date()),
+      victim_name: '',
     victim_father_name: '',
     victim_occupation: '',
     victim_gender: '',
@@ -200,7 +200,7 @@ const [form, setForm] = useState({    tracking_no: '',
           tracking_no: d.tracking_no || '',
           registration_at: toLocalInput(d.registration_at || d.complaint?.created_at || d.complaint?.entry_time),
           assignment_date: toLocalInput(d.assignment_date),
-          verification_date: toLocalInput(d.verification_date),
+          verification_date: toLocalInput(d.verification_date || new Date()),
           victim_name: d.victim_name || '',
           victim_father_name: d.victim_father_name || '',
           victim_occupation: d.victim_occupation || '',
@@ -270,7 +270,7 @@ const [form, setForm] = useState({    tracking_no: '',
       complaint_id: comp.id,
       registration_at: toLocalInput(comp.entry_time || comp.created_at),
       assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
-      verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
+      verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at || new Date()) || f.verification_date,
       victim_name: comp.complainant_name || '',
       victim_father_name: comp.father_name || '',
       victim_cnic: comp.cnic || '',
@@ -325,7 +325,7 @@ const handleTrackingChange = (e) => {
         complaint_id: comp.id,
         registration_at: toLocalInput(comp.entry_time || comp.created_at),
         assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
-        verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
+        verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at || new Date()) || f.verification_date,
         victim_name: comp.complainant_name || '',
         victim_father_name: comp.father_name || '',
         victim_cnic: comp.cnic || '',
@@ -565,7 +565,7 @@ const handleTrackingChange = (e) => {
               <div className="cf-field">
                 <label className="cf-label">Verification Date &amp; Time</label>
                 <div className="cf-input-wrap">
-                  <input type="datetime-local" className="cf-input" name="verification_date" value={form.verification_date} onChange={setF('verification_date')} />
+                  <input type="datetime-local" className="cf-input" name="verification_date" value={form.verification_date} onChange={setF('verification_date')} readOnly style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}} />
                 </div>
                 <span className="cf-hint">When verification was completed / complainant appeared</span>
               </div>
