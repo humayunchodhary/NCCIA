@@ -111,12 +111,12 @@ class ComplaintController extends Controller
                 $qq->where('tracking_no', 'like', "{$search}%")
                     ->orWhere('diary_no', 'like', "{$search}%")
                     ->orWhere('cnic', 'like', "{$search}%")
-                    ->orWhere('complainant_name', 'like', "%{$search}%")
+                    ->orWhere('complainant_name', 'like', "{$search}%") // Optimized for B-Tree index
                     ->orWhere('id', $search);
             });
         }
 
-        $complaints = $query->latest('id')->paginate($perPage)->withQueryString();
+        $complaints = $query->latest('id')->simplePaginate($perPage)->withQueryString();
 
         if (request()->expectsJson()) {
             return ComplaintResource::collection($complaints);

@@ -66,7 +66,7 @@ export default function Complaints() {
     setLoading(true);
     api.get(`/complaints?page=${p}&per_page=15`).then(r => {
       setList(r.data.data || r.data || []);
-      setMeta(r.data.meta || { current_page: p, last_page: 1, total: (r.data.data || []).length });
+      setMeta({ ...(r.data.meta || { current_page: p }), links: r.data.links || {} });
     }).finally(() => setLoading(false));
   };
 
@@ -266,12 +266,12 @@ export default function Complaints() {
               </tbody>
             </table>
           </div>
-          {meta.last_page > 1 && (
+          {(meta.links?.next || meta.links?.prev || page > 1) && (
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderTop:'1px solid #e2e8f0',fontSize:13}}>
-              <span style={{color:'#64748b'}}>Total {meta.total || 0} · Page {meta.current_page} / {meta.last_page}</span>
+              <span style={{color:'#64748b'}}>Page {meta.current_page || page} {meta.total ? `(Total ${meta.total})` : ''}</span>
               <div style={{display:'flex',gap:8}}>
-                <button type="button" className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
-                <button type="button" className="btn btn-outline btn-sm" disabled={page >= meta.last_page} onClick={() => setPage(p => p + 1)}>Next</button>
+                <button type="button" className="btn btn-outline btn-sm" disabled={!meta.links?.prev && page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</button>
+                <button type="button" className="btn btn-outline btn-sm" disabled={!meta.links?.next} onClick={() => setPage(p => p + 1)}>Next</button>
               </div>
             </div>
           )}
