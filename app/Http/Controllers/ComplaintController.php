@@ -306,83 +306,87 @@ public function create()
 
     private function storeComplaint(StoreComplaintRequest $request)
     {
-        $data = $request->validated();
-        $officerId = $data['verification_officer_id'] ?? null;
-        $assignPriority = $data['assign_priority_type'] ?? ($data['priority_type'] ?? 'normal');
-        unset($data['verification_officer_id'], $data['assign_priority_type']);
+        try {
+            $data = $request->validated();
+            $officerId = $data['verification_officer_id'] ?? null;
+            $assignPriority = $data['assign_priority_type'] ?? ($data['priority_type'] ?? 'normal');
+            unset($data['verification_officer_id'], $data['assign_priority_type']);
 
-        $data['laws'] = $request->has('laws') ? $request->laws : null;
-        $data['evidence'] = $request->has('evidence') ? $request->evidence : null;
-        $data['platforms'] = $request->has('platforms') ? $request->platforms : null;
-        $data['crime_mediums'] = $request->has('crime_mediums') ? $request->crime_mediums : null;
-        if ($request->has('initial_accused')) {
-            $accused = $request->input('initial_accused');
-            $data['initial_accused'] = is_string($accused) ? (json_decode($accused, true) ?: []) : $accused;
-        }
-        $data['initial_accused'] = $this->applyAccusedIdentityFiles($request, $data['initial_accused'] ?? null);
-        $data['user_id'] = Auth::id();
-        $data['operator_id'] = $data['operator_id'] ?? Auth::id();
-        $data['operator_name'] = $data['operator_name'] ?? Auth::user()?->name ?? 'System';
-        $data['operator_designation'] = $data['operator_designation'] ?? Auth::user()?->designation ?? 'Operator';
-        // Bind complaint to operator's circle so same-circle CI (e.g. Lahore) receives work
-        if (empty($data['circle_id']) && Auth::user()?->circle_id) {
-            $data['circle_id'] = Auth::user()->circle_id;
-        }
-        $data['attachment'] = $this->uploadComplaintFile($request, 'attachment');
-        $data['cnic_front'] = $this->uploadComplaintFile($request, 'cnic_front');
-        $data['cnic_back'] = $this->uploadComplaintFile($request, 'cnic_back');
-        $data['passport_attachment'] = $this->uploadComplaintFile($request, 'passport_attachment');
-        $data['picture'] = $this->uploadComplaintFile($request, 'picture');
+            $data['laws'] = $request->has('laws') ? $request->laws : null;
+            $data['evidence'] = $request->has('evidence') ? $request->evidence : null;
+            $data['platforms'] = $request->has('platforms') ? $request->platforms : null;
+            $data['crime_mediums'] = $request->has('crime_mediums') ? $request->crime_mediums : null;
+            if ($request->has('initial_accused')) {
+                $accused = $request->input('initial_accused');
+                $data['initial_accused'] = is_string($accused) ? (json_decode($accused, true) ?: []) : $accused;
+            }
+            $data['initial_accused'] = $this->applyAccusedIdentityFiles($request, $data['initial_accused'] ?? null);
+            $data['user_id'] = Auth::id();
+            $data['operator_id'] = $data['operator_id'] ?? Auth::id();
+            $data['operator_name'] = $data['operator_name'] ?? Auth::user()?->name ?? 'System';
+            $data['operator_designation'] = $data['operator_designation'] ?? Auth::user()?->designation ?? 'Operator';
+            // Bind complaint to operator's circle so same-circle CI (e.g. Lahore) receives work
+            if (empty($data['circle_id']) && Auth::user()?->circle_id) {
+                $data['circle_id'] = Auth::user()->circle_id;
+            }
+            $data['attachment'] = $this->uploadComplaintFile($request, 'attachment');
+            $data['cnic_front'] = $this->uploadComplaintFile($request, 'cnic_front');
+            $data['cnic_back'] = $this->uploadComplaintFile($request, 'cnic_back');
+            $data['passport_attachment'] = $this->uploadComplaintFile($request, 'passport_attachment');
+            $data['picture'] = $this->uploadComplaintFile($request, 'picture');
 
-        $scrutinyResult = $data['scrutiny_result'] ?? null;
-        if ($scrutinyResult === 'complete') {
-            $data['status'] = 'complete';
+            $scrutinyResult = $data['scrutiny_result'] ?? null;
+            if ($scrutinyResult === 'complete') {
+                $data['status'] = 'complete';
 
-            $circle = isset($data['circle_id']) ? \App\Models\Circle::find($data['circle_id']) : null;
-            $generator = app(\App\Services\TrackingNumberGenerator::class);
+                $circle = isset($data['circle_id']) ? \App\Models\Circle::find($data['circle_id']) : null;
+                $generator = app(\App\Services\TrackingNumberGenerator::class);
 
-            $maxAttempts = 10;
-            for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-                $data['tracking_no'] = $generator->generate($circle);
-                try {
-                    $complaint = DB::transaction(function () use ($data) {
-                        return Complaint::create($data);
-                    });
-                    break;
-                } catch (\Illuminate\Database\QueryException $e) {
-                    if ($attempt >= $maxAttempts - 1 || !str_contains($e->getMessage(), 'complaints_tracking_no_unique')) {
-                        throw $e;
+                $maxAttempts = 10;
+                for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+                    $data['tracking_no'] = $generator->generate($circle);
+                    try {
+                        $complaint = DB::transaction(function () use ($data) {
+                            return Complaint::create($data);
+                        });
+                        break;
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        if ($attempt >= $maxAttempts - 1 || !str_contains($e->getMessage(), 'complaints_tracking_no_unique')) {
+                            throw $e;
+                        }
                     }
                 }
+            } else {
+                $data['status'] = 'incomplete';
+                $complaint = Complaint::create($data);
             }
-        } else {
-            $data['status'] = 'incomplete';
-            $complaint = Complaint::create($data);
-        }
 
-        if ($scrutinyResult === 'complete' && $officerId) {
-            $this->assignVerificationOfficer($complaint, (int) $officerId, $assignPriority);
-        }
+            if ($scrutinyResult === 'complete' && $officerId) {
+                $this->assignVerificationOfficer($complaint, (int) $officerId, $assignPriority);
+            }
 
-        // When complaint gets a tracking number, notify complainant immediately (WhatsApp deep-link).
-        $notify = null;
-        if ($complaint->tracking_no) {
-            $notify = app(ComplainantNotifyService::class)->notifyRegistration($complaint);
-            $complaint->refresh();
-            $this->sendComplainantSms(
-                $complaint,
-                SmsTemplates::complaintRegistered($complaint, 'en'),
-                SmsTemplates::complaintRegistered($complaint, 'ur'),
-                'complaint_registered'
-            );
-        }
+            // When complaint gets a tracking number, notify complainant immediately (WhatsApp deep-link).
+            $notify = null;
+            if ($complaint->tracking_no) {
+                $notify = app(ComplainantNotifyService::class)->notifyRegistration($complaint);
+                $complaint->refresh();
+                $this->sendComplainantSms(
+                    $complaint,
+                    SmsTemplates::complaintRegistered($complaint, 'en'),
+                    SmsTemplates::complaintRegistered($complaint, 'ur'),
+                    'complaint_registered'
+                );
+            }
 
-        if ($request->expectsJson()) {
             return response()->json([
-                'message' => 'Complaint registered successfully' . ($complaint->tracking_no ? ' — ' . $complaint->tracking_no : ''),
-                'data' => new ComplaintResource($complaint->load('verification')),
+                'message' => 'Complaint successfully registered',
+                'data' => new ComplaintResource($complaint),
                 'complainant_notify' => $notify,
             ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'DEBUG ERROR: ' . $e->getMessage() . ' at Line: ' . $e->getLine() . ' File: ' . $e->getFile()
+            ], 500);
         }
 
         return redirect()->route('dashboard')
