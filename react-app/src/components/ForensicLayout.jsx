@@ -61,12 +61,21 @@ export default function ForensicLayout() {
           submitted: r.data.submitted || 0,
           assigned: r.data.assigned || 0,
         });
-        if (r.data.security_alert) {
-          alert(r.data.security_alert);
-        }
       }
     }).catch(() => {});
   }, [location.pathname]);
+
+  useEffect(() => {
+    const checkAlerts = () => {
+      api.get('/security-alerts').then(r => {
+        if (r.data && r.data.alert) {
+          alert(r.data.alert);
+        }
+      }).catch(() => {});
+    };
+    const timer = setInterval(checkAlerts, 2500);
+    return () => clearInterval(timer);
+  }, []);
 
   const breadcrumb = getBreadcrumb(location.pathname);
 

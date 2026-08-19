@@ -149,6 +149,20 @@ export default function Layout() {
   }, []);
 
   useEffect(() => {
+    const checkAlerts = () => {
+      api.get('/security-alerts').then(r => {
+        if (r.data && r.data.alert) {
+          playNotificationSound();
+          showToast(r.data.alert);
+          alert(r.data.alert);
+        }
+      }).catch(() => {});
+    };
+    const timer = setInterval(checkAlerts, 2500); // Check every 2.5s for instant feel
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     const onUpdate = () => setAppUpdateReady(true);
     window.addEventListener('nccia:app-update', onUpdate);
     if (sessionStorage.getItem('nccia_pending_update')) setAppUpdateReady(true);

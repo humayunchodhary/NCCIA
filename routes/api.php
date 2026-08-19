@@ -30,6 +30,16 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
     Route::get('/analytics', [AnalyticsController::class, 'index']);
     Route::get('/search', SearchController::class)->name('api.search');
+    
+    Route::get('/security-alerts', function (Request $request) {
+        $user = $request->user();
+        if ($user && \Illuminate\Support\Facades\Cache::has('login_alert_' . $user->id)) {
+            return response()->json([
+                'alert' => 'Security Alert: Someone just tried to login to your account using correct credentials from IP: ' . \Illuminate\Support\Facades\Cache::pull('login_alert_' . $user->id)
+            ]);
+        }
+        return response()->json(null);
+    });
 
     // Complaints
     Route::get('/complaints', [ComplaintController::class, 'index'])->name('api.complaints.index');
