@@ -93,7 +93,7 @@ export default function Users() {
         setPermsTarget(r.data.user);
       }
     } catch (err) {
-      setPermError(err.response?.data?.message || err.response?.data?.error || err.message || 'Server Error');
+      setPermError(err.response?.data?.message || err.response?.data?.error || err.message || 'An unexpected error occurred');
     } finally {
       setSavingPerm(null);
     }

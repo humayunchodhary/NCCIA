@@ -28,6 +28,12 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const { config, response } = error;
+    
+    // Globally replace the generic "Server Error" message from Laravel
+    if (response && response.data && response.data.message === 'Server Error') {
+      response.data.message = 'An unexpected error occurred. Please try again or contact admin.';
+    }
+
     if (response && response.status === 419 && !config._retried) {
       config._retried = true;
       csrfReady = false;
