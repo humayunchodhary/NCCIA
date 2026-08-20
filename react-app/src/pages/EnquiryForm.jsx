@@ -35,7 +35,8 @@ const LEGAL_DECISIONS = ['agree', 'disagree', 'review'];
 const ACTIVITY_TYPES = [
   { value: 'dac_request', name: 'DAC (Departmental Accounts Committee)' },
   { value: 'bank_record', name: 'Bank Enquiry' },
-  { value: 'search_seize', name: 'Search Operation' },
+  { value: 'search_seize', name: 'Search Operation / Warrant' },
+  { value: 'raid', name: 'Raid Permission / Operation' },
   { value: 'notices', name: 'Summon Issued' },
   { value: 'diaries', name: 'Diary Entry' },
   { value: 'seizures', name: 'Seizure Memo' },
@@ -678,6 +679,19 @@ export default function EnquiryForm() {
     }
   };
 
+  const printActivityForensicRequest = (act) => {
+    if (!id) { alert('Pehle enquiry save karein, phir print karein.'); return; }
+    const devices = (act.seize_items || [])
+      .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
+      .map(it => ({
+        type: it.item_type || 'Digital Device',
+        model: it.make_model || '—',
+        imei: it.imei || it.serial_no || 'N/A',
+      }));
+    const analysisScope = (act.analysis_scope || '').trim();
+    printDocument('forensic-request-print', { devices: JSON.stringify(devices), analysis_scope: analysisScope });
+  };
+
   const printForensicRequest = () => {
     const scope = window.prompt('Enter Analysis Scope (For Forensic Lab) or leave blank for default:', '') ?? '';
     const devices = [];
@@ -1131,16 +1145,7 @@ export default function EnquiryForm() {
           {id && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => printDocument('cfr-print')} title="Print Confidential Final Report">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> CFR
-              </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => printDocument('search-warrant-print')} title="Print Search Warrant U/S 33">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Warrant
-              </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={printRaidPermission} title="Print Raid Permission">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Raid
-              </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={printForensicRequest} title="Print Forensic Request">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Forensic
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print CFR
               </button>
             </div>
           )}
@@ -2122,12 +2127,32 @@ export default function EnquiryForm() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                         <div>
                           <strong style={{ fontSize: 13.5, color: '#015C94', display: 'block' }}>📦 Seized Evidence &amp; Digital Devices</strong>
-                          <span style={{ fontSize: 11, color: '#64748b' }}>Enter all seized items below and submit directly to AD Forensic or Technical Department.</span>
+                          <span style={{ fontSize: 11, color: '#64748b' }}>Enter seized items, set analysis scope, and print or submit directly to Forensic Lab.</span>
                         </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>
                             + Add Item
                           </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{ color: '#015C94', borderColor: '#015C94', fontWeight: 600 }}
+                            onClick={() => printActivityForensicRequest(a)}
+                            title="Print official Forensic Analysis Request letter for these seized items"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Forensic Letter
+                          </button>
+                          {a.type === 'search_seize' && (
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              style={{ color: '#475569', borderColor: '#94a3b8', fontWeight: 600 }}
+                              onClick={() => printDocument('search-warrant-print')}
+                              title="Print Search Warrant U/S 33 PECA"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Search Warrant
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
@@ -2196,12 +2221,33 @@ export default function EnquiryForm() {
                         </div>
                       ))}
 
-                      
-                        {(a.seize_items || []).length === 0 && (
-                        <p style={{ margin: 0, fontSize: 12, color: '#888' }}>No seized items entered yet. Click "+ Add Item".</p>
+                      {(a.seize_items || []).length === 0 && (
+                        <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#888' }}>No seized items entered yet. Click "+ Add Item".</p>
                       )}
+
+                      <div className="cf-field" style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
+                        <label className="cf-label"><strong>Analysis Scope (For Forensic Lab)</strong></label>
+                        <textarea
+                          className="cf-input"
+                          rows={2}
+                          placeholder="e.g. Conduct forensic examination and data extraction to identify Facebook IDs, communication chats, emails, media..."
+                          value={a.analysis_scope || ''}
+                          onChange={e => updateActivity(i, 'analysis_scope', e.target.value)}
+                          style={{ width: '100%' }}
+                        />
+                        <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>Ye scope text official Forensic Request PDF letter mein print hoga.</span>
+                      </div>
                     </div>
                   )}
+
+                  {a.type === 'raid' && (
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={printRaidPermission}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Raid Permission
+                      </button>
+                    </div>
+                  )}
+
                   {a.type === 'diaries' && (
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => printDiary(a)}>
