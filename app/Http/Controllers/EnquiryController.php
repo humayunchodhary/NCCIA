@@ -755,11 +755,18 @@ class EnquiryController extends Controller
 
         $q = Enquiry::visibleTo(request()->user());
 
+        $statsRow = (clone $q)->toBase()
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN status = 'registered' THEN 1 ELSE 0 END) as pending")
+            ->selectRaw("SUM(CASE WHEN status IN ('assigned', 'in_progress') THEN 1 ELSE 0 END) as progress")
+            ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved")
+            ->first();
+
         $stats = [
-            'total'    => (clone $q)->count(),
-            'pending'  => (clone $q)->where('status', 'registered')->count(),
-            'progress' => (clone $q)->whereIn('status', ['assigned', 'in_progress'])->count(),
-            'approved' => (clone $q)->where('status', 'approved')->count(),
+            'total'    => (int) ($statsRow->total ?? 0),
+            'pending'  => (int) ($statsRow->pending ?? 0),
+            'progress' => (int) ($statsRow->progress ?? 0),
+            'approved' => (int) ($statsRow->approved ?? 0),
         ];
 
         if (request()->expectsJson()) {
@@ -775,11 +782,18 @@ class EnquiryController extends Controller
 
         $q = Enquiry::visibleTo(request()->user());
 
+        $statsRow = (clone $q)->toBase()
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN status = 'registered' THEN 1 ELSE 0 END) as pending")
+            ->selectRaw("SUM(CASE WHEN status IN ('assigned', 'in_progress', 'cfr_submitted', 'referred_court', 'legal_review_dd', 'legal_review_ad', 'legal_review_dg') THEN 1 ELSE 0 END) as progress")
+            ->selectRaw("SUM(CASE WHEN status IN ('approved', 'case_registered', 'closed', 'transferred') THEN 1 ELSE 0 END) as approved")
+            ->first();
+
         return response()->json([
-            'total'    => (clone $q)->count(),
-            'pending'  => (clone $q)->where('status', 'registered')->count(),
-            'progress' => (clone $q)->whereIn('status', ['assigned', 'in_progress', 'cfr_submitted', 'referred_court', 'legal_review_dd', 'legal_review_ad', 'legal_review_dg'])->count(),
-            'approved' => (clone $q)->whereIn('status', ['approved', 'case_registered', 'closed', 'transferred'])->count(),
+            'total'    => (int) ($statsRow->total ?? 0),
+            'pending'  => (int) ($statsRow->pending ?? 0),
+            'progress' => (int) ($statsRow->progress ?? 0),
+            'approved' => (int) ($statsRow->approved ?? 0),
         ]);
     }
 
