@@ -797,7 +797,7 @@ class PrintService
 
         // Accused List
         $accList = $enquiry->accusedPersons;
-        $accRows$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
+        $analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
         $accRows = '';
         if ($accList && $accList->count() > 0) {
             foreach ($accList as $i => $acc) {
@@ -811,8 +811,7 @@ class PrintService
         $briefContents = e($enquiry->charge_against ?: ($enquiry->complaint?->description ? \Illuminate\Support\Str::limit($enquiry->complaint->description, 160) : 'alleged cybercrime offences.'));
 
         // Seized Devices Table
-        $deviceRows$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
-        $accRows = '';
+        $deviceRows = '';
         if (count($devices) > 0) {
             foreach ($devices as $i => $dev) {
                 $n = $i + 1;
