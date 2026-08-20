@@ -532,7 +532,7 @@ export default function EnquiryForm() {
   const updateRequisition = (i, field, value) => setForm(f => ({ ...f, requisitions: f.requisitions.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [] }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '' }] }));
   const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
   const updateActivity = (i, field, value) => setForm(f => ({
     ...f,
@@ -681,8 +681,10 @@ export default function EnquiryForm() {
   const printForensicRequest = () => {
     // Extract devices from all activities that have seize_items
     const devices = [];
+      let analysisScope = '';
     form.activities.forEach(a => {
-      if (a.seize_items && a.seize_items.length > 0) {
+      if (a.analysis_scope) analysisScope += a.analysis_scope + '\n';
+        if (a.seize_items && a.seize_items.length > 0) {
         a.seize_items.forEach(si => {
           devices.push({
             type: si.item_type || 'Digital Device',
@@ -692,7 +694,7 @@ export default function EnquiryForm() {
         });
       }
     });
-    printDocument('forensic-request-print', { devices: JSON.stringify(devices) });
+    printDocument('forensic-request-print', { devices: JSON.stringify(devices), analysis_scope: analysisScope.trim() });
   };
 
   const printRaidPermission = () => {
@@ -810,6 +812,9 @@ export default function EnquiryForm() {
       const fd = new FormData();
       fd.append('enquiry_id', String(id));
       fd.append('destination', destination);
+        fd.append('brief_contents', form.brief_allegation || '');
+      fd.append('brief_contents', form.brief_allegation || '');
+      fd.append('analysis_scope', act.analysis_scope || '');
       fd.append('note', note);
       fd.append('items', JSON.stringify(seizeItems.length ? seizeItems : [{
         item_type: 'report',
@@ -856,6 +861,9 @@ export default function EnquiryForm() {
       const fd = new FormData();
       fd.append('enquiry_id', String(id));
       fd.append('destination', destination);
+        fd.append('brief_contents', form.brief_allegation || '');
+      fd.append('brief_contents', form.brief_allegation || '');
+      fd.append('analysis_scope', act.analysis_scope || '');
       fd.append('note', act.description || `Seizure memo evidence submitted for ${destination === 'forensic' ? 'forensic' : 'technical'} examination.`);
       fd.append('items', JSON.stringify(items.length ? items : [{
         item_type: 'other',
@@ -2190,7 +2198,8 @@ export default function EnquiryForm() {
                         </div>
                       ))}
 
-                      {(a.seize_items || []).length === 0 && (
+                      <div className="cf-field" style={{ marginTop: 12 }}><label className="cf-label">Analysis Scope (For Forensic Lab)</label><textarea className="cf-input" rows={2} placeholder="Social Media Profile URL: 1. Facebook, 2. Instagram..." value={a.analysis_scope || ''} onChange={e => updateActivity(i, 'analysis_scope', e.target.value)} style={{ width: '100%' }} /></div>
+                        {(a.seize_items || []).length === 0 && (
                         <p style={{ margin: 0, fontSize: 12, color: '#888' }}>No seized items entered yet. Click "+ Add Item".</p>
                       )}
                     </div>
@@ -2385,11 +2394,12 @@ export default function EnquiryForm() {
                 {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS, required: true })}
               </div>
               {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
+              {renderField('Brief Allegation', 'brief_allegation', { rows: 3, placeholder: 'Brief details of the allegation...' })}
               {renderField('Charge Against', 'charge_against', { rows: 3, placeholder: 'Charges framed against accused...' })}
               {renderField('Oral Evidence', 'oral_evidence', { rows: 3, placeholder: 'Summary of oral evidence...' })}
               {renderField('Documentary Evidence', 'documentary_evidence', { rows: 3, placeholder: 'List of documentary evidence...' })}
               {renderField('Plea', 'plea', { rows: 2, placeholder: 'Plea of accused...' })}
-              {renderField('Conclusion', 'conclusion', { rows: 3, placeholder: 'Investigation conclusion...' })}
+              {renderField('Conclusion of Enquiry Officer with convincing reasons against alleged', 'conclusion', { rows: 3, placeholder: 'Investigation conclusion...' })}
               {renderField('CFR Summary', 'cfr_summary', {
                 rows: 4,
                 required: true,
@@ -2498,3 +2508,4 @@ export default function EnquiryForm() {
     </div>
   );
 }
+

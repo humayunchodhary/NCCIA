@@ -269,7 +269,18 @@ export default function ForensicRequestDetail() {
           <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>\uD83D\uDCCB Dispatch Memo &amp; Examination Request</div>
         </div>
         <div className="card-body" style={{padding:'14px 18px'}}>
-          <div style={{whiteSpace:'pre-wrap',fontSize:13.5,lineHeight:1.6,color:'#1e293b'}}>{row.note||'No special dispatch memo notes provided.'}</div>
+          <div style={{marginBottom:14}}>
+            <span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Brief Contents of the Case:</span>
+            <div style={{whiteSpace:'pre-wrap',fontSize:13.5,lineHeight:1.6,color:'#1e293b'}}>{row.brief_contents||'N/A'}</div>
+          </div>
+          <div style={{marginBottom:14}}>
+            <span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Scope for Forensic Analysis:</span>
+            <div style={{whiteSpace:'pre-wrap',fontSize:13.5,lineHeight:1.6,color:'#1e293b'}}>{row.analysis_scope||'N/A'}</div>
+          </div>
+          <div>
+            <span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Memo Notes:</span>
+            <div style={{whiteSpace:'pre-wrap',fontSize:13.5,lineHeight:1.6,color:'#1e293b'}}>{row.note||'No special dispatch memo notes provided.'}</div>
+          </div>
         </div>
       </div>
 
@@ -458,7 +469,7 @@ export default function ForensicRequestDetail() {
       <div id="f31PrintArea" style={{display:'none'}}>
         <div style={{textAlign:'center',marginBottom:14,borderBottom:'2px solid #000',paddingBottom:10}}>
           <div style={{fontSize:13,fontWeight:'bold'}}>National Response Centre for Cyber Crimes (NR3C)</div>
-          <div style={{fontSize:11}}>Federal Investigation Agency (FIA) | Digital Forensic Lab Lahore</div>
+          <div style={{fontSize:11}}>National Cyber Crime Investigation Agency (FIA) | Digital Forensic Lab Lahore</div>
           <div style={{fontSize:14,fontWeight:'bold',marginTop:6,textDecoration:'underline'}}>Chain of Custody Form (F-31)</div>
         </div>
 

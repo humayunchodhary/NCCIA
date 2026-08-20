@@ -28,7 +28,7 @@ class ImportComplaintPdfs extends Command
                             {--limit=0 : Max PDFs this run (0 = all)}
                             {--dry-run : List matching PDFs only, do not import}';
 
-    protected $description = 'Bulk import FIA/NCCIA verification PDFs (hierarchical: Circle -> IO -> Moharar). Use --in-place for 100k+ batches.';
+    protected $description = 'Bulk import NCCIA verification PDFs (hierarchical: Circle -> IO -> Moharar). Use --in-place for 100k+ batches.';
 
     public function handle(ComplaintPdfImportService $service): int
     {

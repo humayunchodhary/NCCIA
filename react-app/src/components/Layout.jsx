@@ -989,7 +989,7 @@ export default function Layout() {
                 <>
                   <div className="cf-group">
                     <label className="cf-label">Transfer Department <span className="required">*</span></label>
-                    <input type="text" className="cf-input" value={layoutActionForm.transfer_department} onChange={e => setLayoutActionForm(f => ({...f, transfer_department: e.target.value}))} placeholder="e.g. FIA, Police" required />
+                    <input type="text" className="cf-input" value={layoutActionForm.transfer_department} onChange={e => setLayoutActionForm(f => ({...f, transfer_department: e.target.value}))} placeholder="e.g. NCCIA, Police" required />
                   </div>
                   <div className="cf-group">
                     <label className="cf-label">Transfer Circle</label>

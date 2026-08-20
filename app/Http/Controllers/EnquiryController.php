@@ -1136,7 +1136,7 @@ class EnquiryController extends Controller
         }
 
         return response()->json([
-            'html' => $print->forensicRequestPrintDocument($enquiry, is_array($devices) ? $devices : []),
+            'html' => $print->forensicRequestPrintDocument($enquiry, is_array($devices) ? $devices : [], $request->input('analysis_scope', '')),
         ]);
     }
 

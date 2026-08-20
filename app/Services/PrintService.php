@@ -650,7 +650,7 @@ class PrintService
         $serviceStatus = 'Private person(s) / Not in government service.';
 
         // 6: Brief allegation
-        $briefAllegation = nl2br(e($enquiry->complaint?->description ?: ($enquiry->cfr_summary ?: 'The complainant alleged fraudulent and cyber offense activities.')));
+        $briefAllegation = nl2br(e($enquiry->brief_allegation ?: ($enquiry->complaint?->description ?: ($enquiry->cfr_summary ?: 'The complainant alleged fraudulent and cyber offense activities.'))));
 
         // 7: Charge against alleged
         $chargeAgainst = nl2br(e($enquiry->charge_against ?: 'Offence under Prevention of Electronic Crimes Act (PECA) 2016.'));
@@ -780,7 +780,7 @@ class PrintService
     /**
      * Printable Request for Providing Forensic Analysis Report matching PDF Page 3.
      */
-    public function forensicRequestPrintDocument(Enquiry $enquiry, array $devices = []): string
+    public function forensicRequestPrintDocument(Enquiry $enquiry, array $devices = [], string $analysisScope = ''): string
     {
         $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
 
@@ -864,13 +864,7 @@ class PrintService
 
             <div class="sec-title" style="margin-top: 14px;">SCOPE FOR FORENSIC ANALYSIS</div>
             <p><strong>YOU ARE REQUESTED TO CONDUCT FORENSIC EXAMINATION AND PROVIDE REPORT ON THE FOLLOWING SCOPE:</strong></p>
-            <p style="margin: 4px 0;">Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.</p>
-            <div style="margin: 4px 0 10px 0;">
-              <strong>Social Media Profile URL:</strong><br/>
-              1. Facebook: ________________________________________________<br/>
-              2. Instagram: ________________________________________________<br/>
-              3. Twitter: __________________________________________________
-            </div>
+            <p style="margin: 4px 0;">" . ($analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________") . "</p>
 
             <p style="margin-top: 10px;">
               It is therefore requested that the allied forensic analysis report, as per the above scope, may kindly be furnished at the earliest to enable the undersigned to finalize the instant case/enquiry on merit, please.
@@ -1022,7 +1016,7 @@ class PrintService
         $accFather  = e($firstAcc?->father_name ?: '');
         $accAddr    = e($firstAcc?->address ?: 'subject cited location');
         $accStr     = $accName . ($accFather ? ' S/O ' . $accFather : '') . ($accAddr ? ' R/O ' . $accAddr : '');
-        $allegation = e($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access'));
+        $allegation = e($enquiry->brief_allegation ?: ($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access')));
 
         $body = <<<HTML
         <div class="warrant-doc">
@@ -1140,4 +1134,5 @@ class PrintService
         return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' . $css . '</style></head><body>' . $body . '</body></html>';
     }
 }
+
 

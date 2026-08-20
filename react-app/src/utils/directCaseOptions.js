@@ -13,7 +13,7 @@ export const HIGH_PROFILE_TYPES = [
 export const DEPARTMENT_TYPES = [
   { value: 'Individual', name: 'Individual' },
   { value: 'Police', name: 'Police' },
-  { value: 'FIA', name: 'FIA' },
+  { value: 'NCCIA', name: 'NCCIA' },
   { value: 'NAB', name: 'NAB' },
   { value: 'Court', name: 'Court' },
   { value: 'Ministry / Federal Dept', name: 'Ministry / Federal Dept' },

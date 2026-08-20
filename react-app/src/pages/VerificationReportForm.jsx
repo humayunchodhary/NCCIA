@@ -517,7 +517,7 @@ const handleTrackingChange = (e) => {
 
         {!id && (
           <PdfAutoFillBar
-            hint="Scanned FIA verification PDF se dates, complainant, gist, recommendation aur accused auto fill."
+            hint="Scanned NCCIA verification PDF se dates, complainant, gist, recommendation aur accused auto fill."
             onFilled={(extracted, file) => {
               const mapped = mapExtractToVerificationReport(extracted);
               const cat = matchLookupValue(crimeCategories, extracted.crime_category);

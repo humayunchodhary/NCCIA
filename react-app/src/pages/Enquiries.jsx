@@ -455,7 +455,7 @@ export default function Enquiries() {
                 <>
                   <div className="cf-group">
                     <label className="cf-label">Department Name</label>
-                    <input className="cf-input" value={approveForm.transfer_department} onChange={e => setApproveForm({...approveForm, transfer_department: e.target.value})} placeholder="e.g. FIA, Police" />
+                    <input className="cf-input" value={approveForm.transfer_department} onChange={e => setApproveForm({...approveForm, transfer_department: e.target.value})} placeholder="e.g. NCCIA, Police" />
                   </div>
                   <div className="cf-group">
                     <label className="cf-label">Circle</label>

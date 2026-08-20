@@ -257,7 +257,7 @@ export default function VerificationForm() {
 
       {!isEdit && (
         <PdfAutoFillBar
-          hint="FIA verification PDF upload karein — Direct/VIP case par complainant, CNIC, phone, address aur gist auto fill ho jayega."
+          hint="NCCIA verification PDF upload karein — Direct/VIP case par complainant, CNIC, phone, address aur gist auto fill ho jayega."
           onFilled={(extracted) => {
             setDirectMode(true);
             setDirect(d => mapExtractToDirectInfo(extracted, d));
@@ -493,7 +493,7 @@ export default function VerificationForm() {
               <div className="cf-row-2">
                 <div className="cf-field">
                   <label className="cf-label">Transfer Department</label>
-                  <input type="text" className="cf-input" value={form.transfer_department} onChange={setF('transfer_department')} placeholder="e.g. FIA, Police" />
+                  <input type="text" className="cf-input" value={form.transfer_department} onChange={setF('transfer_department')} placeholder="e.g. NCCIA, Police" />
                 </div>
                 <div className="cf-field">
                   <label className="cf-label">Transfer Circle</label>
