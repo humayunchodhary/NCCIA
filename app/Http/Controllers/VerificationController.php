@@ -131,8 +131,8 @@ class VerificationController extends Controller
         $stats = [
             'total'    => (clone $statsQuery)->count(),
             'pending'  => (clone $statsQuery)->where('status', 'pending_assignment')->count(),
-            'progress' => (clone $statsQuery)->whereIn('status', ['assigned', 'in_progress', 'sent_back'])->count(),
-            'approved' => (clone $statsQuery)->whereIn('status', ['submitted', 'approved'])->count(),
+            'progress' => (clone $statsQuery)->whereIn('status', ['assigned', 'in_progress', 'sent_back', 'submitted'])->count(),
+            'approved' => (clone $statsQuery)->whereIn('status', ['approved', 'closed', 'merged', 'transferred'])->count(),
         ];
 
         return view('verifications.index', compact('verifications', 'stats'));
@@ -141,18 +141,14 @@ class VerificationController extends Controller
     public function stats()
     {
         $user = request()->user();
-        $key = 'verif-stats:v1:' . $user->id;
+        $query = Verification::visibleTo($user);
 
-        return response()->json(\Illuminate\Support\Facades\Cache::remember($key, 45, function () use ($user) {
-            $query = Verification::visibleTo($user);
-
-            return [
-                'total'    => (clone $query)->count(),
-                'pending'  => (clone $query)->where('status', 'pending_assignment')->count(),
-                'progress' => (clone $query)->whereIn('status', ['assigned', 'in_progress', 'sent_back'])->count(),
-                'approved' => (clone $query)->whereIn('status', ['submitted', 'approved'])->count(),
-            ];
-        }));
+        return response()->json([
+            'total'    => (clone $query)->count(),
+            'pending'  => (clone $query)->where('status', 'pending_assignment')->count(),
+            'progress' => (clone $query)->whereIn('status', ['assigned', 'in_progress', 'sent_back', 'submitted'])->count(),
+            'approved' => (clone $query)->whereIn('status', ['approved', 'closed', 'merged', 'transferred'])->count(),
+        ]);
     }
 
     public function listReports()
