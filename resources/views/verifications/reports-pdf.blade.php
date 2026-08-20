@@ -420,17 +420,7 @@
       @endif
     </div>
 
-    <div class="ci-sub">1. Directions &amp; Notes of Circle Incharge:</div>
-    <div class="notes-box">
-      <div class="ruled-line"></div>
-      <div class="ruled-line"></div>
-      <div class="ruled-line"></div>
-      <div class="ruled-line"></div>
-      <div class="ruled-line"></div>
-      <div class="ruled-line"></div>
-    </div>
-
-    <div class="ci-sub">2. Enquiry Officer Assignment Order:</div>
+    <div class="ci-sub">1. Enquiry Officer Assignment Order:</div>
     <table class="marking-table">
       <tr>
         <td class="m-lbl">Marked / Assigned to Enquiry Officer:</td>
@@ -452,12 +442,22 @@
       Marking Date: <strong>________________________</strong>
     </div>
 
+    <div class="ci-sub" style="margin-top: 8px;">2. Directions &amp; Notes of Circle Incharge:</div>
+    <div class="notes-box">
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+      <div class="ruled-line"></div>
+    </div>
+
     <table class="ci-sig-table">
       <tr>
         <td style="width: 100%; text-align: right;">
           <div class="ci-sig-box">
             <div class="ci-sig-line"></div>
-            <strong style="font-size: 8.5pt; color: #0f172a;">Circle Incharge / Assistant Director</strong><br>
+            <strong style="font-size: 8.5pt; color: #0f172a;">Circle Incharge</strong><br>
             National Cyber Crime Investigation Agency (NCCIA)<br>
             NCCIA-RC {{ $report->creator?->circle?->city ?? 'Lahore' }}<br>
             Date: ____________________
