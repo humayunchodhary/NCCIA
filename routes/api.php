@@ -92,11 +92,13 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () 
         ->name('api.verifications.store');
     Route::get('/verifications/stats', [VerificationController::class, 'stats']);
     Route::get('/verifications/reports-list', [VerificationController::class, 'listReports']);
-    Route::post('/verifications/reports/bulk-delete', [VerificationController::class, 'bulkDestroyReports']);
+    Route::post('/verifications/reports/bulk-delete', [VerificationController::class, 'bulkDestroyReports'])
+        ->middleware('role:admin');
     Route::get('/verifications/reports/{report}', [VerificationController::class, 'showReport']);
     Route::put('/verifications/reports/{report}', [VerificationController::class, 'updateReport']);
     Route::post('/verifications/reports/{report}', [VerificationController::class, 'updateReport']);
-    Route::delete('/verifications/reports/{report}', [VerificationController::class, 'destroyReport']);
+    Route::delete('/verifications/reports/{report}', [VerificationController::class, 'destroyReport'])
+        ->middleware('role:admin');
     Route::post('/verifications/reports', [VerificationController::class, 'storeReport']);
 Route::post('/verifications/bulk-close', [VerificationController::class, 'bulkClose'])
         ->middleware('role:admin,circle_incharge,verification_officer');
@@ -150,7 +152,9 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/cases/{caseFile}', [CaseFileController::class, 'show'])->name('api.cases.show');
     Route::get('/cases/{caseFile}/officer-history', [OfficerAssignmentHistoryController::class, 'forCase']);
     Route::put('/cases/{caseFile}', [CaseFileController::class, 'update'])->name('api.cases.update');
-    Route::delete('/cases/{caseFile}', [CaseFileController::class, 'destroy'])->name('api.cases.destroy');
+    Route::delete('/cases/{caseFile}', [CaseFileController::class, 'destroy'])
+        ->middleware('role:admin')
+        ->name('api.cases.destroy');
     Route::post('/cases/{caseFile}/assign-officer', [CaseFileController::class, 'assignOfficer'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/cases/{caseFile}/submit-cfr', [CaseFileController::class, 'submitCfr']);
@@ -162,7 +166,9 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/court-cases', [CourtCaseController::class, 'store'])->name('api.court-cases.store');
     Route::get('/court-cases/{courtCase}', [CourtCaseController::class, 'show'])->name('api.court-cases.show');
     Route::put('/court-cases/{courtCase}', [CourtCaseController::class, 'update'])->name('api.court-cases.update');
-    Route::delete('/court-cases/{courtCase}', [CourtCaseController::class, 'destroy'])->name('api.court-cases.destroy');
+    Route::delete('/court-cases/{courtCase}', [CourtCaseController::class, 'destroy'])
+        ->middleware('role:admin')
+        ->name('api.court-cases.destroy');
     Route::post('/court-cases/{courtCase}/verdict', [CourtCaseController::class, 'verdict'])->name('api.court-cases.verdict');
     Route::post('/court-cases/{courtCase}/forward-report', [CourtCaseController::class, 'forwardReport'])->name('api.court-cases.forward-report');
     Route::get('/court-cases/{courtCase}/hearings', [\App\Http\Controllers\HearingController::class, 'index']);

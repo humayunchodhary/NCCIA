@@ -376,9 +376,9 @@ class VerificationController extends Controller
 
         $user = request()->user();
         abort_unless(
-            $user->hasAnyRole(['admin', 'circle_incharge'])
-                || (int) $report->created_by === (int) $user->id,
-            403
+            $user->hasRole('admin'),
+            403,
+            'Officers are not allowed to delete verification reports. Contact Administrator.'
         );
 
         $report->delete();
@@ -389,18 +389,18 @@ class VerificationController extends Controller
     public function bulkDestroyReports(Request $request)
     {
         $user = $request->user();
+        abort_unless(
+            $user->hasRole('admin'),
+            403,
+            'Officers are not allowed to delete verification reports. Contact Administrator.'
+        );
+
         $data = $request->validate([
             'ids'   => 'required|array|min:1',
             'ids.*' => 'integer|exists:verification_reports,id',
         ]);
 
         $query = VerificationReport::visibleTo($user)->whereIn('id', $data['ids']);
-
-        // Non-supervisors may only delete their own reports.
-        if (!$user->hasAnyRole(['admin', 'circle_incharge']) && !$user->seesAllData()) {
-            $query->where('created_by', $user->id);
-        }
-
         $count = $query->delete();
 
         return response()->json([
@@ -976,6 +976,10 @@ class VerificationController extends Controller
         // Merge action must not target the verification being merged.
         if ($data['action'] === 'merge' && in_array($data['merge_complaint_id'] ?? null, $data['ids'])) {
             return response()->json(['message' => 'Cannot merge a verification with itself.'], 422);
+        }
+
+        if ($data['action'] === 'delete') {
+            abort_unless($user->hasRole('admin'), 403, 'Officers are not allowed to delete verifications.');
         }
 
         $verifications = Verification::visibleTo($user)

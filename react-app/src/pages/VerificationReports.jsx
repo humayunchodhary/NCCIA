@@ -8,6 +8,7 @@ import { canEditVerificationReport } from '../utils/permissions';
 
 export default function VerificationReports() {
   const { user } = useAuth();
+  const isAdmin = !!user?.roles?.some(r => (r.name || r) === 'admin');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -29,28 +30,33 @@ export default function VerificationReports() {
   }, []);
 
   const filteredList = list.filter(r => {
-    const q = search.toLowerCase();
-    return !q
-      || r.tracking_no?.toLowerCase().includes(q)
-      || r.victim_name?.toLowerCase().includes(q)
-      || r.victim_cnic?.includes(search);
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (r.tracking_no || '').toLowerCase().includes(q) ||
+      (r.victim_name || '').toLowerCase().includes(q) ||
+      (r.victim_cnic || '').toLowerCase().includes(q) ||
+      (r.complaint?.complainant_name || '').toLowerCase().includes(q) ||
+      (r.complaint?.tracking_no || '').toLowerCase().includes(q) ||
+      (r.creator?.name || '').toLowerCase().includes(q)
+    );
   });
 
-  const selectedAll = filteredList.length > 0 && filteredList.every(r => selected.includes(r.id));
-  const selectedSome = selected.length > 0 && !selectedAll;
+  const selectedAll = isAdmin && filteredList.length > 0 && selected.length === filteredList.length;
+  const selectedSome = isAdmin && selected.length > 0 && selected.length < filteredList.length;
 
   const handleBulkDelete = async () => {
-    if (!selected.length) return;
+    if (!isAdmin || !selected.length) return;
     setDeleting(true);
     try {
       await api.post('/verifications/reports/bulk-delete', { ids: selected });
-      setList(prev => prev.filter(r => !selected.includes(r.id)));
       setSelected([]);
-      setDeleteOpen(false);
+      fetchReports();
     } catch (e) {
-      alert(e.response?.data?.message || 'Failed to delete reports');
+      alert(e.response?.data?.message || 'Delete failed');
     } finally {
       setDeleting(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -66,7 +72,7 @@ export default function VerificationReports() {
           <div className="title-underline"></div>
         </div>
         <div className="page-actions" style={{display:'flex', gap:8}}>
-          {selected.length > 0 && (
+          {isAdmin && selected.length > 0 && (
             <button
               type="button"
               className="btn btn-sm"
@@ -115,14 +121,16 @@ export default function VerificationReports() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{width:40}}>
-                    <input
-                      type="checkbox"
-                      checked={selectedAll}
-                      ref={el => { if (el) el.indeterminate = selectedSome; }}
-                      onChange={e => setSelected(e.target.checked ? filteredList.map(r => r.id) : [])}
-                    />
-                  </th>
+                  {isAdmin && (
+                    <th style={{width:40}}>
+                      <input
+                        type="checkbox"
+                        checked={selectedAll}
+                        ref={el => { if (el) el.indeterminate = selectedSome; }}
+                        onChange={e => setSelected(e.target.checked ? filteredList.map(r => r.id) : [])}
+                      />
+                    </th>
+                  )}
                   <th>#</th>
                   <th>Tracking No.</th>
                   <th>Complaint</th>
@@ -138,17 +146,19 @@ export default function VerificationReports() {
               <tbody>
                 {filteredList.map((r, i) => (
                   <tr key={r.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(r.id)}
-                        onChange={e => {
-                          const s = new Set(selected);
-                          e.target.checked ? s.add(r.id) : s.delete(r.id);
-                          setSelected([...s]);
-                        }}
-                      />
-                    </td>
+                    {isAdmin && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(r.id)}
+                          onChange={e => {
+                            const s = new Set(selected);
+                            e.target.checked ? s.add(r.id) : s.delete(r.id);
+                            setSelected([...s]);
+                          }}
+                        />
+                      </td>
+                    )}
                     <td><span style={{fontSize:'12px',color:'#6c757d'}}>{i + 1}</span></td>
                     <td><span className="table-id">{r.tracking_no}</span></td>
                     <td>
