@@ -7,19 +7,23 @@ import { hasAnyRole, hasRole } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
 
 const STATUS_LABEL = {
-  submitted:    'Pending AD Review',
-  assigned:     'Assigned to FO',
-  in_progress:  'Lab Examination',
-  report_ready: 'Report Ready',
-  handed_over:  'Handed Over to EO',
+  submitted:             'Pending CI Review',
+  forwarded_to_forensic: 'Pending AD Review',
+  assigned:              'Assigned to FO',
+  in_progress:           'Lab Examination',
+  submitted_to_ad:       'Submitted to AD',
+  report_ready:          'Report Ready',
+  handed_over:           'Handed Over to EO',
 };
 
 const STATUS_COLOR = {
-  submitted:    { bg: '#fef3c7', text: '#e5a100' },
-  assigned:     { bg: '#dbeafe', text: '#2563eb' },
-  in_progress:  { bg: '#ede9fe', text: '#7c3aed' },
-  report_ready: { bg: '#d1fae5', text: '#059669' },
-  handed_over:  { bg: '#f1f5f9', text: '#64748b' },
+  submitted:             { bg: '#fef3c7', text: '#e5a100' },
+  forwarded_to_forensic: { bg: '#fef3c7', text: '#e5a100' },
+  assigned:              { bg: '#dbeafe', text: '#2563eb' },
+  in_progress:           { bg: '#ede9fe', text: '#7c3aed' },
+  submitted_to_ad:       { bg: '#fef3c7', text: '#d97706' },
+  report_ready:          { bg: '#d1fae5', text: '#059669' },
+  handed_over:           { bg: '#f1f5f9', text: '#64748b' },
 };
 
 export default function ForensicRequests() {
