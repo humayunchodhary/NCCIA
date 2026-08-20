@@ -408,20 +408,33 @@
       FOR USE OF CIRCLE INCHARGE &mdash; ORDER / MARKING TO ENQUIRY OFFICER
     </div>
 
-    {{-- Enquiry Number at top in bold --}}
-    <div style="text-align: center; font-size: 9pt; font-weight: bold; margin-bottom: 6px;">
-      Enquiry No.&nbsp;
-      @if($report->complaint?->enquiry?->enquiry_number)
-        {{ $report->complaint->enquiry->enquiry_number }}
-        @if($report->complaint->enquiry->reg_date)
-          &nbsp;&nbsp;Dated:&nbsp;{{ $report->complaint->enquiry->reg_date->format('d-m-Y') }}
-        @endif
-      @elseif($report->inquiry_no)
-        {{ $report->inquiry_no }}
-      @else
-        ______________________________
-      @endif
-    </div>
+    {{-- Enquiry Number and Dated in separate boxes --}}
+    <table style="width: 60%; margin: 0 auto 8px auto; border-collapse: collapse; font-size: 9pt; font-weight: bold;">
+      <tr>
+        <td style="border: 1.5px solid #1a3d6b; padding: 4px 10px; text-align: center; background: #f1f5f9; color: #1a3d6b; width: 50%;">
+          Enquiry No.<br>
+          <span style="font-size: 9.5pt; color: #111;">
+            @if($report->complaint?->enquiry?->enquiry_number)
+              {{ $report->complaint->enquiry->enquiry_number }}
+            @elseif($report->inquiry_no)
+              {{ $report->inquiry_no }}
+            @else
+              _______________
+            @endif
+          </span>
+        </td>
+        <td style="border: 1.5px solid #1a3d6b; padding: 4px 10px; text-align: center; background: #f1f5f9; color: #1a3d6b; width: 50%;">
+          Dated<br>
+          <span style="font-size: 9.5pt; color: #111;">
+            @if($report->complaint?->enquiry?->reg_date)
+              {{ $report->complaint->enquiry->reg_date->format('d-m-Y') }}
+            @else
+              _______________
+            @endif
+          </span>
+        </td>
+      </tr>
+    </table>
 
     <div class="ci-sub">1. Enquiry Officer Assignment Order:</div>
     <table class="marking-table">
@@ -435,15 +448,7 @@
           @endif
         </td>
       </tr>
-      <tr>
-        <td class="m-lbl">obtain Legal Opinion from AD / DD Legal, pl.</td>
-        <td class="m-val">&nbsp;</td>
-      </tr>
     </table>
-    <div style="font-size: 7.5pt; margin-top: 6px;">
-      Date: <strong>________________________</strong> &nbsp;&nbsp;&nbsp;&nbsp;
-      Marking Date: <strong>________________________</strong>
-    </div>
 
     <div class="ci-sub" style="margin-top: 8px;">2. Directions &amp; Notes of Circle Incharge:</div>
     <div class="notes-box">
