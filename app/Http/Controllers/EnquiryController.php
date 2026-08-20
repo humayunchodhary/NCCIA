@@ -118,6 +118,8 @@ class EnquiryController extends Controller
                             'storage_capacity' => $item['storage_capacity'] ?? null,
                             'condition'        => $item['condition'] ?? null,
                             'description'      => $item['description'] ?? null,
+                            'owner_type'       => $item['owner_type'] ?? null,
+                            'owner_ref'        => $item['owner_ref'] ?? null,
                         ];
                     }, $action['seize_items']),
                     static fn ($item) => $item && (
