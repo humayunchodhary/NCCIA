@@ -20,6 +20,18 @@ const ROLE_PORTALS = {
       'Manage forensic laboratory users, credentials & access control',
     ],
   },
+  dd_forensic: {
+    icon: '🔬',
+    name: 'DD Forensic Portal',
+    desc: 'Deputy Director Digital Forensics oversight, review incoming seizure requests, assign examiners & monitor lab turnaround.',
+    stage: 'Deputy Director Forensic Oversight',
+    duties: [
+      'Scrutinize incoming seizure memos and device condition logs forwarded by Circle Incharge',
+      'Assign evidence extraction to appropriate Forensic Officers',
+      'Set examination priorities (Normal, High, ⚡ Urgent)',
+      'Authorize finalized lab reports for Desk collection & EO handover',
+    ],
+  },
   ad_forensic: {
     icon: '🔬',
     name: 'AD Forensic Portal',
@@ -104,7 +116,7 @@ export default function ForensicDashboard() {
   const portal = ROLE_PORTALS[role] || ROLE_PORTALS.admin_forensic;
 
   const isAdmin = isForensicAdmin(user);
-  const isAd    = hasAnyRole(user, ['ad_forensic', 'admin_forensic']);
+  const isAd    = hasAnyRole(user, ['dd_forensic', 'ad_forensic', 'admin_forensic']);
   const isFo    = hasRole(user, 'forensic_team');
   const isDesk  = hasRole(user, 'desk_forensic');
 

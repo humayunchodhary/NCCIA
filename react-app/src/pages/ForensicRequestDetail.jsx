@@ -51,8 +51,8 @@ export default function ForensicRequestDetail() {
   const [err, setErr] = useState('');
 
   const isAdmin = isForensicAdmin(user);
-  const isAd    = hasAnyRole(user, ['ad_forensic', 'admin_forensic']);
-  const isDesk  = hasAnyRole(user, ['desk_forensic', 'admin_forensic', 'ad_forensic']);
+  const isAd    = hasAnyRole(user, ['dd_forensic', 'ad_forensic', 'admin_forensic']);
+  const isDesk  = hasAnyRole(user, ['desk_forensic', 'admin_forensic', 'dd_forensic', 'ad_forensic']);
   const isFo    = hasRole(user, 'forensic_team') || hasRole(user, 'admin_forensic');
 
   const load = () => {

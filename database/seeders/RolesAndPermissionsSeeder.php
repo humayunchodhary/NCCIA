@@ -71,6 +71,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ],
             // Forensic portal roles — isolated from the main NCCIA modules
             'admin_forensic' => ['forensic', 'forensic_users', 'profile'],
+            'dd_forensic'    => ['forensic', 'profile'],
             'ad_forensic'    => ['forensic', 'profile'],
             'desk_forensic'  => ['forensic', 'profile'],
             'forensic_team'  => ['forensic', 'profile'],

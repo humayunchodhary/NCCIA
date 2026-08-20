@@ -155,7 +155,7 @@ class ForensicRequestController extends Controller
         // Notify AD Forensic safely
         try {
             if ($fr->destination === 'forensic') {
-                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
+                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['dd_forensic', 'ad_forensic', 'admin_forensic']))->get();
                 foreach ($adUsers as $ad) {
                     try {
                         $ad->notify(new ForensicRequestAssignedNotification($fr));
@@ -244,11 +244,11 @@ class ForensicRequestController extends Controller
 
             $q = ForensicRequest::with($relations)->latest();
 
-            if ($user->hasRole('forensic_team') && !$user->hasAnyRole(['admin_forensic', 'ad_forensic', 'desk_forensic'])) {
+            if ($user->hasRole('forensic_team') && !$user->hasAnyRole(['admin_forensic', 'dd_forensic', 'ad_forensic', 'desk_forensic'])) {
                 $q->where('assigned_to', $user->id);
-            } elseif ($user->hasRole('desk_forensic') && !$user->hasAnyRole(['admin_forensic', 'ad_forensic'])) {
+            } elseif ($user->hasRole('desk_forensic') && !$user->hasAnyRole(['admin_forensic', 'dd_forensic', 'ad_forensic'])) {
                 $q->whereIn('status', ['report_ready', 'handed_over']);
-            } elseif ($user->hasAnyRole(['ad_forensic', 'admin_forensic'])) {
+            } elseif ($user->hasAnyRole(['dd_forensic', 'ad_forensic', 'admin_forensic'])) {
                 $q->where('destination', 'forensic');
             }
 
@@ -356,7 +356,7 @@ class ForensicRequestController extends Controller
     public function assign(Request $request, ForensicRequest $forensicRequest)
     {
         $user = $request->user();
-        abort_unless($user->hasAnyRole(['ad_forensic', 'admin_forensic', 'admin']), 403);
+        abort_unless($user->hasAnyRole(['dd_forensic', 'ad_forensic', 'admin_forensic', 'admin']), 403);
         abort_unless($forensicRequest->destination === 'forensic', 422);
 
         $data = $request->validate([
@@ -439,7 +439,7 @@ class ForensicRequestController extends Controller
 
             // Notify AD/DD Forensic
             try {
-                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
+                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['dd_forensic', 'ad_forensic', 'admin_forensic']))->get();
                 foreach ($adUsers as $ad) {
                     try {
                         $ad->notify(new \App\Notifications\GeneralNotification(
@@ -466,7 +466,7 @@ class ForensicRequestController extends Controller
     {
         $user = $request->user();
         abort_unless(
-            $user->hasAnyRole(['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general', 'admin_forensic', 'ad_forensic']),
+            $user->hasAnyRole(['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general', 'admin_forensic', 'dd_forensic', 'ad_forensic']),
             403
         );
 
@@ -512,8 +512,8 @@ class ForensicRequestController extends Controller
     {
         $user = $request->user();
         abort_unless(
-            $user->hasAnyRole(['forensic_team', 'admin_forensic', 'ad_forensic', 'admin'])
-            && ((int) $forensicRequest->assigned_to === (int) $user->id || $user->hasAnyRole(['admin_forensic', 'ad_forensic', 'admin'])),
+            $user->hasAnyRole(['forensic_team', 'admin_forensic', 'dd_forensic', 'ad_forensic', 'admin'])
+            && ((int) $forensicRequest->assigned_to === (int) $user->id || $user->hasAnyRole(['admin_forensic', 'dd_forensic', 'ad_forensic', 'admin'])),
             403
         );
 
@@ -566,8 +566,8 @@ class ForensicRequestController extends Controller
     {
         $user = $request->user();
         abort_unless(
-            $user->hasAnyRole(['forensic_team', 'admin_forensic', 'ad_forensic', 'admin'])
-            && ((int) $forensicRequest->assigned_to === (int) $user->id || $user->hasAnyRole(['admin_forensic', 'ad_forensic', 'admin'])),
+            $user->hasAnyRole(['forensic_team', 'admin_forensic', 'dd_forensic', 'ad_forensic', 'admin'])
+            && ((int) $forensicRequest->assigned_to === (int) $user->id || $user->hasAnyRole(['admin_forensic', 'dd_forensic', 'ad_forensic', 'admin'])),
             403
         );
         abort_unless(in_array($forensicRequest->status, ['in_progress', 'assigned', 'submitted_to_ad'], true), 422);
@@ -606,9 +606,9 @@ class ForensicRequestController extends Controller
 
             $forensicRequest->update($updates);
 
-            // Notify AD Forensic safely
+            // Notify AD/DD Forensic safely
             try {
-                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
+                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['dd_forensic', 'ad_forensic', 'admin_forensic']))->get();
                 foreach ($adUsers as $ad) {
                     try {
                         $ad->notify(new \App\Notifications\GeneralNotification(
@@ -634,7 +634,7 @@ class ForensicRequestController extends Controller
     public function markReady(Request $request, ForensicRequest $forensicRequest)
     {
         $user = $request->user();
-        abort_unless($user->hasAnyRole(['ad_forensic', 'admin_forensic', 'forensic_team', 'admin']), 403);
+        abort_unless($user->hasAnyRole(['dd_forensic', 'ad_forensic', 'admin_forensic', 'forensic_team', 'admin']), 403);
         abort_unless(in_array($forensicRequest->status, ['submitted_to_ad', 'in_progress', 'assigned'], true), 422);
 
         $data = $request->validate([
@@ -693,9 +693,9 @@ class ForensicRequestController extends Controller
                 }
             } catch (\Throwable $e) {}
 
-            // Notify AD Forensic safely
+            // Notify AD/DD Forensic safely
             try {
-                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
+                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['dd_forensic', 'ad_forensic', 'admin_forensic']))->get();
                 foreach ($adUsers as $ad) {
                     try {
                         $ad->notify(new \App\Notifications\GeneralNotification(
@@ -752,7 +752,7 @@ class ForensicRequestController extends Controller
     public function handOver(Request $request, ForensicRequest $forensicRequest)
     {
         $user = $request->user();
-        abort_unless($user->hasAnyRole(['desk_forensic', 'admin_forensic', 'ad_forensic', 'admin']), 403);
+        abort_unless($user->hasAnyRole(['desk_forensic', 'admin_forensic', 'dd_forensic', 'ad_forensic', 'admin']), 403);
         abort_unless($forensicRequest->status === 'report_ready', 422);
 
         $data = $request->validate([

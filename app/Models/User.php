@@ -71,6 +71,7 @@ class User extends Authenticatable
      */
     public const FORENSIC_ROLES = [
         'admin_forensic',
+        'dd_forensic',
         'ad_forensic',
         'desk_forensic',
         'forensic_team',

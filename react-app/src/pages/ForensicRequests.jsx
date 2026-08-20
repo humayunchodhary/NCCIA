@@ -31,7 +31,7 @@ export default function ForensicRequests() {
   const [priority, setPriority] = useState('');
   const [search, setSearch] = useState('');
 
-  const isAd   = hasAnyRole(user, ['ad_forensic', 'admin_forensic']);
+  const isAd   = hasAnyRole(user, ['dd_forensic', 'ad_forensic', 'admin_forensic']);
   const isDesk = hasRole(user, 'desk_forensic');
   const isFo   = hasRole(user, 'forensic_team');
 

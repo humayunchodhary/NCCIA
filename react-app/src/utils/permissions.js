@@ -99,7 +99,7 @@ export function hasAnyRole(user, roleNames) {
 }
 
 /** Forensic portal roles — isolated from the main NCCIA modules. */
-export const FORENSIC_ROLES = ['admin_forensic', 'ad_forensic', 'desk_forensic', 'forensic_team'];
+export const FORENSIC_ROLES = ['admin_forensic', 'dd_forensic', 'ad_forensic', 'desk_forensic', 'forensic_team'];
 
 export function isForensicUser(user) {
   return hasAnyRole(user, FORENSIC_ROLES);
