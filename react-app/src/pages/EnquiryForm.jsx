@@ -2138,9 +2138,9 @@ export default function EnquiryForm() {
                             className="btn btn-outline btn-sm"
                             style={{ color: '#015C94', borderColor: '#015C94', fontWeight: 600 }}
                             onClick={() => printActivityForensicRequest(a)}
-                            title="Print official Forensic Analysis Request letter for these seized items"
+                            title="Print official Forensic Analysis Scope letter for these seized items"
                           >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Forensic Letter
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Scope Letter
                           </button>
                           {a.type === 'search_seize' && (
                             <button
@@ -2169,9 +2169,9 @@ export default function EnquiryForm() {
                             style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }}
                             disabled={sendingForensic}
                             onClick={() => submitActivityToForensic(a, 'forensic')}
-                            title="Submit this activity's seized items directly to AD Forensic Lab"
+                            title="Submit this activity's scope letter and seized items directly to AD Forensic Lab"
                           >
-                            {sendingForensic ? 'Submitting…' : '🔬 Submit to AD Forensic'}
+                            {sendingForensic ? 'Submitting…' : '🔬 Submit the Scope Letter'}
                           </button>
                         </div>
                       </div>
