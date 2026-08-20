@@ -469,7 +469,7 @@ export default function ForensicRequestDetail() {
       <div id="f31PrintArea" style={{display:'none'}}>
         <div style={{textAlign:'center',marginBottom:14,borderBottom:'2px solid #000',paddingBottom:10}}>
           <div style={{fontSize:13,fontWeight:'bold'}}>National Response Centre for Cyber Crimes (NR3C)</div>
-          <div style={{fontSize:11}}>National Cyber Crime Investigation Agency (FIA) | Digital Forensic Lab Lahore</div>
+          <div style={{fontSize:11}}>National Cyber Crime Investigation Agency (NCCIA) | Digital Forensic Lab Lahore</div>
           <div style={{fontSize:14,fontWeight:'bold',marginTop:6,textDecoration:'underline'}}>Chain of Custody Form (F-31)</div>
         </div>
 
