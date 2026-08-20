@@ -242,8 +242,8 @@ export default function Enquiries() {
         items = requests.flatMap(r => r.items || []);
       }
 
-      const scope = seizureActs.map(a => a.analysis_scope).filter(Boolean).join('\n\n') ||
-        requests.map(r => r.note || r.analysis_scope).filter(Boolean).join('\n\n') || '';
+      const scope = seizureActs.map(a => a.meta?.analysis_scope || a.analysis_scope).filter(Boolean).join('\n\n') ||
+        requests.map(r => r.analysis_scope).filter(Boolean).join('\n\n') || '';
 
       const hasEoSubmitted = items.length > 0 && !!scope.trim();
 
@@ -271,17 +271,25 @@ export default function Enquiries() {
     const officerName = enq.officer?.name || user?.name || 'Enquiry Officer';
     const officerDesig = enq.officer?.designation || user?.designation || 'Enquiry Officer';
 
-    const itemRows = (scopeLetterData.items.length ? scopeLetterData.items : [{ item_type: 'Digital Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => `
+    const itemRows = (scopeLetterData.items.length ? scopeLetterData.items : [{ item_type: 'Digital Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
+      let imeiStr = [];
+      if (it.imei) imeiStr.push('IMEI1: ' + it.imei);
+      if (it.imei2) imeiStr.push('IMEI2: ' + it.imei2);
+      if (it.serial_no) imeiStr.push('SN: ' + it.serial_no);
+      let imeiFinal = imeiStr.length > 0 ? imeiStr.join('<br/>') : '—';
+      
+      return `
       <tr>
         <td style="border:1px solid #000;padding:6px;text-align:center;">${idx + 1}</td>
         <td style="border:1px solid #000;padding:6px;"><strong>${it.item_type || 'Digital Device'}</strong></td>
         <td style="border:1px solid #000;padding:6px;">${it.make_model || '—'}</td>
-        <td style="border:1px solid #000;padding:6px;font-family:monospace;">${it.imei || it.serial_no || '—'}</td>
+        <td style="border:1px solid #000;padding:6px;font-family:monospace;">${imeiFinal}</td>
         <td style="border:1px solid #000;padding:6px;">${it.storage_capacity || '—'}</td>
         <td style="border:1px solid #000;padding:6px;">${it.condition || 'Sealed'}</td>
         <td style="border:1px solid #000;padding:6px;">${it.description || '—'}</td>
       </tr>
-    `).join('');
+      `;
+    }).join('');
 
     const html = `
       <!DOCTYPE html>
