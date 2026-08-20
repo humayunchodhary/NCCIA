@@ -275,7 +275,7 @@ export default function VerificationReportForm() {
       complaint_id: comp.id,
       registration_at: toLocalInput(comp.entry_time || comp.created_at),
       assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
-      verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
+      verification_date: f.verification_date,
       victim_name: comp.complainant_name || '',
       victim_father_name: comp.father_name || '',
       victim_cnic: comp.cnic || '',
@@ -330,7 +330,7 @@ const handleTrackingChange = (e) => {
         complaint_id: comp.id,
         registration_at: toLocalInput(comp.entry_time || comp.created_at),
         assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
-        verification_date: toLocalInput(v.completed_at || v.submitted_at || v.appeared_at) || f.verification_date,
+        verification_date: f.verification_date,
         victim_name: comp.complainant_name || '',
         victim_father_name: comp.father_name || '',
         victim_cnic: comp.cnic || '',
@@ -922,6 +922,38 @@ const handleTrackingChange = (e) => {
           </div>
         </div>
 
+        <div className="cf-section">
+          <div className="cf-section-header">
+            <div className="cf-section-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            </div>
+            <div>
+              <div className="cf-section-title">Transaction Details</div>
+              <div className="cf-section-sub">Record any financial transactions (Compulsory to attach file)</div>
+            </div>
+            <div className="cf-section-badge">STEP 07</div>
+          </div>
+          <div className="cf-body">
+            <div className="cf-repeater">
+              <div id="transactionList">
+                {(form.transactions || []).map((t, i) => (
+                  <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr auto',gap:'12px',marginBottom:'12px',padding:'12px',background:'#f8f8f8',borderRadius:'8px',border:'1px solid #e0e0e0'}}>
+                    <div className="cf-field"><label className="cf-label required">Bank / Method</label><input type="text" className="cf-input" value={t.bank} onChange={e => updateTransaction(i, 'bank', e.target.value)} placeholder="Meezan, Easypaisa" required/></div>
+                    <div className="cf-field"><label className="cf-label required">Account / IBAN</label><input type="text" className="cf-input" value={t.account} onChange={e => updateTransaction(i, 'account', e.target.value)} required/></div>
+                    <div className="cf-field"><label className="cf-label required">Amount</label><input type="number" className="cf-input" value={t.amount} onChange={e => updateTransaction(i, 'amount', e.target.value)} required/></div>
+                    <div className="cf-field"><label className="cf-label required">Date</label><input type="date" className="cf-input" value={t.date} onChange={e => updateTransaction(i, 'date', e.target.value)} required/></div>
+                    <div className="cf-field"><label className="cf-label required">Attachment</label><input type="file" className="cf-input" accept="image/*,application/pdf" onChange={e => updateTransactionFile(i, e.target.files[0])} required />
+                      {!((t.file) instanceof File) && t.file_path ? <span style={{fontSize:12,marginTop:4,display:'block'}}><a href={'/storage/' + t.file_path} target="_blank" rel="noreferrer" style={{color:'#015C94'}}>Open file</a></span> : null}
+                    </div>
+                    <button type="button" className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:'8px',width:'36px',height:'36px',alignSelf:'end'}} onClick={() => removeTransaction(i)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="btn btn-outline btn-sm" onClick={addTransaction}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Transaction</button>
+            </div>
+          </div>
+        </div>
+
 
 
         {serverError && (
@@ -952,3 +984,4 @@ const handleTrackingChange = (e) => {
     </div>
   );
 }
+
