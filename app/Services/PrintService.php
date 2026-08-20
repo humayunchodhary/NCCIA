@@ -388,7 +388,7 @@ class PrintService
      */
     public function noticeDocument(EnquiryNotice $notice): string
     {
-        $notice->loadMissing(['enquiry.complaint.circle', 'enquiry.enquiryOfficer', 'enquiry.accusedPersons', 'enquiry.notices']);
+        $notice->loadMissing(['enquiry.complaint.circle', 'enquiry.officer', 'enquiry.accusedPersons', 'enquiry.notices']);
 
         if (!$notice->verification_token) {
             $notice->verification_token = \Illuminate\Support\Str::random(32);
@@ -427,8 +427,8 @@ class PrintService
         $gistOfAllegation = e($enquiry?->charge_against ?: ($complaint?->offence_type ?: ($complaint?->description ? \Illuminate\Support\Str::limit($complaint->description, 120) : 'Financial Fraud / Cyber Crime Allegation')));
 
         // Officer Info
-        $officerName = e($enquiry?->enquiryOfficer?->name ?: 'NABEEL HUSSAIN');
-        $officerDesig = e($enquiry?->enquiryOfficer?->designation ?: 'Sub Inspector');
+        $officerName = e($enquiry?->officer?->name ?: 'NABEEL HUSSAIN');
+        $officerDesig = e($enquiry?->officer?->designation ?: 'Sub Inspector');
 
         // Address & Phone of reporting center
         $stationAddress = 'Cyber Crime Reporting Center, ' . $circleName . ', Police Station, National Cybercrime Investigation Agency (NCCIA), Street No 15, Wafaqi Colony, Canal Road ' . $circleCity . '., Phone No.042-99268527';
@@ -601,7 +601,7 @@ class PrintService
      */
     public function cfrPrintDocument(Enquiry $enquiry): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
+        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'LAHORE');
@@ -665,8 +665,8 @@ class PrintService
         $conclusion = nl2br(e($enquiry->conclusion ?: ($enquiry->cfr_summary ?: 'Based on the oral and documentary evidence gathered, the allegations stand substantiated against the accused person(s). Regular Case/FIR is recommended for registration.')));
 
         // Officer Info
-        $officerName  = e($enquiry->enquiryOfficer?->name ?: 'Sub Inspector');
-        $officerDesig = e($enquiry->enquiryOfficer?->designation ?: 'Sub Inspector');
+        $officerName  = e($enquiry->officer?->name ?: 'Sub Inspector');
+        $officerDesig = e($enquiry->officer?->designation ?: 'Sub Inspector');
 
         $body = <<<HTML
         <div class="cfr-doc">
@@ -782,7 +782,7 @@ class PrintService
      */
     public function forensicRequestPrintDocument(Enquiry $enquiry, array $devices = [], string $analysisScope = ''): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
+        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'LAHORE');
@@ -821,8 +821,8 @@ class PrintService
             HTML;
         }
 
-        $officerName  = e($enquiry->enquiryOfficer?->name ?: 'Investigation Officer');
-        $officerDesig = e($enquiry->enquiryOfficer?->designation ?: 'Investigation Officer');
+        $officerName  = e($enquiry->officer?->name ?: 'Investigation Officer');
+        $officerDesig = e($enquiry->officer?->designation ?: 'Investigation Officer');
 
         $body = <<<HTML
         <div class="forensic-req-doc">
@@ -907,7 +907,7 @@ class PrintService
      */
     public function raidPermissionPrintDocument(Enquiry $enquiry, array $teamMembers = []): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
+        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'Lahore');
@@ -940,8 +940,8 @@ class PrintService
             HTML;
         }
 
-        $officerName  = e($enquiry->enquiryOfficer?->name ?: 'Sub-Inspector');
-        $officerDesig = e($enquiry->enquiryOfficer?->designation ?: 'Sub-Inspector');
+        $officerName  = e($enquiry->officer?->name ?: 'Sub-Inspector');
+        $officerDesig = e($enquiry->officer?->designation ?: 'Sub-Inspector');
 
         $body = <<<HTML
         <div class="raid-doc">
@@ -1003,7 +1003,7 @@ class PrintService
      */
     public function searchWarrantPrintDocument(Enquiry $enquiry): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'enquiryOfficer', 'accusedPersons']);
+        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'LAHORE');
@@ -1134,5 +1134,6 @@ class PrintService
         return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' . $css . '</style></head><body>' . $body . '</body></html>';
     }
 }
+
 
 
