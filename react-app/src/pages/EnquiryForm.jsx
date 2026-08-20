@@ -1419,26 +1419,26 @@ export default function EnquiryForm() {
                       <label className="cf-label">Enquiry Officer</label>
                       <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{officerName || 'Not assigned'}</div>
                     </div>
-                    <div className="cf-field">
-                      <label className="cf-label">Recommendation</label>
-                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{recName || '-'}</div>
-                    </div>
-                    <div className="cf-field">
-                      <label className="cf-label">Closure Reason</label>
-                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{closureName || '-'}</div>
-                    </div>
-                    <div className="cf-field">
-                      <label className="cf-label">Transfer Department</label>
-                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{form.transfer_department || '-'}</div>
-                    </div>
-                    <div className="cf-field">
-                      <label className="cf-label">Transfer Circle</label>
-                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{transferCircleName || form.transfer_circle || '-'}</div>
-                    </div>
-                    <div className="cf-field">
-                      <label className="cf-label">Merge Complaint ID</label>
-                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{form.merge_complaint_id || '-'}</div>
-                    </div>
+                    {isSupervisor && (
+                      <>
+                        <div className="cf-field">
+                          <label className="cf-label">Recommendation</label>
+                          <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{recName || '-'}</div>
+                        </div>
+                        <div className="cf-field">
+                          <label className="cf-label">Closure Reason</label>
+                          <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{closureName || '-'}</div>
+                        </div>
+                        <div className="cf-field">
+                          <label className="cf-label">Transfer Dept / Circle</label>
+                          <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{form.transfer_department || form.transfer_circle || '-'}</div>
+                        </div>
+                        <div className="cf-field">
+                          <label className="cf-label">Merge ID</label>
+                          <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{form.merge_complaint_id || '-'}</div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
