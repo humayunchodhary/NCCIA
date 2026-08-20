@@ -679,12 +679,10 @@ export default function EnquiryForm() {
   };
 
   const printForensicRequest = () => {
-    // Extract devices from all activities that have seize_items
+    const scope = window.prompt('Enter Analysis Scope (For Forensic Lab) or leave blank for default:', '') ?? '';
     const devices = [];
-      let analysisScope = '';
     form.activities.forEach(a => {
-      if (a.analysis_scope) analysisScope += a.analysis_scope + '\n';
-        if (a.seize_items && a.seize_items.length > 0) {
+      if (a.seize_items && a.seize_items.length > 0) {
         a.seize_items.forEach(si => {
           devices.push({
             type: si.item_type || 'Digital Device',

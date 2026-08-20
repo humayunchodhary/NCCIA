@@ -1,5 +1,5 @@
 export function openPrintWindow(html) {
-  const win = window.open('', '_blank', 'width=420,height=640');
+  const win = window.open('', '_blank', 'width=850,height=900,scrollbars=yes,resizable=yes');
   if (!win) {
     alert('Please allow pop-ups to print.');
     return;
@@ -9,6 +9,10 @@ export function openPrintWindow(html) {
   win.document.close();
   win.focus();
   setTimeout(() => {
-    win.print();
-  }, 350);
+    try {
+      win.print();
+    } catch (e) {
+      console.error(e);
+    }
+  }, 500);
 }

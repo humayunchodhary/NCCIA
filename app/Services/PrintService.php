@@ -202,8 +202,7 @@ class PrintService
         $laws = collect($complaint->laws ?: [])->implode(', ');
         $laws = $laws ? e($laws) : '—';
 
-        $complaintFiles$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
-        $accRows = '';
+        $complaintFiles = '';
         $complaintDocs = [
             ['label' => 'CNIC Front',   'value' => $complaint->cnic_front],
             ['label' => 'CNIC Back',    'value' => $complaint->cnic_back],
@@ -235,8 +234,7 @@ class PrintService
         $platformEmail = e($complaint->platform_email_involved ?: '—');
         $platformMobile = e($complaint->platform_mobile_involved ?: '—');
 
-        $accusedRows$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
-        $accRows = '';
+        $accusedRows = '';
         $accused = $complaint->initial_accused ?: [];
         if (is_array($accused) && count($accused) > 0) {
             foreach ($accused as $index => $a) {
@@ -252,8 +250,7 @@ class PrintService
                 $aSocial  = e($a['social_media_url'] ?? '—');
                 $aOther   = e($a['other_info'] ?? '—');
                 $aDesc    = e($a['description'] ?? '—');
-                $aDocs$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
-        $accRows = '';
+                $aDocs = '';
                 $aDocFields = [
                     ['label' => 'CNIC Front', 'value' => $a['cnic_front'] ?? null],
                     ['label' => 'CNIC Back',  'value' => $a['cnic_back'] ?? null],
@@ -449,11 +446,9 @@ class PrintService
         $noticeLabel = 'No. ' . $seq;
 
         // Build Notice History Box for 2nd and 3rd Notices
-        $historyHtml$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
-        $accRows = '';
+        $historyHtml = '';
         if ($seq >= 2 && $allNotices->count() > 0) {
-            $historyRows$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
-        $accRows = '';
+            $historyRows = '';
             for ($i = 0; $i < min($seq - 1, $allNotices->count()); $i++) {
                 $prev = $allNotices[$i];
                 $prevNum = ($i + 1) . ($i === 0 ? 'st' : ($i === 1 ? 'nd' : 'rd')) . ' Notice';
@@ -624,8 +619,7 @@ class PrintService
 
         // 4: Accused details
         $accusedList = $enquiry->accusedPersons;
-        $accStr$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
-        $accRows = '';
+        $accStr = '';
         if ($accusedList && $accusedList->count() > 0) {
             foreach ($accusedList as $i => $acc) {
                 $aNum = $i + 1;
@@ -797,7 +791,6 @@ class PrintService
 
         // Accused List
         $accList = $enquiry->accusedPersons;
-        $analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
         $accRows = '';
         if ($accList && $accList->count() > 0) {
             foreach ($accList as $i => $acc) {
@@ -830,6 +823,8 @@ class PrintService
 
         $officerName  = e($enquiry->officer?->name ?: 'Investigation Officer');
         $officerDesig = e($enquiry->officer?->designation ?: 'Investigation Officer');
+
+        $analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
 
         $body = <<<HTML
         <div class="forensic-req-doc">
@@ -922,7 +917,6 @@ class PrintService
 
         // Accused List
         $accList = $enquiry->accusedPersons;
-        $accRows$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
         $accRows = '';
         if ($accList && $accList->count() > 0) {
             foreach ($accList as $i => $acc) {
@@ -934,8 +928,7 @@ class PrintService
         }
 
         // Raiding team
-        $teamRows$analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
-        $accRows = '';
+        $teamRows = '';
         if (count($teamMembers) > 0) {
             foreach ($teamMembers as $i => $tm) {
                 $n = $i + 1;
@@ -1143,8 +1136,6 @@ class PrintService
         return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' . $css . '</style></head><body>' . $body . '</body></html>';
     }
 }
-
-
 
 
 
