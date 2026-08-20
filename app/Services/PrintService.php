@@ -791,6 +791,22 @@ class PrintService
 
         // Accused List
         $accList = $enquiry->accusedPersons;
+        
+        // Filter accused based on devices owners
+        if (count($devices) > 0) {
+            $deviceOwners = array_map(function($d) { return trim(strtolower($d['owner'] ?? '')); }, $devices);
+            $deviceOwners = array_filter($deviceOwners);
+            
+            if (!empty($deviceOwners) && $accList && $accList->count() > 0) {
+                $filtered = $accList->filter(function($a) use ($deviceOwners) {
+                    return in_array(strtolower(trim($a->name)), $deviceOwners);
+                });
+                if ($filtered->count() > 0) {
+                    $accList = $filtered->values();
+                }
+            }
+        }
+
         $accRows = '';
         if ($accList && $accList->count() > 0) {
             foreach ($accList as $i => $acc) {

@@ -743,8 +743,8 @@ export default function EnquiryForm() {
   };
 
   const getSeizeItemOwnerText = (it) => {
-    if (it.owner_type === 'accused') return 'Accused: ' + (form.accused[it.owner_ref]?.name || `Accused ${Number(it.owner_ref) + 1}`);
-    if (it.owner_type === 'witness') return 'Witness: ' + (form.witnesses[it.owner_ref]?.name || `Witness ${Number(it.owner_ref) + 1}`);
+    if (it.owner_type === 'accused') return form.accused[it.owner_ref]?.name || `Accused ${Number(it.owner_ref) + 1}`;
+    if (it.owner_type === 'witness') return form.witnesses[it.owner_ref]?.name || `Witness ${Number(it.owner_ref) + 1}`;
     if (it.owner_type === 'complainant') return 'Complainant';
     return it.owner_ref || (it.owner_type ? it.owner_type.charAt(0).toUpperCase() + it.owner_type.slice(1) : '');
   };
@@ -757,7 +757,8 @@ export default function EnquiryForm() {
         type: it.item_type || 'Digital Device',
         model: it.make_model || '—',
         imei: it.imei || it.serial_no || 'N/A',
-        owner: getSeizeItemOwnerText(it)
+        owner: getSeizeItemOwnerText(it),
+        storage_capacity: it.storage_capacity || '—',
       }));
     const analysisScope = (act.analysis_scope || '').trim();
     printDocument('forensic-request-print', { devices: JSON.stringify(devices), analysis_scope: analysisScope });
@@ -773,7 +774,8 @@ export default function EnquiryForm() {
             type: si.item_type || 'Digital Device',
             model: si.make_model || 'Unknown',
             imei: si.imei || si.serial_no || 'N/A',
-            owner: getSeizeItemOwnerText(si)
+            owner: getSeizeItemOwnerText(si),
+            storage_capacity: si.storage_capacity || '—',
           });
         });
       }
@@ -1517,15 +1519,17 @@ export default function EnquiryForm() {
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                   Edit
                                 </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm"
-                                  style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36 }}
-                                  onClick={() => removeAccused(i)}
-                                  title="Remove"
-                                >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                                </button>
+                                {(!a.id || isPrivileged) && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm"
+                                    style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36 }}
+                                    onClick={() => removeAccused(i)}
+                                    title="Remove"
+                                  >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1546,9 +1550,11 @@ export default function EnquiryForm() {
                       {a.id ? (
                         <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingAccusedIndex(null)}>Done</button>
                       ) : null}
-                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAccused(i)}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </button>
+                      {(!a.id || isPrivileged) && (
+                        <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAccused(i)}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
@@ -1646,9 +1652,11 @@ export default function EnquiryForm() {
                         {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeWitness(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    {(!w.id || isPrivileged) && (
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeWitness(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    )}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={w.cnic} onChange={e => updateWitnessCnic(i, e.target.value)} placeholder="00000-0000000-0" maxLength={15} /></div>
@@ -2072,9 +2080,11 @@ export default function EnquiryForm() {
                         <a href={at.file_path} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Download existing Γåù</a>
                       )}
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAttachment(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    {(!at.id || isPrivileged) && (
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAttachment(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -2229,9 +2239,11 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Attachment</label>
                       <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateActivityFile(i, e.target.files[0])} />
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeActivity(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    {(!a.id || isPrivileged) && (
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeActivity(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    )}
                   </div>
                   <div className="cf-field"><label className="cf-label">Description</label>
                     <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity..." style={{ width: '100%' }}></textarea>
