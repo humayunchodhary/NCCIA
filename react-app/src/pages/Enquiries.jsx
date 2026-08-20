@@ -534,28 +534,30 @@ export default function Enquiries() {
                             {hasRole('circle_incharge') || hasRole('admin') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general') ? 'View / Review' : 'Edit Enquiry'}
                           </Link>
 
-                          <button
-                            type="button"
-                            onClick={() => openScopeLetterModal(e)}
-                            className="btn btn-sm"
-                            style={{
-                              background: 'rgba(1,92,148,0.12)',
-                              color: '#015C94',
-                              border: '1.5px solid rgba(1,92,148,0.3)',
-                              borderRadius: 8,
-                              height: 36,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              padding: '0 10px',
-                              cursor: 'pointer',
-                              fontSize: 12,
-                              fontWeight: 700,
-                            }}
-                            title="View / Review Forensic Scope Letter & Mark to DD Forensic"
-                          >
-                            🔬 Scope Letter
-                          </button>
+                          {(hasRole('circle_incharge') || hasRole('admin') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general')) && (
+                            <button
+                              type="button"
+                              onClick={() => openScopeLetterModal(e)}
+                              className="btn btn-sm"
+                              style={{
+                                background: 'rgba(1,92,148,0.12)',
+                                color: '#015C94',
+                                border: '1.5px solid rgba(1,92,148,0.3)',
+                                borderRadius: 8,
+                                height: 36,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                padding: '0 10px',
+                                cursor: 'pointer',
+                                fontSize: 12,
+                                fontWeight: 700,
+                              }}
+                              title="View / Review Forensic Scope Letter & Mark to DD Forensic"
+                            >
+                              🔬 Scope Letter
+                            </button>
+                          )}
 
                           {(['registered'].includes(e.status)) && (hasRole('admin') || hasRole('circle_incharge')) && (
                             <button onClick={() => openAssign(e)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Assign Officer">
