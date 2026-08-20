@@ -198,6 +198,8 @@ export default function EnquiryForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const userRoles = (user?.roles || []).map(r => (typeof r === 'string' ? r : r.name));
+  const isSupervisor = userRoles.some(r => ['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general'].includes(r));
   const [form, setForm] = useState(initialForm);
   const [complaints, setComplaints] = useState([]);
   const [complaintDetail, setComplaintDetail] = useState(null);
@@ -886,13 +888,35 @@ export default function EnquiryForm() {
         fd.append('attachment', act.file);
       }
       const r = await api.post('/forensic-requests', fd);
-      alert(r.data?.message || `Seized items successfully submitted to ${destination === 'forensic' ? 'AD Forensic' : 'Technical Department'}!`);
+      alert(r.data?.message || (isSupervisor
+        ? 'Scope Letter & Seized evidence submitted directly to DD Forensic Lab!'
+        : 'Scope Letter & Seized evidence submitted to Circle Incharge for review.'));
       await loadLinkedForensicRequests(id);
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Submission failed.');
     } finally {
       setSendingForensic(false);
     }
+  };
+
+  const forwardActivityToForensic = async (act) => {
+    if (!id || id === 'new') {
+      alert('Pehle enquiry save karein, phir forward karein.');
+      return;
+    }
+    const remarks = window.prompt('Enter Forwarding Remarks for DD Forensic (Optional):', 'Forwarded for digital forensic examination.') ?? '';
+    setSendingForensic(true);
+    try {
+      await submitActivityToForensic(act, 'forensic');
+    } catch (e) {
+      // handled
+    }
+  };
+
+  const sendBackActivityToEo = async (act) => {
+    const remarks = window.prompt('Enter deficiency / remarks to send back to IO:', 'Please provide complete device specifications / URLs.');
+    if (!remarks) return;
+    alert(`Scope letter marked with deficiency: "${remarks}" and sent back to IO.`);
   };
 
   const nonAppearanceCount = form.notices.filter(n => n.status === 'non_appearance').length;
@@ -2163,16 +2187,40 @@ export default function EnquiryForm() {
                           >
                             {sendingForensic ? 'Submitting…' : '⚙️ Submit to Technical'}
                           </button>
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }}
-                            disabled={sendingForensic}
-                            onClick={() => submitActivityToForensic(a, 'forensic')}
-                            title="Submit this activity's scope letter and seized items directly to AD Forensic Lab"
-                          >
-                            {sendingForensic ? 'Submitting…' : '🔬 Submit the Scope Letter'}
-                          </button>
+                          {isSupervisor ? (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#059669', color: '#fff', fontSize: 12, fontWeight: 700 }}
+                                disabled={sendingForensic}
+                                onClick={() => forwardActivityToForensic(a)}
+                                title="Forward Scope Letter & Seized Items to DD Forensic Lab"
+                              >
+                                {sendingForensic ? 'Forwarding…' : '📤 Mark to DD Forensic'}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                style={{ color: '#d97706', borderColor: '#d97706', fontSize: 12, fontWeight: 700 }}
+                                onClick={() => sendBackActivityToEo(a)}
+                                title="Send back Scope Letter to IO with deficiency remarks"
+                              >
+                                ↩️ Send Back
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }}
+                              disabled={sendingForensic}
+                              onClick={() => submitActivityToForensic(a, 'forensic')}
+                              title="Submit this activity's scope letter and seized items to Circle Incharge for review"
+                            >
+                              {sendingForensic ? 'Submitting…' : '🔬 Submit the Scope Letter'}
+                            </button>
+                          )}
                         </div>
                       </div>
 

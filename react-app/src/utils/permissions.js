@@ -198,6 +198,29 @@ export function enquiryReadyForCaseRegistration(enquiry) {
   return ENQUIRY_CASE_REGISTER_STATUSES.includes(enquiry.status);
 }
 
+export function canEditVerificationReport(user, report = null) {
+  if (!user) return false;
+  if (hasAnyRole(user, ['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general'])) {
+    return true;
+  }
+  if (hasRole(user, 'verification_officer')) {
+    const status = report?.complaint?.verification?.status;
+    return !status || ['assigned', 'in_progress', 'sent_back'].includes(status);
+  }
+  return false;
+}
+
+export function canEditEnquiry(user, enquiry = null) {
+  if (!user) return false;
+  if (hasAnyRole(user, ['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general'])) {
+    return true;
+  }
+  if (hasRole(user, 'enquiry_officer')) {
+    return String(enquiry?.officer_id || enquiry?.enquiry_officer_id) === String(user.id);
+  }
+  return false;
+}
+
 export function getRoleDuties(user) {
   const roles = user?.roles?.map?.(r => r.name || r) || [user?.role].filter(Boolean);
   const primary = roles[0] || 'operator';

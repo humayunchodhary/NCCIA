@@ -409,6 +409,104 @@ class ForensicRequestController extends Controller
         }
     }
 
+    /** Circle Incharge / AD / DD / Director forwards Scope Letter & Seized Items to DD Forensic */
+    public function forwardToForensic(Request $request, ForensicRequest $forensicRequest)
+    {
+        $user = $request->user();
+        abort_unless(
+            $user->hasAnyRole(['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general']),
+            403
+        );
+
+        $data = $request->validate([
+            'remarks'  => 'nullable|string|max:1000',
+            'priority' => 'nullable|in:normal,high,urgent',
+        ]);
+
+        try {
+            $updates = [
+                'status' => 'forwarded_to_forensic',
+            ];
+
+            if (!empty($data['priority'])) {
+                $updates['priority'] = $data['priority'];
+            }
+            if (!empty($data['remarks'])) {
+                $updates['note'] = ($forensicRequest->note ? $forensicRequest->note . "\n\n" : '') . "[Forwarded by {$user->name}] " . $data['remarks'];
+            }
+
+            $forensicRequest->update($updates);
+
+            // Notify AD/DD Forensic
+            try {
+                $adUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))->get();
+                foreach ($adUsers as $ad) {
+                    try {
+                        $ad->notify(new \App\Notifications\GeneralNotification(
+                            'forensic_request_forwarded_by_ci',
+                            "Scope Letter & Seized Evidence for {$forensicRequest->request_no} forwarded by {$user->name} to DD Forensic.",
+                            "/forensic/requests/{$forensicRequest->id}"
+                        ));
+                    } catch (\Throwable $e) {}
+                }
+            } catch (\Throwable $e) {}
+
+            return response()->json([
+                'message' => "Scope Letter and Seized items forwarded to DD Forensic Lab successfully.",
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('forwardToForensic error: ' . $e->getMessage());
+            return response()->json(['message' => 'Forwarding failed: ' . $e->getMessage()], 422);
+        }
+    }
+
+    /** Circle Incharge / AD / DD / Director / AD Forensic sends back Scope Letter to EO due to deficiency */
+    public function sendBackToEo(Request $request, ForensicRequest $forensicRequest)
+    {
+        $user = $request->user();
+        abort_unless(
+            $user->hasAnyRole(['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general', 'admin_forensic', 'ad_forensic']),
+            403
+        );
+
+        $data = $request->validate([
+            'remarks' => 'required|string|max:1000',
+        ]);
+
+        try {
+            $updates = [
+                'status' => 'sent_back_to_eo',
+                'note'   => ($forensicRequest->note ? $forensicRequest->note . "\n\n" : '') . "[Sent Back by {$user->name}] Deficiency: " . $data['remarks'],
+            ];
+
+            $forensicRequest->update($updates);
+
+            // Notify EO / submitter
+            try {
+                $eoId = $forensicRequest->submitted_by;
+                if ($eoId) {
+                    $eo = User::find($eoId);
+                    if ($eo) {
+                        $eo->notify(new \App\Notifications\GeneralNotification(
+                            'forensic_request_sent_back',
+                            "Scope Letter {$forensicRequest->request_no} was sent back by {$user->name}: {$data['remarks']}",
+                            "/enquiries" . ($forensicRequest->enquiry_id ? "/{$forensicRequest->enquiry_id}/edit" : "")
+                        ));
+                    }
+                }
+            } catch (\Throwable $e) {}
+
+            return response()->json([
+                'message' => "Scope Letter sent back to Enquiry Officer with deficiency remarks.",
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('sendBackToEo error: ' . $e->getMessage());
+            return response()->json(['message' => 'Send back failed: ' . $e->getMessage()], 422);
+        }
+    }
+
     /** FO updates findings / laboratory examination notes / uploads report */
     public function updateFindings(Request $request, ForensicRequest $forensicRequest)
     {

@@ -697,14 +697,34 @@ export default function Verifications() {
                           </button>
                         )}
 
-                        {v.status === 'submitted' && (hasRole('circle_incharge') || hasRole('admin')) && (
+                        {v.status === 'submitted' && (hasRole('circle_incharge') || hasRole('admin') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general')) && (
                           <button type="button" onClick={() => openReviewModal(v)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}} title="Review & Approve">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             Review / Approve
                           </button>
                         )}
 
-                        {(hasRole('admin') || hasRole('circle_incharge')) && (
+                        {(hasRole('admin') || hasRole('circle_incharge') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general')) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const repId = v.complaint?.latest_verification_report?.id || v.report_id;
+                              if (repId) {
+                                navigate(`/verifications/reports/${repId}/edit`);
+                              } else {
+                                navigate(`/verifications/reports/create?tracking=${encodeURIComponent(v.tracking_no || v.complaint?.tracking_no)}`);
+                              }
+                            }}
+                            className="btn btn-sm"
+                            style={{background:'rgba(1,92,148,0.1)',color:'#015C94',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}}
+                            title="Edit / Update Verification Report"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit Report
+                          </button>
+                        )}
+
+                        {(hasRole('admin') || hasRole('circle_incharge') || hasRole('director_general')) && (
                           <button type="button" onClick={() => openChangeOfficerModal(v)} className="btn btn-sm" style={{background:'rgba(214,158,46,0.12)',color:'#d69e2e',border:'none',borderRadius:'8px',height:'36px',display:'inline-flex',alignItems:'center',gap:'5px',padding:'0 10px',cursor:'pointer',fontSize:'12px',fontWeight:600}} title="Change Officer">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
                             Change
