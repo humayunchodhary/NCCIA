@@ -243,14 +243,16 @@ export default function Enquiries() {
       }
 
       const scope = seizureActs.map(a => a.analysis_scope).filter(Boolean).join('\n\n') ||
-        requests.map(r => r.note || r.analysis_scope).filter(Boolean).join('\n\n') ||
-        'Extraction and forensic examination of complete call detail logs, WhatsApp/Telegram communications, multimedia files, browser histories, and deleted evidence recovery.';
+        requests.map(r => r.note || r.analysis_scope).filter(Boolean).join('\n\n') || '';
+
+      const hasEoSubmitted = items.length > 0 && !!scope.trim();
 
       setScopeLetterData({
         enquiry: fullEnq,
         items,
         analysisScope: scope,
         linkedRequests: requests,
+        hasEoSubmitted,
       });
     } catch (err) {
       alert('Failed to load scope letter data: ' + (err.response?.data?.message || err.message));
@@ -357,6 +359,15 @@ export default function Enquiries() {
 
   const handleMarkToDdForensicFromModal = async () => {
     if (!scopeLetterTarget) return;
+    if (!scopeLetterData.items || scopeLetterData.items.length === 0) {
+      alert('Enquiry Officer ne abhi tak koi seized items enter nahi kiye. Jab EO Scope Letter submit karega tabhi Circle Incharge aage DD Forensic ko mark kar sakta hai.');
+      return;
+    }
+    if (!scopeLetterData.analysisScope?.trim()) {
+      alert('Scope of Analysis text hona zaroori hai.');
+      return;
+    }
+
     setScopeLetterActionSaving(true);
     try {
       const enq = scopeLetterData.enquiry || scopeLetterTarget;
@@ -367,11 +378,7 @@ export default function Enquiries() {
           remarks: 'Approved & Forwarded by Circle Incharge',
         });
       } else {
-        const cleanItems = (scopeLetterData.items.length ? scopeLetterData.items : [{
-          item_type: 'phone',
-          make_model: 'Seized Device',
-          quantity: 1,
-        }]).map(it => ({
+        const cleanItems = scopeLetterData.items.map(it => ({
           item_type: it.item_type || 'other',
           make_model: it.make_model || null,
           imei: it.imei || null,
@@ -388,14 +395,14 @@ export default function Enquiries() {
         fd.append('priority', 'normal');
         fd.append('status', 'forwarded_to_forensic');
         fd.append('brief_contents', `Enquiry #${enq.enquiry_number || enq.id} - ${enq.complaint?.complainant_name || ''}`);
-        fd.append('analysis_scope', scopeLetterData.analysisScope || '');
+        fd.append('analysis_scope', scopeLetterData.analysisScope.trim());
         fd.append('note', `Approved and forwarded by Circle Incharge (${user?.name}) to DD Forensic Lab.`);
         fd.append('items', JSON.stringify(cleanItems));
 
         await api.post('/forensic-requests', fd);
       }
 
-      alert('Scope Letter & Seized Evidence successfully marked and forwarded to DD Forensic Lab!');
+      alert('Enquiry Officer ka Scope Letter & Seized Evidence DD Forensic Lab ko forward ho gaya hai!');
       setScopeLetterTarget(null);
       fetchData();
     } catch (err) {
@@ -879,8 +886,8 @@ export default function Enquiries() {
                         </table>
                       </div>
                     ) : (
-                      <div style={{ padding: '16px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
-                        ℹ️ No seized devices recorded in activities yet. You can still print or mark the general scope letter to DD Forensic.
+                      <div style={{ padding: '16px', background: '#fffbeb', border: '1.5px solid #fef3c7', borderRadius: 8, fontSize: 13, color: '#92400e', lineHeight: 1.5 }}>
+                        ⚠️ <strong>Scope Letter Not Submitted:</strong> Enquiry Officer (EO) ne abhi tak is enquiry mein digital devices ya Scope Letter submit nahi kiya hai. Sirf EO ka create/submit kiya hua Scope Letter hi Circle Incharge aage DD Forensic ko mark kar sakta hai.
                       </div>
                     )}
                   </div>
@@ -895,11 +902,12 @@ export default function Enquiries() {
                       rows={4}
                       value={scopeLetterData.analysisScope}
                       onChange={e => setScopeLetterData({ ...scopeLetterData, analysisScope: e.target.value })}
-                      placeholder="Specify examination requirements (e.g. Extraction of call logs, WhatsApp chats, media, deleted data recovery)..."
+                      placeholder="Enquiry Officer dwara darj kiya gaya examination scope..."
                       style={{ fontSize: 13, lineHeight: 1.5 }}
+                      disabled={!scopeLetterData.hasEoSubmitted}
                     />
                     <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>
-                      Circle Incharge scope text ko parh kar edit ya verify kar sakta hai. Mark to DD Forensic karne par yeh lab ko forward ho jayega.
+                      {scopeLetterData.hasEoSubmitted ? 'Circle Incharge EO ke Scope text ko parh kar verify karein. "Mark to DD Forensic" karne par yeh lab ko forward hoga.' : 'EO ke Scope Letter submit karne ke baad text yahan show hoga.'}
                     </span>
                   </div>
                 </>
@@ -912,7 +920,7 @@ export default function Enquiries() {
                 className="btn btn-outline"
                 style={{ color: '#015C94', borderColor: '#015C94', fontWeight: 600 }}
                 onClick={handlePrintScopeLetterFromModal}
-                disabled={scopeLetterLoading}
+                disabled={scopeLetterLoading || !scopeLetterData.hasEoSubmitted}
               >
                 🖨️ Print Scope Letter
               </button>
@@ -925,23 +933,25 @@ export default function Enquiries() {
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  style={{ color: '#d97706', borderColor: '#d97706', fontWeight: 700 }}
-                  disabled={scopeLetterLoading || scopeLetterActionSaving}
-                  onClick={handleSendBackScopeLetterFromModal}
-                  title="Send back to EO with deficiency remarks"
-                >
-                  ↩️ Send Back to EO
-                </button>
+                {scopeLetterData.hasEoSubmitted && (
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    style={{ color: '#d97706', borderColor: '#d97706', fontWeight: 700 }}
+                    disabled={scopeLetterLoading || scopeLetterActionSaving}
+                    onClick={handleSendBackScopeLetterFromModal}
+                    title="Send back to EO with deficiency remarks"
+                  >
+                    ↩️ Send Back to EO
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-primary"
-                  style={{ background: '#059669', color: '#fff', fontWeight: 700 }}
-                  disabled={scopeLetterLoading || scopeLetterActionSaving}
+                  style={{ background: scopeLetterData.hasEoSubmitted ? '#059669' : '#94a3b8', color: '#fff', fontWeight: 700, cursor: scopeLetterData.hasEoSubmitted ? 'pointer' : 'not-allowed' }}
+                  disabled={scopeLetterLoading || scopeLetterActionSaving || !scopeLetterData.hasEoSubmitted}
                   onClick={handleMarkToDdForensicFromModal}
-                  title="Approve and mark to DD Forensic Lab"
+                  title={scopeLetterData.hasEoSubmitted ? 'Approve and mark EO scope letter to DD Forensic Lab' : 'EO ke Scope Letter submit karne ke baad hi mark kar sakte hain'}
                 >
                   {scopeLetterActionSaving ? 'Forwarding…' : '📤 Mark to DD Forensic'}
                 </button>
