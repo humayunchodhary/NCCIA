@@ -9,6 +9,7 @@ import WorkflowProgress, { enquiryProgress } from '../components/WorkflowProgres
 import CaseChatModal from '../components/CaseChatModal';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateEnquiry, hasRole as userHasRole, hasAnyRole } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
+import { openPrintWindow } from '../utils/print';
 
 const STATUS_COLORS = {
   registered: 'badge-pending',
@@ -211,6 +212,226 @@ export default function Enquiries() {
     }
   };
 
+  // ── Scope Letter Review & Approval Modal ──
+  const [scopeLetterTarget, setScopeLetterTarget] = useState(null);
+  const [scopeLetterLoading, setScopeLetterLoading] = useState(false);
+  const [scopeLetterData, setScopeLetterData] = useState({
+    enquiry: null,
+    items: [],
+    analysisScope: '',
+    linkedRequests: [],
+  });
+  const [scopeLetterActionSaving, setScopeLetterActionSaving] = useState(false);
+
+  const openScopeLetterModal = async (enquiry) => {
+    setScopeLetterTarget(enquiry);
+    setScopeLetterLoading(true);
+    try {
+      const [enqRes, reqRes] = await Promise.all([
+        api.get(`/enquiries/${enquiry.id}`),
+        api.get(`/forensic-requests?enquiry_id=${enquiry.id}`).catch(() => ({ data: { data: [] } }))
+      ]);
+      const fullEnq = enqRes.data?.data || enqRes.data;
+      const requests = reqRes.data?.data || reqRes.data || [];
+
+      const activities = fullEnq.activities || [];
+      const seizureActs = activities.filter(a => a.type === 'seizures' || a.type === 'search_seize');
+      let items = seizureActs.flatMap(a => (a.seize_items || []));
+
+      if (items.length === 0 && requests.length > 0) {
+        items = requests.flatMap(r => r.items || []);
+      }
+
+      const scope = seizureActs.map(a => a.analysis_scope).filter(Boolean).join('\n\n') ||
+        requests.map(r => r.note || r.analysis_scope).filter(Boolean).join('\n\n') ||
+        'Extraction and forensic examination of complete call detail logs, WhatsApp/Telegram communications, multimedia files, browser histories, and deleted evidence recovery.';
+
+      setScopeLetterData({
+        enquiry: fullEnq,
+        items,
+        analysisScope: scope,
+        linkedRequests: requests,
+      });
+    } catch (err) {
+      alert('Failed to load scope letter data: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setScopeLetterLoading(false);
+    }
+  };
+
+  const handlePrintScopeLetterFromModal = () => {
+    if (!scopeLetterTarget) return;
+    const enq = scopeLetterData.enquiry || scopeLetterTarget;
+    const enqNo = enq.enquiry_number || enq.complaint?.tracking_no || `ENQ-${enq.id}`;
+    const compName = enq.complaint?.complainant_name || enq.direct_info?.complainant_name || 'Complainant';
+    const compCnic = enq.complaint?.cnic || enq.direct_info?.cnic || '—';
+    const dateStr = new Date().toLocaleDateString('en-GB');
+    const officerName = enq.officer?.name || user?.name || 'Enquiry Officer';
+    const officerDesig = enq.officer?.designation || user?.designation || 'Enquiry Officer';
+
+    const itemRows = (scopeLetterData.items.length ? scopeLetterData.items : [{ item_type: 'Digital Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => `
+      <tr>
+        <td style="border:1px solid #000;padding:6px;text-align:center;">${idx + 1}</td>
+        <td style="border:1px solid #000;padding:6px;"><strong>${it.item_type || 'Digital Device'}</strong></td>
+        <td style="border:1px solid #000;padding:6px;">${it.make_model || '—'}</td>
+        <td style="border:1px solid #000;padding:6px;font-family:monospace;">${it.imei || it.serial_no || '—'}</td>
+        <td style="border:1px solid #000;padding:6px;">${it.storage_capacity || '—'}</td>
+        <td style="border:1px solid #000;padding:6px;">${it.condition || 'Sealed'}</td>
+        <td style="border:1px solid #000;padding:6px;">${it.description || '—'}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Forensic Scope Letter - ${enqNo}</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm 15mm; }
+          body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.45; font-size: 13px; }
+          .hdr { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px; }
+          .hdr-title { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+          .hdr-sub { font-size: 13px; font-weight: 600; }
+          .meta-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
+          .to-sec { margin-bottom: 12px; }
+          .subj { font-weight: 800; text-transform: uppercase; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin: 12px 0; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+          th { border: 1px solid #000; background: #f1f5f9; padding: 6px; text-align: left; }
+          .scope-box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; margin: 8px 0; }
+          .sign-block { margin-top: 40px; margin-left: auto; width: 260px; text-align: right; }
+        </style>
+      </head>
+      <body>
+        <div class="hdr">
+          <div class="hdr-title">National Cyber Crime Investigation Agency (NCCIA)</div>
+          <div class="hdr-sub">Cyber Crime Reporting Center &middot; Forensic Lab Examination Request</div>
+        </div>
+        <div class="meta-row">
+          <div><strong>Enquiry / Case No:</strong> ${enqNo}</div>
+          <div><strong>Dated:</strong> ${dateStr}</div>
+        </div>
+        <div class="to-sec">
+          To,<br/>
+          <strong>The Assistant Director / Deputy Director (Digital Forensics),</strong><br/>
+          Digital Forensic Lab, NCCIA HQ / Regional Center.
+        </div>
+        <div class="subj">SUBJECT: REQUEST FOR DIGITAL FORENSIC EXAMINATION & ANALYSIS OF SEIZED EVIDENCE / DEVICES</div>
+        <p>
+          With reference to Enquiry No. <strong>${enqNo}</strong> regarding complainant <strong>${compName}</strong> (CNIC: ${compCnic}), the following seized digital evidence/devices have been submitted for technical & forensic analysis:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:30px;text-align:center;">#</th>
+              <th>Item Type</th>
+              <th>Make / Model</th>
+              <th>IMEI / Serial No.</th>
+              <th>Storage</th>
+              <th>Condition</th>
+              <th>Description / Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+          </tbody>
+        </table>
+        <div class="subj" style="border:none;margin-top:14px;">SCOPE OF ANALYSIS:</div>
+        <div class="scope-box">
+          ${(scopeLetterData.analysisScope || '').replace(/\\n/g, '<br/>')}
+        </div>
+        <p style="margin-top:12px;">
+          It is requested that the digital evidence may kindly be examined in the forensic lab and official Forensic Report (Form F-31 Chain of Custody) be prepared and furnished at the earliest.
+        </p>
+        <div class="sign-block">
+          <br/><br/>
+          <strong>${officerName}</strong><br/>
+          ${officerDesig}<br/>
+          NCCIA
+        </div>
+      </body>
+      </html>
+    `;
+    openPrintWindow(html);
+  };
+
+  const handleMarkToDdForensicFromModal = async () => {
+    if (!scopeLetterTarget) return;
+    setScopeLetterActionSaving(true);
+    try {
+      const enq = scopeLetterData.enquiry || scopeLetterTarget;
+      const linked = scopeLetterData.linkedRequests || [];
+
+      if (linked.length > 0) {
+        await api.post(`/forensic/requests/${linked[0].id}/forward-to-forensic`, {
+          remarks: 'Approved & Forwarded by Circle Incharge',
+        });
+      } else {
+        const cleanItems = (scopeLetterData.items.length ? scopeLetterData.items : [{
+          item_type: 'phone',
+          make_model: 'Seized Device',
+          quantity: 1,
+        }]).map(it => ({
+          item_type: it.item_type || 'other',
+          make_model: it.make_model || null,
+          imei: it.imei || null,
+          serial_no: it.serial_no || null,
+          storage_capacity: it.storage_capacity || null,
+          condition: it.condition || null,
+          quantity: it.quantity || 1,
+          description: it.description || null,
+        }));
+
+        const fd = new FormData();
+        fd.append('enquiry_id', enq.id);
+        fd.append('destination', 'forensic');
+        fd.append('priority', 'normal');
+        fd.append('status', 'forwarded_to_forensic');
+        fd.append('brief_contents', `Enquiry #${enq.enquiry_number || enq.id} - ${enq.complaint?.complainant_name || ''}`);
+        fd.append('analysis_scope', scopeLetterData.analysisScope || '');
+        fd.append('note', `Approved and forwarded by Circle Incharge (${user?.name}) to DD Forensic Lab.`);
+        fd.append('items', JSON.stringify(cleanItems));
+
+        await api.post('/forensic-requests', fd);
+      }
+
+      alert('Scope Letter & Seized Evidence successfully marked and forwarded to DD Forensic Lab!');
+      setScopeLetterTarget(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Action failed.');
+    } finally {
+      setScopeLetterActionSaving(false);
+    }
+  };
+
+  const handleSendBackScopeLetterFromModal = async () => {
+    if (!scopeLetterTarget) return;
+    const remarks = prompt('Scope letter mein kya deficiency ya kami hai? Remarks darj karein:');
+    if (remarks === null) return;
+    if (!remarks.trim()) {
+      alert('Remarks likhna zaroori hai.');
+      return;
+    }
+
+    setScopeLetterActionSaving(true);
+    try {
+      const linked = scopeLetterData.linkedRequests || [];
+      if (linked.length > 0) {
+        await api.post(`/forensic/requests/${linked[0].id}/send-back`, {
+          remarks: remarks.trim(),
+        });
+      }
+      alert(`Scope letter deficiency remarks ke sath Enquiry Officer ko wapas bhej diya gaya: "${remarks.trim()}"`);
+      setScopeLetterTarget(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Send back failed.');
+    } finally {
+      setScopeLetterActionSaving(false);
+    }
+  };
+
   const filteredList = list;
 
   return (
@@ -312,6 +533,29 @@ export default function Enquiries() {
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             {hasRole('circle_incharge') || hasRole('admin') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general') ? 'View / Review' : 'Edit Enquiry'}
                           </Link>
+
+                          <button
+                            type="button"
+                            onClick={() => openScopeLetterModal(e)}
+                            className="btn btn-sm"
+                            style={{
+                              background: 'rgba(1,92,148,0.12)',
+                              color: '#015C94',
+                              border: '1.5px solid rgba(1,92,148,0.3)',
+                              borderRadius: 8,
+                              height: 36,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '0 10px',
+                              cursor: 'pointer',
+                              fontSize: 12,
+                              fontWeight: 700,
+                            }}
+                            title="View / Review Forensic Scope Letter & Mark to DD Forensic"
+                          >
+                            🔬 Scope Letter
+                          </button>
 
                           {(['registered'].includes(e.status)) && (hasRole('admin') || hasRole('circle_incharge')) && (
                             <button onClick={() => openAssign(e)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.12)',color:'#015C94',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Assign Officer">
@@ -564,6 +808,146 @@ export default function Enquiries() {
         title={chatTarget?.complaint?.complainant_name || chatTarget?.direct_info?.complainant_name || ''}
         officers={chatTarget?.officer ? [{ name: chatTarget.officer.name, role_label: 'Enquiry Officer' }] : []}
       />
+
+      {/* ── Scope Letter Review & Approval Modal ── */}
+      {scopeLetterTarget && (
+        <div className="modal-overlay" onClick={() => setScopeLetterTarget(null)}>
+          <div className="modal-container" style={{ maxWidth: 820 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#015C94', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🔬 Forensic Scope Letter & Seized Evidence Review
+                </h3>
+                <span style={{ fontSize: 12, color: '#64748b' }}>
+                  Enquiry: <strong>#{scopeLetterTarget.enquiry_number || scopeLetterTarget.id}</strong> &middot; Complainant: <strong>{scopeLetterTarget.complaint?.complainant_name || scopeLetterTarget.direct_info?.complainant_name || 'N/A'}</strong>
+                </span>
+              </div>
+              <button className="modal-close" onClick={() => setScopeLetterTarget(null)}>&times;</button>
+            </div>
+
+            <div className="modal-body" style={{ maxHeight: '72vh', overflowY: 'auto', padding: '20px' }}>
+              {scopeLetterLoading ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                  <p>Loading Scope Letter and Seized Devices...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Meta summary card */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, background: '#f1f5f9', padding: '12px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                    <div><span style={{ color: '#64748b', fontSize: 11, display: 'block' }}>Tracking / Ref No</span><strong>{scopeLetterData.enquiry?.complaint?.tracking_no || scopeLetterData.enquiry?.direct_info?.reference_no || scopeLetterData.enquiry?.tracking_no || '—'}</strong></div>
+                    <div><span style={{ color: '#64748b', fontSize: 11, display: 'block' }}>Enquiry Officer</span><strong>{scopeLetterData.enquiry?.officer?.name || '—'}</strong></div>
+                    <div><span style={{ color: '#64748b', fontSize: 11, display: 'block' }}>Routing Stage</span><span className="badge badge-info" style={{ fontSize: 11 }}>Under CI Review</span></div>
+                  </div>
+
+                  {/* Devices table */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <label className="cf-label" style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
+                        📦 Seized Digital Devices ({scopeLetterData.items.length})
+                      </label>
+                    </div>
+
+                    {scopeLetterData.items.length > 0 ? (
+                      <div className="table-responsive" style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+                        <table className="data-table" style={{ margin: 0 }}>
+                          <thead style={{ background: '#f8fafc' }}>
+                            <tr>
+                              <th style={{ padding: '8px 10px', fontSize: 12 }}>#</th>
+                              <th style={{ padding: '8px 10px', fontSize: 12 }}>Item Type</th>
+                              <th style={{ padding: '8px 10px', fontSize: 12 }}>Make / Model</th>
+                              <th style={{ padding: '8px 10px', fontSize: 12 }}>IMEI / Serial</th>
+                              <th style={{ padding: '8px 10px', fontSize: 12 }}>Storage</th>
+                              <th style={{ padding: '8px 10px', fontSize: 12 }}>Condition</th>
+                              <th style={{ padding: '8px 10px', fontSize: 12 }}>Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {scopeLetterData.items.map((it, idx) => (
+                              <tr key={idx}>
+                                <td style={{ padding: '8px 10px', fontSize: 12 }}>{idx + 1}</td>
+                                <td style={{ padding: '8px 10px', fontSize: 12, fontWeight: 600 }}>{it.item_type || 'Device'}</td>
+                                <td style={{ padding: '8px 10px', fontSize: 12 }}>{it.make_model || '—'}</td>
+                                <td style={{ padding: '8px 10px', fontSize: 12, fontFamily: 'monospace' }}>{it.imei || it.serial_no || '—'}</td>
+                                <td style={{ padding: '8px 10px', fontSize: 12 }}>{it.storage_capacity || '—'}</td>
+                                <td style={{ padding: '8px 10px', fontSize: 12 }}><span className="badge badge-pending" style={{ fontSize: 10 }}>{it.condition || 'Sealed'}</span></td>
+                                <td style={{ padding: '8px 10px', fontSize: 12, color: '#64748b' }}>{it.description || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div style={{ padding: '16px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
+                        ℹ️ No seized devices recorded in activities yet. You can still print or mark the general scope letter to DD Forensic.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Scope textarea */}
+                  <div className="cf-group" style={{ marginBottom: 0 }}>
+                    <label className="cf-label required" style={{ fontSize: 13, fontWeight: 700 }}>
+                      Analysis Scope (For Forensic Lab)
+                    </label>
+                    <textarea
+                      className="cf-input"
+                      rows={4}
+                      value={scopeLetterData.analysisScope}
+                      onChange={e => setScopeLetterData({ ...scopeLetterData, analysisScope: e.target.value })}
+                      placeholder="Specify examination requirements (e.g. Extraction of call logs, WhatsApp chats, media, deleted data recovery)..."
+                      style={{ fontSize: 13, lineHeight: 1.5 }}
+                    />
+                    <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>
+                      Circle Incharge scope text ko parh kar edit ya verify kar sakta hai. Mark to DD Forensic karne par yeh lab ko forward ho jayega.
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderTop: '1.5px solid #e2e8f0' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ color: '#015C94', borderColor: '#015C94', fontWeight: 600 }}
+                onClick={handlePrintScopeLetterFromModal}
+                disabled={scopeLetterLoading}
+              >
+                🖨️ Print Scope Letter
+              </button>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setScopeLetterTarget(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  style={{ color: '#d97706', borderColor: '#d97706', fontWeight: 700 }}
+                  disabled={scopeLetterLoading || scopeLetterActionSaving}
+                  onClick={handleSendBackScopeLetterFromModal}
+                  title="Send back to EO with deficiency remarks"
+                >
+                  ↩️ Send Back to EO
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ background: '#059669', color: '#fff', fontWeight: 700 }}
+                  disabled={scopeLetterLoading || scopeLetterActionSaving}
+                  onClick={handleMarkToDdForensicFromModal}
+                  title="Approve and mark to DD Forensic Lab"
+                >
+                  {scopeLetterActionSaving ? 'Forwarding…' : '📤 Mark to DD Forensic'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
