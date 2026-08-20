@@ -448,6 +448,10 @@
           @endif
         </td>
       </tr>
+      <tr>
+        <td class="m-lbl">obtain Legal Opinion from AD / DD Legal,</td>
+        <td class="m-val">&nbsp;</td>
+      </tr>
     </table>
 
     <div class="ci-sub" style="margin-top: 8px;">2. Directions &amp; Notes of Circle Incharge:</div>
