@@ -85,7 +85,7 @@ const EMPTY_ACCUSED = {
 };
 
 const EMPTY_SEIZE_ITEM = {
-  item_type: '', make_model: '', imei: '', imei2: '', serial_no: '', storage_capacity: '', condition: 'Sealed', quantity: 1, description: '',
+  item_type: '', make_model: '', imei: '', imei2: '', serial_no: '', storage_capacity: '', condition: 'sealed', quantity: 1, description: '', owner_type: '', owner_ref: ''
 };
 
 const SEIZE_ITEM_TYPES = [
@@ -742,6 +742,13 @@ export default function EnquiryForm() {
     }
   };
 
+  const getSeizeItemOwnerText = (it) => {
+    if (it.owner_type === 'accused') return 'Accused: ' + (form.accused[it.owner_ref]?.name || `Accused ${Number(it.owner_ref) + 1}`);
+    if (it.owner_type === 'witness') return 'Witness: ' + (form.witnesses[it.owner_ref]?.name || `Witness ${Number(it.owner_ref) + 1}`);
+    if (it.owner_type === 'complainant') return 'Complainant';
+    return it.owner_ref || (it.owner_type ? it.owner_type.charAt(0).toUpperCase() + it.owner_type.slice(1) : '');
+  };
+
   const printActivityForensicRequest = (act) => {
     if (!id) { alert('Pehle enquiry save karein, phir print karein.'); return; }
     const devices = (act.seize_items || [])
@@ -750,6 +757,7 @@ export default function EnquiryForm() {
         type: it.item_type || 'Digital Device',
         model: it.make_model || '—',
         imei: it.imei || it.serial_no || 'N/A',
+        owner: getSeizeItemOwnerText(it)
       }));
     const analysisScope = (act.analysis_scope || '').trim();
     printDocument('forensic-request-print', { devices: JSON.stringify(devices), analysis_scope: analysisScope });
@@ -764,7 +772,8 @@ export default function EnquiryForm() {
           devices.push({
             type: si.item_type || 'Digital Device',
             model: si.make_model || 'Unknown',
-            imei: si.imei || si.serial_no || 'N/A'
+            imei: si.imei || si.serial_no || 'N/A',
+            owner: getSeizeItemOwnerText(si)
           });
         });
       }
@@ -2299,15 +2308,58 @@ export default function EnquiryForm() {
 
                       {(a.seize_items || []).map((it, si) => (
                         <div key={si} style={{ padding: 12, marginBottom: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 10, marginBottom: 8 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr 1.2fr 1.5fr 1fr auto', gap: 10, marginBottom: 8 }}>
                             <div className="cf-field"><label className="cf-label required">Item Type</label>
-                              <select className="cf-input" value={it.item_type || ''} onChange={e => updateSeizeItem(i, si, 'item_type', e.target.value)}>
-                                <option value="">— Select —</option>
-                                {SEIZE_ITEM_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
-                              </select>
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{SEIZE_ITEM_TYPES.find(o => o.value === it.item_type)?.name || it.item_type || '—'}</div>
+                                : <select className="cf-input" value={it.item_type || ''} onChange={e => updateSeizeItem(i, si, 'item_type', e.target.value)}>
+                                  <option value="">— Select —</option>
+                                  {SEIZE_ITEM_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                                </select>
+                              }
+                            </div>
+                            <div className="cf-field"><label className="cf-label required">Owner Type</label>
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe', textTransform: 'capitalize' }}>{it.owner_type || '—'}</div>
+                                : <select className="cf-input" value={it.owner_type || ''} onChange={e => { updateSeizeItem(i, si, 'owner_type', e.target.value); updateSeizeItem(i, si, 'owner_ref', ''); }}>
+                                    <option value="">— Select —</option>
+                                    <option value="complainant">Complainant</option>
+                                    <option value="accused">Accused</option>
+                                    <option value="witness">Witness</option>
+                                    <option value="other">Other</option>
+                                  </select>
+                              }
+                            </div>
+                            <div className="cf-field"><label className="cf-label required">Owner / Person</label>
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>
+                                    {it.owner_type === 'accused' ? (form.accused[it.owner_ref]?.name || `Accused ${Number(it.owner_ref) + 1}`) :
+                                     it.owner_type === 'witness' ? (form.witnesses[it.owner_ref]?.name || `Witness ${Number(it.owner_ref) + 1}`) :
+                                     it.owner_type === 'complainant' ? 'Complainant' :
+                                     it.owner_ref || '—'}
+                                  </div>
+                                : (
+                                  it.owner_type === 'accused' ? (
+                                    <select className="cf-input" value={it.owner_ref || ''} onChange={e => updateSeizeItem(i, si, 'owner_ref', e.target.value)}>
+                                      <option value="">— Select Accused —</option>
+                                      {form.accused.map((a, idx) => <option key={idx} value={idx}>{a.name || `Accused ${idx + 1}`}</option>)}
+                                    </select>
+                                  ) : it.owner_type === 'witness' ? (
+                                    <select className="cf-input" value={it.owner_ref || ''} onChange={e => updateSeizeItem(i, si, 'owner_ref', e.target.value)}>
+                                      <option value="">— Select Witness —</option>
+                                      {form.witnesses.map((w, idx) => <option key={idx} value={idx}>{w.name || `Witness ${idx + 1}`}</option>)}
+                                    </select>
+                                  ) : (
+                                    <input type="text" className="cf-input" placeholder={it.owner_type === 'complainant' ? 'Complainant (Auto)' : 'Name'} value={it.owner_ref || ''} onChange={e => updateSeizeItem(i, si, 'owner_ref', e.target.value)} disabled={it.owner_type === 'complainant'} />
+                                  )
+                                )
+                              }
                             </div>
                             <div className="cf-field"><label className="cf-label">Make / Model</label>
-                              <input type="text" className="cf-input" placeholder="e.g. iPhone 15 Pro, Dell Inspiron..." value={it.make_model || ''} onChange={e => updateSeizeItem(i, si, 'make_model', e.target.value)} />
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.make_model || '—'}</div>
+                                : <input type="text" className="cf-input" placeholder="e.g. iPhone 15 Pro, Dell..." value={it.make_model || ''} onChange={e => updateSeizeItem(i, si, 'make_model', e.target.value)} />
+                              }
                             </div>
                             <div className="cf-field"><label className="cf-label">IMEI / IMEI 2</label>
                               {isSupervisor

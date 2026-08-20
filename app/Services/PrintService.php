@@ -811,6 +811,11 @@ class PrintService
                 $devType = e($dev['type'] ?? 'Mobile Phone');
                 $devModel = e($dev['model'] ?? '—');
                 
+                $devOwner = e($dev['owner'] ?? '');
+                if ($devOwner) {
+                    $devType .= '<br/><span style="font-size: 10px; color: #555;">(Owner: ' . $devOwner . ')</span>';
+                }
+                
                 $imeiText = trim(e($dev['imei'] ?? ''));
                 $imei2Text = trim(e($dev['imei2'] ?? ''));
                 $serialText = trim(e($dev['serial_no'] ?? ''));
