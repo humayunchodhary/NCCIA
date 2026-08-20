@@ -7,7 +7,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import SearchableSelect from '../components/SearchableSelect';
 import WorkflowProgress, { enquiryProgress } from '../components/WorkflowProgress';
 import CaseChatModal from '../components/CaseChatModal';
-import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateEnquiry } from '../utils/permissions';
+import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateEnquiry, hasRole as userHasRole, hasAnyRole } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 
 const STATUS_COLORS = {
@@ -77,7 +77,7 @@ export default function Enquiries() {
   const [ioOfficers, setIoOfficers] = useState([]);
   const [registerSaving, setRegisterSaving] = useState(false);
 
-  const hasRole = (roleName) => user?.roles?.some(r => r.name === roleName);
+  const hasRole = (roleName) => userHasRole(user, roleName);
   const canRegisterCase = canRegisterCaseFromEnquiry(user);
 
   const fetchData = useCallback((p = page) => {

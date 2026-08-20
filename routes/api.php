@@ -119,6 +119,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
 
     // Enquiries — Verification Officer has no access (flowchart: separate Enquiry stage)
     Route::get('/enquiries', [EnquiryController::class, 'index'])->name('api.enquiries.index');
+    Route::get('/enquiries/stats', [EnquiryController::class, 'stats']);
     Route::post('/enquiries', [EnquiryController::class, 'store'])
         ->middleware('role:admin,circle_incharge,operator,reader_branch,moharrar,enquiry_officer,director_general,ad_legal,dd_legal,additional_director')
         ->name('api.enquiries.store');
@@ -134,7 +135,6 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/enquiries/{enquiry}/forensic-request-print', [EnquiryController::class, 'forensicRequestPrint'])->name('api.enquiries.forensic-request-print');
     Route::get('/enquiries/{enquiry}/raid-permission-print', [EnquiryController::class, 'raidPermissionPrint'])->name('api.enquiries.raid-permission-print');
     Route::get('/enquiries/{enquiry}/search-warrant-print', [EnquiryController::class, 'searchWarrantPrint'])->name('api.enquiries.search-warrant-print');
-    Route::get('/enquiries/stats', [EnquiryController::class, 'stats']);
     Route::post('/enquiries/{enquiry}/assign', [EnquiryController::class, 'assign'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/enquiries/{enquiry}/submit-cfr', [EnquiryController::class, 'submitCfr'])

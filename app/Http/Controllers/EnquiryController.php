@@ -772,8 +772,8 @@ class EnquiryController extends Controller
         return response()->json([
             'total'    => (clone $q)->count(),
             'pending'  => (clone $q)->where('status', 'registered')->count(),
-            'progress' => (clone $q)->whereIn('status', ['assigned', 'in_progress'])->count(),
-            'approved' => (clone $q)->where('status', 'approved')->count(),
+            'progress' => (clone $q)->whereIn('status', ['assigned', 'in_progress', 'cfr_submitted', 'referred_court', 'legal_review_dd', 'legal_review_ad', 'legal_review_dg'])->count(),
+            'approved' => (clone $q)->whereIn('status', ['approved', 'case_registered', 'closed', 'transferred'])->count(),
         ]);
     }
 

@@ -246,12 +246,13 @@ export default function EnquiryForm() {
     }
   };
 
-  const roleNames = user?.roles?.map?.(r => r.name) || [user?.role].filter(Boolean);
+  const roleNames = user?.roles?.map?.(r => r.name || r) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
   const canEditCfrRemarks = roleNames.some(r => ['admin', 'additional_director'].includes(r));
   const canAuthorizeRequisitions = roleNames.some(r => ['admin', 'director_general', 'additional_director'].includes(r));
   const canRegisterCase = canRegisterCaseFromEnquiry(user);
-  const canSubmitCfr = !!id
+  const isEoLocked = !isSupervisor && !!id && ['cfr_submitted', 'approved', 'case_registered', 'closed', 'transferred'].includes(form.status);
+  const canSubmitCfr = !isEoLocked && !!id
     && ['registered', 'assigned', 'in_progress'].includes(form.status)
     && roleNames.some(r => ['admin', 'circle_incharge', 'enquiry_officer'].includes(r));
   const showRegisterCase = !!id && canRegisterCase && enquiryReadyForCaseRegistration({ status: form.status, case_file_id: caseFileId });
@@ -929,6 +930,10 @@ export default function EnquiryForm() {
   ), [form.activities]);
 
   const saveEnquiry = async ({ navigateAway = true } = {}) => {
+    if (isEoLocked) {
+      alert('Yeh Enquiry Circle Incharge ko submit ho chuki hai / Approved hai. Enquiry Officer ke liye editing locked hai.');
+      return;
+    }
     const fd = new FormData();
 
     const serializeArr = (items, fileFieldName) => {
@@ -2550,16 +2555,24 @@ export default function EnquiryForm() {
           </div>
         )}
 
+        {isEoLocked && (
+          <div style={{ marginTop: 16, padding: '12px 16px', background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b', fontWeight: 600 }}>
+            🔒 Yeh Enquiry Circle Incharge ko submit ho chuki hai / Approved hai. Enquiry Officer ke liye edit permissions locked hain (Read-Only Mode).
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20, flexWrap: 'wrap' }}>
-          <Link to="/enquiries" className="btn btn-outline">Cancel</Link>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={saving || submittingCfr || registerSaving}
-            style={{ background: '#64748b', color: '#fff', padding: '12px 24px', fontWeight: 600, fontSize: '14px', borderRadius: '8px', border: 'none' }}
-          >
-            {saving ? 'Saving...' : (id ? 'Update Enquiry' : 'Register Enquiry')}
-          </button>
+          <Link to="/enquiries" className="btn btn-outline">Back to Enquiries</Link>
+          {!isEoLocked && (
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={saving || submittingCfr || registerSaving}
+              style={{ background: '#64748b', color: '#fff', padding: '12px 24px', fontWeight: 600, fontSize: '14px', borderRadius: '8px', border: 'none' }}
+            >
+              {saving ? 'Saving...' : (id ? 'Update Enquiry' : 'Register Enquiry')}
+            </button>
+          )}
           {canSubmitCfr && (
             <button
               type="button"

@@ -121,6 +121,10 @@ export default function VerificationReportForm() {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [linkedVerificationId, setLinkedVerificationId] = useState(null);
+  const [verificationStatus, setVerificationStatus] = useState('');
+
+  const isSupervisor = ['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general'].some(r => hasRole(user, r));
+  const isVoLocked = !isSupervisor && !!id && ['submitted', 'approved', 'closed', 'merged', 'transferred'].includes(verificationStatus);
 
   const [form, setForm] = useState({
     tracking_no: '',
@@ -228,6 +232,7 @@ export default function VerificationReportForm() {
           inquiry_no: d.inquiry_no || '',
           case_no: d.case_no || '',
         }));
+        setVerificationStatus(d.complaint?.verification?.status || d.verification?.status || '');
       }).catch(() => navigate('/verifications/reports'));
     }
   }, [id, navigate]);
@@ -416,6 +421,10 @@ const handleTrackingChange = (e) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isVoLocked) {
+      alert('Yeh Verification Report Circle Incharge ko submit ho chuki hai / Approved hai. Verification Officer ke liye editing locked hai.');
+      return;
+    }
     setSaving(true);
     setServerError('');
     setErrors({});
@@ -438,6 +447,10 @@ const handleTrackingChange = (e) => {
   };
 
   const handleSubmitToCircleIncharge = async () => {
+    if (isVoLocked) {
+      alert('Yeh Verification Report pehle hi submit ho chuki hai.');
+      return;
+    }
     if (!form.recommendation) {
       setServerError('Circle Incharge ko submit karne se pehle Recommendation select karein.');
       return;
@@ -960,25 +973,31 @@ const handleTrackingChange = (e) => {
           <div className="cf-alert cf-alert-error">{serverError}</div>
         )}
 
-        <div style={{marginTop:12,padding:'12px 14px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,fontSize:13,color:'#1e3a5f'}}>
-          Form save karne ke baad <strong>Submit to Circle Incharge</strong> dabayein — report same circle ke CI ko chali jayegi.
-        </div>
+        {isVoLocked && (
+          <div style={{ marginTop: 16, padding: '12px 16px', background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b', fontWeight: 600 }}>
+            🔒 Yeh Verification Report Circle Incharge ko submit ho chuki hai / Approved hai. Verification Officer ke liye edit permissions locked hain (Read-Only Mode).
+          </div>
+        )}
 
         <div className="cf-form-actions" style={{display:'flex',justifyContent:'flex-end',gap:'10px',paddingTop:'20px',marginTop:'10px',flexWrap:'wrap'}}>
-          <Link to="/verifications/reports" className="btn btn-outline">Back</Link>
-          <button type="submit" className="btn cf-submit-btn" disabled={saving || submittingCi} style={{background:'#64748b',color:'#fff',padding:'12px 24px',fontWeight:600,fontSize:'14px',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',border:'none',cursor:saving?'not-allowed':'pointer',opacity:saving?0.7:1}}>
-            {saving ? 'Saving...' : (id ? 'Save Draft' : 'Save Report')}
-          </button>
-          <button
-            type="button"
-            className="btn cf-submit-btn"
-            disabled={saving || submittingCi}
-            onClick={handleSubmitToCircleIncharge}
-            style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:700,fontSize:'14px',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',border:'none',cursor:submittingCi?'not-allowed':'pointer',opacity:submittingCi?0.7:1,boxShadow:'0 2px 8px rgba(1,92,148,0.35)'}}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            {submittingCi ? 'Submitting...' : 'Submit to Circle Incharge'}
-          </button>
+          <Link to="/verifications/reports" className="btn btn-outline">Back to Reports</Link>
+          {!isVoLocked && (
+            <>
+              <button type="submit" className="btn cf-submit-btn" disabled={saving || submittingCi} style={{background:'#64748b',color:'#fff',padding:'12px 24px',fontWeight:600,fontSize:'14px',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',border:'none',cursor:saving?'not-allowed':'pointer',opacity:saving?0.7:1}}>
+                {saving ? 'Saving...' : (id ? 'Save Draft' : 'Save Report')}
+              </button>
+              <button
+                type="button"
+                className="btn cf-submit-btn"
+                disabled={saving || submittingCi}
+                onClick={handleSubmitToCircleIncharge}
+                style={{background:'#015C94',color:'#fff',padding:'12px 24px',fontWeight:700,fontSize:'14px',borderRadius:'8px',display:'flex',alignItems:'center',gap:'8px',border:'none',cursor:submittingCi?'not-allowed':'pointer',opacity:submittingCi?0.7:1,boxShadow:'0 2px 8px rgba(1,92,148,0.35)'}}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                {submittingCi ? 'Submitting...' : 'Submit to Circle Incharge'}
+              </button>
+            </>
+          )}
         </div>
       </form>
     </div>
