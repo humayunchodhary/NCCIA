@@ -85,7 +85,7 @@ const EMPTY_ACCUSED = {
 };
 
 const EMPTY_SEIZE_ITEM = {
-  item_type: '', make_model: '', imei: '', serial_no: '', quantity: 1, description: '',
+  item_type: '', make_model: '', imei: '', imei2: '', serial_no: '', storage_capacity: '', condition: 'Sealed', quantity: 1, description: '',
 };
 
 const SEIZE_ITEM_TYPES = [
@@ -380,6 +380,7 @@ export default function EnquiryForm() {
         activity_date: toDate(a.activity_date),
         attachment_path: a.attachment_path || '',
         seize_items: Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
+        analysis_scope: a.meta?.analysis_scope || a.analysis_scope || '',
       })),
       witnesses: (d.witnesses || []).map(w => ({
         id: w.id,
@@ -649,6 +650,7 @@ export default function EnquiryForm() {
           const a = f.accused[Number(personRef)];
           if (a) {
             next.receiver_name = a.name || '';
+            next.cnic = a.cnic || '';
             next.phone = a.contact_no || a.whatsapp_no || '';
             next.address = a.postal_address || a.permanent_address || '';
           }
@@ -656,16 +658,19 @@ export default function EnquiryForm() {
           const w = f.witnesses[Number(personRef)];
           if (w) {
             next.receiver_name = w.name || '';
+            next.cnic = w.cnic || '';
             next.phone = w.contact_no || w.whatsapp_no || '';
             next.address = w.address || w.mailing_address || w.permanent_address || '';
           }
         } else if (personType === 'complainant') {
           if (selectedComplaint) {
             next.receiver_name = selectedComplaint.complainant_name || '';
+            next.cnic = selectedComplaint.cnic || '';
             next.phone = selectedComplaint.contact_no || selectedComplaint.whatsapp_no || '';
             next.address = selectedComplaint.address || '';
           } else if (directMode && direct) {
             next.receiver_name = direct.complainant_name || '';
+            next.cnic = direct.cnic || '';
             next.phone = direct.contact_no || direct.whatsapp_no || '';
             next.address = direct.address || '';
           }
@@ -2264,10 +2269,18 @@ export default function EnquiryForm() {
                               <input type="text" className="cf-input" placeholder="e.g. iPhone 15 Pro, Dell Inspiron..." value={it.make_model || ''} onChange={e => updateSeizeItem(i, si, 'make_model', e.target.value)} />
                             </div>
                             <div className="cf-field"><label className="cf-label">IMEI / IMEI 2</label>
-                              <input type="text" className="cf-input" placeholder="15 digits" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
                               {isSupervisor
-                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', fontFamily: 'monospace', border: '1px solid #dbeafe' }}>{it.imei || '—'}</div>
-                                : <input type="text" className="cf-input" placeholder="15 digits" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
+                                ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', fontFamily: 'monospace', border: '1px solid #dbeafe' }}>{it.imei || '—'}</div>
+                                    <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', fontFamily: 'monospace', border: '1px solid #dbeafe' }}>{it.imei2 || '—'}</div>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <input type="text" className="cf-input" placeholder="IMEI 1" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
+                                    <input type="text" className="cf-input" placeholder="IMEI 2" value={it.imei2 || ''} onChange={e => updateSeizeItem(i, si, 'imei2', e.target.value)} />
+                                  </div>
+                                )
                               }
                             </div>
                             <div className="cf-field"><label className="cf-label">Serial Number</label>

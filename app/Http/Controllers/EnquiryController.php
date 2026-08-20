@@ -109,12 +109,15 @@ class EnquiryController extends Controller
                             return null;
                         }
                         return [
-                            'item_type'   => $item['item_type'] ?? null,
-                            'make_model'  => $item['make_model'] ?? null,
-                            'imei'        => $item['imei'] ?? null,
-                            'serial_no'   => $item['serial_no'] ?? null,
-                            'quantity'    => isset($item['quantity']) ? (int) $item['quantity'] : 1,
-                            'description' => $item['description'] ?? null,
+                            'item_type'        => $item['item_type'] ?? null,
+                            'make_model'       => $item['make_model'] ?? null,
+                            'imei'             => $item['imei'] ?? null,
+                            'imei2'            => $item['imei2'] ?? null,
+                            'serial_no'        => $item['serial_no'] ?? null,
+                            'quantity'         => isset($item['quantity']) ? (int) $item['quantity'] : 1,
+                            'storage_capacity' => $item['storage_capacity'] ?? null,
+                            'condition'        => $item['condition'] ?? null,
+                            'description'      => $item['description'] ?? null,
                         ];
                     }, $action['seize_items']),
                     static fn ($item) => $item && (
@@ -123,6 +126,9 @@ class EnquiryController extends Controller
                         || !empty($item['description'])
                     )
                 ))];
+                if (isset($action['analysis_scope'])) {
+                    $meta['analysis_scope'] = $action['analysis_scope'];
+                }
             } elseif (is_array($action) && array_key_exists('meta', $action) && is_array($action['meta'])) {
                 $meta = $action['meta'];
             }

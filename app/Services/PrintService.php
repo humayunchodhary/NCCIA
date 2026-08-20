@@ -810,14 +810,25 @@ class PrintService
                 $n = $i + 1;
                 $devType = e($dev['type'] ?? 'Mobile Phone');
                 $devModel = e($dev['model'] ?? '—');
-                $devImei = e($dev['imei'] ?? '—');
-                $deviceRows .= "<tr><td style=\"text-align:center;\">{$n}</td><td>{$devType}</td><td>{$devModel}</td><td>{$devImei}</td></tr>";
+                
+                $imeiText = trim(e($dev['imei'] ?? ''));
+                $imei2Text = trim(e($dev['imei2'] ?? ''));
+                $serialText = trim(e($dev['serial_no'] ?? ''));
+                
+                $identifiers = [];
+                if ($imeiText) $identifiers[] = 'IMEI1: ' . $imeiText;
+                if ($imei2Text) $identifiers[] = 'IMEI2: ' . $imei2Text;
+                if ($serialText) $identifiers[] = 'SN: ' . $serialText;
+                $devImei = empty($identifiers) ? '—' : implode('<br/>', $identifiers);
+                
+                $devStorage = e($dev['storage_capacity'] ?? '—');
+                $deviceRows .= "<tr><td style=\"text-align:center;\">{$n}</td><td>{$devType}</td><td>{$devModel}</td><td>{$devImei}</td><td>{$devStorage}</td></tr>";
             }
         } else {
             $deviceRows = <<<HTML
-            <tr><td style="text-align:center; height:24px;">1</td><td>Mobile Phone / Smartphone</td><td>Apple / Samsung</td><td>358900000000000</td></tr>
-            <tr><td style="text-align:center; height:24px;">2</td><td>SIM Card / Memory Card</td><td>SanDisk 64GB</td><td>N/A</td></tr>
-            <tr><td style="text-align:center; height:24px;">3</td><td>Laptop / Hard Drive</td><td>Dell Inspiron</td><td>SN: 4598000</td></tr>
+            <tr><td style="text-align:center; height:24px;">1</td><td>Mobile Phone / Smartphone</td><td>Apple / Samsung</td><td>IMEI1: 358900000000000</td><td>256GB</td></tr>
+            <tr><td style="text-align:center; height:24px;">2</td><td>SIM Card / Memory Card</td><td>SanDisk 64GB</td><td>N/A</td><td>64GB</td></tr>
+            <tr><td style="text-align:center; height:24px;">3</td><td>Laptop / Hard Drive</td><td>Dell Inspiron</td><td>SN: 4598000</td><td>1TB</td></tr>
             HTML;
         }
 
@@ -857,6 +868,7 @@ class PrintService
                   <th>TYPE OF EVIDENTIARY DEVICE</th>
                   <th>MAKE / MODEL</th>
                   <th>IMEI / SERIAL NO</th>
+                  <th>STORAGE CAPACITY</th>
                 </tr>
               </thead>
               <tbody>

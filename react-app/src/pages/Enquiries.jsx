@@ -375,13 +375,14 @@ export default function Enquiries() {
 
       if (linked.length > 0) {
         await api.post(`/forensic/requests/${linked[0].id}/forward-to-forensic`, {
-          remarks: 'Approved & Forwarded by Circle Incharge',
+          remarks: scopeLetterData.ciRemarks || 'Approved & Forwarded by Circle Incharge',
         });
       } else {
         const cleanItems = scopeLetterData.items.map(it => ({
           item_type: it.item_type || 'other',
           make_model: it.make_model || null,
           imei: it.imei || null,
+          imei2: it.imei2 || null,
           serial_no: it.serial_no || null,
           storage_capacity: it.storage_capacity || null,
           condition: it.condition || null,
@@ -396,7 +397,7 @@ export default function Enquiries() {
         fd.append('status', 'forwarded_to_forensic');
         fd.append('brief_contents', `Enquiry #${enq.enquiry_number || enq.id} - ${enq.complaint?.complainant_name || ''}`);
         fd.append('analysis_scope', scopeLetterData.analysisScope.trim());
-        fd.append('note', `Approved and forwarded by Circle Incharge (${user?.name}) to DD Forensic Lab.`);
+        fd.append('note', scopeLetterData.ciRemarks || `Approved and forwarded by Circle Incharge (${user?.name}) to DD Forensic Lab.`);
         fd.append('items', JSON.stringify(cleanItems));
 
         await api.post('/forensic-requests', fd);
@@ -897,19 +898,37 @@ export default function Enquiries() {
                     <label className="cf-label required" style={{ fontSize: 13, fontWeight: 700 }}>
                       Analysis Scope (For Forensic Lab)
                     </label>
-                    <textarea
-                      className="cf-input"
-                      rows={4}
-                      value={scopeLetterData.analysisScope}
-                      onChange={e => setScopeLetterData({ ...scopeLetterData, analysisScope: e.target.value })}
-                      placeholder="Enquiry Officer dwara darj kiya gaya examination scope..."
-                      style={{ fontSize: 13, lineHeight: 1.5 }}
-                      disabled={!scopeLetterData.hasEoSubmitted}
-                    />
-                    <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>
-                      {scopeLetterData.hasEoSubmitted ? 'Circle Incharge EO ke Scope text ko parh kar verify karein. "Mark to DD Forensic" karne par yeh lab ko forward hoga.' : 'EO ke Scope Letter submit karne ke baad text yahan show hoga.'}
+                    <div style={{
+                      padding: 12,
+                      background: '#f1f5f9',
+                      borderRadius: 6,
+                      border: '1px solid #cbd5e1',
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      color: '#0f172a',
+                      whiteSpace: 'pre-wrap',
+                      minHeight: '80px'
+                    }}>
+                      {scopeLetterData.analysisScope || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Enquiry Officer dwara darj kiya gaya examination scope...</span>}
+                    </div>
+                    <span className="cf-hint" style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'block' }}>
+                      {scopeLetterData.hasEoSubmitted ? 'EO ke scope mein changes nahi ho sakti, yeh seedha lab jayega.' : 'EO ke Scope Letter submit karne ke baad text yahan show hoga.'}
                     </span>
                   </div>
+
+                  {scopeLetterData.hasEoSubmitted && (
+                    <div className="cf-field" style={{ marginTop: 16 }}>
+                      <label className="cf-label">Circle Incharge Remarks (Optional)</label>
+                      <input
+                        type="text"
+                        className="cf-input"
+                        placeholder="e.g. Approved and forwarded to DD Forensic..."
+                        value={scopeLetterData.ciRemarks || ''}
+                        onChange={e => setScopeLetterData({ ...scopeLetterData, ciRemarks: e.target.value })}
+                        disabled={!scopeLetterData.hasEoSubmitted}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </div>
