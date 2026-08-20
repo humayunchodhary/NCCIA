@@ -294,8 +294,8 @@
         </td>
         <td class="header-center">
           <div class="agency-title">National Cyber Crime Investigation Agency</div>
-          <div class="govt-sub">Government of Pakistan &bull; Ministry of Interior</div>
-          <div class="circle-title">{{ $report->creator?->circle?->name ?? 'Cyber Crime Reporting Center' }} ({{ $report->creator?->circle?->city ?? 'Pakistan' }})</div>
+          <div class="govt-sub">Government of Pakistan &bull; Ministry of Interior and Narcotics Control</div>
+          <div class="circle-title">Reporting Center {{ $report->creator?->circle?->city ?? 'Lahore' }}</div>
         </td>
         <td class="top-right-logo">
           @if(file_exists(public_path('images/pak-govt-logo.png')))
@@ -329,7 +329,7 @@
       <tr>
         <td class="lbl">Victim Name:</td>
         <td class="val"><strong>{{ $report->victim_name }}</strong></td>
-        <td class="lbl">Father / Husband:</td>
+        <td class="lbl">S/o, D/o, W/o:</td>
         <td class="val">{{ $report->victim_father_name ?? '—' }}</td>
       </tr>
       <tr>
@@ -408,6 +408,18 @@
       FOR USE OF CIRCLE INCHARGE &mdash; ORDER / MARKING TO ENQUIRY OFFICER
     </div>
 
+    {{-- Enquiry Number at top in bold --}}
+    <div style="text-align: center; font-size: 9pt; font-weight: bold; margin-bottom: 6px;">
+      Enquiry No.&nbsp;
+      @if($report->complaint?->enquiry?->enquiry_number)
+        {{ $report->complaint->enquiry->enquiry_number }}
+      @elseif($report->inquiry_no)
+        {{ $report->inquiry_no }}
+      @else
+        ______________________________
+      @endif
+    </div>
+
     <div class="ci-sub">1. Directions &amp; Notes of Circle Incharge:</div>
     <div class="notes-box">
       <div class="ruled-line"></div>
@@ -431,18 +443,6 @@
         </td>
       </tr>
       <tr>
-        <td class="m-lbl">Enquiry Number (if registered):</td>
-        <td class="m-val">
-          @if($report->complaint?->enquiry?->enquiry_number)
-            <strong>{{ $report->complaint->enquiry->enquiry_number }}</strong>
-          @elseif($report->inquiry_no)
-            <strong>{{ $report->inquiry_no }}</strong>
-          @else
-            ENQ-CCRC-____________________________________
-          @endif
-        </td>
-      </tr>
-      <tr>
         <td class="m-lbl">Marking Date &amp; Target Disposal:</td>
         <td class="m-val">
           Marking Date: <strong>________________________</strong> &nbsp;&nbsp;|&nbsp;&nbsp; 
@@ -453,18 +453,12 @@
 
     <table class="ci-sig-table">
       <tr>
-        <td style="width: 45%; font-size: 7.5pt; color: #475569;">
-          <strong>Official Stamp:</strong>
-          <div style="border: 1px dashed #94a3b8; width: 140px; height: 50px; margin-top: 4px; text-align: center; line-height: 50px; color: #cbd5e1; font-size: 7pt;">
-            [ SEAL / STAMP ]
-          </div>
-        </td>
-        <td style="width: 55%; text-align: right;">
+        <td style="width: 100%; text-align: right;">
           <div class="ci-sig-box">
             <div class="ci-sig-line"></div>
             <strong style="font-size: 8.5pt; color: #0f172a;">Circle Incharge / Assistant Director</strong><br>
             National Cyber Crime Investigation Agency (NCCIA)<br>
-            {{ $report->creator?->circle?->name ?? 'Cyber Crime Reporting Center' }}<br>
+            NCCIA-RC {{ $report->creator?->circle?->city ?? 'Lahore' }}<br>
             Date: ____________________
           </div>
         </td>
