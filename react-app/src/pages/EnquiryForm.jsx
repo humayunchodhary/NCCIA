@@ -694,7 +694,7 @@ export default function EnquiryForm() {
         });
       }
     });
-    printDocument('forensic-request-print', { devices: JSON.stringify(devices), analysis_scope: analysisScope.trim() });
+    printDocument('forensic-request-print', { devices: JSON.stringify(devices), analysis_scope: scope.trim() });
   };
 
   const printRaidPermission = () => {
@@ -2198,7 +2198,7 @@ export default function EnquiryForm() {
                         </div>
                       ))}
 
-                      <div className="cf-field" style={{ marginTop: 12 }}><label className="cf-label">Analysis Scope (For Forensic Lab)</label><textarea className="cf-input" rows={2} placeholder="Social Media Profile URL: 1. Facebook, 2. Instagram..." value={a.analysis_scope || ''} onChange={e => updateActivity(i, 'analysis_scope', e.target.value)} style={{ width: '100%' }} /></div>
+                      
                         {(a.seize_items || []).length === 0 && (
                         <p style={{ margin: 0, fontSize: 12, color: '#888' }}>No seized items entered yet. Click "+ Add Item".</p>
                       )}
@@ -2508,4 +2508,5 @@ export default function EnquiryForm() {
     </div>
   );
 }
+
 
