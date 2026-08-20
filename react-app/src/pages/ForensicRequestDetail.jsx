@@ -118,6 +118,144 @@ export default function ForensicRequestDetail() {
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   };
 
+  const handlePrintScopeLetter = () => {
+    if (!row) return;
+    const enqNo = row.enquiry?.enquiry_number || row.enquiry?.complaint?.tracking_no || `ENQ-${row.enquiry_id}`;
+    const compName = row.enquiry?.complaint?.complainant_name || row.enquiry?.direct_info?.complainant_name || 'Complainant';
+    const compCnic = row.enquiry?.complaint?.cnic || row.enquiry?.direct_info?.cnic || '—';
+    const dateStr = new Date().toLocaleDateString('en-GB');
+    const officerName = row.submitter?.name || 'Enquiry Officer';
+    const officerDesig = row.submitter?.designation || 'Enquiry Officer';
+    const circleName = row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
+    
+    const accusedList = row.enquiry?.accused_persons || [];
+    const accRows = accusedList.length > 0 
+      ? accusedList.map((a, i) => `<div><strong>${i+1}. ${a.name || '—'}</strong> S/O ${a.father_name || '—'} R/O ${a.postal_address || a.permanent_address || '—'}</div>`).join('')
+      : '<div>1. Name S/o R/o ________________________________________________</div>';
+
+    const itemRows = (row.items && row.items.length > 0 ? row.items : [{ item_type: 'Digital Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
+      let imeiStr = [];
+      if (it.imei) imeiStr.push('IMEI1: ' + it.imei);
+      if (it.imei2) imeiStr.push('IMEI2: ' + it.imei2);
+      if (it.serial_no) imeiStr.push('SN: ' + it.serial_no);
+      let imeiFinal = imeiStr.length > 0 ? imeiStr.join('<br/>') : '—';
+      
+      return `
+      <tr>
+        <td style="border:1px solid #000;padding:6px;text-align:center;">${idx + 1}</td>
+        <td style="border:1px solid #000;padding:6px;"><strong>${it.item_type || 'Digital Device'}</strong></td>
+        <td style="border:1px solid #000;padding:6px;">${it.make_model || '—'}</td>
+        <td style="border:1px solid #000;padding:6px;font-family:monospace;">${imeiFinal}</td>
+        <td style="border:1px solid #000;padding:6px;">${it.storage_capacity || '—'}</td>
+        <td style="border:1px solid #000;padding:6px;">${it.condition || 'Sealed'}</td>
+        <td style="border:1px solid #000;padding:6px;">${it.description || '—'}</td>
+      </tr>
+      `;
+    }).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Forensic Scope Letter - ${enqNo}</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm 15mm; }
+          body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.45; font-size: 13px; }
+          .hdr { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px; }
+          .hdr-title { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+          .hdr-sub { font-size: 13px; font-weight: 600; }
+          .meta-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
+          .to-sec { margin-bottom: 12px; }
+          .subj { font-weight: 800; text-transform: uppercase; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin: 12px 0; font-size: 13px; }
+        </style>
+      </head>
+      <body>
+        <div class="hdr">
+          <div class="hdr-title">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
+          <div class="hdr-sub">CYBER CRIME REPORTING CENTRE (CCRC) ${circleName.toUpperCase()}</div>
+        </div>
+
+        <div class="meta-row">
+          <div><strong>Memo No.</strong> ${row.request_no || '—'} / NCCIA / CCRC / ${circleName}</div>
+          <div><strong>Dated:</strong> ${dateStr}</div>
+        </div>
+
+        <div class="to-sec">
+          <strong>THE INCHARGE</strong><br/>
+          <strong>NCCIA, CCRC, ${circleName.toUpperCase()}</strong>
+        </div>
+
+        <div class="subj">
+          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / CASE FIR NO. ${enqNo} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, ${circleName.toUpperCase()}.
+        </div>
+
+        <div><strong>SIR,</strong></div>
+        <p style="margin-top:8px;">
+          <strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA, AND THE BELOW DIGITAL MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,
+        </p>
+
+        <div style="margin: 6px 0 10px 16px; line-height: 1.6;">
+          ${accRows}
+        </div>
+
+        <p>THE BRIEF CONTENTS OF THE CASE ARE THAT THE ALLEGED PERSON IS INVOLVED IN <strong>${row.brief_contents || 'alleged cybercrime offences'}</strong>.</p>
+
+        <p>DURING THE COURSE OF ENQUIRY/INVESTIGATION, THE RELEVANT DIGITAL MEDIA WAS TAKEN INTO POSSESSION FOR FORENSIC EXAMINATION. THE DETAIL OF THE DIGITAL MEDIA IS AS UNDER:</p>
+
+        <div style="font-weight:800; text-decoration:underline; margin: 14px 0 6px 0;">DIGITAL MEDIA RECOVERED</div>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+          <thead>
+            <tr>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;width:40px;">SR. NO.</th>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">TYPE OF EVIDENTIARY DEVICE</th>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">MAKE / MODEL</th>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">IMEI / SERIAL NO</th>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">STORAGE</th>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">CONDITION</th>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">DESCRIPTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+          </tbody>
+        </table>
+
+        <div style="font-weight:800; text-decoration:underline; margin: 14px 0 6px 0;">SCOPE FOR FORENSIC ANALYSIS</div>
+        <p><strong>YOU ARE REQUESTED TO CONDUCT FORENSIC EXAMINATION AND PROVIDE REPORT ON THE FOLLOWING SCOPE:</strong></p>
+        <div style="padding: 10px; border: 1px solid #cbd5e1; background: #f8fafc; white-space: pre-wrap; font-size: 13px; line-height: 1.5; margin-bottom: 12px; min-height: 60px;">
+          ${row.analysis_scope || 'Conduct comprehensive forensic examination and data extraction...'}
+        </div>
+
+        <p style="margin-top:10px;">
+          It is therefore requested that the allied forensic analysis report, as per the above scope, may kindly be furnished at the earliest to enable the undersigned to finalize the instant case/enquiry on merit, please.
+        </p>
+
+        <div style="margin-top:16px;">
+          <strong>ENCLOSURES:</strong><br/>
+          1. COPY OF ENQ NO. <strong>${enqNo}</strong><br/>
+          2. COPY OF SEIZURE MEMO (RECOVERY MEMO) OF DIGITAL DEVICE
+        </div>
+
+        <div style="margin-top: 50px; display:flex; justify-content:flex-end;">
+          <div style="text-align:right;">
+            <strong>${officerName}</strong><br/>
+            ${officerDesig}<br/>
+            NCCIA, ${circleName}
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    }
+  };
+
   if (loading) return <div className="page-content"><LoadingSkeleton type="form" /></div>;
   if (err && !row) return (
     <div className="page-content">
@@ -168,6 +306,9 @@ export default function ForensicRequestDetail() {
           <div className="title-underline"></div>
         </div>
         <div className="page-actions" style={{display:'flex',gap:8}}>
+          <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintScopeLetter} style={{color:'#d97706',borderColor:'#d97706'}}>
+            🖨️ Print Scope Letter
+          </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={handlePrintF31} style={{background:'#015C94'}}>
             \uD83D\uDDA8\uFE0F Print F-31 Chain of Custody
           </button>
