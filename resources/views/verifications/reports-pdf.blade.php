@@ -413,6 +413,9 @@
       Enquiry No.&nbsp;
       @if($report->complaint?->enquiry?->enquiry_number)
         {{ $report->complaint->enquiry->enquiry_number }}
+        @if($report->complaint->enquiry->reg_date)
+          &nbsp;&nbsp;Dated:&nbsp;{{ $report->complaint->enquiry->reg_date->format('d-m-Y') }}
+        @endif
       @elseif($report->inquiry_no)
         {{ $report->inquiry_no }}
       @else
