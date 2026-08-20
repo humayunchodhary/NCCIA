@@ -424,7 +424,7 @@ class PrintService
         $appTime = $notice->appearance_date ? \Carbon\Carbon::parse($notice->appearance_date)->format('H:i') : ($notice->appearance_time ?: '11:00');
         
         // Gist of Allegation
-        $gistOfAllegation = e($enquiry?->charge_against ?: ($complaint?->offence_type ?: ($complaint?->description ? \Illuminate\Support\Str::limit($complaint->description, 120) : 'Financial Fraud / Cyber Crime Allegation')));
+        $gistOfAllegation = e($notice->description ?: ($enquiry?->charge_against ?: ($complaint?->offence_type ?: ($complaint?->description ? \Illuminate\Support\Str::limit($complaint->description, 120) : 'Financial Fraud / Cyber Crime Allegation'))));
 
         // Officer Info
         $officerName = e($enquiry?->officer?->name ?: 'NABEEL HUSSAIN');

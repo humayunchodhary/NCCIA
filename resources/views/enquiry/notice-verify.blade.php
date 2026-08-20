@@ -29,12 +29,14 @@
         </div>
         <div class="body">
             <div style="text-align:center; margin-bottom: 14px;">
-                @if($notice->status === 'non_appearance')
-                    <span class="badge invalid">⚠ No Appearance Recorded</span>
+                @if($notice->status === 'non_appearance' || $notice->appearance_remarks === 'non_appearance')
+                    <span class="badge invalid">❌ Non-Appeared</span>
+                @elseif($notice->status === 'appeared' || $notice->appearance_remarks === 'appeared')
+                    <span class="badge valid">✅ Appeared</span>
                 @elseif(in_array($notice->status, ['issued','unserved']))
-                    <span class="badge invalid">Pending Appearance</span>
+                    <span class="badge invalid" style="background:#fff3cd; color:#856404;">⏳ Pending Appearance</span>
                 @else
-                    <span class="badge valid">✓ Summon Verified</span>
+                    <span class="badge valid">✓ Served</span>
                 @endif
             </div>
 

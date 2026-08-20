@@ -15,6 +15,7 @@ class EnquiryNotice extends Model
         'notice_type',
         'receiver_name',
         'person_type',
+        'cnic',
         'notice_via',
         'address',
         'phone',

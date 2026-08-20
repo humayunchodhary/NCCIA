@@ -552,6 +552,31 @@ export default function EnquiryForm() {
     setEditingAccusedIndex(prev => (prev === i ? null : (prev != null && prev > i ? prev - 1 : prev)));
   };
   const updateAccused = (i, field, value) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+
+  const updateAccusedCnic = (i, raw) => {
+    let val = raw.replace(/\D/g, '');
+    if (val.length > 5) val = val.slice(0, 5) + '-' + val.slice(5);
+    if (val.length > 13) val = val.slice(0, 13) + '-' + val.slice(13);
+    updateAccused(i, 'cnic', val);
+  };
+  const updateAccusedContact = (i, field, raw) => {
+    let val = raw.replace(/\D/g, '').replace(/^0+/, '');
+    if (val.length > 10) val = val.slice(0, 10);
+    updateAccused(i, field, val);
+  };
+
+  const updateWitnessCnic = (i, raw) => {
+    let val = raw.replace(/\D/g, '');
+    if (val.length > 5) val = val.slice(0, 5) + '-' + val.slice(5);
+    if (val.length > 13) val = val.slice(0, 13) + '-' + val.slice(13);
+    updateWitness(i, 'cnic', val);
+  };
+  const updateWitnessContact = (i, field, raw) => {
+    let val = raw.replace(/\D/g, '').replace(/^0+/, '');
+    if (val.length > 10) val = val.slice(0, 10);
+    updateWitness(i, field, val);
+  };
+
   const updateAccusedFile = (i, field, file) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
   const isAccusedEditing = (a, i) => !a.id || editingAccusedIndex === i;
 
@@ -1519,7 +1544,7 @@ export default function EnquiryForm() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Name</label><input type="text" className="cf-input" value={a.name} onChange={e => updateAccused(i, 'name', e.target.value)} /></div>
-                    <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={a.cnic} onChange={e => updateAccused(i, 'cnic', e.target.value)} placeholder="XXXXX-XXXXXXX-X" /></div>
+                    <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={a.cnic} onChange={e => updateAccusedCnic(i, e.target.value)} placeholder="00000-0000000-0" maxLength={15} /></div>
                     <div className="cf-field"><label className="cf-label">Father Name</label><input type="text" className="cf-input" value={a.father_name} onChange={e => updateAccused(i, 'father_name', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Gender</label>
                       <select className="cf-input" value={a.gender} onChange={e => updateAccused(i, 'gender', e.target.value)}>
@@ -1529,8 +1554,8 @@ export default function EnquiryForm() {
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                    <div className="cf-field"><label className="cf-label">Contact No</label><input type="text" className="cf-input" value={a.contact_no} onChange={e => updateAccused(i, 'contact_no', e.target.value)} /></div>
-                    <div className="cf-field"><label className="cf-label">WhatsApp No</label><input type="text" className="cf-input" value={a.whatsapp_no} onChange={e => updateAccused(i, 'whatsapp_no', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Contact No</label><input type="text" className="cf-input" value={a.contact_no} onChange={e => updateAccusedContact(i, 'contact_no', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">WhatsApp No</label><input type="text" className="cf-input" value={a.whatsapp_no} onChange={e => updateAccusedContact(i, 'whatsapp_no', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Email</label><input type="email" className="cf-input" value={a.email} onChange={e => updateAccused(i, 'email', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Religion</label><input type="text" className="cf-input" value={a.religion} onChange={e => updateAccused(i, 'religion', e.target.value)} /></div>
                   </div>
@@ -1617,15 +1642,15 @@ export default function EnquiryForm() {
                     </button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                    <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={w.cnic} onChange={e => updateWitness(i, 'cnic', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={w.cnic} onChange={e => updateWitnessCnic(i, e.target.value)} placeholder="00000-0000000-0" maxLength={15} /></div>
                     <div className="cf-field"><label className="cf-label">Domicile District</label><input type="text" className="cf-input" value={w.domicile_district} onChange={e => updateWitness(i, 'domicile_district', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Nationality</label><input type="text" className="cf-input" value={w.nationality} onChange={e => updateWitness(i, 'nationality', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Passport No</label><input type="text" className="cf-input" value={w.passport} onChange={e => updateWitness(i, 'passport', e.target.value)} /></div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Occupation</label><input type="text" className="cf-input" value={w.occupation} onChange={e => updateWitness(i, 'occupation', e.target.value)} /></div>
-                    <div className="cf-field"><label className="cf-label">Contact No</label><input type="text" className="cf-input" value={w.contact_no} onChange={e => updateWitness(i, 'contact_no', e.target.value)} /></div>
-                    <div className="cf-field"><label className="cf-label">WhatsApp No</label><input type="text" className="cf-input" value={w.whatsapp_no} onChange={e => updateWitness(i, 'whatsapp_no', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">Contact No</label><input type="text" className="cf-input" value={w.contact_no} onChange={e => updateWitnessContact(i, 'contact_no', e.target.value)} /></div>
+                    <div className="cf-field"><label className="cf-label">WhatsApp No</label><input type="text" className="cf-input" value={w.whatsapp_no} onChange={e => updateWitnessContact(i, 'whatsapp_no', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Scale</label><input type="text" className="cf-input" value={w.scale} onChange={e => updateWitness(i, 'scale', e.target.value)} /></div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', marginBottom: '12px' }}>
@@ -1913,8 +1938,11 @@ export default function EnquiryForm() {
                         {NOTICE_VIA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
-                    <div className="cf-field"><label className="cf-label">Phone</label>
+                    <div className="cf-field" style={{ gridColumn: 'span 1' }}><label className="cf-label">Phone</label>
                       <input type="text" className="cf-input" value={n.phone} onChange={e => updateNotice(i, 'phone', e.target.value)} placeholder="Phone number" />
+                    </div>
+                    <div className="cf-field" style={{ gridColumn: 'span 4' }}><label className="cf-label">Gist of Allegation / Description</label>
+                      <textarea className="cf-input" rows={2} value={n.description || ''} onChange={e => updateNotice(i, 'description', e.target.value)} placeholder="Enter custom gist of allegation for this summon..." style={{ width: '100%' }} />
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
