@@ -1137,7 +1137,7 @@ export default function EnquiryForm() {
   const handleSubmitCfr = async () => {
     if (!id) return;
     const cfrRecommendations = ['closure', 'transfer', 'convert_to_case', 'irrelevant', 'lack_of_documents'];
-    if (!form.recommendation || !cfrRecommendations.includes(form.recommendation)) {
+    if (isSupervisor && (!form.recommendation || !cfrRecommendations.includes(form.recommendation))) {
       setActiveTab('outcome');
       setServerError('Submit se pehle Outcome tab mein Recommendation select karein.');
       return;
@@ -2580,9 +2580,9 @@ export default function EnquiryForm() {
               <div className="cf-row-3">
                 {renderField('CFR Type', 'cfr_type', { options: CFR_TYPES })}
                 {renderField('CFR Date', 'cfr_date', { type: 'date' })}
-                {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS, required: true })}
+                {isSupervisor && renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS, required: true })}
               </div>
-              {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
+              {isSupervisor && renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
               {renderField('Brief Allegation', 'brief_allegation', { rows: 3, placeholder: 'Brief details of the allegation...' })}
               {renderField('Charge Against', 'charge_against', { rows: 3, placeholder: 'Charges framed against accused...' })}
               {renderField('Oral Evidence', 'oral_evidence', { rows: 3, placeholder: 'Summary of oral evidence...' })}
@@ -2604,11 +2604,15 @@ export default function EnquiryForm() {
                   </div>
                 )}
               </div>
-              <div className="cf-row-2">
-                {renderField('Transfer Department', 'transfer_department')}
-                {renderField('Transfer Circle', 'transfer_circle', { options: circles.map(c => ({ value: c.name, name: c.name })) })}
-              </div>
-              {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
+              {isSupervisor && (
+                <>
+                  <div className="cf-row-2">
+                    {renderField('Transfer Department', 'transfer_department')}
+                    {renderField('Transfer Circle', 'transfer_circle', { options: circles.map(c => ({ value: c.name, name: c.name })) })}
+                  </div>
+                  {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -2643,7 +2647,9 @@ export default function EnquiryForm() {
 
         {canSubmitCfr && (
           <div style={{ marginTop: 16, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e3a5f' }}>
-            Outcome tab mein <strong>Recommendation</strong> + <strong>CFR Summary</strong> complete karke <strong>Submit CFR</strong> dabayein — Circle Incharge ko review ke liye chala jayega.
+            {isSupervisor 
+              ? "Outcome tab mein Recommendation + CFR Summary complete karke Submit CFR dabayein — Circle Incharge ko review ke liye chala jayega."
+              : "Outcome tab mein CFR Summary complete karke Submit CFR dabayein — Circle Incharge ko review ke liye chala jayega."}
           </div>
         )}
 
