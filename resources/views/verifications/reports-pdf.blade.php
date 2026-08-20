@@ -461,7 +461,7 @@
           <div class="ci-sig-box">
             <div class="ci-sig-line"></div>
             <strong style="font-size: 8.5pt; color: #0f172a;">Circle Incharge</strong><br>
-            National Cyber Crime Investigation Agency (NCCIA)<br>
+            National Cyber Crime Investigation Agency<br>
             NCCIA-RC {{ $report->creator?->circle?->city ?? 'Lahore' }}<br>
             Date: ____________________
           </div>
