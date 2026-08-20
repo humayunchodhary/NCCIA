@@ -252,11 +252,41 @@ export default function EnquiryForm() {
   const canAuthorizeRequisitions = roleNames.some(r => ['admin', 'director_general', 'additional_director'].includes(r));
   const canRegisterCase = canRegisterCaseFromEnquiry(user);
   const isEoLocked = !isSupervisor && !!id && ['cfr_submitted', 'approved', 'case_registered', 'closed', 'transferred'].includes(form.status);
-  const canSubmitCfr = !isEoLocked && !!id
+  const canSubmitCfr = !isSupervisor && !isEoLocked && !!id
     && ['registered', 'assigned', 'in_progress'].includes(form.status)
-    && roleNames.some(r => ['admin', 'circle_incharge', 'enquiry_officer'].includes(r));
+    && roleNames.some(r => ['enquiry_officer', 'investigation_officer'].includes(r));
   const showRegisterCase = !!id && canRegisterCase && enquiryReadyForCaseRegistration({ status: form.status, case_file_id: caseFileId });
   const showVerificationReport = !!id && canViewVerificationReportInEnquiry(user);
+  const [approvingCfr, setApprovingCfr] = useState(false);
+
+  const handleApproveCfr = async (decision = 'agree') => {
+    if (!id) return;
+    let remarks = '';
+    if (decision === 'disagree') {
+      const input = prompt('CFR Send Back karne ki wajah / deficiency remarks darj karein:');
+      if (input === null) return;
+      remarks = input.trim();
+    }
+    setApprovingCfr(true);
+    setServerError('');
+    try {
+      await api.post(`/enquiries/${id}/approve`, {
+        decision,
+        recommendation: form.recommendation,
+        closure_reason: form.closure_reason || null,
+        transfer_department: form.transfer_department || null,
+        transfer_circle: form.transfer_circle || null,
+        merge_complaint_id: form.merge_complaint_id || null,
+        remarks: remarks || form.cfr_remarks || null,
+      });
+      alert(decision === 'agree' ? 'CFR Approved successfully!' : 'CFR Sent back to Enquiry Officer.');
+      navigate('/enquiries');
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Approval action failed.');
+    } finally {
+      setApprovingCfr(false);
+    }
+  };
 
   const tabOrder = useMemo(() => {
     if (!showVerificationReport) return BASE_TAB_ORDER;
@@ -2567,7 +2597,7 @@ export default function EnquiryForm() {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={saving || submittingCfr || registerSaving}
+              disabled={saving || submittingCfr || registerSaving || approvingCfr}
               style={{ background: '#64748b', color: '#fff', padding: '12px 24px', fontWeight: 600, fontSize: '14px', borderRadius: '8px', border: 'none' }}
             >
               {saving ? 'Saving...' : (id ? 'Update Enquiry' : 'Register Enquiry')}
@@ -2583,6 +2613,30 @@ export default function EnquiryForm() {
             >
               {submittingCfr ? 'Submitting...' : 'Submit CFR'}
             </button>
+          )}
+          {isSupervisor && form.status === 'cfr_submitted' && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={saving || approvingCfr}
+                onClick={() => handleApproveCfr('agree')}
+                style={{ background: '#059669', color: '#fff', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(5,150,105,0.35)' }}
+                title="Approve CFR and finalize outcome"
+              >
+                {approvingCfr ? 'Processing…' : '📋 Approve CFR'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={saving || approvingCfr}
+                onClick={() => handleApproveCfr('disagree')}
+                style={{ color: '#d97706', borderColor: '#d97706', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px' }}
+                title="Send back CFR to Enquiry Officer with remarks"
+              >
+                ↩️ Send Back to EO
+              </button>
+            </>
           )}
           {id && activeTab === 'outcome' && (
             <button
@@ -2601,7 +2655,7 @@ export default function EnquiryForm() {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={saving || submittingCfr || registerSaving}
+              disabled={saving || submittingCfr || registerSaving || approvingCfr}
               onClick={handleRegisterCase}
               style={{ background: '#059669', color: '#fff', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(5,150,105,0.35)' }}
             >

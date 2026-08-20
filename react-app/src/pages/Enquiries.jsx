@@ -291,8 +291,26 @@ export default function Enquiries() {
                             💬
                           </button>
 
-                          <Link to={`/enquiries/${e.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          <Link
+                            to={`/enquiries/${e.id}/edit`}
+                            className="btn btn-sm"
+                            style={{
+                              background: '#015C94',
+                              color: '#fff',
+                              borderRadius: 8,
+                              height: 36,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '0 12px',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              textDecoration: 'none'
+                            }}
+                            title="View / Review complete Enquiry details"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            {hasRole('circle_incharge') || hasRole('admin') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general') ? 'View / Review' : 'Edit Enquiry'}
                           </Link>
 
                           {(['registered'].includes(e.status)) && (hasRole('admin') || hasRole('circle_incharge')) && (
@@ -307,15 +325,15 @@ export default function Enquiries() {
                             </button>
                           )}
 
-                          {e.status === 'cfr_submitted' && (hasRole('admin') || hasRole('circle_incharge')) && (
-                            <button onClick={() => openApprove(e)} className="btn btn-sm" style={{background:'rgba(214,158,46,0.12)',color:'#d69e2e',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Review">
-                              Review
+                          {e.status === 'cfr_submitted' && (hasRole('admin') || hasRole('circle_incharge') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general')) && (
+                            <button onClick={() => openApprove(e)} className="btn btn-sm" style={{background:'rgba(214,158,46,0.15)',color:'#b7791f',border:'1px solid #d69e2e',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:700}} title="Review & Approve CFR">
+                              📋 Review CFR
                             </button>
                           )}
 
                           {canRegisterCase && enquiryReadyForCaseRegistration(e) && (
-                            <button onClick={() => openRegisterCase(e)} className="btn btn-sm" style={{background:'rgba(1,92,148,0.18)',color:'#015C94',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:700}} title="Register Case/FIR">
-                              Register Case
+                            <button onClick={() => openRegisterCase(e)} className="btn btn-sm" style={{background:'rgba(5,150,105,0.15)',color:'#059669',border:'1px solid #059669',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:700}} title="Register Case/FIR">
+                              ⚖️ Register Case
                             </button>
                           )}
 
