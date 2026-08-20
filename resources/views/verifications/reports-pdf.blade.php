@@ -443,13 +443,14 @@
         </td>
       </tr>
       <tr>
-        <td class="m-lbl">Marking Date &amp; Target Disposal:</td>
-        <td class="m-val">
-          Marking Date: <strong>________________________</strong> &nbsp;&nbsp;|&nbsp;&nbsp; 
-          Target Date: <strong>________________________</strong>
-        </td>
+        <td class="m-lbl">obtain Legal Opinion from AD / DD Legal, pl.</td>
+        <td class="m-val">&nbsp;</td>
       </tr>
     </table>
+    <div style="font-size: 7.5pt; margin-top: 6px;">
+      Date: <strong>________________________</strong> &nbsp;&nbsp;&nbsp;&nbsp;
+      Marking Date: <strong>________________________</strong>
+    </div>
 
     <table class="ci-sig-table">
       <tr>
