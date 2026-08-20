@@ -2186,12 +2186,14 @@ export default function EnquiryForm() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                         <div>
                           <strong style={{ fontSize: 13.5, color: '#015C94', display: 'block' }}>📦 Seized Evidence &amp; Digital Devices</strong>
-                          <span style={{ fontSize: 11, color: '#64748b' }}>Enter seized items, set analysis scope, and print or submit directly to Forensic Lab.</span>
+                          <span style={{ fontSize: 11, color: '#64748b' }}>Seized items darj karein, analysis scope likhein aur Circle Incharge ko mark karein ya print karein.</span>
                         </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>
-                            + Add Item
-                          </button>
+                          {!isSupervisor && (
+                            <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>
+                              + Add Item
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
@@ -2212,49 +2214,39 @@ export default function EnquiryForm() {
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Search Warrant
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            style={{ color: '#0f766e', borderColor: '#0f766e', fontSize: 12, fontWeight: 700 }}
-                            disabled={sendingForensic}
-                            onClick={() => submitActivityToForensic(a, 'technical')}
-                            title="Submit this activity's seized items to Technical Department"
-                          >
-                            {sendingForensic ? 'Submitting…' : '⚙️ Submit to Technical'}
-                          </button>
-                          {isSupervisor ? (
+                          {!isSupervisor && (
                             <>
                               <button
                                 type="button"
-                                className="btn btn-primary btn-sm"
-                                style={{ background: '#059669', color: '#fff', fontSize: 12, fontWeight: 700 }}
+                                className="btn btn-outline btn-sm"
+                                style={{ color: '#0f766e', borderColor: '#0f766e', fontSize: 12, fontWeight: 700 }}
                                 disabled={sendingForensic}
-                                onClick={() => forwardActivityToForensic(a)}
-                                title="Forward Scope Letter & Seized Items to DD Forensic Lab"
+                                onClick={() => submitActivityToForensic(a, 'technical')}
+                                title="Submit this activity's seized items to Technical Department"
                               >
-                                {sendingForensic ? 'Forwarding…' : '📤 Mark to DD Forensic'}
+                                {sendingForensic ? 'Submitting…' : '⚙️ Submit to Technical'}
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-outline btn-sm"
-                                style={{ color: '#d97706', borderColor: '#d97706', fontSize: 12, fontWeight: 700 }}
-                                onClick={() => sendBackActivityToEo(a)}
-                                title="Send back Scope Letter to IO with deficiency remarks"
+                                style={{ color: '#64748b', borderColor: '#94a3b8', fontSize: 12, fontWeight: 600 }}
+                                disabled={sendingForensic}
+                                onClick={() => saveEnquiry({ navigateAway: false })}
+                                title="Sirf save karein — Circle Incharge ko submit mat karein"
                               >
-                                ↩️ Send Back
+                                💾 Save
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }}
+                                disabled={sendingForensic}
+                                onClick={() => submitActivityToForensic(a, 'forensic')}
+                                title="Is activity ka Scope Letter aur seized items Circle Incharge ko mark karein review ke liye"
+                              >
+                                {sendingForensic ? 'Submitting…' : '📋 Mark to Circle Incharge'}
                               </button>
                             </>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }}
-                              disabled={sendingForensic}
-                              onClick={() => submitActivityToForensic(a, 'forensic')}
-                              title="Submit this activity's scope letter and seized items to Circle Incharge for review"
-                            >
-                              {sendingForensic ? 'Submitting…' : '🔬 Submit the Scope Letter'}
-                            </button>
                           )}
                         </div>
                       </div>
@@ -2273,32 +2265,53 @@ export default function EnquiryForm() {
                             </div>
                             <div className="cf-field"><label className="cf-label">IMEI / IMEI 2</label>
                               <input type="text" className="cf-input" placeholder="15 digits" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', fontFamily: 'monospace', border: '1px solid #dbeafe' }}>{it.imei || '—'}</div>
+                                : <input type="text" className="cf-input" placeholder="15 digits" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
+                              }
                             </div>
                             <div className="cf-field"><label className="cf-label">Serial Number</label>
-                              <input type="text" className="cf-input" placeholder="Device Serial No" value={it.serial_no || ''} onChange={e => updateSeizeItem(i, si, 'serial_no', e.target.value)} />
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', fontFamily: 'monospace', border: '1px solid #dbeafe' }}>{it.serial_no || '—'}</div>
+                                : <input type="text" className="cf-input" placeholder="Device Serial No" value={it.serial_no || ''} onChange={e => updateSeizeItem(i, si, 'serial_no', e.target.value)} />
+                              }
                             </div>
-                            <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36, alignSelf: 'end' }} onClick={() => removeSeizeItem(i, si)} title="Delete Item">
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
+                            {!isSupervisor && (
+                              <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36, alignSelf: 'end' }} onClick={() => removeSeizeItem(i, si)} title="Delete Item">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                              </button>
+                            )}
                           </div>
 
                           <div style={{ display: 'grid', gridTemplateColumns: '90px 140px 160px 1fr', gap: 10 }}>
                             <div className="cf-field"><label className="cf-label">Qty</label>
-                              <input type="number" min={1} className="cf-input" value={it.quantity ?? 1} onChange={e => updateSeizeItem(i, si, 'quantity', e.target.value)} />
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.quantity ?? 1}</div>
+                                : <input type="number" min={1} className="cf-input" value={it.quantity ?? 1} onChange={e => updateSeizeItem(i, si, 'quantity', e.target.value)} />
+                              }
                             </div>
                             <div className="cf-field"><label className="cf-label">Capacity / Storage</label>
-                              <input type="text" className="cf-input" placeholder="e.g. 256GB, 1TB" value={it.storage_capacity || ''} onChange={e => updateSeizeItem(i, si, 'storage_capacity', e.target.value)} />
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.storage_capacity || '—'}</div>
+                                : <input type="text" className="cf-input" placeholder="e.g. 256GB, 1TB" value={it.storage_capacity || ''} onChange={e => updateSeizeItem(i, si, 'storage_capacity', e.target.value)} />
+                              }
                             </div>
                             <div className="cf-field"><label className="cf-label">Condition</label>
-                              <select className="cf-input" value={it.condition || 'good'} onChange={e => updateSeizeItem(i, si, 'condition', e.target.value)}>
-                                <option value="good">Intact / Good</option>
-                                <option value="damaged">Damaged / Broken</option>
-                                <option value="locked">PIN / Pattern Locked</option>
-                                <option value="sealed">Sealed / Evidence Bag</option>
-                              </select>
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.condition === 'good' ? 'Intact / Good' : it.condition === 'damaged' ? 'Damaged / Broken' : it.condition === 'locked' ? 'PIN / Pattern Locked' : it.condition === 'sealed' ? 'Sealed / Evidence Bag' : it.condition || '—'}</div>
+                                : <select className="cf-input" value={it.condition || 'good'} onChange={e => updateSeizeItem(i, si, 'condition', e.target.value)}>
+                                    <option value="good">Intact / Good</option>
+                                    <option value="damaged">Damaged / Broken</option>
+                                    <option value="locked">PIN / Pattern Locked</option>
+                                    <option value="sealed">Sealed / Evidence Bag</option>
+                                  </select>
+                              }
                             </div>
                             <div className="cf-field"><label className="cf-label">Item Description / Seized From</label>
-                              <input type="text" className="cf-input" value={it.description || ''} onChange={e => updateSeizeItem(i, si, 'description', e.target.value)} placeholder="e.g. Seized from accused bedroom table, gold color..." />
+                              {isSupervisor
+                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.description || '—'}</div>
+                                : <input type="text" className="cf-input" value={it.description || ''} onChange={e => updateSeizeItem(i, si, 'description', e.target.value)} placeholder="e.g. Seized from accused bedroom table, gold color..." />
+                              }
                             </div>
                           </div>
                         </div>
@@ -2310,15 +2323,23 @@ export default function EnquiryForm() {
 
                       <div className="cf-field" style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
                         <label className="cf-label"><strong>Analysis Scope (For Forensic Lab)</strong></label>
-                        <textarea
-                          className="cf-input"
-                          rows={2}
-                          placeholder="e.g. Conduct forensic examination and data extraction to identify Facebook IDs, communication chats, emails, media..."
-                          value={a.analysis_scope || ''}
-                          onChange={e => updateActivity(i, 'analysis_scope', e.target.value)}
-                          style={{ width: '100%' }}
-                        />
-                        <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>Ye scope text official Forensic Request PDF letter mein print hoga.</span>
+                        {isSupervisor ? (
+                          <div style={{ padding: '10px 12px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', lineHeight: 1.6, border: '1px solid #bfdbfe', minHeight: 48, whiteSpace: 'pre-wrap' }}>
+                            {a.analysis_scope || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>EO ne abhi Analysis Scope nahi likha.</span>}
+                          </div>
+                        ) : (
+                          <textarea
+                            className="cf-input"
+                            rows={2}
+                            placeholder="e.g. Conduct forensic examination and data extraction to identify Facebook IDs, communication chats, emails, media..."
+                            value={a.analysis_scope || ''}
+                            onChange={e => updateActivity(i, 'analysis_scope', e.target.value)}
+                            style={{ width: '100%' }}
+                          />
+                        )}
+                        <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>
+                          {isSupervisor ? 'Yeh scope EO ne likha hai. Circle Incharge siraf parh sakta hai, edit nahi kar sakta.' : 'Ye scope text official Forensic Request PDF letter mein print hoga.'}
+                        </span>
                       </div>
                     </div>
                   )}
