@@ -388,7 +388,7 @@ class PrintService
      */
     public function noticeDocument(EnquiryNotice $notice): string
     {
-        $notice->loadMissing(['enquiry.complaint.circle', 'enquiry.enquiryOfficer', 'enquiry.accused', 'enquiry.notices']);
+        $notice->loadMissing(['enquiry.complaint.circle', 'enquiry.enquiryOfficer', 'enquiry.accusedPersons', 'enquiry.notices']);
 
         if (!$notice->verification_token) {
             $notice->verification_token = \Illuminate\Support\Str::random(32);
