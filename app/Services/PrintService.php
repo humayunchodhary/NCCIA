@@ -858,6 +858,8 @@ class PrintService
         $officerDesig = e($enquiry->officer?->designation ?: 'Investigation Officer');
         $officerPhone = e($enquiry->officer?->phone ?: ($enquiry->officer?->contact_no ?: ''));
         $dateTimeStr  = now()->format('d/m/Y h:i A');
+        $enqRegDate   = $enquiry->reg_date ? \Carbon\Carbon::parse($enquiry->reg_date)->format('d/m/Y') : ($enquiry->created_at ? $enquiry->created_at->format('d/m/Y') : '');
+        $enquiryNoDisplay = $enqRegDate ? "{$enquiryNo} dated {$enqRegDate}" : $enquiryNo;
 
         $analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
 
@@ -869,18 +871,18 @@ class PrintService
           </div>
 
           <div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 8px;">
-            <div><strong>Enquiry / Case No:</strong> {$enquiryNo}</div>
+            <div><strong>Enquiry / Case No:</strong> {$enquiryNoDisplay}</div>
             <div><strong>Dated:</strong> {$dateTimeStr}</div>
           </div>
 
           <div class="subject-block">
-            <strong>SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / Case FIR NO. {$enquiryNo} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, {$circleName}.</strong>
+            <strong>SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / Case FIR NO. {$enquiryNoDisplay} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, {$circleName}.</strong>
           </div>
 
           <div class="salutation"><strong>SIR,</strong></div>
 
           <div class="req-body">
-            <p><strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC {$circleName}, NCCIA, AND THE BELOW DIGITAL MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,</p>
+            <p><strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC {$circleName}, NCCIA IN ENQ NO. <strong>{$enquiryNoDisplay}</strong>, AND THE BELOW DIGITAL MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,</p>
             <div class="accused-list" style="margin: 6px 0 10px 16px;">
               {$accRows}
             </div>
@@ -915,7 +917,7 @@ class PrintService
 
             <div class="enclosures-block" style="margin-top: 14px;">
               <strong>ENCLOSURES:</strong><br/>
-              1. COPY OF ENQ NO. <strong>{$enquiryNo}</strong><br/>
+              1. COPY OF ENQ NO. <strong>{$enquiryNoDisplay}</strong><br/>
               2. COPY OF SEIZURE MEMO (RECOVERY MEMO) OF DIGITAL DEVICE
             </div>
           </div>

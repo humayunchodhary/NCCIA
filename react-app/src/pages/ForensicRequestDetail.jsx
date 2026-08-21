@@ -126,6 +126,8 @@ export default function ForensicRequestDetail() {
   const handlePrintScopeLetter = () => {
     if (!row) return;
     const enqNo = row.enquiry?.enquiry_number || row.enquiry?.complaint?.tracking_no || `ENQ-${row.enquiry_id}`;
+    const enqRegDate = row.enquiry?.reg_date ? new Date(row.enquiry.reg_date).toLocaleDateString('en-GB') : (row.enquiry?.created_at ? new Date(row.enquiry.created_at).toLocaleDateString('en-GB') : '');
+    const enqNoDisplay = enqRegDate ? `${enqNo} dated ${enqRegDate}` : enqNo;
     const compName = row.enquiry?.complaint?.complainant_name || row.enquiry?.direct_info?.complainant_name || 'Complainant';
     const compCnic = row.enquiry?.complaint?.cnic || row.enquiry?.direct_info?.cnic || '—';
     const now = new Date();
@@ -186,7 +188,7 @@ export default function ForensicRequestDetail() {
         </div>
 
         <div class="meta-row">
-          <div><strong>Memo No.</strong> ${row.request_no || '—'} / NCCIA / CCRC / ${circleName}</div>
+          <div><strong>Enquiry / Case No:</strong> ${enqNoDisplay}</div>
           <div><strong>Dated:</strong> ${dateStr}</div>
         </div>
 
@@ -196,12 +198,12 @@ export default function ForensicRequestDetail() {
         </div>
 
         <div class="subj">
-          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / CASE FIR NO. ${enqNo} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, ${circleName.toUpperCase()}.
+          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / CASE FIR NO. ${enqNoDisplay} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, ${circleName.toUpperCase()}.
         </div>
 
         <div><strong>SIR,</strong></div>
         <p style="margin-top:8px;">
-          <strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA, AND THE BELOW DIGITAL MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,
+          <strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA IN ENQ NO. <strong>${enqNoDisplay}</strong>, AND THE BELOW DIGITAL MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,
         </p>
 
         <div style="margin: 6px 0 10px 16px; line-height: 1.6;">
@@ -242,7 +244,7 @@ export default function ForensicRequestDetail() {
 
         <div style="margin-top:16px;">
           <strong>ENCLOSURES:</strong><br/>
-          1. COPY OF ENQ NO. <strong>${enqNo}</strong><br/>
+          1. COPY OF ENQ NO. <strong>${enqNoDisplay}</strong><br/>
           2. COPY OF SEIZURE MEMO (RECOVERY MEMO) OF DIGITAL DEVICE
         </div>
 

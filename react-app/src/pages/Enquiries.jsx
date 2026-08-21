@@ -265,6 +265,8 @@ export default function Enquiries() {
     if (!scopeLetterTarget) return;
     const enq = scopeLetterData.enquiry || scopeLetterTarget;
     const enqNo = enq.enquiry_number || enq.complaint?.tracking_no || `ENQ-${enq.id}`;
+    const enqRegDate = enq.reg_date ? new Date(enq.reg_date).toLocaleDateString('en-GB') : (enq.created_at ? new Date(enq.created_at).toLocaleDateString('en-GB') : '');
+    const enqNoDisplay = enqRegDate ? `${enqNo} dated ${enqRegDate}` : enqNo;
     const compName = enq.complaint?.complainant_name || enq.direct_info?.complainant_name || 'Complainant';
     const compCnic = enq.complaint?.cnic || enq.direct_info?.cnic || '—';
     const now = new Date();
@@ -331,7 +333,7 @@ export default function Enquiries() {
           <div class="hdr-sub">Cyber Crime Reporting Center &middot; Forensic Lab Examination Request</div>
         </div>
         <div class="meta-row">
-          <div><strong>Enquiry / Case No:</strong> ${enqNo}</div>
+          <div><strong>Enquiry / Case No:</strong> ${enqNoDisplay}</div>
           <div><strong>Dated:</strong> ${dateStr}</div>
         </div>
         <div class="to-sec">
@@ -339,9 +341,9 @@ export default function Enquiries() {
           <strong>The Assistant Director / Deputy Director (Digital Forensics),</strong><br/>
           Digital Forensic Lab, NCCIA HQ / Regional Center.
         </div>
-        <div class="subj">SUBJECT: REQUEST FOR DIGITAL FORENSIC EXAMINATION & ANALYSIS OF SEIZED EVIDENCE / DEVICES</div>
+        <div class="subj">SUBJECT: REQUEST FOR DIGITAL FORENSIC EXAMINATION & ANALYSIS OF SEIZED EVIDENCE / DEVICES IN ENQ NO. ${enqNoDisplay}</div>
         <p style="margin: 6px 0;">
-          With reference to Enquiry No. <strong>${enqNo}</strong> regarding complainant <strong>${compName}</strong> (CNIC: ${compCnic}), the following seized digital evidence/devices have been submitted for technical & forensic analysis:
+          With reference to Enquiry No. <strong>${enqNoDisplay}</strong> regarding complainant <strong>${compName}</strong> (CNIC: ${compCnic}), the following seized digital evidence/devices have been submitted for technical & forensic analysis:
         </p>
         <table>
           <thead>
@@ -394,7 +396,7 @@ export default function Enquiries() {
               ${ciRemarks}
             </div>
           </div>
-          <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+          <div class="sign-block" style="margin-top: 18px;">
             <br/>
             <strong>Circle Incharge</strong><br/>
             National Cyber Crime Investigation Agency<br/>
@@ -421,7 +423,7 @@ export default function Enquiries() {
               ${ddRemarks}
             </div>
           </div>
-          <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+          <div class="sign-block" style="margin-top: 18px;">
             <br/>
             <strong>Assistant Director (Digital Forensics)</strong><br/>
             National Cyber Crime Investigation Agency<br/>
