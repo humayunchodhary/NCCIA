@@ -126,7 +126,9 @@ export default function ForensicRequestDetail() {
     const dateStr = new Date().toLocaleDateString('en-GB');
     const officerName = row.submitter?.name || 'Enquiry Officer';
     const officerDesig = row.submitter?.designation || 'Enquiry Officer';
+    const circleCity = row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore';
     const circleName = row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
+    const rcName = `NCCIA-RC ${circleCity}`;
     
     const accusedList = row.enquiry?.accused_persons || [];
     const accRows = accusedList.length > 0 
@@ -237,11 +239,64 @@ export default function ForensicRequestDetail() {
           2. COPY OF SEIZURE MEMO (RECOVERY MEMO) OF DIGITAL DEVICE
         </div>
 
-        <div style="margin-top: 50px; display:flex; justify-content:flex-end;">
-          <div style="text-align:right;">
-            <strong>${officerName}</strong><br/>
-            ${officerDesig}<br/>
-            NCCIA, ${circleName}
+        <div style="margin-top: 30px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+          <strong>${officerName}</strong><br/>
+          ${officerDesig}<br/>
+          National Cyber Crime Investigation Agency<br/>
+          ${rcName}
+        </div>
+
+        <!-- ── 1. Endorsement: Circle Incharge to DD Forensic ── -->
+        <div style="margin-top: 22px; border-top: 1.5px dashed #000; padding-top: 12px; page-break-inside: avoid; font-size: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <div>
+              <strong>To,</strong><br/>
+              <strong>Deputy Director (Digital Forensics),</strong><br/>
+              National Cyber Crime Investigation Agency<br/>
+              ${rcName}
+            </div>
+            <div style="text-align:right;">
+              <strong>Dated:</strong> ${row.created_at ? new Date(row.created_at).toLocaleDateString('en-GB') : dateStr}
+            </div>
+          </div>
+          <div style="margin: 8px 0;">
+            <strong>Remarks / Order:</strong>
+            <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
+              ${(row.note || 'Approved & Forwarded for Digital Forensic Examination.').trim()}
+            </div>
+          </div>
+          <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+            <br/>
+            <strong>Circle Incharge</strong><br/>
+            National Cyber Crime Investigation Agency<br/>
+            ${rcName}
+          </div>
+        </div>
+
+        <!-- ── 2. Endorsement: DD Forensic to AD Forensic ── -->
+        <div style="margin-top: 20px; border-top: 1.5px dashed #000; padding-top: 12px; page-break-inside: avoid; font-size: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <div>
+              <strong>To,</strong><br/>
+              <strong>Assistant Director (Digital Forensics),</strong><br/>
+              National Cyber Crime Investigation Agency<br/>
+              ${rcName}
+            </div>
+            <div style="text-align:right;">
+              <strong>Dated:</strong> ${row.assigned_to_examiner_at ? new Date(row.assigned_to_examiner_at).toLocaleDateString('en-GB') : dateStr}
+            </div>
+          </div>
+          <div style="margin: 8px 0;">
+            <strong>Remarks / Order:</strong>
+            <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
+              ${(row.examiner_assignment_notes || row.forensic_remarks || 'Marked to AD (Digital Forensics) / Forensic Examiner for examination and detailed forensic report.').trim()}
+            </div>
+          </div>
+          <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+            <br/>
+            <strong>Assistant Director (Digital Forensics)</strong><br/>
+            National Cyber Crime Investigation Agency<br/>
+            ${rcName}
           </div>
         </div>
       </body>

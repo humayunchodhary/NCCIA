@@ -916,7 +916,66 @@ class PrintService
           <div class="req-sign-block">
             <strong>{$officerName}</strong><br/>
             {$officerDesig}<br/>
-            <strong>NCCIA, {$circleZone}</strong>
+            National Cyber Crime Investigation Agency<br/>
+            <strong>NCCIA-RC {$circleName}</strong>
+          </div>
+
+          <!-- ── 1. Endorsement: Circle Incharge to DD Forensic ── -->
+          <div style="margin-top: 22px; border-top: 1.5px dashed #000; padding-top: 12px; font-size: 12px;">
+            <table style="width: 100%; border: none; margin: 0; font-size: 12px;">
+              <tr>
+                <td style="border: none; padding: 0; vertical-align: top; width: 60%;">
+                  <strong>To,</strong><br/>
+                  <strong>Deputy Director (Digital Forensics),</strong><br/>
+                  National Cyber Crime Investigation Agency<br/>
+                  NCCIA-RC {$circleName}
+                </td>
+                <td style="border: none; padding: 0; vertical-align: top; text-align: right; width: 40%;">
+                  <strong>Dated:</strong> ____________________
+                </td>
+              </tr>
+            </table>
+            <div style="margin: 8px 0;">
+              <strong>Remarks / Order:</strong>
+              <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
+                Approved & Forwarded for Digital Forensic Examination.
+              </div>
+            </div>
+            <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+              <br/>
+              <strong>Circle Incharge</strong><br/>
+              National Cyber Crime Investigation Agency<br/>
+              NCCIA-RC {$circleName}
+            </div>
+          </div>
+
+          <!-- ── 2. Endorsement: DD Forensic to AD Forensic ── -->
+          <div style="margin-top: 20px; border-top: 1.5px dashed #000; padding-top: 12px; font-size: 12px;">
+            <table style="width: 100%; border: none; margin: 0; font-size: 12px;">
+              <tr>
+                <td style="border: none; padding: 0; vertical-align: top; width: 60%;">
+                  <strong>To,</strong><br/>
+                  <strong>Assistant Director (Digital Forensics),</strong><br/>
+                  National Cyber Crime Investigation Agency<br/>
+                  NCCIA-RC {$circleName}
+                </td>
+                <td style="border: none; padding: 0; vertical-align: top; text-align: right; width: 40%;">
+                  <strong>Dated:</strong> ____________________
+                </td>
+              </tr>
+            </table>
+            <div style="margin: 8px 0;">
+              <strong>Remarks / Order:</strong>
+              <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
+                Marked to AD (Digital Forensics) / Forensic Examiner for examination and detailed forensic report.
+              </div>
+            </div>
+            <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+              <br/>
+              <strong>Assistant Director (Digital Forensics)</strong><br/>
+              National Cyber Crime Investigation Agency<br/>
+              NCCIA-RC {$circleName}
+            </div>
           </div>
         </div>
         HTML;
@@ -934,7 +993,7 @@ class PrintService
              .forensic-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px; }
              .forensic-table th, .forensic-table td { border: 1px solid #000; padding: 5px 8px; }
              .forensic-table th { background: #f0f0f0; text-align: left; }
-             .req-sign-block { margin-top: 30px; margin-left: auto; width: 240px; text-align: right; font-size: 13px; line-height: 1.4; }'
+             .req-sign-block { margin-top: 25px; margin-left: auto; width: 280px; text-align: right; font-size: 12px; line-height: 1.35; }'
         );
     }
 

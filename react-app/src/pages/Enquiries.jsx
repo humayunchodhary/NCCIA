@@ -291,6 +291,14 @@ export default function Enquiries() {
       `;
     }).join('');
 
+    const circleCity = enq.complaint?.circle?.city || enq.complaint?.circle?.name || enq.direct_info?.circle_name || 'Lahore';
+    const rcName = `NCCIA-RC ${circleCity}`;
+    const linkedReq = (scopeLetterData.linkedRequests || [])[0] || null;
+    const ciRemarks = (scopeLetterData.ciRemarks || linkedReq?.note || 'Approved & Forwarded for Digital Forensic Examination.').trim();
+    const ddRemarks = (linkedReq?.examiner_assignment_notes || linkedReq?.forensic_remarks || 'Marked to AD (Digital Forensics) / Forensic Examiner for examination and detailed forensic report.').trim();
+    const ciDateStr = linkedReq?.created_at ? new Date(linkedReq.created_at).toLocaleDateString('en-GB') : dateStr;
+    const ddDateStr = linkedReq?.assigned_to_examiner_at ? new Date(linkedReq.assigned_to_examiner_at).toLocaleDateString('en-GB') : dateStr;
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -298,18 +306,21 @@ export default function Enquiries() {
         <meta charset="utf-8"/>
         <title>Forensic Scope Letter - ${enqNo}</title>
         <style>
-          @page { size: A4 portrait; margin: 15mm 15mm; }
-          body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.45; font-size: 13px; }
-          .hdr { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px; }
-          .hdr-title { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-          .hdr-sub { font-size: 13px; font-weight: 600; }
-          .meta-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
-          .to-sec { margin-bottom: 12px; }
-          .subj { font-weight: 800; text-transform: uppercase; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin: 12px 0; font-size: 13px; }
-          table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
-          th { border: 1px solid #000; background: #f1f5f9; padding: 6px; text-align: left; }
-          .scope-box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px; border-radius: 4px; margin: 8px 0; }
-          .sign-block { margin-top: 40px; margin-left: auto; width: 260px; text-align: right; }
+          @page { size: A4 portrait; margin: 12mm 14mm; }
+          body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.4; font-size: 12.5px; }
+          .hdr { text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; }
+          .hdr-title { font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+          .hdr-sub { font-size: 12px; font-weight: 600; }
+          .meta-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12.5px; }
+          .to-sec { margin-bottom: 10px; font-size: 12.5px; }
+          .subj { font-weight: 800; text-transform: uppercase; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin: 10px 0; font-size: 12px; }
+          table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11.5px; }
+          th { border: 1px solid #000; background: #f1f5f9; padding: 5px 6px; text-align: left; }
+          td { border: 1px solid #000; padding: 5px 6px; }
+          .scope-box { background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 4px; margin: 6px 0; font-size: 12px; }
+          .sign-block { margin-top: 25px; margin-left: auto; width: 280px; text-align: right; font-size: 12px; line-height: 1.35; }
+          .endorsement-block { margin-top: 20px; border-top: 1.5px dashed #000; padding-top: 12px; page-break-inside: avoid; font-size: 12px; }
+          .endorsement-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
         </style>
       </head>
       <body>
@@ -327,7 +338,7 @@ export default function Enquiries() {
           Digital Forensic Lab, NCCIA HQ / Regional Center.
         </div>
         <div class="subj">SUBJECT: REQUEST FOR DIGITAL FORENSIC EXAMINATION & ANALYSIS OF SEIZED EVIDENCE / DEVICES</div>
-        <p>
+        <p style="margin: 6px 0;">
           With reference to Enquiry No. <strong>${enqNo}</strong> regarding complainant <strong>${compName}</strong> (CNIC: ${compCnic}), the following seized digital evidence/devices have been submitted for technical & forensic analysis:
         </p>
         <table>
@@ -346,18 +357,73 @@ export default function Enquiries() {
             ${itemRows}
           </tbody>
         </table>
-        <div class="subj" style="border:none;margin-top:14px;">SCOPE OF ANALYSIS:</div>
+        <div class="subj" style="border:none;margin-top:10px;margin-bottom:4px;">SCOPE OF ANALYSIS:</div>
         <div class="scope-box">
           ${(scopeLetterData.analysisScope || '').replace(/\\n/g, '<br/>')}
         </div>
-        <p style="margin-top:12px;">
+        <p style="margin: 8px 0;">
           It is requested that the digital evidence may kindly be examined in the forensic lab and official Forensic Report (Form F-31 Chain of Custody) be prepared and furnished at the earliest.
         </p>
         <div class="sign-block">
-          <br/><br/>
+          <br/>
           <strong>${officerName}</strong><br/>
           ${officerDesig}<br/>
-          NCCIA
+          National Cyber Crime Investigation Agency<br/>
+          ${rcName}
+        </div>
+
+        <!-- ── 1. Endorsement: Circle Incharge to DD Forensic ── -->
+        <div class="endorsement-block">
+          <div class="endorsement-head">
+            <div>
+              <strong>To,</strong><br/>
+              <strong>Deputy Director (Digital Forensics),</strong><br/>
+              National Cyber Crime Investigation Agency<br/>
+              ${rcName}
+            </div>
+            <div style="text-align:right;">
+              <strong>Dated:</strong> ${ciDateStr}
+            </div>
+          </div>
+          <div style="margin: 8px 0;">
+            <strong>Remarks / Order:</strong>
+            <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
+              ${ciRemarks}
+            </div>
+          </div>
+          <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+            <br/>
+            <strong>Circle Incharge</strong><br/>
+            National Cyber Crime Investigation Agency<br/>
+            ${rcName}
+          </div>
+        </div>
+
+        <!-- ── 2. Endorsement: DD Forensic to AD Forensic ── -->
+        <div class="endorsement-block">
+          <div class="endorsement-head">
+            <div>
+              <strong>To,</strong><br/>
+              <strong>Assistant Director (Digital Forensics),</strong><br/>
+              National Cyber Crime Investigation Agency<br/>
+              ${rcName}
+            </div>
+            <div style="text-align:right;">
+              <strong>Dated:</strong> ${ddDateStr}
+            </div>
+          </div>
+          <div style="margin: 8px 0;">
+            <strong>Remarks / Order:</strong>
+            <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
+              ${ddRemarks}
+            </div>
+          </div>
+          <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
+            <br/>
+            <strong>Assistant Director (Digital Forensics)</strong><br/>
+            National Cyber Crime Investigation Agency<br/>
+            ${rcName}
+          </div>
         </div>
       </body>
       </html>
