@@ -295,15 +295,15 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
 
     // Forensic portal — isolated from the main NCCIA modules
     Route::get('/forensic/stats', [ForensicUserController::class, 'stats'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,desk_forensic,forensic_team');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::get('/forensic/request-stats', [ForensicRequestController::class, 'stats'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,desk_forensic,forensic_team');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::get('/forensic/team-officers', [ForensicRequestController::class, 'teamOfficers'])
         ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::get('/forensic/requests', [ForensicRequestController::class, 'index'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,desk_forensic,forensic_team,circle_incharge,enquiry_officer,investigation_officer,director_general');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,circle_incharge,enquiry_officer,investigation_officer,director_general');
     Route::get('/forensic/requests/{forensicRequest}', [ForensicRequestController::class, 'show'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,desk_forensic,forensic_team,circle_incharge,enquiry_officer,investigation_officer,director_general,moharrar,operator');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,circle_incharge,enquiry_officer,investigation_officer,director_general,moharrar,operator');
     Route::post('/forensic/requests/{forensicRequest}/forward-to-forensic', [ForensicRequestController::class, 'forwardToForensic'])
         ->middleware('role:admin,circle_incharge,ad_legal,dd_legal,additional_director,director_general');
     Route::post('/forensic/requests/{forensicRequest}/send-back', [ForensicRequestController::class, 'sendBackToEo'])
@@ -311,13 +311,13 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/forensic/requests/{forensicRequest}/assign', [ForensicRequestController::class, 'assign'])
         ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::post('/forensic/requests/{forensicRequest}/findings', [ForensicRequestController::class, 'updateFindings'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,forensic_team');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::post('/forensic/requests/{forensicRequest}/submit-to-ad', [ForensicRequestController::class, 'submitToAd'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,forensic_team');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::post('/forensic/requests/{forensicRequest}/mark-ready', [ForensicRequestController::class, 'markReady'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,forensic_team');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::post('/forensic/requests/{forensicRequest}/hand-over', [ForensicRequestController::class, 'handOver'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,desk_forensic');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
 
     // Main app: submit seizure + EO lookup by report code
     Route::post('/forensic-requests', [ForensicRequestController::class, 'store']);

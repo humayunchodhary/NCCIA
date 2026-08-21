@@ -15,7 +15,7 @@ const ROLE_PORTALS = {
     stage: 'Forensic Lab Administration & Evidence Custody',
     duties: [
       'Monitor incoming digital evidence and seizure memos from Enquiry Officers',
-      'Assign forensic requests to Forensic Officers (FOs) with examination scope',
+      'Oversee forensic requests marked to Assistant Director (AD) Forensic',
       'Review high-priority and court-mandated device analysis pipelines',
       'Manage forensic laboratory users, credentials & access control',
     ],
@@ -23,59 +23,35 @@ const ROLE_PORTALS = {
   dd_forensic: {
     icon: '🔬',
     name: 'DD Forensic Portal',
-    desc: 'Deputy Director Digital Forensics oversight, review incoming seizure requests, assign examiners & monitor lab turnaround.',
+    desc: 'Deputy Director Digital Forensics oversight, review incoming seizure requests, mark to AD Forensic & monitor lab turnaround.',
     stage: 'Deputy Director Forensic Oversight',
     duties: [
       'Scrutinize incoming seizure memos and device condition logs forwarded by Circle Incharge',
-      'Assign evidence extraction to appropriate Forensic Officers',
+      'Mark and assign evidence examination to Assistant Director (AD) Forensic',
       'Set examination priorities (Normal, High, ⚡ Urgent)',
-      'Authorize finalized lab reports for Desk collection & EO handover',
+      'Monitor lab turnaround and ensure timely report delivery',
     ],
   },
   ad_forensic: {
-    icon: '🔬',
-    name: 'AD Forensic Portal',
-    desc: 'Review incoming seizure requests from field officers, assign examiners & monitor lab turnaround.',
-    stage: 'Assistant Director Forensic Oversight',
-    duties: [
-      'Scrutinize incoming seizure memos and device condition logs',
-      'Assign evidence extraction to appropriate Forensic Officers',
-      'Set examination priorities (Normal, High, ⚡ Urgent)',
-      'Authorize finalized lab reports for Desk collection & EO handover',
-    ],
-  },
-  forensic_team: {
     icon: '💻',
-    name: 'Forensic Examiner Portal',
-    desc: 'Perform device extractions (Mobiles, PCs, Storage), record recovered artifacts & generate lab reports.',
-    stage: 'Forensic Analysis & Artifact Extraction',
+    name: 'AD Forensic Portal',
+    desc: 'Assistant Director Digital Forensics — conduct device examinations, record findings, finalize lab reports & print Chain of Custody.',
+    stage: 'Assistant Director Forensic Examination & Custody',
     duties: [
-      'Acquire physical and logical extractions using write-blockers',
+      'Perform digital forensic examination & extraction on seized evidentiary devices',
       'Record device IMEIs, serial numbers, hashes (MD5/SHA256) and artifact logs',
-      'Draft forensic findings and upload signed laboratory reports',
-      'Mark report ready to auto-notify Desk Officer for physical handover',
-    ],
-  },
-  desk_forensic: {
-    icon: '📤',
-    name: 'Forensic Desk & Custody Portal',
-    desc: 'Manage physical evidence vault, receive finalized reports & execute custody handover to Enquiry Officers.',
-    stage: 'Evidence Vault & Report Handover Desk',
-    duties: [
-      'Verify physical integrity of sealed evidence packages from the lab',
-      'Validate Enquiry Officer credentials and tracking report code',
-      'Hand over signed forensic reports and evidence to Enquiry Officers',
-      'Maintain official chain-of-custody register with digital timestamps',
+      'Draft forensic findings and finalize signed laboratory reports',
+      'Print official Chain of Custody form & confirm physical handover',
     ],
   },
 };
 
 const STATUS_META = {
-  submitted:    { label: 'Pending AD Review',    sub: 'Received in Lab',      color: '#e5a100', barColor: '#e5a100' },
-  assigned:     { label: 'Assigned to FO',       sub: 'Allocated to Officer', color: '#2563eb', barColor: '#2563eb' },
-  in_progress:  { label: 'Lab Examination',      sub: 'Analysis & Extraction',color: '#7c3aed', barColor: '#7c3aed' },
-  report_ready: { label: 'Report Ready',         sub: 'Awaiting Handover',    color: '#059669', barColor: '#059669' },
-  handed_over:  { label: 'Handed Over to EO',    sub: 'Custody Completed',    color: '#64748b', barColor: '#64748b' },
+  submitted:    { label: 'Pending CI Review',      sub: 'Received in System',   color: '#e5a100', barColor: '#e5a100' },
+  assigned:     { label: 'Assigned to AD Forensic',sub: 'Allocated to AD',      color: '#2563eb', barColor: '#2563eb' },
+  in_progress:  { label: 'Lab Examination (AD)',   sub: 'Analysis & Extraction',color: '#7c3aed', barColor: '#7c3aed' },
+  report_ready: { label: 'Report Ready',           sub: 'Awaiting Handover',    color: '#059669', barColor: '#059669' },
+  handed_over:  { label: 'Handed Over to EO',      sub: 'Custody Completed',    color: '#64748b', barColor: '#64748b' },
 };
 
 export default function ForensicDashboard() {

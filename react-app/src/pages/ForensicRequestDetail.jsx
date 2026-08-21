@@ -52,9 +52,9 @@ export default function ForensicRequestDetail() {
   const [err, setErr] = useState('');
 
   const isAdmin = isForensicAdmin(user);
-  const isAd    = hasAnyRole(user, ['dd_forensic', 'ad_forensic', 'admin_forensic']);
-  const isDesk  = hasAnyRole(user, ['desk_forensic', 'admin_forensic', 'dd_forensic', 'ad_forensic']);
-  const isFo    = hasRole(user, 'forensic_team') || hasRole(user, 'admin_forensic');
+  const isDd    = hasRole(user, 'dd_forensic');
+  const isAd    = hasAnyRole(user, ['ad_forensic', 'admin_forensic', 'admin']);
+  const [custodyRemarks, setCustodyRemarks] = useState('');
 
   const load = () => {
     setLoading(true); setErr('');
@@ -65,6 +65,7 @@ export default function ForensicRequestDetail() {
         setFindings(d.findings || '');
         setLabNotes(d.lab_notes || '');
         setAssignPriority(d.priority || 'normal');
+        setCustodyRemarks(d.handover_remarks || d.findings || '');
       })
       .catch(e => setErr(e.response?.data?.message || 'Failed to load request details'))
       .finally(() => setLoading(false));
@@ -73,10 +74,10 @@ export default function ForensicRequestDetail() {
   useEffect(() => { load(); }, [id]);
 
   useEffect(() => {
-    if (isAd) {
+    if (isDd || isAd || isAdmin) {
       api.get('/forensic/team-officers').then(r => setOfficers(r.data.data || [])).catch(() => {});
     }
-  }, [isAd]);
+  }, [isDd, isAd, isAdmin]);
 
   const assign = async () => {
     setBusy(true); setErr(''); setMsg('');
@@ -106,15 +107,19 @@ export default function ForensicRequestDetail() {
   const handOver         = async () => { setBusy(true); setErr(''); setMsg(''); try { const r = await api.post(`/forensic/requests/${id}/hand-over`, { handover_remarks: handoverRemarks||undefined }); setRow(r.data.data); setMsg(r.data.message); } catch(e){ setErr(e.response?.data?.message||'Handover failed'); } finally { setBusy(false); } };
 
   const handlePrintF31 = () => {
+    if (!isAd) {
+      alert('Chain of Custody sirf Assistant Director (AD) Forensic print kar sakta hai.');
+      return;
+    }
     const area = document.getElementById('f31PrintArea');
     if (!area) return;
     const w = window.open('', '_blank', 'width=920,height=750');
-    w.document.write(`<!DOCTYPE html><html><head><title>F-31 Chain of Custody</title>
-    <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;font-size:11.5px;color:#000;padding:20px;}
-    table{width:100%;border-collapse:collapse;margin-bottom:14px;}td,th{border:1px solid #000;padding:5px 7px;vertical-align:top;}
+    w.document.write(`<!DOCTYPE html><html><head><title>Chain of Custody</title>
+    <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;font-size:11.5px;color:#000;padding:15px;}
+    table{width:100%;border-collapse:collapse;margin-bottom:12px;}td,th{border:1px solid #000;padding:5px 7px;vertical-align:top;}
     th{background:#d0d0d0;font-weight:bold;text-align:center;}.lbl{font-weight:bold;background:#f5f5f5;}
     .sec{background:#c0c0c0;font-weight:bold;text-align:center;padding:5px;}
-    @media print{body{padding:10px;}}</style></head><body>${area.innerHTML}</body></html>`);
+    @media print{body{padding:8px;}}</style></head><body>${area.innerHTML}</body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   };
 
@@ -123,9 +128,11 @@ export default function ForensicRequestDetail() {
     const enqNo = row.enquiry?.enquiry_number || row.enquiry?.complaint?.tracking_no || `ENQ-${row.enquiry_id}`;
     const compName = row.enquiry?.complaint?.complainant_name || row.enquiry?.direct_info?.complainant_name || 'Complainant';
     const compCnic = row.enquiry?.complaint?.cnic || row.enquiry?.direct_info?.cnic || '—';
-    const dateStr = new Date().toLocaleDateString('en-GB');
-    const officerName = row.submitter?.name || 'Enquiry Officer';
-    const officerDesig = row.submitter?.designation || 'Enquiry Officer';
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const officerName = row.submitter?.name || row.enquiry?.officer?.name || 'Enquiry Officer';
+    const officerDesig = row.submitter?.designation || row.enquiry?.officer?.designation || 'Enquiry Officer';
+    const officerPhone = row.submitter?.phone || row.submitter?.contact_no || row.enquiry?.officer?.phone || row.enquiry?.officer?.contact_no || '';
     const circleCity = row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore';
     const circleName = row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
     const rcName = `NCCIA-RC ${circleCity}`;
@@ -242,6 +249,7 @@ export default function ForensicRequestDetail() {
         <div style="margin-top: 30px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
           <strong>${officerName}</strong><br/>
           ${officerDesig}<br/>
+          ${officerPhone ? `<span>Contact: <strong>${officerPhone}</strong></span><br/>` : ''}
           National Cyber Crime Investigation Agency<br/>
           ${rcName}
         </div>
@@ -323,11 +331,12 @@ export default function ForensicRequestDetail() {
   );
   if (!row) return null;
 
-  const canAssign        = isAd && (row.status === 'submitted' || row.status === 'forwarded_to_forensic' || isAdmin) && row.destination === 'forensic';
-  const canWorkFindings  = isFo && ['assigned','in_progress','submitted_to_ad'].includes(row.status) && ((Number(row.assigned_to) === Number(user?.id)) || isAdmin);
-  const canApproveAd     = isAd && ['submitted_to_ad','in_progress','assigned'].includes(row.status);
-  const canHandOver      = isDesk && row.status === 'report_ready';
+  const canAssign        = (isDd || isAdmin) && (row.status === 'submitted' || row.status === 'forwarded_to_forensic' || isAdmin) && row.destination === 'forensic';
+  const canWorkFindings  = isAd && ['assigned','in_progress','submitted_to_ad'].includes(row.status);
+  const canApproveAd     = (isAd || isDd || isAdmin) && ['submitted_to_ad','in_progress','assigned'].includes(row.status);
+  const canHandOver      = (isAd || isDd || isAdmin) && row.status === 'report_ready';
   const sm               = STATUS_META[row.status] || { label: row.status, color: '#64748b', bg: '#f1f5f9', icon: '' };
+  const circleCity       = row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore';
   const circleName       = row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
   const zoneName         = row.enquiry?.complaint?.zone?.name || 'NCCIA';
   const caseRef          = row.enquiry?.enquiry_number
@@ -337,7 +346,7 @@ export default function ForensicRequestDetail() {
   const complainantName  = row.enquiry?.complaint?.complainant_name;
   const receivedDateTime = row.created_at
     ? new Date(row.created_at).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
-    : '\u2014';
+    : '—';
 
   return (
     <div className="page-content" id="forensicPrintArea">
@@ -346,7 +355,7 @@ export default function ForensicRequestDetail() {
       <div className="page-header" style={{marginBottom:16}}>
         <div className="page-title-group">
           <div className="page-label">
-            <Link to="/forensic/requests" style={{color:'inherit',textDecoration:'none'}}>\u2190 Forensic Seizure Register</Link>
+            <Link to="/forensic/requests" style={{color:'inherit',textDecoration:'none'}}>← Forensic Seizure Register</Link>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
             <h1 className="page-title" style={{margin:0}}>{row.request_no}</h1>
@@ -354,7 +363,7 @@ export default function ForensicRequestDetail() {
               {sm.icon} {sm.label}
             </span>
             {row.priority === 'urgent' && (
-              <span style={{fontSize:11,background:'#fee2e2',color:'#b91c1c',padding:'3px 8px',borderRadius:6,fontWeight:800}}>\u26A1 URGENT</span>
+              <span style={{fontSize:11,background:'#fee2e2',color:'#b91c1c',padding:'3px 8px',borderRadius:6,fontWeight:800}}>⚡ URGENT</span>
             )}
           </div>
           <p className="page-subtitle">Seizure Evidence Provenance &amp; Forensic Chain of Custody Record</p>
@@ -364,33 +373,56 @@ export default function ForensicRequestDetail() {
           <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintScopeLetter} style={{color:'#d97706',borderColor:'#d97706'}}>
             🖨️ Print Scope Letter
           </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={handlePrintF31} style={{background:'#015C94'}}>
-            \uD83D\uDDA8\uFE0F Print F-31 Chain of Custody
-          </button>
+          {isAd && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={handlePrintF31} style={{background:'#015C94'}}>
+              🖨️ Print Chain of Custody
+            </button>
+          )}
           <Link to="/forensic" className="btn btn-outline">Dashboard</Link>
         </div>
       </div>
 
       {msg && (
         <div style={{padding:'12px 18px',marginBottom:16,background:'#ecfdf5',border:'1px solid #6ee7b7',color:'#065f46',borderRadius:10,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <span>\u2705 {msg}</span>
-          <button type="button" onClick={()=>setMsg('')} style={{background:'none',border:'none',cursor:'pointer',color:'#065f46',fontWeight:'bold'}}>\xD7</button>
+          <span>✅ {msg}</span>
+          <button type="button" onClick={()=>setMsg('')} style={{background:'none',border:'none',cursor:'pointer',color:'#065f46',fontWeight:'bold'}}>×</button>
         </div>
       )}
       {err && (
         <div style={{padding:'12px 18px',marginBottom:16,background:'#fef2f2',border:'1px solid #fca5a5',color:'#991b1b',borderRadius:10,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <span>\u26A0\uFE0F {err}</span>
-          <button type="button" onClick={()=>setErr('')} style={{background:'none',border:'none',cursor:'pointer',color:'#991b1b',fontWeight:'bold'}}>\xD7</button>
+          <span>⚠️ {err}</span>
+          <button type="button" onClick={()=>setErr('')} style={{background:'none',border:'none',cursor:'pointer',color:'#991b1b',fontWeight:'bold'}}>×</button>
+        </div>
+      )}
+
+      {/* Chain of Custody Open Remarks Editor for AD */}
+      {isAd && (
+        <div className="card" style={{marginBottom:18,border:'1.5px solid #93c5fd',background:'#f0f9ff'}}>
+          <div className="card-header" style={{padding:'10px 18px',background:'#e0f2fe'}}>
+            <div className="card-title" style={{fontSize:13,fontWeight:700,color:'#0369a1'}}>
+              📝 Chain of Custody Remarks (Open Field for Print)
+            </div>
+            <span style={{fontSize:11,color:'#0284c7',fontWeight:600}}>Only AD Forensic can edit &amp; print</span>
+          </div>
+          <div className="card-body" style={{padding:'12px 18px'}}>
+            <textarea
+              className="cf-input"
+              rows={2}
+              placeholder="Enter remarks for Chain of Custody print..."
+              value={custodyRemarks}
+              onChange={e=>setCustodyRemarks(e.target.value)}
+            />
+          </div>
         </div>
       )}
 
       {/* Report Code Banner */}
       {row.report_code && (
-        <div style={{padding:'18px 24px',marginBottom:20,borderRadius:14,background:'linear-gradient(135deg,#065f46 0%,#0081a7 100%)',color:'#fff',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:14,boxShadow:'0 8px 24px rgba(6,95,70,0.22)'}}>
+        <div style={{padding:'18px 24px',marginBottom:20,borderRadius:14,background:'linear-gradient(135deg,#065f46 0%,#0081a7 100%)',color:'#fff',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'gap',gap:14,boxShadow:'0 8px 24px rgba(6,95,70,0.22)'}}>
           <div>
             <div style={{fontSize:12,textTransform:'uppercase',letterSpacing:1,opacity:0.9}}>Official Forensic Report Tracking Code</div>
             <div style={{fontSize:32,fontWeight:900,letterSpacing:1.5,marginTop:2,fontFamily:'monospace'}}>{row.report_code}</div>
-            <div style={{fontSize:12,opacity:0.85,marginTop:4}}>EO presents this code at Forensic Desk for physical report collection (By-Hand).</div>
+            <div style={{fontSize:12,opacity:0.85,marginTop:4}}>EO presents this code at Forensic Lab for physical report collection (By-Hand).</div>
           </div>
           <div style={{background:'rgba(255,255,255,0.15)',padding:'10px 18px',borderRadius:10,textAlign:'center',border:'1px solid rgba(255,255,255,0.3)'}}>
             <div style={{fontSize:11,textTransform:'uppercase',letterSpacing:0.8}}>Status</div>
@@ -405,7 +437,7 @@ export default function ForensicRequestDetail() {
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:16,marginBottom:20}}>
         <div className="card">
           <div className="card-header" style={{padding:'12px 18px',background:'#f8fafc'}}>
-            <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>\uD83D\uDC64 Seizing Officer Details</div>
+            <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>👤 Seizing Officer Details</div>
             <span style={{fontSize:11,background:'#dbeafe',color:'#1e40af',padding:'2px 8px',borderRadius:12,fontWeight:700}}>Officer Profile</span>
           </div>
           <div className="card-body" style={{padding:'14px 18px'}}>
@@ -421,15 +453,15 @@ export default function ForensicRequestDetail() {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,fontSize:12,background:'#f8fafc',padding:12,borderRadius:8}}>
               <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Circle / Station</span><strong>{circleName}</strong></div>
               <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Zone</span><strong>{zoneName}</strong></div>
-              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Email / Contact</span><span>{row.submitter?.email||'\u2014'}</span></div>
-              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Seizure Submitted</span><strong>{row.created_at?formatDisplayDateTime(row.created_at):'\u2014'}</strong></div>
+              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Email / Contact</span><span>{row.submitter?.email||row.submitter?.phone||'—'}</span></div>
+              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Seizure Submitted</span><strong>{row.created_at?formatDisplayDateTime(row.created_at):'—'}</strong></div>
             </div>
           </div>
         </div>
 
         <div className="card">
           <div className="card-header" style={{padding:'12px 18px',background:'#f8fafc'}}>
-            <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>\uD83D\uDCCD Case &amp; Origin Reference</div>
+            <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>📍 Case &amp; Origin Reference</div>
             <span style={{fontSize:11,background:'#e0f2fe',color:'#0369a1',padding:'2px 8px',borderRadius:12,fontWeight:700}}>{caseRef}</span>
           </div>
           <div className="card-body" style={{padding:'14px 18px'}}>
@@ -440,20 +472,20 @@ export default function ForensicRequestDetail() {
                 <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Enquiry Officer (Case)</span><strong>{row.enquiry.officer.name}</strong></div>
               )}
               {row.assignee?.name && (
-                <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Assigned FO (Lab)</span><strong>{row.assignee.name}</strong></div>
+                <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Assigned AD (Lab)</span><strong>{row.assignee.name}</strong></div>
               )}
             </div>
             {accusedList.length > 0 && (
               <div style={{background:'#f8fafc',padding:10,borderRadius:8,fontSize:11.5,marginBottom:10}}>
                 <span style={{color:'#64748b',display:'block',marginBottom:4,fontWeight:600}}>Accused Persons Linked:</span>
                 {accusedList.map((acc,idx)=>(
-                  <div key={idx} style={{color:'#1e293b'}}>\u2022 <strong>{acc.name}</strong> {acc.cnic?`(CNIC: ${acc.cnic})`:''} {(acc.contact_no||acc.mobile||acc.whatsapp_no)?`\u00B7 \uD83D\uDCDE ${acc.contact_no||acc.mobile||acc.whatsapp_no}`:''}</div>
+                  <div key={idx} style={{color:'#1e293b'}}>• <strong>{acc.name}</strong> {acc.cnic?`(CNIC: ${acc.cnic})`:''} {(acc.contact_no||acc.mobile||acc.whatsapp_no)?`· 📞 ${acc.contact_no||acc.mobile||acc.whatsapp_no}`:''}</div>
                 ))}
               </div>
             )}
             {row.attachment_path && (
               <a href={`/storage/${row.attachment_path}`} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11.5}}>
-                \uD83D\uDCC4 View Attached Seizure Memo
+                📄 View Attached Seizure Memo
               </a>
             )}
           </div>
@@ -463,7 +495,7 @@ export default function ForensicRequestDetail() {
       {/* Dispatch Memo */}
       <div className="card" style={{marginBottom:20}}>
         <div className="card-header" style={{padding:'12px 18px'}}>
-          <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>\uD83D\uDCCB Dispatch Memo &amp; Examination Request</div>
+          <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>📋 Dispatch Memo &amp; Examination Request</div>
         </div>
         <div className="card-body" style={{padding:'14px 18px'}}>
           <div style={{marginBottom:14}}>
@@ -485,7 +517,7 @@ export default function ForensicRequestDetail() {
       <div className="card" style={{marginBottom:20}}>
         <div className="card-header" style={{padding:'14px 18px',background:'#f8fafc'}}>
           <div className="card-title" style={{fontSize:14,fontWeight:800,color:'#0f172a'}}>
-            \uD83D\uDDC4\uFE0F Seized Evidence Items &amp; Digital Devices Inventory ({row.items?.length||0} items)
+            🗄️ Seized Evidence Items &amp; Digital Devices Inventory ({row.items?.length||0} items)
           </div>
           <span style={{fontSize:11,background:'#015C94',color:'#fff',padding:'3px 10px',borderRadius:12,fontWeight:700}}>Physical Vault Items</span>
         </div>
@@ -494,7 +526,7 @@ export default function ForensicRequestDetail() {
             <table className="data-table" style={{width:'100%',minWidth:820}}>
               <thead>
                 <tr>
-                  <th style={{width:145}}>Category (NR3C)</th>
+                  <th style={{width:145}}>Category</th>
                   <th style={{width:170}}>Item Brand / Make Model</th>
                   <th style={{width:160}}>IMEI 1 / IMEI 2</th>
                   <th style={{width:130}}>Serial / S.N No</th>
@@ -507,17 +539,17 @@ export default function ForensicRequestDetail() {
                 {(row.items||[]).map((it,i)=>(
                   <tr key={it.id||i}>
                     <td><span style={{fontSize:11.5,fontWeight:700,background:'#f1f5f9',color:'#334155',padding:'3px 8px',borderRadius:6}}>{itemLabel(it.item_type)}</span></td>
-                    <td><strong style={{color:'#0f172a',fontSize:13}}>{it.make_model||'\u2014'}</strong></td>
+                    <td><strong style={{color:'#0f172a',fontSize:13}}>{it.make_model||'—'}</strong></td>
                     <td style={{fontSize:12,fontFamily:'monospace'}}>
-                      {it.imei?<div>IMEI1: <strong>{it.imei}</strong></div>:'\u2014'}
+                      {it.imei?<div>IMEI1: <strong>{it.imei}</strong></div>:'—'}
                       {it.imei2&&<div style={{color:'#64748b'}}>IMEI2: {it.imei2}</div>}
                     </td>
-                    <td style={{fontSize:12,fontFamily:'monospace'}}>{it.serial_no||'\u2014'}</td>
-                    <td style={{fontSize:12,textAlign:'center'}}>{it.storage_capacity||'\u2014'}</td>
+                    <td style={{fontSize:12,fontFamily:'monospace'}}>{it.serial_no||'—'}</td>
+                    <td style={{fontSize:12,textAlign:'center'}}>{it.storage_capacity||'—'}</td>
                     <td style={{fontWeight:700,textAlign:'center'}}>{it.quantity||1}</td>
                     <td style={{fontSize:12}}>
                       {it.condition&&<span style={{fontSize:10.5,background:'#e2e8f0',color:'#1e293b',padding:'1px 6px',borderRadius:4,marginRight:6,fontWeight:600}}>{it.condition}</span>}
-                      {it.seized_from&&<span style={{fontSize:10.5,color:'#0097a7',marginRight:6}}>\uD83D\uDCCD {it.seized_from}</span>}
+                      {it.seized_from&&<span style={{fontSize:10.5,color:'#0097a7',marginRight:6}}>📍 {it.seized_from}</span>}
                       {it.description&&<span style={{color:'#475569'}}>{it.description}</span>}
                     </td>
                   </tr>
@@ -531,21 +563,21 @@ export default function ForensicRequestDetail() {
       {/* Audit Trail */}
       <div className="card" style={{marginBottom:20}}>
         <div className="card-header" style={{padding:'12px 18px'}}>
-          <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>\u26D3\uFE0F Forensic Chain of Custody Audit Trail</div>
+          <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>⛓️ Forensic Chain of Custody Audit Trail</div>
         </div>
         <div className="card-body" style={{padding:'16px 20px'}}>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14}}>
             {[
-              {step:'1. Seized & Dispatched',       name:row.submitter?.name||'EO',                                                         date:row.created_at,    color:'#0097a7'},
-              {step:'2. AD Review & FO Assignment', name:row.assignee?.name?`FO: ${row.assignee.name}`:'Pending',                            date:row.assigned_at,   color:row.assigned_at?'#2563eb':'#cbd5e1'},
-              {step:'3. Lab Examination Opened',    name:row.opened_at?'Analysis Active':'Waiting for FO',                                   date:row.opened_at,     color:row.opened_at?'#7c3aed':'#cbd5e1'},
-              {step:'4. AD Approval & EO+AD Notified',name:row.report_ready_at?`Approved (${row.report_code})`:row.status==='submitted_to_ad'?'Submitted to AD':'Pending FO',date:row.report_ready_at,color:row.report_ready_at?'#059669':row.status==='submitted_to_ad'?'#d97706':'#cbd5e1'},
+              {step:'1. Seized & Dispatched',       name:row.submitter?.name||'EO',                                                          date:row.created_at,    color:'#0097a7'},
+              {step:'2. DD Review & AD Marking',    name:row.assignee?.name?`AD: ${row.assignee.name}`:'Pending',                            date:row.assigned_at,   color:row.assigned_at?'#2563eb':'#cbd5e1'},
+              {step:'3. Lab Examination Opened',    name:row.opened_at?'Analysis Active':'Waiting for AD',                                   date:row.opened_at,     color:row.opened_at?'#7c3aed':'#cbd5e1'},
+              {step:'4. Report Approved',           name:row.report_ready_at?`Approved (${row.report_code})`:row.status==='submitted_to_ad'?'Submitted to AD':'Pending AD',date:row.report_ready_at,color:row.report_ready_at?'#059669':row.status==='submitted_to_ad'?'#d97706':'#cbd5e1'},
               {step:'5. Handed Over to EO',         name:row.handed_over_at?(row.handedTo?.name||'EO'):'In Lab Custody',                    date:row.handed_over_at,color:row.handed_over_at?'#64748b':'#cbd5e1'},
             ].map((s,i)=>(
               <div key={i} style={{borderLeft:`3px solid ${s.color}`,paddingLeft:12}}>
                 <div style={{fontSize:11,color:'#64748b'}}>{s.step}</div>
                 <div style={{fontSize:13,fontWeight:700,color:'#0f172a'}}>{s.name}</div>
-                <div style={{fontSize:11,color:'#64748b'}}>{s.date?formatDisplayDateTime(s.date):'\u2014'}</div>
+                <div style={{fontSize:11,color:'#64748b'}}>{s.date?formatDisplayDateTime(s.date):'—'}</div>
               </div>
             ))}
           </div>
@@ -556,31 +588,31 @@ export default function ForensicRequestDetail() {
       {(row.findings||row.lab_notes||row.report_attachment_path)&&(
         <div className="card" style={{marginBottom:20}}>
           <div className="card-header" style={{padding:'12px 18px',background:'#f0fdf4'}}>
-            <div className="card-title" style={{fontSize:13.5,fontWeight:700,color:'#166534'}}>\uD83D\uDD2C Forensic Officer Examination Findings</div>
+            <div className="card-title" style={{fontSize:13.5,fontWeight:700,color:'#166534'}}>🔬 AD Forensic Examination Findings</div>
           </div>
           <div className="card-body" style={{padding:'16px 20px'}}>
             {row.findings&&<div style={{marginBottom:14}}><span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Recovered Artifacts &amp; Analysis Summary:</span><div style={{background:'#f8fafc',padding:14,borderRadius:8,fontSize:13,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{row.findings}</div></div>}
             {row.lab_notes&&<div style={{marginBottom:14}}><span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Internal Lab / Tool Notes:</span><div style={{background:'#f8fafc',padding:12,borderRadius:8,fontSize:12.5,color:'#475569',whiteSpace:'pre-wrap'}}>{row.lab_notes}</div></div>}
             {row.report_attachment_path&&(
               <a href={`/storage/${row.report_attachment_path}`} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm" style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                \uD83D\uDCE5 Download Signed Lab Report PDF
+                📥 Download Signed Lab Report PDF
               </a>
             )}
           </div>
         </div>
       )}
 
-      {/* Action 1: AD Assign FO */}
+      {/* Action 1: DD Assign to AD Forensic */}
       {canAssign&&(
         <div className="card" style={{marginBottom:20,border:'1.5px solid #bfdbfe'}}>
-          <div className="card-header" style={{background:'#eff6ff'}}><div className="card-title" style={{color:'#1e40af'}}>AD Action: Assign Forensic Officer &amp; Scope</div></div>
+          <div className="card-header" style={{background:'#eff6ff'}}><div className="card-title" style={{color:'#1e40af'}}>DD Action: Mark / Assign to Assistant Director (AD) Forensic</div></div>
           <div className="card-body">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:12}}>
               <div className="cf-field">
-                <label className="cf-label required">Select Forensic Officer</label>
+                <label className="cf-label required">Select AD Forensic</label>
                 <select className="cf-input" value={assignedTo} onChange={e=>setAssignedTo(e.target.value)}>
-                  <option value="">\u2014 Select FO \u2014</option>
-                  {officers.map(o=><option key={o.id} value={o.id}>{o.name} ({o.designation||'Examiner'})</option>)}
+                  <option value="">— Select AD Forensic —</option>
+                  {officers.map(o=><option key={o.id} value={o.id}>{o.name} ({o.designation||'AD Forensic'})</option>)}
                 </select>
               </div>
               <div className="cf-field">
@@ -588,7 +620,7 @@ export default function ForensicRequestDetail() {
                 <select className="cf-input" value={assignPriority} onChange={e=>setAssignPriority(e.target.value)}>
                   <option value="normal">Normal</option>
                   <option value="high">High</option>
-                  <option value="urgent">\u26A1 Urgent (Court / High Sensitivity)</option>
+                  <option value="urgent">⚡ Urgent (Court / High Sensitivity)</option>
                 </select>
               </div>
             </div>
@@ -596,15 +628,15 @@ export default function ForensicRequestDetail() {
               <label className="cf-label">Directives &amp; Examination Instructions</label>
               <input className="cf-input" placeholder="e.g. Physical extraction of WhatsApp chats, CDRs..." value={remarks} onChange={e=>setRemarks(e.target.value)} />
             </div>
-            <button type="button" className="btn btn-primary" disabled={busy||!assignedTo} onClick={assign}>{busy?'Assigning\u2026':'Assign & Notify Forensic Officer'}</button>
+            <button type="button" className="btn btn-primary" disabled={busy||!assignedTo} onClick={assign}>{busy?'Assigning…':'Mark / Assign to AD Forensic'}</button>
           </div>
         </div>
       )}
 
-      {/* Action 2: FO Workbench */}
+      {/* Action 2: AD Forensic Workbench */}
       {canWorkFindings&&(
         <div className="card" style={{marginBottom:20,border:'1.5px solid #ddd6fe'}}>
-          <div className="card-header" style={{background:'#f5f3ff'}}><div className="card-title" style={{color:'#6d28d9'}}>\uD83D\uDD2C Forensic Examiner Workbench: Record Findings &amp; Submit to AD</div></div>
+          <div className="card-header" style={{background:'#f5f3ff'}}><div className="card-title" style={{color:'#6d28d9'}}>🔬 AD Forensic Workbench: Record Findings &amp; Analysis</div></div>
           <div className="card-body">
             <div className="cf-field" style={{marginBottom:12}}>
               <label className="cf-label">Forensic Examination Findings</label>
@@ -615,59 +647,47 @@ export default function ForensicRequestDetail() {
               <textarea className="cf-input" rows={2} placeholder="Tools used: UFED, Oxygen, Magnet AXIOM, EnCase, FTK Imager..." value={labNotes} onChange={e=>setLabNotes(e.target.value)} />
             </div>
             <div className="cf-field" style={{marginBottom:16}}>
-              <label className="cf-label">Upload Lab Report PDF / Archive <span style={{fontSize:11,color:'#64748b',fontWeight:400}}>(Optional \u2014 not mandatory)</span></label>
+              <label className="cf-label">Upload Lab Report PDF / Archive <span style={{fontSize:11,color:'#64748b',fontWeight:400}}>(Optional — not mandatory)</span></label>
               <input type="file" className="cf-input" accept=".pdf,.doc,.docx,.zip" onChange={e=>setReportFile(e.target.files?.[0]||null)} />
             </div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-              <button type="button" className="btn btn-outline" disabled={busy} onClick={saveFindings}>{busy?'Saving\u2026':'Save Findings Draft'}</button>
-              <button type="button" className="btn btn-primary" style={{background:'#7c3aed'}} disabled={busy} onClick={submitToAd}>{busy?'Submitting\u2026':'Submit Report to AD Forensic for Approval'}</button>
+              <button type="button" className="btn btn-outline" disabled={busy} onClick={saveFindings}>{busy?'Saving…':'Save Findings Draft'}</button>
+              <button type="button" className="btn btn-primary" style={{background:'#7c3aed'}} disabled={busy} onClick={approveAndNotify}>{busy?'Approving & Notifying…':'✅ Finalize Report & Notify EO'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Action 3: AD Approve + Notify EO & AD */}
-      {canApproveAd&&(
-        <div className="card" style={{marginBottom:20,border:'1.5px solid #a7f3d0'}}>
-          <div className="card-header" style={{background:'#ecfdf5'}}><div className="card-title" style={{color:'#065f46'}}>\u2705 AD Forensic Approval: Authorize Report &amp; Notify EO + AD</div></div>
-          <div className="card-body">
-            <p style={{fontSize:13,color:'#334155',marginBottom:12,lineHeight:1.5}}>
-              Review FO findings above. Click below to approve \u2014 system will immediately notify:
-            </p>
-            <ul style={{fontSize:13,color:'#334155',marginBottom:14,paddingLeft:20,lineHeight:1.9}}>
-              <li>\uD83D\uDCCB <strong>Enquiry Officer ({row.enquiry?.officer?.name||row.submitter?.name||'EO'})</strong> \u2014 Notification + SMS to collect physical report by-hand. Report Code: <strong>{row.report_code||'Auto-Generated'}</strong></li>
-              <li>\uD83D\uDC64 <strong>AD Forensic</strong> \u2014 Approval confirmation record</li>
-            </ul>
-            <div className="cf-field" style={{marginBottom:12}}>
-              <label className="cf-label">Approval Notes <span style={{fontSize:11,color:'#64748b',fontWeight:400}}>(Optional)</span></label>
-              <input className="cf-input" placeholder="e.g. Report reviewed and found satisfactory..." value={remarks} onChange={e=>setRemarks(e.target.value)} />
-            </div>
-            <button type="button" className="btn btn-primary" style={{background:'#059669'}} disabled={busy} onClick={approveAndNotify}>{busy?'Approving & Notifying\u2026':'\u2705 Approve Report & Notify EO + AD (By-Hand Collection)'}</button>
-          </div>
-        </div>
-      )}
-
-      {/* Action 4: Desk Handover */}
+      {/* Action 3: Custody Handover */}
       {canHandOver&&(
         <div className="card" style={{marginBottom:20,border:'1.5px solid #cbd5e1'}}>
-          <div className="card-header" style={{background:'#f8fafc'}}><div className="card-title" style={{color:'#334155'}}>\uD83D\uDCE4 Desk Officer: Physical Evidence Handover to EO</div></div>
+          <div className="card-header" style={{background:'#f8fafc'}}><div className="card-title" style={{color:'#334155'}}>📦 Forensic Lab: Physical Evidence Handover to EO</div></div>
           <div className="card-body">
             <p style={{fontSize:13,color:'#334155',marginBottom:10}}>Confirm physical signed lab report and sealed evidence bag handed over to EO. Report code: <strong>{row.report_code}</strong></p>
             <div className="cf-field" style={{marginBottom:14}}>
               <label className="cf-label">Handover Remarks</label>
               <input className="cf-input" placeholder="e.g. Physical sealed packet handed to EO with signature on register." value={handoverRemarks} onChange={e=>setHandoverRemarks(e.target.value)} />
             </div>
-            <button type="button" className="btn btn-primary" style={{background:'#059669'}} disabled={busy} onClick={handOver}>{busy?'Confirming\u2026':'Confirm Custody Handover to EO'}</button>
+            <button type="button" className="btn btn-primary" style={{background:'#059669'}} disabled={busy} onClick={handOver}>{busy?'Confirming…':'Confirm Custody Handover to EO'}</button>
           </div>
         </div>
       )}
 
-      {/* F-31 PRINT AREA (Hidden - opens in popup window) */}
+      {/* CHAIN OF CUSTODY PRINT AREA (Hidden - opens in popup window) */}
       <div id="f31PrintArea" style={{display:'none'}}>
-        <div style={{textAlign:'center',marginBottom:14,borderBottom:'2px solid #000',paddingBottom:10}}>
-          <div style={{fontSize:13,fontWeight:'bold'}}>National Response Centre for Cyber Crimes (NR3C)</div>
-          <div style={{fontSize:11}}>National Cyber Crime Investigation Agency (NCCIA) | Digital Forensic Lab Lahore</div>
-          <div style={{fontSize:14,fontWeight:'bold',marginTop:6,textDecoration:'underline'}}>Chain of Custody Form (F-31)</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'2px solid #000',paddingBottom:10,marginBottom:14}}>
+          <div style={{width:65,textAlign:'left'}}>
+            <img src="/images/images.jpg" alt="NCCIA Logo" style={{width:55,height:55,objectFit:'contain'}} />
+          </div>
+          <div style={{textAlign:'center',flex:1,padding:'0 10px'}}>
+            <div style={{fontSize:13.5,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
+            <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Government of Pakistan • Ministry of Interior and Narcotics Control</div>
+            <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Digital Forensic Lab • NCCIA-RC {circleCity}</div>
+            <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:5,letterSpacing:0.5}}>CHAIN OF CUSTODY FORM</div>
+          </div>
+          <div style={{width:65,textAlign:'right'}}>
+            <img src="/images/pak-govt-logo.png" alt="Govt Logo" style={{width:55,height:55,objectFit:'contain'}} />
+          </div>
         </div>
 
         <table style={{width:'100%',borderCollapse:'collapse',marginBottom:14}}>
@@ -682,13 +702,13 @@ export default function ForensicRequestDetail() {
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Name of the Organization from which the equipment is received</td>
               <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px'}}>
                 <div><strong>Organization:</strong> {circleName}</div>
-                <div><strong>Name:</strong> {row.submitter?.name||'\u2014'}</div>
-                <div><strong>Contact No.:</strong> {row.submitter?.email||'\u2014'}</div>
+                <div><strong>Name:</strong> {row.submitter?.name||'—'}</div>
+                <div><strong>Contact No.:</strong> {row.submitter?.phone||row.submitter?.email||'—'}</div>
                 {complainantName&&<div><strong>Complainant:</strong> {complainantName}</div>}
               </td>
             </tr>
             <tr>
-              <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Type of evidence to be required by the said organization</td>
+              <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Type of evidence required by the said organization</td>
               <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px'}}>
                 <div><strong>Scope / Category:</strong> {caseRef}</div>
                 {row.note&&<div style={{marginTop:4}}>{row.note}</div>}
@@ -696,7 +716,9 @@ export default function ForensicRequestDetail() {
             </tr>
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5'}}>Remarks</td>
-              <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px',height:30}}>{row.findings?row.findings.substring(0,200):''}</td>
+              <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px',minHeight:30}}>
+                {custodyRemarks || row.findings || 'Evidence received sealed and maintained in secure forensic custody for digital examination.'}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -716,7 +738,7 @@ export default function ForensicRequestDetail() {
               <tr key={i}>
                 <td style={{border:'1px solid #000',padding:'5px 7px',textAlign:'center',verticalAlign:'top'}}>{i+1}</td>
                 <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>
-                  <strong>{itemLabel(it.item_type)}</strong>{it.make_model&&` \u2014 ${it.make_model}`}
+                  <strong>{itemLabel(it.item_type)}</strong>{it.make_model&&` — ${it.make_model}`}
                   {it.storage_capacity&&<div style={{fontSize:10}}>Storage: {it.storage_capacity} GB</div>}
                   {it.quantity>1&&<div style={{fontSize:10}}>Qty: {it.quantity}</div>}
                 </td>
@@ -724,7 +746,7 @@ export default function ForensicRequestDetail() {
                   {it.serial_no&&<div>S/N: {it.serial_no}</div>}
                   {it.imei&&<div>IMEI1: {it.imei}</div>}
                   {it.imei2&&<div>IMEI2: {it.imei2}</div>}
-                  {!it.serial_no&&!it.imei&&'\u2014'}
+                  {!it.serial_no&&!it.imei&&'—'}
                 </td>
                 <td style={{border:'1px solid #000',padding:'5px 7px',fontSize:11,verticalAlign:'top'}}>
                   {it.condition&&<div>Condition: {it.condition}</div>}
@@ -756,28 +778,28 @@ export default function ForensicRequestDetail() {
           <tbody>
             {[
               {
-                from_name: row.submitter?.name||'\u2014',
-                from_des: (row.submitter?.designation||'Enquiry Officer')+' \u00B7 '+circleName,
+                from_name: row.submitter?.name||'—',
+                from_des: (row.submitter?.designation||'Enquiry Officer')+' · '+circleName,
                 from_date: receivedDateTime,
-                to_name: row.adReviewer?.name||'AD Forensic / Desk Officer',
-                to_des: row.adReviewer?.designation||'AD Forensic',
+                to_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
+                to_des: 'AD Forensic',
                 to_date: row.assigned_at?formatDisplayDateTime(row.assigned_at):null,
                 remark:'Received at Lab',
               },
               {
-                from_name: row.adReviewer?.name||'AD Forensic',
-                from_des: 'AD Forensic',
-                from_date: row.assigned_at?formatDisplayDateTime(row.assigned_at):null,
-                to_name: row.assignee?.name||'\u2014',
-                to_des: row.assignee?.designation||'Forensic Officer',
-                to_date: row.assigned_at?formatDisplayDateTime(row.assigned_at):null,
-                remark:'Assigned to FO for Examination',
+                from_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
+                from_des: 'AD Forensic (Digital Forensic Lab)',
+                from_date: row.opened_at?formatDisplayDateTime(row.opened_at):(row.assigned_at?formatDisplayDateTime(row.assigned_at):null),
+                to_name: row.assignee?.name||'AD Forensic',
+                to_des: 'Digital Forensic Examination',
+                to_date: row.report_ready_at?formatDisplayDateTime(row.report_ready_at):null,
+                remark: row.findings ? 'Examination Completed & Report Prepared' : 'Under Examination',
               },
               {
-                from_name: row.deskOfficer?.name||row.adReviewer?.name||'Desk Officer',
-                from_des: 'NCCIA Forensic Lab',
+                from_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
+                from_des: 'Digital Forensic Lab',
                 from_date: row.handed_over_at?formatDisplayDateTime(row.handed_over_at):null,
-                to_name: row.handedTo?.name||row.submitter?.name||'\u2014',
+                to_name: row.handedTo?.name||row.submitter?.name||'—',
                 to_des: 'Enquiry Officer',
                 to_date: row.handed_over_at?formatDisplayDateTime(row.handed_over_at):null,
                 remark: row.handover_remarks||('Report Code: '+(row.report_code||'________')),
@@ -788,13 +810,13 @@ export default function ForensicRequestDetail() {
                 <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',height:65}}>
                   <div><strong>{r2.from_name}</strong></div>
                   <div style={{fontSize:10,color:'#555'}}>{r2.from_des}</div>
-                  <div style={{fontSize:10}}>{r2.from_date||'\u00A0'}</div>
+                  <div style={{fontSize:10}}>{r2.from_date||' '}</div>
                   <div style={{marginTop:8,borderTop:'1px solid #aaa',paddingTop:4,fontSize:10}}>Signature: ________________</div>
                 </td>
                 <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',height:65}}>
                   <div><strong>{r2.to_name}</strong></div>
                   <div style={{fontSize:10,color:'#555'}}>{r2.to_des}</div>
-                  <div style={{fontSize:10}}>{r2.to_date||'\u00A0'}</div>
+                  <div style={{fontSize:10}}>{r2.to_date||' '}</div>
                   <div style={{marginTop:8,borderTop:'1px solid #aaa',paddingTop:4,fontSize:10}}>Signature: ________________</div>
                 </td>
                 <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>{r2.remark}</td>

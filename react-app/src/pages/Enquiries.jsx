@@ -267,9 +267,11 @@ export default function Enquiries() {
     const enqNo = enq.enquiry_number || enq.complaint?.tracking_no || `ENQ-${enq.id}`;
     const compName = enq.complaint?.complainant_name || enq.direct_info?.complainant_name || 'Complainant';
     const compCnic = enq.complaint?.cnic || enq.direct_info?.cnic || '—';
-    const dateStr = new Date().toLocaleDateString('en-GB');
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     const officerName = enq.officer?.name || user?.name || 'Enquiry Officer';
     const officerDesig = enq.officer?.designation || user?.designation || 'Enquiry Officer';
+    const officerPhone = enq.officer?.phone || enq.officer?.contact_no || user?.phone || user?.contact_no || '';
 
     const itemRows = (scopeLetterData.items.length ? scopeLetterData.items : [{ item_type: 'Digital Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
       let imeiStr = [];
@@ -362,12 +364,13 @@ export default function Enquiries() {
           ${(scopeLetterData.analysisScope || '').replace(/\\n/g, '<br/>')}
         </div>
         <p style="margin: 8px 0;">
-          It is requested that the digital evidence may kindly be examined in the forensic lab and official Forensic Report (Form F-31 Chain of Custody) be prepared and furnished at the earliest.
+          It is requested that the digital evidence may kindly be examined in the forensic lab and official Forensic Report (Chain of Custody) be prepared and furnished at the earliest.
         </p>
         <div class="sign-block">
           <br/>
           <strong>${officerName}</strong><br/>
           ${officerDesig}<br/>
+          ${officerPhone ? `<span>Contact: <strong>${officerPhone}</strong></span><br/>` : ''}
           National Cyber Crime Investigation Agency<br/>
           ${rcName}
         </div>

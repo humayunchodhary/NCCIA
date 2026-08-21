@@ -73,8 +73,6 @@ class User extends Authenticatable
         'admin_forensic',
         'dd_forensic',
         'ad_forensic',
-        'desk_forensic',
-        'forensic_team',
     ];
 
     public function isForensic(): bool

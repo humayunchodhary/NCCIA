@@ -839,7 +839,7 @@ class ForensicRequestController extends Controller
 
     public function teamOfficers(Request $request)
     {
-        $officers = User::whereHas('roles', fn($q) => $q->where('name', 'forensic_team'))
+        $officers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'designation', 'phone']);
 

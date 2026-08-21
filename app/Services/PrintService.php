@@ -856,6 +856,8 @@ class PrintService
 
         $officerName  = e($enquiry->officer?->name ?: 'Investigation Officer');
         $officerDesig = e($enquiry->officer?->designation ?: 'Investigation Officer');
+        $officerPhone = e($enquiry->officer?->phone ?: ($enquiry->officer?->contact_no ?: ''));
+        $dateTimeStr  = now()->format('d/m/Y h:i A');
 
         $analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
 
@@ -864,6 +866,11 @@ class PrintService
           <div class="to-header">
             <strong>THE INCHARGE</strong><br/>
             <strong>NCCIA, CCRC, {$circleName}.</strong>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 8px;">
+            <div><strong>Enquiry / Case No:</strong> {$enquiryNo}</div>
+            <div><strong>Dated:</strong> {$dateTimeStr}</div>
           </div>
 
           <div class="subject-block">
@@ -916,6 +923,11 @@ class PrintService
           <div class="req-sign-block">
             <strong>{$officerName}</strong><br/>
             {$officerDesig}<br/>
+HTML;
+        if ($officerPhone) {
+            $body .= "<span>Contact: <strong>{$officerPhone}</strong></span><br/>";
+        }
+        $body .= <<<HTML
             National Cyber Crime Investigation Agency<br/>
             <strong>NCCIA-RC {$circleName}</strong>
           </div>

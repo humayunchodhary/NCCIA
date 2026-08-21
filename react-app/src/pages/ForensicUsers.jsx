@@ -7,8 +7,6 @@ const ROLE_LABELS = {
     admin_forensic: "Admin Forensic",
     dd_forensic: "DD Forensic",
     ad_forensic: "AD Forensic",
-    desk_forensic: "Desk Forensic",
-    forensic_team: "Forensic Team",
 };
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({

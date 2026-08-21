@@ -73,8 +73,6 @@ class RolesAndPermissionsSeeder extends Seeder
             'admin_forensic' => ['forensic', 'forensic_users', 'profile'],
             'dd_forensic'    => ['forensic', 'profile'],
             'ad_forensic'    => ['forensic', 'profile'],
-            'desk_forensic'  => ['forensic', 'profile'],
-            'forensic_team'  => ['forensic', 'profile'],
         ];
 
         foreach ($roleFeatures as $roleName => $perms) {
