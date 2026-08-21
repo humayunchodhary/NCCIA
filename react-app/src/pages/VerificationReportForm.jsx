@@ -203,6 +203,14 @@ export default function VerificationReportForm() {
           picture_url: a.picture_url || (a.picture ? '/storage/' + a.picture : ''),
           other_attachment_url: a.other_attachment_url || (a.other_attachment ? '/storage/' + a.other_attachment : ''),
         }));
+        const transactions = (d.transactions || []).map(t => ({
+          bank: t.bank || '',
+          account: t.account || '',
+          amount: t.amount || '',
+          date: t.date || '',
+          file: null,
+          file_path: t.file || '',
+        }));
         setForm(f => ({
           ...f,
           complaint_id: d.complaint_id || '',
@@ -218,7 +226,7 @@ export default function VerificationReportForm() {
           victim_country_code: d.victim_country_code || '+92',
           victim_phone: d.victim_phone || '',
           victim_email: d.victim_email || '',
-          crime_category: d.crime_category || '', initial_crime_category: d.complaint?.crime_category || '',
+          crime_category: d.crime_category || '', initial_crime_category: d.complaint?.offence_type || d.complaint?.crime_category || d.crime_category || '',
           city: d.city || '',
           crime_description: d.crime_description || '',
           accused_known: d.accused_known ? '1' : '0',
@@ -229,6 +237,7 @@ export default function VerificationReportForm() {
           recommendation_full: d.recommendation_full || '',
           comments: d.comments || '',
           evidence,
+          transactions: transactions.length ? transactions : [{ bank: '', account: '', amount: '', date: '', file: null }],
           inquiry_no: d.inquiry_no || '',
           case_no: d.case_no || '',
         }));
@@ -329,6 +338,26 @@ const handleTrackingChange = (e) => {
         picture_url: a.picture_url || '',
         other_attachment_url: a.other_attachment_url || '',
       }));
+      // Pre-populate transactions from complaint financial data
+      const compTransactions = [];
+      if (comp.bank_name_sender || comp.account_no_sender) {
+        compTransactions.push({
+          bank: comp.bank_name_sender || '',
+          account: comp.account_no_sender || '',
+          amount: comp.amount_involved || '',
+          date: comp.transaction_date || '',
+          file: null,
+        });
+      }
+      if (comp.bank_name_receiver || comp.account_no_receiver) {
+        compTransactions.push({
+          bank: comp.bank_name_receiver || '',
+          account: comp.account_no_receiver || '',
+          amount: comp.amount_involved || '',
+          date: comp.transaction_date || '',
+          file: null,
+        });
+      }
       setForm(f => ({
         ...f,
         tracking_no: tracking,
@@ -349,6 +378,7 @@ const handleTrackingChange = (e) => {
         crime_description: comp.description || '',
         accused_known: (mapAccused.length ? '1' : f.accused_known),
         accused: mapAccused.length ? mapAccused : f.accused,
+        transactions: compTransactions.length ? compTransactions : [{ bank: '', account: '', amount: '', date: '', file: null }],
       }));
     }
   };
@@ -393,6 +423,27 @@ const handleTrackingChange = (e) => {
             }
             if (av !== null && av !== undefined && av !== '') fd.append(`accused[${i}][${ak}]`, av);
           });
+        });
+        return;
+      }
+      if (k === 'transactions') {
+        let newIdx = 0, existingCount = 0;
+        (v || []).forEach((t) => {
+          if (t.file instanceof File) {
+            fd.append(`transaction_bank[${newIdx}]`, t.bank || '');
+            fd.append(`transaction_account[${newIdx}]`, t.account || '');
+            fd.append(`transaction_amount[${newIdx}]`, t.amount || '');
+            fd.append(`transaction_date[${newIdx}]`, t.date || '');
+            fd.append(`transaction_file[${newIdx}]`, t.file);
+            newIdx++;
+          } else if (t.bank || t.account || t.amount) {
+            fd.append(`existing_transactions[${existingCount}][bank]`, t.bank || '');
+            fd.append(`existing_transactions[${existingCount}][account]`, t.account || '');
+            fd.append(`existing_transactions[${existingCount}][amount]`, t.amount || '');
+            fd.append(`existing_transactions[${existingCount}][date]`, t.date || '');
+            if (t.file_path) fd.append(`existing_transactions[${existingCount}][file]`, t.file_path);
+            existingCount++;
+          }
         });
         return;
       }
@@ -727,15 +778,32 @@ const handleTrackingChange = (e) => {
           <div className="cf-body">
             <div className="cf-row-2">
               <div className="cf-field">
-                <label className="cf-label required">Crime Category</label>
+                <label className="cf-label">Crime Category <span style={{fontSize:11,fontWeight:400,color:'#888'}}>(Front Desk — Read Only)</span></label>
                 <div className="cf-input-wrap">
-                  <select className="cf-input" name="crime_category" value={form.crime_category} onChange={setF('crime_category')} required disabled={!!form.initial_crime_category && !hasRole('circle_incharge') && !hasRole('admin') && !hasRole('super_admin') && !hasRole('deputy_director')}>
+                  <input
+                    type="text"
+                    className="cf-input"
+                    value={form.initial_crime_category || '—'}
+                    readOnly
+                    style={{background:'#f1f5f9', color:'#555', cursor:'not-allowed', border:'1px solid #cbd5e1'}}
+                  />
+                </div>
+                <span className="cf-hint">Auto-filled from complaint — cannot be edited</span>
+              </div>
+
+              <div className="cf-field">
+                <label className="cf-label required">Crime Category <span style={{fontSize:11,fontWeight:400,color:'#015C94'}}>(Verification Officer)</span></label>
+                <div className="cf-input-wrap">
+                  <select className="cf-input" name="crime_category" value={form.crime_category} onChange={setF('crime_category')} required>
                     <option value="">— Select Category —</option>
                     {crimeCategories.map(c => <option key={c.value||c.name} value={c.value||c.name}>{c.name}</option>)}
                   </select>
                 </div>
+                <span className="cf-hint">VO selects their verified crime category</span>
               </div>
+            </div>
 
+            <div className="cf-row-1" style={{marginTop:'8px'}}>
               <div className="cf-field">
                 <label className="cf-label required">City</label>
                 <SearchableSelect

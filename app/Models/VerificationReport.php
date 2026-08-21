@@ -32,6 +32,7 @@ class VerificationReport extends Model
         'recommendation_full',
         'comments',
         'evidence',
+        'transactions',
         'signature',
         'inquiry_no',
         'case_no',
@@ -47,6 +48,7 @@ class VerificationReport extends Model
             'accused_known'     => 'boolean',
             'accused'           => 'array',
             'evidence'          => 'array',
+            'transactions'      => 'array',
         ];
     }
 

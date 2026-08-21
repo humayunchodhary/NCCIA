@@ -382,6 +382,34 @@
       </tr>
     </table>
 
+    {{-- Financial / Transaction Records --}}
+    @php $txns = $report->transactions ?? []; @endphp
+    @if(is_array($txns) && count($txns) > 0)
+    <div class="section-head">3. Financial / Transaction Records</div>
+    <table class="info-table" style="font-size:7pt;">
+      <thead>
+        <tr>
+          <td class="lbl" style="text-align:center; width:5%;">#</td>
+          <td class="lbl" style="width:28%;">Bank / Method</td>
+          <td class="lbl" style="width:28%;">Account / IBAN</td>
+          <td class="lbl" style="width:20%;">Amount (PKR)</td>
+          <td class="lbl" style="width:19%;">Date</td>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($txns as $ti => $t)
+        <tr>
+          <td class="val" style="text-align:center;">{{ $ti + 1 }}</td>
+          <td class="val">{{ $t['bank'] ?? '—' }}</td>
+          <td class="val">{{ $t['account'] ?? '—' }}</td>
+          <td class="val">{{ $t['amount'] ? number_format($t['amount']) : '—' }}</td>
+          <td class="val">{{ $t['date'] ? \Carbon\Carbon::parse($t['date'])->format('d-m-Y') : '—' }}</td>
+        </tr>
+        @endforeach
+      </tbody>
+    </table>
+    @endif
+
     <table class="vo-sig-row">
       <tr>
         <td style="width: 50%; font-size: 7pt; color: #555;">

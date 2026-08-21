@@ -430,8 +430,8 @@ class PrintService
         $officerName = e($enquiry?->officer?->name ?: 'NABEEL HUSSAIN');
         $officerDesig = e($enquiry?->officer?->designation ?: 'Sub Inspector');
 
-        // Address & Phone of reporting center
-        $stationAddress = 'Cyber Crime Reporting Center, ' . $circleName . ', Police Station, National Cybercrime Investigation Agency (NCCIA), Street No 15, Wafaqi Colony, Canal Road ' . $circleCity . '., Phone No.042-99268527';
+        // Address of reporting center (phone removed)
+        $stationAddress = 'Cyber Crime Reporting Center, ' . $circleName . ', Police Station, National Cybercrime Investigation Agency (NCCIA), Street No 15, Wafaqi Colony, Canal Road ' . $circleCity . '.';
 
         // Multi-notice history tracking (Notice 1, 2, 3)
         $allNotices = $enquiry ? $enquiry->notices()->orderBy('id')->get() : collect([$notice]);
@@ -443,7 +443,8 @@ class PrintService
             }
         }
         $seq = $notice->sequence_no ?: ($noticeIndex + 1);
-        $noticeLabel = 'No. ' . $seq;
+        $suffix = match($seq) { 1 => 'st', 2 => 'nd', 3 => 'rd', default => 'th' };
+        $noticeLabel = $seq . $suffix . ' Notice';
 
         // Build Notice History Box for 2nd and 3rd Notices
         $historyHtml = '';
@@ -482,7 +483,7 @@ class PrintService
               <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                 <thead>
                   <tr style="background: #e2e8f0;">
-                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Notice Level</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Notice No.</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Issue Date</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Appearance Date</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Status</th>
