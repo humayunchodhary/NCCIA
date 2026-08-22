@@ -122,31 +122,61 @@ class ForensicRequestController extends Controller
         }
 
         $fr = DB::transaction(function () use ($data, $user, $gen, $path, $items) {
-            $fr = ForensicRequest::create([
-                'request_no'      => $gen->generateRequestNo(),
-                'enquiry_id'      => $data['enquiry_id'] ?? null,
-                'case_id'         => $data['case_id'] ?? null,
-                'submitted_by'    => $user->id,
-                'destination'     => $data['destination'],
-                'priority'        => $data['priority'] ?? 'normal',
-                'note'            => $data['note'] ?? 'Seized evidence memo submitted for examination',
-                'status'          => 'submitted',
-                'attachment_path' => $path,
-            ]);
+            $frQuery = ForensicRequest::where('destination', $data['destination']);
+            if (!empty($data['enquiry_id'])) {
+                $frQuery->where('enquiry_id', $data['enquiry_id']);
+            } elseif (!empty($data['case_id'])) {
+                $frQuery->where('case_id', $data['case_id']);
+            }
+
+            $fr = $frQuery->first();
+
+            if (!$fr) {
+                $fr = ForensicRequest::create([
+                    'request_no'      => $gen->generateRequestNo(),
+                    'enquiry_id'      => $data['enquiry_id'] ?? null,
+                    'case_id'         => $data['case_id'] ?? null,
+                    'submitted_by'    => $user->id,
+                    'destination'     => $data['destination'],
+                    'priority'        => $data['priority'] ?? 'normal',
+                    'note'            => $data['note'] ?? 'Seized evidence memo submitted for examination',
+                    'status'          => 'submitted',
+                    'attachment_path' => $path,
+                ]);
+            } else {
+                // If appending to existing, maybe update the note or attachment if provided
+                if ($path) {
+                    $fr->attachment_path = $path;
+                }
+                if (!empty($data['note'])) {
+                    $fr->note = $fr->note ? ($fr->note . "\n\n" . $data['note']) : $data['note'];
+                }
+                $fr->save();
+            }
 
             foreach ($items as $item) {
-                $fr->items()->create([
-                    'item_type'        => $item['item_type'] ?? 'other',
-                    'make_model'       => $item['make_model'] ?? null,
-                    'imei'             => $item['imei'] ?? null,
-                    'imei2'            => $item['imei2'] ?? null,
-                    'serial_no'        => $item['serial_no'] ?? null,
-                    'storage_capacity' => $item['storage_capacity'] ?? null,
-                    'condition'        => $item['condition'] ?? null,
-                    'seized_from'      => $item['seized_from'] ?? null,
-                    'quantity'         => $item['quantity'] ?? 1,
-                    'description'      => $item['description'] ?? null,
-                ]);
+                // Prevent duplicate insertions
+                $exists = $fr->items()
+                    ->where('item_type', $item['item_type'] ?? 'other')
+                    ->where('make_model', $item['make_model'] ?? null)
+                    ->where('imei', $item['imei'] ?? null)
+                    ->where('serial_no', $item['serial_no'] ?? null)
+                    ->exists();
+
+                if (!$exists) {
+                    $fr->items()->create([
+                        'item_type'        => $item['item_type'] ?? 'other',
+                        'make_model'       => $item['make_model'] ?? null,
+                        'imei'             => $item['imei'] ?? null,
+                        'imei2'            => $item['imei2'] ?? null,
+                        'serial_no'        => $item['serial_no'] ?? null,
+                        'storage_capacity' => $item['storage_capacity'] ?? null,
+                        'condition'        => $item['condition'] ?? null,
+                        'seized_from'      => $item['seized_from'] ?? null,
+                        'quantity'         => $item['quantity'] ?? 1,
+                        'description'      => $item['description'] ?? null,
+                    ]);
+                }
             }
 
             return $fr;
