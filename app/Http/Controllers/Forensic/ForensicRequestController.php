@@ -612,8 +612,8 @@ class ForensicRequestController extends Controller
                 foreach ($adUsers as $ad) {
                     try {
                         $ad->notify(new \App\Notifications\GeneralNotification(
-                            'forensic_report_submitted_to_ad',
-                            "Forensic Officer " . ($forensicRequest->assignee?->name ?? 'FO') . " completed report for {$forensicRequest->request_no}. Ready for AD review & approval.",
+                            'forensic_report_submitted_to_dd',
+                            "AD Forensic " . ($forensicRequest->assignee?->name ?? 'User') . " completed report for {$forensicRequest->request_no}. Ready for DD review & approval.",
                             "/forensic/requests/{$forensicRequest->id}"
                         ));
                     } catch (\Throwable $e) {}
@@ -621,7 +621,7 @@ class ForensicRequestController extends Controller
             } catch (\Throwable $e) {}
 
             return response()->json([
-                'message' => "Forensic report submitted to AD Forensic for approval. Report Code: {$forensicRequest->report_code}",
+                'message' => "Forensic report submitted to Director for approval. Report Code: {$forensicRequest->report_code}",
                 'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
             ]);
         } catch (\Throwable $e) {

@@ -27,9 +27,9 @@ function itemLabel(type) {
 const STATUS_META = {
   submitted:             { label: 'Pending CI Review',             color: '#e5a100', bg: '#fef3c7', icon: '\u23F3' },
   forwarded_to_forensic: { label: 'Pending AD Review',             color: '#e5a100', bg: '#fef3c7', icon: '\u23F3' },
-  assigned:              { label: 'Assigned to FO',                color: '#2563eb', bg: '#dbeafe', icon: '\uD83D\uDC64' },
+  assigned:              { label: 'Assigned to AD Forensic',                color: '#2563eb', bg: '#dbeafe', icon: '\uD83D\uDC64' },
   in_progress:           { label: 'Lab Examination',               color: '#7c3aed', bg: '#ede9fe', icon: '\uD83D\uDD2C' },
-  submitted_to_ad:       { label: 'Submitted to AD',               color: '#d97706', bg: '#fef3c7', icon: '\uD83D\uDCDD' },
+  submitted_to_ad:       { label: 'Submitted to Director for Approval',               color: '#d97706', bg: '#fef3c7', icon: '\uD83D\uDCDD' },
   report_ready:          { label: 'Report Approved (EO Notified)', color: '#059669', bg: '#d1fae5', icon: '\u2705' },
   handed_over:           { label: 'Handed Over to EO',             color: '#64748b', bg: '#f1f5f9', icon: '\uD83D\uDCE4' },
 };
@@ -333,7 +333,7 @@ export default function ForensicRequestDetail() {
   );
   if (!row) return null;
 
-  const canAssign        = (isDd || isAdmin) && (row.status === 'submitted' || row.status === 'forwarded_to_forensic' || isAdmin) && row.destination === 'forensic';
+  const canAssign        = (isDd || isAd || isAdmin) && (row.status === 'submitted' || row.status === 'forwarded_to_forensic' || isAdmin) && row.destination === 'forensic';
   const canWorkFindings  = isAd && ['assigned','in_progress','submitted_to_ad'].includes(row.status);
   const canApproveAd     = (isAd || isDd || isAdmin) && ['submitted_to_ad','in_progress','assigned'].includes(row.status);
   const canHandOver      = (isAd || isDd || isAdmin) && row.status === 'report_ready';
@@ -607,7 +607,7 @@ export default function ForensicRequestDetail() {
       {/* Action 1: DD Assign to AD Forensic */}
       {canAssign&&(
         <div className="card" style={{marginBottom:20,border:'1.5px solid #bfdbfe'}}>
-          <div className="card-header" style={{background:'#eff6ff'}}><div className="card-title" style={{color:'#1e40af'}}>DD Action: Mark / Assign to Assistant Director (AD) Forensic</div></div>
+          <div className="card-header" style={{background:'#eff6ff'}}><div className="card-title" style={{color:'#1e40af'}}>Assign to Assistant Director (AD) Forensic</div></div>
           <div className="card-body">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:12}}>
               <div className="cf-field">

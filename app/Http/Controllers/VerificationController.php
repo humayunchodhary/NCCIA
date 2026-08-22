@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -204,7 +204,7 @@ class VerificationController extends Controller
             'victim_father_name'  => 'nullable|string|max:255',
             'victim_occupation'   => 'nullable|string|max:255',
             'victim_gender'       => 'nullable|in:male,female,other',
-            'victim_cnic'         => ['required', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
+            'victim_cnic'         => ['required', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
             'victim_country_code' => 'nullable|string|max:8',
             'victim_phone'        => 'required|string|max:20',
             'victim_email'        => 'nullable|email|max:255',
@@ -219,7 +219,7 @@ class VerificationController extends Controller
             'accused.*.father_name' => 'nullable|string|max:255',
             'accused.*.phone'     => 'nullable|string|max:20',
             'accused.*.email'     => 'nullable|email|max:255',
-            'accused.*.cnic'      => ['nullable', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
+            'accused.*.cnic'      => ['nullable', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
             'accused.*.address'   => 'nullable|string|max:1000',
             'accused.*.post_address' => 'nullable|string|max:1000',
             'accused.*.nationality' => 'nullable|string|max:50',
@@ -423,7 +423,7 @@ class VerificationController extends Controller
             'victim_father_name'  => 'nullable|string|max:255',
             'victim_occupation'   => 'nullable|string|max:255',
             'victim_gender'       => 'nullable|in:male,female,other',
-            'victim_cnic'         => ['required', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
+            'victim_cnic'         => ['required', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
             'victim_country_code' => 'nullable|string|max:8',
             'victim_phone'        => 'required|string|max:20',
             'victim_email'        => 'nullable|email|max:255',
@@ -438,7 +438,7 @@ class VerificationController extends Controller
             'accused.*.father_name' => 'nullable|string|max:255',
             'accused.*.phone'     => 'nullable|string|max:20',
             'accused.*.email'     => 'nullable|email|max:255',
-            'accused.*.cnic'      => ['nullable', 'string', 'regex:/^\d{5}-\d{7}-\d{1}$/'],
+            'accused.*.cnic'      => ['nullable', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
             'accused.*.address'   => 'nullable|string|max:1000',
             'accused.*.post_address' => 'nullable|string|max:1000',
             'accused.*.nationality' => 'nullable|string|max:50',
