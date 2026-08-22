@@ -751,6 +751,7 @@ export default function ForensicRequestDetail() {
                   {!it.serial_no&&!it.imei&&'—'}
                 </td>
                 <td style={{border:'1px solid #000',padding:'5px 7px',fontSize:11,verticalAlign:'top'}}>
+                  <div style={{fontWeight:'bold', color:'#000', marginBottom:2}}>Lab No: {row.request_no}/{String(i+1).padStart(2, '0')}</div>
                   {it.condition&&<div>Condition: {it.condition}</div>}
                   {it.seized_from&&<div>From: {it.seized_from}</div>}
                   {it.description&&<div>{it.description}</div>}
