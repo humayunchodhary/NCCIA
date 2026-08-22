@@ -296,7 +296,7 @@ export default function VerificationReportForm() {
       victim_country_code: comp.contact_country_code || '+92',
       victim_phone: phone,
       victim_occupation: comp.profession || '',
-      victim_gender: comp.gender || '',
+      victim_gender: (comp.gender || '').toLowerCase(),
       victim_email: comp.email || '',
       crime_category: comp.offence_type || '', initial_crime_category: comp.offence_type || '',
       city: comp.cmu || f.city,
@@ -371,7 +371,7 @@ const handleTrackingChange = (e) => {
         victim_country_code: comp.contact_country_code || '+92',
         victim_phone: phone,
         victim_occupation: comp.profession || '',
-        victim_gender: comp.gender || '',
+        victim_gender: (comp.gender || '').toLowerCase(),
         victim_email: comp.email || '',
         crime_category: comp.offence_type || '', initial_crime_category: comp.offence_type || '',
         city: comp.cmu || '',
@@ -486,7 +486,8 @@ const handleTrackingChange = (e) => {
       const res = err.response?.data;
       if (res?.errors) {
         setErrors(res.errors);
-        setServerError('Please fix the highlighted fields below.');
+        const errList = Object.entries(res.errors).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
+        setServerError(`Please fix the highlighted fields: ${errList}`);
       } else if (res?.message) {
         setServerError(res.message + (res.exception ? ' (' + res.exception + ')' : ''));
       } else {

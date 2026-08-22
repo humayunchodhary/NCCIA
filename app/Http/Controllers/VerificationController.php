@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Http\Controllers;
 
@@ -193,161 +193,204 @@ class VerificationController extends Controller
 
     public function storeReport(Request $request)
     {
-        $data = $request->validate([
-            'complaint_id'        => 'nullable|exists:complaints,id',
-            'tracking_no'         => 'required|string|max:255',
-            'registration_at'     => 'nullable|date',
-            'assignment_date'     => 'nullable|date',
-            'verification_date'   => 'nullable|date',
+        try {
+            $data = $request->validate([
+                'complaint_id'        => 'nullable|exists:complaints,id',
+                'tracking_no'         => 'required|string|max:255',
+                'registration_at'     => 'nullable|date',
+                'assignment_date'     => 'nullable|date',
+                'verification_date'   => 'nullable|date',
 
-            'victim_name'         => 'required|string|max:255',
-            'victim_father_name'  => 'nullable|string|max:255',
-            'victim_occupation'   => 'nullable|string|max:255',
-            'victim_gender'       => 'nullable|in:male,female,other',
-            'victim_cnic'         => ['required', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
-            'victim_country_code' => 'nullable|string|max:8',
-            'victim_phone'        => 'required|string|max:20',
-            'victim_email'        => 'nullable|email|max:255',
+                'victim_name'         => 'required|string|max:255',
+                'victim_father_name'  => 'nullable|string|max:255',
+                'victim_occupation'   => 'nullable|string|max:255',
+                'victim_gender'       => 'nullable|string|in:male,female,other,Male,Female,Other',
+                'victim_cnic'         => ['required', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
+                'victim_country_code' => 'nullable|string|max:8',
+                'victim_phone'        => 'required|string|max:20',
+                'victim_email'        => 'nullable|email|max:255',
 
-            'crime_category'      => 'required|string|max:255',
-            'crime_description'   => 'nullable|string|max:5000',
-            'city'                => 'required|string|max:255',
+                'crime_category'      => 'required|string|max:255',
+                'crime_description'   => 'nullable|string|max:5000',
+                'city'                => 'required|string|max:255',
 
-            'accused_known'       => 'required|boolean',
-            'accused'             => 'nullable|array',
-            'accused.*.name'      => 'nullable|string|max:255',
-            'accused.*.father_name' => 'nullable|string|max:255',
-            'accused.*.phone'     => 'nullable|string|max:20',
-            'accused.*.email'     => 'nullable|email|max:255',
-            'accused.*.cnic'      => ['nullable', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
-            'accused.*.address'   => 'nullable|string|max:1000',
-            'accused.*.post_address' => 'nullable|string|max:1000',
-            'accused.*.nationality' => 'nullable|string|max:50',
-            'accused.*.passport_no' => 'nullable|string|max:50|required_if:accused.*.nationality,Dual Nationality Holder|required_if:accused.*.nationality,Foreigner',
-            'accused.*.photo'     => 'nullable|string',
-            'accused.*.cnic_front' => 'nullable|string',
-            'accused.*.cnic_back' => 'nullable|string',
-            'accused.*.passport_attachment' => 'nullable|string',
-            'accused.*.picture' => 'nullable|string',
-            'accused.*.other_attachment' => 'nullable|string',
-            'accused.*.country_code' => 'nullable|string|max:8',
+                'accused_known'       => 'required|boolean',
+                'accused'             => 'nullable|array',
+                'accused.*.name'      => 'nullable|string|max:255',
+                'accused.*.father_name' => 'nullable|string|max:255',
+                'accused.*.phone'     => 'nullable|string|max:20',
+                'accused.*.email'     => 'nullable|email|max:255',
+                'accused.*.cnic'      => ['nullable', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
+                'accused.*.address'   => 'nullable|string|max:1000',
+                'accused.*.post_address' => 'nullable|string|max:1000',
+                'accused.*.nationality' => 'nullable|string|max:50',
+                'accused.*.passport_no' => 'nullable|string|max:50|required_if:accused.*.nationality,Dual Nationality Holder|required_if:accused.*.nationality,Foreigner',
+                'accused.*.photo'     => 'nullable|string',
+                'accused.*.cnic_front' => 'nullable|string',
+                'accused.*.cnic_back' => 'nullable|string',
+                'accused.*.passport_attachment' => 'nullable|string',
+                'accused.*.picture' => 'nullable|string',
+                'accused.*.other_attachment' => 'nullable|string',
+                'accused.*.country_code' => 'nullable|string|max:8',
 
-            'recommendation_short' => 'nullable|string|max:2000',
-            'recommendation_full'  => 'nullable|string|max:10000',
-            'comments'             => 'nullable|string|max:5000',
-            'recommendation'       => 'nullable|string|in:enquiry_registration,closure,merge,transfer',
-            'closure_reason'       => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
+                'recommendation_short' => 'nullable|string|max:2000',
+                'recommendation_full'  => 'nullable|string|max:10000',
+                'comments'             => 'nullable|string|max:5000',
+                'recommendation'       => 'nullable|string|in:enquiry_registration,closure,merge,transfer',
+                'closure_reason'       => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
 
-            'inquiry_no'          => 'nullable|string|max:255',
-            'case_no'             => 'nullable|string|max:255',
-            'evidence_file'       => 'nullable|array',
-            'evidence_file.*'     => 'file|mimes:jpg,jpeg,png,pdf|max:2048',
-            'transaction_bank'    => 'nullable|array',
-            'transaction_account' => 'nullable|array',
-            'transaction_amount'  => 'nullable|array',
-            'transaction_date'    => 'nullable|array',
-            'transaction_file'    => 'nullable|array',
-            'transaction_bank'    => 'nullable|array',
-            'transaction_account' => 'nullable|array',
-            'transaction_amount'  => 'nullable|array',
-            'transaction_date'    => 'nullable|array',
-            'transaction_file'    => 'nullable|array',
-        ]);
+                'inquiry_no'          => 'nullable|string|max:255',
+                'case_no'             => 'nullable|string|max:255',
+                'evidence_file'       => 'nullable|array',
+                'evidence_file.*'     => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+                'evidence_desc'       => 'nullable|array',
+                'existing_evidence'   => 'nullable|array',
+                'transaction_bank'    => 'nullable|array',
+                'transaction_account' => 'nullable|array',
+                'transaction_amount'  => 'nullable|array',
+                'transaction_date'    => 'nullable|array',
+                'transaction_file'    => 'nullable|array',
+                'transaction_file.*'  => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+                'existing_transactions' => 'nullable|array',
+            ]);
 
-        // Handle evidence uploads: files + per-file description
-        $evidence = [];
-        $evidenceFiles = $request->file('evidence_file', []);
-        $evidenceDesc  = $request->input('evidence_desc', []);
-        foreach ($evidenceFiles as $index => $file) {
-            $path = $file->store('verification-reports/evidence', 'public');
-            $evidence[] = [
-                'file'        => $path,
-                'original_name' => $file->getClientOriginalName(),
-                'description' => $evidenceDesc[$index] ?? null,
-            ];
-        }
-        $data['evidence'] = $evidence ?: null;
-
-        $transactions = [];
-        foreach ($request->input('existing_transactions', []) as $t) {
-            if (is_array($t) && !empty($t['bank'])) {
-                $transactions[] = $t;
+            if (!empty($data['victim_gender'])) {
+                $data['victim_gender'] = strtolower($data['victim_gender']);
             }
-        }
-        
-        $tBanks   = $request->input('transaction_bank', []);
-        $tAccs    = $request->input('transaction_account', []);
-        $tAmts    = $request->input('transaction_amount', []);
-        $tDates   = $request->input('transaction_date', []);
-        $tFiles   = $request->file('transaction_file', []);
-        
-        foreach ($tBanks as $idx => $bank) {
-            if (!empty($bank) || !empty($tAccs[$idx]) || !empty($tAmts[$idx])) {
-                $attachment = null;
-                if (isset($tFiles[$idx])) {
-                    $attachment = $tFiles[$idx]->store('verification-reports/transactions', 'public');
+
+            // Handle evidence uploads: files + per-file description
+            $evidence = [];
+            $evidenceFiles = $request->file('evidence_file', []);
+            $evidenceDesc  = $request->input('evidence_desc', []);
+            if (is_array($evidenceFiles)) {
+                foreach ($evidenceFiles as $index => $file) {
+                    if ($file instanceof \Illuminate\Http\UploadedFile) {
+                        $path = $file->store('verification-reports/evidence', 'public');
+                        $evidence[] = [
+                            'file'        => $path,
+                            'original_name' => $file->getClientOriginalName(),
+                            'description' => $evidenceDesc[$index] ?? null,
+                        ];
+                    }
                 }
-                $transactions[] = [
-                    'bank'    => $bank,
-                    'account' => $tAccs[$idx] ?? null,
-                    'amount'  => $tAmts[$idx] ?? null,
-                    'date'    => $tDates[$idx] ?? null,
-                    'file'    => $attachment,
-                ];
             }
-        }
-        $data['transactions'] = $transactions ?: null;
+            $data['evidence'] = $evidence ?: null;
 
-        // Handle accused identity uploads (photo, CNIC, passport, picture)
-        $accusedData = $data['accused'] ?? [];
-        if (is_array($accusedData) && $accusedData !== []) {
-            $data['accused'] = $this->applyAccusedIdentityFiles(
-                $request,
-                $accusedData,
-                'verification-reports/accused-photos'
+            $transactions = [];
+            foreach ($request->input('existing_transactions', []) as $t) {
+                if (is_array($t) && (!empty($t['bank']) || !empty($t['account']) || !empty($t['amount']))) {
+                    $transactions[] = [
+                        'bank'    => $t['bank'] ?? null,
+                        'account' => $t['account'] ?? null,
+                        'amount'  => $t['amount'] ?? null,
+                        'date'    => $t['date'] ?? null,
+                        'file'    => $t['file'] ?? null,
+                    ];
+                }
+            }
+            
+            $tBanks   = $request->input('transaction_bank', []);
+            $tAccs    = $request->input('transaction_account', []);
+            $tAmts    = $request->input('transaction_amount', []);
+            $tDates   = $request->input('transaction_date', []);
+            $tFiles   = $request->file('transaction_file', []);
+            
+            if (is_array($tBanks)) {
+                foreach ($tBanks as $idx => $bank) {
+                    if (!empty($bank) || !empty($tAccs[$idx]) || !empty($tAmts[$idx])) {
+                        $attachment = null;
+                        if (isset($tFiles[$idx]) && $tFiles[$idx] instanceof \Illuminate\Http\UploadedFile) {
+                            $attachment = $tFiles[$idx]->store('verification-reports/transactions', 'public');
+                        }
+                        $transactions[] = [
+                            'bank'    => $bank,
+                            'account' => $tAccs[$idx] ?? null,
+                            'amount'  => $tAmts[$idx] ?? null,
+                            'date'    => $tDates[$idx] ?? null,
+                            'file'    => $attachment,
+                        ];
+                    }
+                }
+            }
+            $data['transactions'] = $transactions ?: null;
+
+            // Handle accused identity uploads (photo, CNIC, passport, picture)
+            $accusedData = $data['accused'] ?? [];
+            if (is_array($accusedData) && $accusedData !== []) {
+                $data['accused'] = $this->applyAccusedIdentityFiles(
+                    $request,
+                    $accusedData,
+                    'verification-reports/accused-photos'
+                );
+            } else {
+                $data['accused'] = !empty($accusedData) ? $accusedData : null;
+            }
+
+            // Auto-use user's profile signature if available
+            $user = auth()->user();
+            if ($user && $user->signature) {
+                $data['signature'] = $user->signature;
+            }
+
+            $data['created_by'] = auth()->id();
+
+            // Ensure linked complaint belongs to VO's circle so same-circle CI can see it
+            if (!empty($data['complaint_id'])) {
+                $complaint = Complaint::find($data['complaint_id']);
+                if ($complaint && !$complaint->circle_id && $user?->circle_id) {
+                    $complaint->update(['circle_id' => $user->circle_id]);
+                }
+            }
+
+            unset(
+                $data['transaction_bank'],
+                $data['transaction_account'],
+                $data['transaction_amount'],
+                $data['transaction_date'],
+                $data['transaction_file'],
+                $data['existing_transactions'],
+                $data['evidence_file'],
+                $data['evidence_desc'],
+                $data['existing_evidence']
             );
-        } else {
-            $data['accused'] = !empty($accusedData) ? $accusedData : null;
-        }
 
-        // Auto-use user's profile signature if no file uploaded
-        $user = auth()->user();
-        if ($user && $user->signature) {
-            $data['signature'] = $user->signature;
-        }
+            $report = VerificationReport::create($data);
 
-        $data['created_by'] = auth()->id();
-
-        // Ensure linked complaint belongs to VO's circle so same-circle CI can see it
-        if (!empty($data['complaint_id'])) {
-            $complaint = Complaint::find($data['complaint_id']);
-            if ($complaint && !$complaint->circle_id && $user?->circle_id) {
-                $complaint->update(['circle_id' => $user->circle_id]);
+            // Same-circle CI sees this report; also ping if linked verification exists
+            if ($report->complaint_id) {
+                try {
+                    $linked = Verification::with(['complaint', 'officer'])
+                        ->where('complaint_id', $report->complaint_id)
+                        ->latest('id')
+                        ->first();
+                    if ($linked) {
+                        $this->notifyCircleInchargesForVerification($linked);
+                    }
+                } catch (\Throwable $ne) {
+                    \Log::warning('Verification notification failed: ' . $ne->getMessage());
+                }
             }
-        }
 
-        $report = VerificationReport::create($data);
-
-        // Same-circle CI sees this report; also ping if linked verification exists
-        if ($report->complaint_id) {
-            $linked = Verification::with(['complaint', 'officer'])
-                ->where('complaint_id', $report->complaint_id)
-                ->latest('id')
-                ->first();
-            if ($linked) {
-                $this->notifyCircleInchargesForVerification($linked);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Verification report saved successfully',
+                    'data' => $report->fresh(),
+                ], 201);
             }
-        }
 
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Verification report saved successfully',
-                'data' => $report->fresh(),
-            ], 201);
+            return redirect()->route('verifications.reports')
+                ->with('success', 'Verification report saved successfully');
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            throw $ve;
+        } catch (\Throwable $e) {
+            \Log::error('storeReport error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Failed to save verification report: ' . $e->getMessage(),
+                ], 500);
+            }
+            return back()->withInput()->with('error', 'Failed to save report: ' . $e->getMessage());
         }
-
-        return redirect()->route('verifications.reports')
-            ->with('success', 'Verification report saved successfully');
     }
 
     public function showReport(VerificationReport $report)
@@ -412,144 +455,183 @@ class VerificationController extends Controller
             404
         );
 
-        $data = $request->validate([
-            'complaint_id'        => 'nullable|exists:complaints,id',
-            'tracking_no'         => 'required|string|max:255',
-            'registration_at'     => 'nullable|date',
-            'assignment_date'     => 'nullable|date',
-            'verification_date'   => 'nullable|date',
+        try {
+            $data = $request->validate([
+                'complaint_id'        => 'nullable|exists:complaints,id',
+                'tracking_no'         => 'required|string|max:255',
+                'registration_at'     => 'nullable|date',
+                'assignment_date'     => 'nullable|date',
+                'verification_date'   => 'nullable|date',
 
-            'victim_name'         => 'required|string|max:255',
-            'victim_father_name'  => 'nullable|string|max:255',
-            'victim_occupation'   => 'nullable|string|max:255',
-            'victim_gender'       => 'nullable|in:male,female,other',
-            'victim_cnic'         => ['required', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
-            'victim_country_code' => 'nullable|string|max:8',
-            'victim_phone'        => 'required|string|max:20',
-            'victim_email'        => 'nullable|email|max:255',
+                'victim_name'         => 'required|string|max:255',
+                'victim_father_name'  => 'nullable|string|max:255',
+                'victim_occupation'   => 'nullable|string|max:255',
+                'victim_gender'       => 'nullable|string|in:male,female,other,Male,Female,Other',
+                'victim_cnic'         => ['required', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
+                'victim_country_code' => 'nullable|string|max:8',
+                'victim_phone'        => 'required|string|max:20',
+                'victim_email'        => 'nullable|email|max:255',
 
-            'crime_category'      => 'required|string|max:255',
-            'crime_description'   => 'nullable|string|max:5000',
-            'city'                => 'required|string|max:255',
+                'crime_category'      => 'required|string|max:255',
+                'crime_description'   => 'nullable|string|max:5000',
+                'city'                => 'required|string|max:255',
 
-            'accused_known'       => 'required|boolean',
-            'accused'             => 'nullable|array',
-            'accused.*.name'      => 'nullable|string|max:255',
-            'accused.*.father_name' => 'nullable|string|max:255',
-            'accused.*.phone'     => 'nullable|string|max:20',
-            'accused.*.email'     => 'nullable|email|max:255',
-            'accused.*.cnic'      => ['nullable', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
-            'accused.*.address'   => 'nullable|string|max:1000',
-            'accused.*.post_address' => 'nullable|string|max:1000',
-            'accused.*.nationality' => 'nullable|string|max:50',
-            'accused.*.passport_no' => 'nullable|string|max:50|required_if:accused.*.nationality,Dual Nationality Holder|required_if:accused.*.nationality,Foreigner',
-            'accused.*.photo'     => 'nullable|string',
-            'accused.*.cnic_front' => 'nullable|string',
-            'accused.*.cnic_back' => 'nullable|string',
-            'accused.*.passport_attachment' => 'nullable|string',
-            'accused.*.picture' => 'nullable|string',
-            'accused.*.other_attachment' => 'nullable|string',
-            'accused.*.country_code' => 'nullable|string|max:8',
+                'accused_known'       => 'required|boolean',
+                'accused'             => 'nullable|array',
+                'accused.*.name'      => 'nullable|string|max:255',
+                'accused.*.father_name' => 'nullable|string|max:255',
+                'accused.*.phone'     => 'nullable|string|max:20',
+                'accused.*.email'     => 'nullable|email|max:255',
+                'accused.*.cnic'      => ['nullable', 'string', 'regex:/^(\d{5}-\d{7}-\d{1}|\d{13})$/'],
+                'accused.*.address'   => 'nullable|string|max:1000',
+                'accused.*.post_address' => 'nullable|string|max:1000',
+                'accused.*.nationality' => 'nullable|string|max:50',
+                'accused.*.passport_no' => 'nullable|string|max:50|required_if:accused.*.nationality,Dual Nationality Holder|required_if:accused.*.nationality,Foreigner',
+                'accused.*.photo'     => 'nullable|string',
+                'accused.*.cnic_front' => 'nullable|string',
+                'accused.*.cnic_back' => 'nullable|string',
+                'accused.*.passport_attachment' => 'nullable|string',
+                'accused.*.picture' => 'nullable|string',
+                'accused.*.other_attachment' => 'nullable|string',
+                'accused.*.country_code' => 'nullable|string|max:8',
 
-            'recommendation_short' => 'nullable|string|max:2000',
-            'recommendation_full'  => 'nullable|string|max:10000',
-            'comments'             => 'nullable|string|max:5000',
-            'recommendation'       => 'nullable|string|in:enquiry_registration,closure,merge,transfer',
-            'closure_reason'       => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
+                'recommendation_short' => 'nullable|string|max:2000',
+                'recommendation_full'  => 'nullable|string|max:10000',
+                'comments'             => 'nullable|string|max:5000',
+                'recommendation'       => 'nullable|string|in:enquiry_registration,closure,merge,transfer',
+                'closure_reason'       => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence',
 
-            'inquiry_no'          => 'nullable|string|max:255',
-            'case_no'             => 'nullable|string|max:255',
-            'evidence_file'       => 'nullable|array',
-            'evidence_file.*'     => 'file|mimes:jpg,jpeg,png,pdf|max:2048',
-            'transaction_bank'    => 'nullable|array',
-            'transaction_account' => 'nullable|array',
-            'transaction_amount'  => 'nullable|array',
-            'transaction_date'    => 'nullable|array',
-            'transaction_file'    => 'nullable|array',
-            'transaction_bank'    => 'nullable|array',
-            'transaction_account' => 'nullable|array',
-            'transaction_amount'  => 'nullable|array',
-            'transaction_date'    => 'nullable|array',
-            'transaction_file'    => 'nullable|array',
-        ]);
-
-        // Existing evidence (kept from previous state), then newly uploaded files
-        $evidence = [];
-        foreach ($request->input('existing_evidence', []) as $ev) {
-            if (is_array($ev) && !empty($ev['file_path'])) {
-                $evidence[] = [
-                    'file'          => $ev['file_path'],
-                    'original_name' => $ev['original_name'] ?? null,
-                    'description'   => $ev['description'] ?? null,
-                ];
-            }
-        }
-
-        $evidenceFiles = $request->file('evidence_file', []);
-        $evidenceDesc  = $request->input('evidence_desc', []);
-        foreach ($evidenceFiles as $index => $file) {
-            $path = $file->store('verification-reports/evidence', 'public');
-            $evidence[] = [
-                'file'          => $path,
-                'original_name' => $file->getClientOriginalName(),
-                'description'   => $evidenceDesc[$index] ?? null,
-            ];
-        }
-        $data['evidence'] = $evidence ?: null;
-
-        $transactions = [];
-        foreach ($request->input('existing_transactions', []) as $t) {
-            if (is_array($t) && !empty($t['bank'])) {
-                $transactions[] = $t;
-            }
-        }
-        
-        $tBanks   = $request->input('transaction_bank', []);
-        $tAccs    = $request->input('transaction_account', []);
-        $tAmts    = $request->input('transaction_amount', []);
-        $tDates   = $request->input('transaction_date', []);
-        $tFiles   = $request->file('transaction_file', []);
-        
-        foreach ($tBanks as $idx => $bank) {
-            if (!empty($bank) || !empty($tAccs[$idx]) || !empty($tAmts[$idx])) {
-                $attachment = null;
-                if (isset($tFiles[$idx])) {
-                    $attachment = $tFiles[$idx]->store('verification-reports/transactions', 'public');
-                }
-                $transactions[] = [
-                    'bank'    => $bank,
-                    'account' => $tAccs[$idx] ?? null,
-                    'amount'  => $tAmts[$idx] ?? null,
-                    'date'    => $tDates[$idx] ?? null,
-                    'file'    => $attachment,
-                ];
-            }
-        }
-        $data['transactions'] = $transactions ?: null;
-
-        // Accused identity uploads (photo, CNIC, passport, picture)
-        $accusedData = $data['accused'] ?? [];
-        if (is_array($accusedData) && $accusedData !== []) {
-            $data['accused'] = $this->applyAccusedIdentityFiles(
-                $request,
-                $accusedData,
-                'verification-reports/accused-photos'
-            );
-        } else {
-            $data['accused'] = !empty($accusedData) ? $accusedData : null;
-        }
-
-        $report->update($data);
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'message' => 'Verification report updated successfully',
-                'data' => $report->fresh(),
+                'inquiry_no'          => 'nullable|string|max:255',
+                'case_no'             => 'nullable|string|max:255',
+                'evidence_file'       => 'nullable|array',
+                'evidence_file.*'     => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+                'evidence_desc'       => 'nullable|array',
+                'existing_evidence'   => 'nullable|array',
+                'transaction_bank'    => 'nullable|array',
+                'transaction_account' => 'nullable|array',
+                'transaction_amount'  => 'nullable|array',
+                'transaction_date'    => 'nullable|array',
+                'transaction_file'    => 'nullable|array',
+                'transaction_file.*'  => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+                'existing_transactions' => 'nullable|array',
             ]);
-        }
 
-        return redirect()->route('verifications.reports')
-            ->with('success', 'Verification report updated successfully');
+            if (!empty($data['victim_gender'])) {
+                $data['victim_gender'] = strtolower($data['victim_gender']);
+            }
+
+            // Existing evidence (kept from previous state), then newly uploaded files
+            $evidence = [];
+            foreach ($request->input('existing_evidence', []) as $ev) {
+                if (is_array($ev) && !empty($ev['file_path'])) {
+                    $evidence[] = [
+                        'file'          => $ev['file_path'],
+                        'original_name' => $ev['original_name'] ?? null,
+                        'description'   => $ev['description'] ?? null,
+                    ];
+                }
+            }
+
+            $evidenceFiles = $request->file('evidence_file', []);
+            $evidenceDesc  = $request->input('evidence_desc', []);
+            if (is_array($evidenceFiles)) {
+                foreach ($evidenceFiles as $index => $file) {
+                    if ($file instanceof \Illuminate\Http\UploadedFile) {
+                        $path = $file->store('verification-reports/evidence', 'public');
+                        $evidence[] = [
+                            'file'          => $path,
+                            'original_name' => $file->getClientOriginalName(),
+                            'description'   => $evidenceDesc[$index] ?? null,
+                        ];
+                    }
+                }
+            }
+            $data['evidence'] = $evidence ?: null;
+
+            $transactions = [];
+            foreach ($request->input('existing_transactions', []) as $t) {
+                if (is_array($t) && (!empty($t['bank']) || !empty($t['account']) || !empty($t['amount']))) {
+                    $transactions[] = [
+                        'bank'    => $t['bank'] ?? null,
+                        'account' => $t['account'] ?? null,
+                        'amount'  => $t['amount'] ?? null,
+                        'date'    => $t['date'] ?? null,
+                        'file'    => $t['file'] ?? null,
+                    ];
+                }
+            }
+            
+            $tBanks   = $request->input('transaction_bank', []);
+            $tAccs    = $request->input('transaction_account', []);
+            $tAmts    = $request->input('transaction_amount', []);
+            $tDates   = $request->input('transaction_date', []);
+            $tFiles   = $request->file('transaction_file', []);
+            
+            if (is_array($tBanks)) {
+                foreach ($tBanks as $idx => $bank) {
+                    if (!empty($bank) || !empty($tAccs[$idx]) || !empty($tAmts[$idx])) {
+                        $attachment = null;
+                        if (isset($tFiles[$idx]) && $tFiles[$idx] instanceof \Illuminate\Http\UploadedFile) {
+                            $attachment = $tFiles[$idx]->store('verification-reports/transactions', 'public');
+                        }
+                        $transactions[] = [
+                            'bank'    => $bank,
+                            'account' => $tAccs[$idx] ?? null,
+                            'amount'  => $tAmts[$idx] ?? null,
+                            'date'    => $tDates[$idx] ?? null,
+                            'file'    => $attachment,
+                        ];
+                    }
+                }
+            }
+            $data['transactions'] = $transactions ?: null;
+
+            // Accused identity uploads (photo, CNIC, passport, picture)
+            $accusedData = $data['accused'] ?? [];
+            if (is_array($accusedData) && $accusedData !== []) {
+                $data['accused'] = $this->applyAccusedIdentityFiles(
+                    $request,
+                    $accusedData,
+                    'verification-reports/accused-photos'
+                );
+            } else {
+                $data['accused'] = !empty($accusedData) ? $accusedData : null;
+            }
+
+            unset(
+                $data['transaction_bank'],
+                $data['transaction_account'],
+                $data['transaction_amount'],
+                $data['transaction_date'],
+                $data['transaction_file'],
+                $data['existing_transactions'],
+                $data['evidence_file'],
+                $data['evidence_desc'],
+                $data['existing_evidence']
+            );
+
+            $report->update($data);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Verification report updated successfully',
+                    'data' => $report->fresh(),
+                ]);
+            }
+
+            return redirect()->route('verifications.reports')
+                ->with('success', 'Verification report updated successfully');
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            throw $ve;
+        } catch (\Throwable $e) {
+            \Log::error('updateReport error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Failed to update verification report: ' . $e->getMessage(),
+                ], 500);
+            }
+            return back()->withInput()->with('error', 'Failed to update report: ' . $e->getMessage());
+        }
     }
 
     public function show(Verification $verification)
@@ -1076,18 +1158,32 @@ class VerificationController extends Controller
      */
     protected function notifyCircleInchargeAboutComplainantMessage(Verification $verification): void
     {
-        $circleId = $verification->complaint?->circle_id
-            ?: ($verification->direct_info['circle_id'] ?? null)
-            ?: $verification->officer?->circle_id;
+        try {
+            $circleId = $verification->complaint?->circle_id
+                ?: ($verification->direct_info['circle_id'] ?? null)
+                ?: $verification->officer?->circle_id;
 
-        if (!$circleId) {
-            return;
+            if (!$circleId) {
+                return;
+            }
+
+            $cis = collect();
+            try {
+                $cis = User::role('circle_incharge')->where('circle_id', $circleId)->get();
+            } catch (\Throwable $e) {}
+
+            if ($cis->isEmpty()) {
+                $cis = User::where('role', 'circle_incharge')->where('circle_id', $circleId)->get();
+            }
+
+            foreach ($cis as $cu) {
+                try {
+                    $cu->notify(new ComplainantMessageNotification($verification));
+                } catch (\Throwable $e) {}
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('notifyCircleInchargeAboutComplainantMessage failed: ' . $e->getMessage());
         }
-
-        User::role('circle_incharge')
-            ->where('circle_id', $circleId)
-            ->each
-            ->notify(new ComplainantMessageNotification($verification));
     }
 
     /**
@@ -1095,18 +1191,32 @@ class VerificationController extends Controller
      */
     protected function notifyCircleInchargesForVerification(Verification $verification): void
     {
-        $circleId = $verification->complaint?->circle_id
-            ?: ($verification->direct_info['circle_id'] ?? null)
-            ?: $verification->officer?->circle_id;
+        try {
+            $circleId = $verification->complaint?->circle_id
+                ?: ($verification->direct_info['circle_id'] ?? null)
+                ?: $verification->officer?->circle_id;
 
-        if (!$circleId) {
-            return;
+            if (!$circleId) {
+                return;
+            }
+
+            $cis = collect();
+            try {
+                $cis = User::role('circle_incharge')->where('circle_id', $circleId)->get();
+            } catch (\Throwable $e) {}
+
+            if ($cis->isEmpty()) {
+                $cis = User::where('role', 'circle_incharge')->where('circle_id', $circleId)->get();
+            }
+
+            foreach ($cis as $cu) {
+                try {
+                    $cu->notify(new VerificationSubmittedNotification($verification));
+                } catch (\Throwable $e) {}
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('notifyCircleInchargesForVerification failed: ' . $e->getMessage());
         }
-
-        User::role('circle_incharge')
-            ->where('circle_id', $circleId)
-            ->get()
-            ->each(fn (User $cu) => $cu->notify(new VerificationSubmittedNotification($verification)));
     }
 
     public function assign(Request $request, Complaint $complaint)
