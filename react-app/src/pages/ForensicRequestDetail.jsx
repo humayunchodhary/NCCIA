@@ -698,7 +698,7 @@ export default function ForensicRequestDetail() {
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',width:'38%'}}>Laboratory Case File No.</td>
               <td style={{border:'1px solid #000',padding:'5px 7px',width:'22%'}}>{row.request_no}</td>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',width:'18%'}}>Date &amp; Time of Receiving</td>
-              <td style={{border:'1px solid #000',padding:'5px 7px'}}>{receivedDateTime}</td>
+              <td style={{border:'1px solid #000',padding:'5px 7px'}}>_________________________</td>
             </tr>
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Name of the Organization from which the equipment is received</td>
@@ -752,10 +752,7 @@ export default function ForensicRequestDetail() {
                   {!it.serial_no&&!it.imei&&!it.imei2&&'—'}
                 </td>
                 <td style={{border:'1px solid #000',padding:'5px 7px',fontSize:11,verticalAlign:'top'}}>
-                  <div style={{fontWeight:'bold', color:'#000', marginBottom:2}}>Lab No: {row.request_no}/{String(i+1).padStart(2, '0')}</div>
-                  {it.condition&&<div>Condition: {it.condition}</div>}
-                  {it.seized_from&&<div>From: {it.seized_from}</div>}
-                  {it.description&&<div>{it.description}</div>}
+                  <div style={{fontWeight:'bold', color:'#000'}}>Lab No: {row.request_no}/{String(i+1).padStart(2, '0')}</div>
                 </td>
               </tr>
             )):(
@@ -788,7 +785,7 @@ export default function ForensicRequestDetail() {
                 to_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
                 to_des: 'AD Forensic',
                 to_date: row.assigned_at?formatDisplayDateTime(row.assigned_at):null,
-                remark:'Received at Lab',
+                remark:'',
               },
               {
                 from_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
@@ -797,7 +794,7 @@ export default function ForensicRequestDetail() {
                 to_name: row.assignee?.name||'AD Forensic',
                 to_des: 'Digital Forensic Examination',
                 to_date: row.report_ready_at?formatDisplayDateTime(row.report_ready_at):null,
-                remark: row.findings ? 'Examination Completed & Report Prepared' : 'Under Examination',
+                remark: '',
               },
               {
                 from_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
@@ -806,7 +803,7 @@ export default function ForensicRequestDetail() {
                 to_name: row.handedTo?.name||row.submitter?.name||'—',
                 to_des: 'Enquiry Officer',
                 to_date: row.handed_over_at?formatDisplayDateTime(row.handed_over_at):null,
-                remark: row.handover_remarks||('Report Code: '+(row.report_code||'________')),
+                remark: '',
               },
             ].map((r2,i)=>(
               <tr key={i}>
