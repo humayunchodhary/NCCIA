@@ -1195,6 +1195,11 @@ class EnquiryController extends Controller
             404
         );
 
+        return response()->json([
+            'html' => $print->searchWarrantPrintDocument($enquiry),
+        ]);
+    }
+
     /**
      * Printable Account Opening Request Proforma HTML.
      */
