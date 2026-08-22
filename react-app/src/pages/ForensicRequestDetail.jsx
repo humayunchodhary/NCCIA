@@ -719,7 +719,7 @@ export default function ForensicRequestDetail() {
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5'}}>Remarks</td>
               <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px',minHeight:30}}>
-                {custodyRemarks || `Under Examination, Report Code: ${row.report_code || '_____________'}`}
+                {custodyRemarks || 'As per letter attached'}
               </td>
             </tr>
           </tbody>
