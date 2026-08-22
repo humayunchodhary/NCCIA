@@ -12,9 +12,10 @@ class ForensicReportCodeGenerator
         $year = now()->format('y');
 
         return DB::transaction(function () use ($year) {
-            $last = ForensicRequest::where('request_no', 'like', "FR-{$year}-%")
+            $last = ForensicRequest::whereNotNull('request_no')
+                ->where('request_no', 'like', "FR-{$year}-%")
                 ->lockForUpdate()
-                ->orderByDesc('id')
+                ->orderByDesc('request_no')
                 ->value('request_no');
 
             $seq = 1;
@@ -32,9 +33,10 @@ class ForensicReportCodeGenerator
         $year = now()->format('y');
 
         return DB::transaction(function () use ($year) {
-            $last = ForensicRequest::where('report_code', 'like', "FREP-{$year}-%")
+            $last = ForensicRequest::whereNotNull('report_code')
+                ->where('report_code', 'like', "FREP-{$year}-%")
                 ->lockForUpdate()
-                ->orderByDesc('id')
+                ->orderByDesc('report_code')
                 ->value('report_code');
 
             $seq = 1;
