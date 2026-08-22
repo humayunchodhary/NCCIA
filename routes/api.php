@@ -135,6 +135,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/enquiries/{enquiry}/forensic-request-print', [EnquiryController::class, 'forensicRequestPrint'])->name('api.enquiries.forensic-request-print');
     Route::get('/enquiries/{enquiry}/raid-permission-print', [EnquiryController::class, 'raidPermissionPrint'])->name('api.enquiries.raid-permission-print');
     Route::get('/enquiries/{enquiry}/search-warrant-print', [EnquiryController::class, 'searchWarrantPrint'])->name('api.enquiries.search-warrant-print');
+    Route::get('/enquiries/{enquiry}/account-opening-print', [EnquiryController::class, 'accountOpeningPrint'])->name('api.enquiries.account-opening-print');
     Route::post('/enquiries/{enquiry}/assign', [EnquiryController::class, 'assign'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/enquiries/{enquiry}/submit-cfr', [EnquiryController::class, 'submitCfr'])

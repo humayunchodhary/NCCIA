@@ -232,6 +232,38 @@ export default function EnquiryForm() {
   const [editingNoticeIndex, setEditingNoticeIndex] = useState(null);
   const [linkedForensicRequests, setLinkedForensicRequests] = useState([]);
   const [loadingLinkedReports, setLoadingLinkedReports] = useState(false);
+  const [showAccountOpeningModal, setShowAccountOpeningModal] = useState(false);
+  const [accountOpeningData, setAccountOpeningData] = useState({
+    account_no: '',
+    cnic: '',
+    account_title: '',
+    bank_name: '',
+    fraud_amount: '',
+    fraud_type: '',
+    reason: '',
+    recovered_amount: '',
+    mode_of_recovery: '',
+  });
+
+  const openAccountOpeningModal = () => {
+    setAccountOpeningData({
+      account_no: '',
+      cnic: form.accused?.[0]?.cnic || '',
+      account_title: form.accused?.[0]?.name || '',
+      bank_name: '',
+      fraud_amount: form.direct_info?.amount_pkr ? `PKR ${form.direct_info.amount_pkr}` : (form.complaint?.amount_lost ? `PKR ${form.complaint.amount_lost}` : ''),
+      fraud_type: form.complaint?.offence_type || form.direct_info?.case_category || 'Financial Fraud',
+      reason: 'Settlement reached / Account cleared from investigation',
+      recovered_amount: '',
+      mode_of_recovery: 'Pay Order / Cash / IBFT',
+    });
+    setShowAccountOpeningModal(true);
+  };
+
+  const printAccountOpeningProforma = (data) => {
+    printDocument('account-opening-print', data || accountOpeningData);
+    setShowAccountOpeningModal(false);
+  };
 
   const loadLinkedForensicRequests = async (enquiryId) => {
     const targetId = enquiryId || id;
@@ -1246,6 +1278,15 @@ export default function EnquiryForm() {
           </div>
           {id && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={openAccountOpeningModal}
+                title="Print Account Opening / Unfreeze Request Proforma"
+                style={{ color: '#0f766e', borderColor: '#0f766e', fontWeight: 600 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Account Opening Proforma
+              </button>
               <button type="button" className="btn btn-outline btn-sm" onClick={() => printDocument('cfr-print')} title="Print Confidential Final Report">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print CFR
               </button>
@@ -2833,6 +2874,90 @@ export default function EnquiryForm() {
           )}
         </div>
       </form>
+
+      {/* ACCOUNT OPENING / UNFREEZE PROFORMA MODAL */}
+      {showAccountOpeningModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(3px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: 16,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 14, maxWidth: 640, width: '100%', maxHeight: '90vh',
+            display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+          }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                📄 Account Opening / Unfreeze Request Proforma
+              </h3>
+              <button type="button" onClick={() => setShowAccountOpeningModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b' }}>×</button>
+            </div>
+
+            <div style={{ padding: 20, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+                Fill in the details below to generate the official printable proforma, or leave fields blank to print a manual handwriting copy.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="cf-field">
+                  <label className="cf-label">Total Fraud Involved</label>
+                  <input type="text" className="cf-input" placeholder="e.g. PKR 500,000" value={accountOpeningData.fraud_amount} onChange={e => setAccountOpeningData({ ...accountOpeningData, fraud_amount: e.target.value })} />
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label">Fraud Type</label>
+                  <input type="text" className="cf-input" placeholder="e.g. Online Investment / Impersonation" value={accountOpeningData.fraud_type} onChange={e => setAccountOpeningData({ ...accountOpeningData, fraud_type: e.target.value })} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="cf-field">
+                  <label className="cf-label">Account No.</label>
+                  <input type="text" className="cf-input" placeholder="e.g. 01234567890123" value={accountOpeningData.account_no} onChange={e => setAccountOpeningData({ ...accountOpeningData, account_no: e.target.value })} />
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label">Or CNIC</label>
+                  <input type="text" className="cf-input" placeholder="e.g. 35201-1234567-1" value={accountOpeningData.cnic} onChange={e => setAccountOpeningData({ ...accountOpeningData, cnic: e.target.value })} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="cf-field">
+                  <label className="cf-label">Account Title</label>
+                  <input type="text" className="cf-input" placeholder="Account Holder Name" value={accountOpeningData.account_title} onChange={e => setAccountOpeningData({ ...accountOpeningData, account_title: e.target.value })} />
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label">Bank Name</label>
+                  <input type="text" className="cf-input" placeholder="e.g. Meezan Bank / HBL" value={accountOpeningData.bank_name} onChange={e => setAccountOpeningData({ ...accountOpeningData, bank_name: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="cf-field">
+                <label className="cf-label">Reason of Removal of Debit Block</label>
+                <textarea className="cf-input" rows={2} placeholder="Reason for unfreezing/unblocking the account..." value={accountOpeningData.reason} onChange={e => setAccountOpeningData({ ...accountOpeningData, reason: e.target.value })} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="cf-field">
+                  <label className="cf-label">Amount Recovered / Returned</label>
+                  <input type="text" className="cf-input" placeholder="e.g. PKR 500,000" value={accountOpeningData.recovered_amount} onChange={e => setAccountOpeningData({ ...accountOpeningData, recovered_amount: e.target.value })} />
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label">Mode of Recovery</label>
+                  <input type="text" className="cf-input" placeholder="e.g. Pay Order / IBFT / Cash" value={accountOpeningData.mode_of_recovery} onChange={e => setAccountOpeningData({ ...accountOpeningData, mode_of_recovery: e.target.value })} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '14px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#f8fafc', borderBottomLeftRadius: 14, borderBottomRightRadius: 14 }}>
+              <button type="button" className="btn btn-outline" onClick={() => setShowAccountOpeningModal(false)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => printAccountOpeningProforma(accountOpeningData)} style={{ background: '#0f766e', borderColor: '#0f766e' }}>
+                🖨️ Generate &amp; Print Proforma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

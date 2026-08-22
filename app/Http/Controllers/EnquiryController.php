@@ -1195,8 +1195,30 @@ class EnquiryController extends Controller
             404
         );
 
+    /**
+     * Printable Account Opening Request Proforma HTML.
+     */
+    public function accountOpeningPrint(Request $request, Enquiry $enquiry, PrintService $print)
+    {
+        abort_unless(
+            Enquiry::visibleTo(request()->user())->whereKey($enquiry->id)->exists(),
+            404
+        );
+
+        $params = [
+            'account_no'       => $request->input('account_no', ''),
+            'cnic'             => $request->input('cnic', ''),
+            'account_title'    => $request->input('account_title', ''),
+            'bank_name'        => $request->input('bank_name', ''),
+            'fraud_amount'     => $request->input('fraud_amount', ''),
+            'fraud_type'       => $request->input('fraud_type', ''),
+            'reason'           => $request->input('reason', ''),
+            'recovered_amount' => $request->input('recovered_amount', ''),
+            'mode_of_recovery' => $request->input('mode_of_recovery', ''),
+        ];
+
         return response()->json([
-            'html' => $print->searchWarrantPrintDocument($enquiry),
+            'html' => $print->accountOpeningPrintDocument($enquiry, $params),
         ]);
     }
 

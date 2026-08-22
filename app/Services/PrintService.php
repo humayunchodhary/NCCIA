@@ -1238,6 +1238,128 @@ HTML;
         );
     }
 
+    public function accountOpeningPrintDocument(Enquiry $enquiry, array $params = []): string
+    {
+        $enquiry->loadMissing(['complaint.circle', 'complaint.zone', 'officer']);
+
+        $circleName = e($enquiry->complaint?->circle?->name ?: 'Lahore');
+        $enquiryNo  = e($enquiry->enquiry_number ?: ('#' . $enquiry->id));
+        $officerName  = e($enquiry->officer?->name ?: 'Enquiry Officer');
+        $officerDesig = e($enquiry->officer?->designation ?: 'Sub-Inspector');
+
+        $fraudAmount = !empty($params['fraud_amount'])
+            ? e($params['fraud_amount'])
+            : ($enquiry->complaint?->amount_lost ? ('PKR ' . number_format($enquiry->complaint->amount_lost)) : '');
+
+        $fraudType = !empty($params['fraud_type'])
+            ? e($params['fraud_type'])
+            : e($enquiry->complaint?->offence_type ?: '');
+
+        $accountNo       = !empty($params['account_no']) ? e($params['account_no']) : '';
+        $cnic            = !empty($params['cnic']) ? e($params['cnic']) : '';
+        $accountTitle    = !empty($params['account_title']) ? e($params['account_title']) : '';
+        $bankName        = !empty($params['bank_name']) ? e($params['bank_name']) : '';
+        $reason          = !empty($params['reason']) ? e($params['reason']) : '';
+        $recoveredAmount = !empty($params['recovered_amount']) ? e($params['recovered_amount']) : '';
+        $modeOfRecovery  = !empty($params['mode_of_recovery']) ? e($params['mode_of_recovery']) : '';
+
+        $body = <<<HTML
+        <div class="proforma-doc">
+          <div class="header-row">
+            <div>PS: <u>NCCIA, CCRC</u></div>
+            <div>Distt: <u>{$circleName}</u></div>
+          </div>
+
+          <div class="proforma-title">
+            ACCOUNT OPENING REQUEST PROFORMA
+          </div>
+
+          <div class="form-body">
+            <div class="field-row">
+              <strong>Enquiry / Case No.:</strong> <span class="line-fill">{$enquiryNo}</span>
+            </div>
+
+            <div class="field-row">
+              <strong>Total Fraud involved:</strong> <span class="line-fill">{$fraudAmount}</span>
+            </div>
+
+            <div class="field-block">
+              <div><strong>Fraud Type:</strong> <span class="hint">(i.e. Online Investment, earning, crypto, impersonation etc.)</span></div>
+              <div class="full-line">{$fraudType}</div>
+            </div>
+
+            <div class="field-row">
+              <strong>Account No.:</strong> <span class="line-fill">{$accountNo}</span>
+            </div>
+
+            <div class="field-row">
+              <strong>Or CNIC:</strong> <span class="line-fill">{$cnic}</span>
+            </div>
+
+            <div class="field-row">
+              <strong>Account Title:</strong> <span class="line-fill">{$accountTitle}</span>
+            </div>
+
+            <div class="field-row">
+              <strong>Bank Name:</strong> <span class="line-fill">{$bankName}</span>
+            </div>
+
+            <div class="field-block">
+              <div><strong>Reason of Removal of Debit Block:</strong></div>
+              <div class="full-line">{$reason}</div>
+              <div class="full-line empty-line"></div>
+            </div>
+
+            <div class="field-row">
+              <strong>Amount Recovered / Returned:</strong> <span class="line-fill">{$recoveredAmount}</span>
+            </div>
+
+            <div class="field-row">
+              <strong>Mode of Recovery:</strong> <span class="line-fill">{$modeOfRecovery}</span>
+            </div>
+
+            <div class="closing-text">
+              It is requested to kindly accord permission to unblock / unfreeze the above-mentioned account or CNIC, please.
+            </div>
+          </div>
+
+          <div class="sign-section">
+            <div><strong>Signature with date:</strong> _______________________</div>
+            <div style="margin-top: 6px;"><strong>Name of EO / IO:</strong> {$officerName}</div>
+            <div><strong>Designation:</strong> {$officerDesig}</div>
+          </div>
+
+          <div class="authorities-section">
+            <div><strong>1. DD/InCharge/CCRC/ICT:</strong></div>
+            <div class="auth-line"></div>
+
+            <div style="margin-top: 36px;"><strong>2. Addl/Director (Zone):</strong></div>
+            <div class="auth-line"></div>
+          </div>
+        </div>
+        HTML;
+
+        return $this->document(
+            $body,
+            '@page { size: A4 portrait; margin: 20mm 22mm; }
+             body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; line-height: 1.6; }
+             .proforma-doc { width: 100%; max-width: 170mm; margin: 0 auto; font-size: 13.5px; }
+             .header-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 13.5px; margin-bottom: 24px; }
+             .proforma-title { text-align: center; font-size: 15px; font-weight: 800; text-decoration: underline; margin-bottom: 28px; letter-spacing: 0.5px; text-transform: uppercase; }
+             .form-body { line-height: 2.2; }
+             .field-row { margin-bottom: 6px; }
+             .field-block { margin-bottom: 8px; }
+             .hint { font-size: 12px; color: #222; font-weight: normal; }
+             .line-fill { display: inline-block; border-bottom: 1px solid #000; min-width: 320px; padding-left: 8px; font-weight: 600; }
+             .full-line { border-bottom: 1px solid #000; min-height: 24px; padding-left: 8px; }
+             .empty-line { margin-top: 6px; }
+             .closing-text { margin-top: 16px; margin-bottom: 20px; text-align: justify; line-height: 1.5; font-size: 13.5px; }
+             .sign-section { margin-top: 35px; margin-left: auto; width: 240px; font-size: 13px; line-height: 1.6; }
+             .authorities-section { margin-top: 45px; font-size: 13.5px; line-height: 1.8; }
+             .auth-line { border-bottom: 1px solid #000; width: 380px; min-height: 24px; margin-top: 6px; }'
+        );
+    }
+
     private function document(string $body, string $css): string
     {
         return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' . $css . '</style></head><body>' . $body . '</body></html>';
