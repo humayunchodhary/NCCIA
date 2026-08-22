@@ -712,14 +712,14 @@ export default function ForensicRequestDetail() {
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Type of evidence required by the said organization</td>
               <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px'}}>
-                <div><strong>Scope / Category:</strong> {caseRef}</div>
+                <div><strong>Scope / Category:</strong> {row.enquiry?.enquiry_number ? `Enquiry #${row.enquiry.enquiry_number}` : (row.case_file?.fir_no ? `FIR #${row.case_file.fir_no}` : 'Case')}</div>
                 {row.note&&<div style={{marginTop:4}}>{row.note}</div>}
               </td>
             </tr>
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5'}}>Remarks</td>
               <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px',minHeight:30}}>
-                {custodyRemarks || row.findings || 'Evidence received sealed and maintained in secure forensic custody for digital examination.'}
+                {custodyRemarks || `Under Examination, Report Code: ${row.report_code || '_____________'}`}
               </td>
             </tr>
           </tbody>
@@ -745,10 +745,11 @@ export default function ForensicRequestDetail() {
                   {it.quantity>1&&<div style={{fontSize:10}}>Qty: {it.quantity}</div>}
                 </td>
                 <td style={{border:'1px solid #000',padding:'5px 7px',fontFamily:'monospace',fontSize:11,verticalAlign:'top'}}>
-                  {it.serial_no&&<div>S/N: {it.serial_no}</div>}
-                  {it.imei&&<div>IMEI1: {it.imei}</div>}
-                  {it.imei2&&<div>IMEI2: {it.imei2}</div>}
-                  {!it.serial_no&&!it.imei&&'—'}
+                  {it.serial_no ? <div>S/N: {it.serial_no}</div> : null}
+                  {it.imei && !it.imei2 ? <div>IMEI: {it.imei}</div> : null}
+                  {it.imei && it.imei2 ? <div>IMEI1: {it.imei}</div> : null}
+                  {it.imei2 ? <div>IMEI2: {it.imei2}</div> : null}
+                  {!it.serial_no&&!it.imei&&!it.imei2&&'—'}
                 </td>
                 <td style={{border:'1px solid #000',padding:'5px 7px',fontSize:11,verticalAlign:'top'}}>
                   <div style={{fontWeight:'bold', color:'#000', marginBottom:2}}>Lab No: {row.request_no}/{String(i+1).padStart(2, '0')}</div>

@@ -554,7 +554,7 @@ export default function ForensicDashboard() {
                     <th>Kis nay Seize kiya</th>
                     <th>Kahan say Bheja</th>
                     <th>Seized Items</th>
-                    <th>FO / Code</th>
+                    <th>Report Code</th>
                     <th>Status</th>
                     <th style={{ textAlign: 'center' }}>Action</th>
                   </tr>
@@ -623,15 +623,14 @@ export default function ForensicDashboard() {
                             </div>
                           </td>
 
-                          {/* FO / Code */}
+                          {/* Report Code */}
                           <td>
-                            <div style={{ fontSize: 11.5, color: '#1e293b' }}>
-                              {r.assignee?.name ? `FO: ${r.assignee.name.split(' ')[0]}` : '—'}
-                            </div>
-                            {r.report_code && (
-                              <div style={{ fontSize: 11, fontWeight: 800, color: '#059669' }}>
+                            {r.report_code ? (
+                              <div style={{ fontSize: 11.5, fontWeight: 800, color: '#059669' }}>
                                 {r.report_code}
                               </div>
+                            ) : (
+                              <div style={{ fontSize: 11.5, color: '#64748b' }}>—</div>
                             )}
                           </td>
 
