@@ -1240,16 +1240,22 @@ HTML;
 
     public function accountOpeningPrintDocument(Enquiry $enquiry, array $params = []): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'complaint.zone', 'officer']);
+        try {
+            $enquiry->loadMissing(['complaint.circle', 'complaint.zone', 'officer']);
+        } catch (\Throwable $e) {}
 
         $circleName = e($enquiry->complaint?->circle?->name ?: 'Lahore');
         $enquiryNo  = e($enquiry->enquiry_number ?: ('#' . $enquiry->id));
         $officerName  = e($enquiry->officer?->name ?: 'Enquiry Officer');
         $officerDesig = e($enquiry->officer?->designation ?: 'Sub-Inspector');
 
-        $fraudAmount = !empty($params['fraud_amount'])
-            ? e($params['fraud_amount'])
-            : ($enquiry->complaint?->amount_lost ? ('PKR ' . number_format($enquiry->complaint->amount_lost)) : '');
+        $fraudAmount = '';
+        if (!empty($params['fraud_amount'])) {
+            $fraudAmount = e($params['fraud_amount']);
+        } elseif (!empty($enquiry->complaint?->amount_involved)) {
+            $amt = $enquiry->complaint->amount_involved;
+            $fraudAmount = is_numeric($amt) ? ('PKR ' . number_format((float)$amt)) : e((string)$amt);
+        }
 
         $fraudType = !empty($params['fraud_type'])
             ? e($params['fraud_type'])
