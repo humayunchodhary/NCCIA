@@ -338,14 +338,26 @@ export default function ForensicRequestDetail() {
   const canApproveAd     = (isAd || isDd || isAdmin) && ['submitted_to_ad','in_progress','assigned'].includes(row.status);
   const canHandOver      = (isAd || isDd || isAdmin) && row.status === 'report_ready';
   const sm               = STATUS_META[row.status] || { label: row.status, color: '#64748b', bg: '#f1f5f9', icon: '' };
+  const isExternal       = Boolean(row.is_external || (!row.enquiry_id && !row.case_id && (row.external_organization || row.external_ref)));
+  const displayOrg       = row.external_organization || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'External / Main';
+  const displayPerson    = row.external_person_name || row.submitter?.name || '—';
+  const displayContact   = row.external_person_contact || row.submitter?.phone || row.submitter?.email || '—';
   const circleCity       = row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore';
-  const circleName       = row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
+  const circleName       = row.external_organization || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
   const zoneName         = row.enquiry?.complaint?.zone?.name || 'NCCIA';
-  const caseRef          = row.enquiry?.enquiry_number
-    ? `Enquiry #${row.enquiry.enquiry_number}`
-    : (row.caseFile?.fir_no ? `FIR #${row.caseFile.fir_no}` : 'Direct Case Seizure');
+  const caseRef          = isExternal
+    ? (row.external_ref ? `External: ${row.external_ref}` : (row.external_category ? `External: ${row.external_category}` : 'Direct External Seizure'))
+    : (row.enquiry?.enquiry_number
+      ? `Enquiry #${row.enquiry.enquiry_number}`
+      : (row.caseFile?.fir_no ? `FIR #${row.caseFile.fir_no}` : 'Direct Case Seizure'));
   const accusedList      = row.enquiry?.accused_persons || row.enquiry?.accusedPersons || [];
-  const complainantName  = row.enquiry?.complaint?.complainant_name;
+  const complainantName  = row.enquiry?.complaint?.complainant_name || row.external_person_name;
+  const displayScopeCategory = isExternal
+    ? `${row.external_category || 'External Case'}${row.external_ref ? ` (${row.external_ref})` : ''}`
+    : (row.enquiry?.enquiry_number ? `Enquiry #${row.enquiry.enquiry_number}` : (row.caseFile?.fir_no ? `FIR #${row.caseFile.fir_no}` : 'Case'));
+  const displayScopeText = isExternal
+    ? (row.external_scope || row.note || 'AS PER THE LETTER ATTACHED')
+    : (row.note || 'Seized evidence memo submitted for examination');
   const receivedDateTime = row.created_at
     ? new Date(row.created_at).toLocaleString('en-PK',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
     : '—';
@@ -703,17 +715,17 @@ export default function ForensicRequestDetail() {
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Name of the Organization from which the equipment is received</td>
               <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px'}}>
-                <div><strong>Organization:</strong> {circleName}</div>
-                <div><strong>Name:</strong> {row.submitter?.name||'—'}</div>
-                <div><strong>Contact No.:</strong> {row.submitter?.phone||row.submitter?.email||'—'}</div>
-                {complainantName&&<div><strong>Complainant:</strong> {complainantName}</div>}
+                <div><strong>Organization:</strong> {displayOrg}</div>
+                <div><strong>Name:</strong> {displayPerson}</div>
+                <div><strong>Contact No.:</strong> {displayContact}</div>
+                {!isExternal && complainantName && <div><strong>Complainant:</strong> {complainantName}</div>}
               </td>
             </tr>
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Type of evidence required by the said organization</td>
               <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px'}}>
-                <div><strong>Scope / Category:</strong> {row.enquiry?.enquiry_number ? `Enquiry #${row.enquiry.enquiry_number}` : (row.case_file?.fir_no ? `FIR #${row.case_file.fir_no}` : 'Case')}</div>
-                {row.note&&<div style={{marginTop:4}}>{row.note}</div>}
+                <div><strong>Scope / Category:</strong> {displayScopeCategory}</div>
+                {displayScopeText && <div style={{marginTop:4}}>{displayScopeText}</div>}
               </td>
             </tr>
             <tr>

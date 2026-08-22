@@ -72,6 +72,7 @@ class ForensicRequestController extends Controller
             $user->hasAnyRole([
                 'admin', 'circle_incharge', 'enquiry_officer', 'investigation_officer',
                 'moharrar', 'director_general', 'operator',
+                'admin_forensic', 'dd_forensic', 'ad_forensic', 'forensic_team', 'desk_forensic',
             ]),
             403
         );
@@ -84,6 +85,16 @@ class ForensicRequestController extends Controller
         }
 
         $data = $request->validate([
+            'is_external'              => 'nullable',
+            'external_ref'             => 'nullable|string|max:255',
+            'external_letter_no'       => 'nullable|string|max:255',
+            'external_courier_no'      => 'nullable|string|max:255',
+            'external_organization'    => 'nullable|string|max:255',
+            'external_person_name'     => 'nullable|string|max:255',
+            'external_person_address'  => 'nullable|string|max:500',
+            'external_person_contact'  => 'nullable|string|max:100',
+            'external_category'        => 'nullable|string|max:255',
+            'external_scope'           => 'nullable|string|max:5000',
             'enquiry_id'               => 'nullable|integer|exists:enquiries,id',
             'case_id'                  => 'nullable|integer|exists:cases,id',
             'destination'              => 'required|in:forensic,technical',
@@ -103,8 +114,10 @@ class ForensicRequestController extends Controller
             'attachment'               => 'nullable|file|max:20480',
         ]);
 
-        if (empty($data['enquiry_id']) && empty($data['case_id'])) {
-            return response()->json(['message' => 'Link enquiry or case is required.'], 422);
+        $isExternal = filter_var($data['is_external'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (!$isExternal && empty($data['enquiry_id']) && empty($data['case_id'])) {
+            return response()->json(['message' => 'Link enquiry or case is required for internal requests.'], 422);
         }
 
         $items = $data['items'] ?? [];
@@ -121,27 +134,39 @@ class ForensicRequestController extends Controller
             $path = $request->file('attachment')->store('forensic-requests', 'public');
         }
 
-        $fr = DB::transaction(function () use ($data, $user, $gen, $path, $items) {
-            $frQuery = ForensicRequest::where('destination', $data['destination']);
-            if (!empty($data['enquiry_id'])) {
-                $frQuery->where('enquiry_id', $data['enquiry_id']);
-            } elseif (!empty($data['case_id'])) {
-                $frQuery->where('case_id', $data['case_id']);
+        $fr = DB::transaction(function () use ($data, $user, $gen, $path, $items, $isExternal) {
+            $fr = null;
+            if (!$isExternal) {
+                $frQuery = ForensicRequest::where('destination', $data['destination']);
+                if (!empty($data['enquiry_id'])) {
+                    $frQuery->where('enquiry_id', $data['enquiry_id']);
+                } elseif (!empty($data['case_id'])) {
+                    $frQuery->where('case_id', $data['case_id']);
+                }
+                $fr = $frQuery->first();
             }
-
-            $fr = $frQuery->first();
 
             if (!$fr) {
                 $fr = ForensicRequest::create([
-                    'request_no'      => $gen->generateRequestNo(),
-                    'enquiry_id'      => $data['enquiry_id'] ?? null,
-                    'case_id'         => $data['case_id'] ?? null,
-                    'submitted_by'    => $user->id,
-                    'destination'     => $data['destination'],
-                    'priority'        => $data['priority'] ?? 'normal',
-                    'note'            => $data['note'] ?? 'Seized evidence memo submitted for examination',
-                    'status'          => 'submitted',
-                    'attachment_path' => $path,
+                    'request_no'              => $gen->generateRequestNo(),
+                    'enquiry_id'              => $isExternal ? null : ($data['enquiry_id'] ?? null),
+                    'case_id'                 => $isExternal ? null : ($data['case_id'] ?? null),
+                    'submitted_by'            => $user->id,
+                    'destination'             => $data['destination'],
+                    'priority'                => $data['priority'] ?? 'normal',
+                    'note'                    => $data['note'] ?? ($isExternal ? ($data['external_scope'] ?? 'Direct External Forensic Request') : 'Seized evidence memo submitted for examination'),
+                    'status'                  => 'submitted',
+                    'is_external'             => $isExternal,
+                    'external_ref'            => $data['external_ref'] ?? null,
+                    'external_letter_no'      => $data['external_letter_no'] ?? null,
+                    'external_courier_no'     => $data['external_courier_no'] ?? null,
+                    'external_organization'   => $data['external_organization'] ?? null,
+                    'external_person_name'    => $data['external_person_name'] ?? null,
+                    'external_person_address' => $data['external_person_address'] ?? null,
+                    'external_person_contact' => $data['external_person_contact'] ?? null,
+                    'external_category'       => $data['external_category'] ?? null,
+                    'external_scope'          => $data['external_scope'] ?? null,
+                    'attachment_path'         => $path,
                 ]);
             } else {
                 // If appending to existing, maybe update the note or attachment if provided

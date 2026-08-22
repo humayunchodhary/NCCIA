@@ -1,48 +1,47 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
-import LoadingSkeleton from '../components/LoadingSkeleton';
-import { formatDisplayDateTime } from '../utils/datetime';
-import { hasAnyRole, hasRole } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
+import LoadingSkeleton from '../components/LoadingSkeleton';
+import ExternalForensicRequestModal from '../components/ExternalForensicRequestModal';
 
 const STATUS_LABEL = {
-  submitted:             'Pending CI Review',
-  forwarded_to_forensic: 'Pending AD Review',
-  assigned:              'Assigned to FO',
-  in_progress:           'Lab Examination',
-  submitted_to_ad:       'Submitted to AD',
-  report_ready:          'Report Ready',
-  handed_over:           'Handed Over to EO',
+  submitted:       'Pending AD Assignment',
+  assigned:        'Assigned to AD Forensic',
+  in_progress:     'Lab Examination Active',
+  submitted_to_ad: 'Submitted for Approval',
+  report_ready:    'Report Ready (EO Notified)',
+  handed_over:     'Handed Over to EO',
 };
 
 const STATUS_COLOR = {
-  submitted:             { bg: '#fef3c7', text: '#e5a100' },
-  forwarded_to_forensic: { bg: '#fef3c7', text: '#e5a100' },
-  assigned:              { bg: '#dbeafe', text: '#2563eb' },
-  in_progress:           { bg: '#ede9fe', text: '#7c3aed' },
-  submitted_to_ad:       { bg: '#fef3c7', text: '#d97706' },
-  report_ready:          { bg: '#d1fae5', text: '#059669' },
-  handed_over:           { bg: '#f1f5f9', text: '#64748b' },
+  submitted:       { bg: '#fef3c7', text: '#92400e' },
+  assigned:        { bg: '#dbeafe', text: '#1e40af' },
+  in_progress:     { bg: '#ede9fe', text: '#6b21a8' },
+  submitted_to_ad: { bg: '#fed7aa', text: '#9a3412' },
+  report_ready:    { bg: '#d1fae5', text: '#065f46' },
+  handed_over:     { bg: '#f1f5f9', text: '#475569' },
 };
 
 export default function ForensicRequests() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
   const [search, setSearch] = useState('');
+  const [showDirectModal, setShowDirectModal] = useState(false);
 
-  const isAd   = hasAnyRole(user, ['dd_forensic', 'ad_forensic', 'admin_forensic']);
-  const isDesk = hasRole(user, 'desk_forensic');
-  const isFo   = hasRole(user, 'forensic_team');
+  const isDesk = user?.role === 'desk_forensic' || (user?.roles || []).some(r => r.name === 'desk_forensic');
+  const isFo   = user?.role === 'forensic_team' || (user?.roles || []).some(r => r.name === 'forensic_team');
+  const isAd   = user?.role === 'ad_forensic' || user?.role === 'admin_forensic' || user?.role === 'admin'
+    || (user?.roles || []).some(r => ['ad_forensic', 'admin_forensic', 'admin', 'dd_forensic'].includes(r.name));
 
   const load = () => {
     setLoading(true);
-    setError('');
-    const params = { per_page: 50 };
+    setError(null);
+    const params = {};
     if (status) params.status = status;
     if (priority) params.priority = priority;
     if (search.trim()) params.search = search.trim();
@@ -79,16 +78,23 @@ export default function ForensicRequests() {
         </div>
 
         <div className="page-actions" style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowDirectModal(true)}
+            style={{ background: '#0284c7', borderColor: '#0284c7' }}
+          >
+            ➕ Direct Forensic (External Seizure)
+          </button>
           <Link to="/forensic" className="btn btn-outline">
             Dashboard
           </Link>
-          <button type="button" className="btn btn-primary" onClick={load}>
-            Refresh Register
+          <button type="button" className="btn btn-outline" onClick={load}>
+            Refresh
           </button>
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
       <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
           type="text"
@@ -155,13 +161,23 @@ export default function ForensicRequests() {
                     rows.map(r => {
                       const sc = STATUS_COLOR[r.status] || { bg: '#f1f5f9', text: '#64748b' };
                       const items = r.items || [];
-                      const circle = r.submitter?.circle?.name || r.enquiry?.complaint?.circle?.name || 'NCCIA';
-                      const caseRef = r.enquiry?.enquiry_number ? `Enquiry ${r.enquiry.enquiry_number}` : (r.caseFile?.fir_no ? `FIR ${r.caseFile.fir_no}` : 'Case');
+                      const isExt = Boolean(r.is_external || (!r.enquiry_id && !r.case_id && (r.external_organization || r.external_ref)));
+                      const circle = isExt
+                        ? (r.external_organization || 'External Dept')
+                        : (r.submitter?.circle?.name || r.enquiry?.complaint?.circle?.name || 'NCCIA');
+                      const caseRef = isExt
+                        ? (r.external_ref ? `Ext: ${r.external_ref}` : (r.external_category || 'External Seizure'))
+                        : (r.enquiry?.enquiry_number ? `Enquiry ${r.enquiry.enquiry_number}` : (r.caseFile?.fir_no ? `FIR ${r.caseFile.fir_no}` : 'Case'));
 
                       return (
                         <tr key={r.id}>
                           <td>
                             <strong style={{ color: '#015C94', fontSize: 13 }}>{r.request_no}</strong>
+                            {isExt && (
+                              <span style={{ display: 'inline-block', fontSize: 9.5, fontWeight: 800, background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: 4, marginLeft: 4 }}>
+                                EXTERNAL
+                              </span>
+                            )}
                             {r.priority === 'urgent' && (
                               <div style={{ fontSize: 10, color: '#b91c1c', fontWeight: 800 }}>⚡ URGENT</div>
                             )}
@@ -171,12 +187,18 @@ export default function ForensicRequests() {
                           </td>
 
                           <td>
-                            <div style={{ fontWeight: 700, color: '#0f172a' }}>{r.submitter?.name || 'EO'}</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>{r.submitter?.designation || 'Officer'} · {circle}</div>
+                            <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                              {isExt ? (r.external_person_name || r.submitter?.name || 'External') : (r.submitter?.name || 'EO')}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>
+                              {isExt ? (r.external_person_contact || circle) : `${r.submitter?.designation || 'Officer'} · ${circle}`}
+                            </div>
                           </td>
 
                           <td>
-                            <div style={{ fontWeight: 700, color: '#015C94', fontSize: 12.5 }}>{caseRef}</div>
+                            <div style={{ fontWeight: 700, color: isExt ? '#059669' : '#015C94', fontSize: 12.5 }}>
+                              {caseRef}
+                            </div>
                             <div style={{ fontSize: 11, color: '#64748b' }}>📍 {circle}</div>
                           </td>
 
@@ -200,11 +222,6 @@ export default function ForensicRequests() {
                             }}>
                               {STATUS_LABEL[r.status] || r.status}
                             </span>
-                            {r.assignee?.name && (
-                              <div style={{ fontSize: 11, color: '#475569' }}>
-                                FO: {r.assignee.name.split(' ')[0]}
-                              </div>
-                            )}
                             {r.report_code && (
                               <div style={{ fontSize: 11, fontWeight: 800, color: '#059669', letterSpacing: 0.5 }}>
                                 {r.report_code}
@@ -213,12 +230,12 @@ export default function ForensicRequests() {
                           </td>
 
                           <td style={{ fontSize: 11.5, color: '#64748b' }}>
-                            {r.created_at ? formatDisplayDateTime(r.created_at) : '—'}
+                            {r.created_at ? new Date(r.created_at).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                           </td>
 
                           <td style={{ textAlign: 'right' }}>
                             <Link to={`/forensic/requests/${r.id}`} className="btn btn-outline btn-sm" style={{ padding: '3px 8px', fontSize: 11 }}>
-                              Open
+                              View
                             </Link>
                           </td>
                         </tr>
@@ -231,6 +248,14 @@ export default function ForensicRequests() {
           </div>
         </div>
       )}
+
+      <ExternalForensicRequestModal
+        isOpen={showDirectModal}
+        onClose={() => setShowDirectModal(false)}
+        onSuccess={() => {
+          load();
+        }}
+      />
     </div>
   );
 }

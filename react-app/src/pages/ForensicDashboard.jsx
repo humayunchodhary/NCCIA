@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ProgressBar from '../components/ProgressBar';
+import ExternalForensicRequestModal from '../components/ExternalForensicRequestModal';
 import { isForensicAdmin, hasRole, hasAnyRole } from '../utils/permissions';
 import { formatDisplayDateTime } from '../utils/datetime';
 
@@ -78,6 +79,7 @@ export default function ForensicDashboard() {
 
   const [handoverModalReq, setHandoverModalReq] = useState(null);
   const [handoverRemarks, setHandoverRemarks] = useState('');
+  const [showDirectModal, setShowDirectModal] = useState(false);
 
   const [findingsModalReq, setFindingsModalReq] = useState(null);
   const [examFindings, setExamFindings] = useState('');
@@ -401,6 +403,14 @@ export default function ForensicDashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setShowDirectModal(true)}
+            style={{ background: '#0284c7', color: '#fff', fontWeight: 700, border: 'none' }}
+          >
+            ➕ Direct Forensic (External)
+          </button>
           <Link to="/forensic/requests" className="btn" style={{ background: '#fff', color: '#015C94', fontWeight: 700 }}>
             Seizure Register
           </Link>
@@ -755,6 +765,15 @@ export default function ForensicDashboard() {
           </div>
         </div>
       )}
+
+      {/* Direct / External Seizure Modal */}
+      <ExternalForensicRequestModal
+        isOpen={showDirectModal}
+        onClose={() => setShowDirectModal(false)}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
 
     </div>
   );
