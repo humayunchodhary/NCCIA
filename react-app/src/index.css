@@ -421,12 +421,44 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
 }
 
 /* ============================================================
-   RESPONSIVE DESIGN SYSTEM (ALL DEVICES)
+   RESPONSIVE DESIGN SYSTEM (PHONES, TABLETS, LAPTOPS, DESKTOPS)
    ============================================================ */
 
-/* ── Container & Fluid Typography ── */
+/* ── Global Touch & Fluid Foundation ── */
 * {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: #f1f5f9;
+}
+
+/* ── Modern Form Control Focus & Polish ── */
+.cf-input, .form-control, .cf-select, input[type="text"], input[type="search"], input[type="email"], select, textarea {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease !important;
+  border-radius: 8px !important;
+}
+
+.cf-input:focus, .form-control:focus, .cf-select:focus,
+input:focus, select:focus, textarea:focus {
+  border-color: #015C94 !important;
+  box-shadow: 0 0 0 3px rgba(1, 92, 148, 0.14) !important;
+  outline: none !important;
+  background-color: #ffffff !important;
+}
+
+/* ── Card & Section Elevation ── */
+.cf-section, .dashboard-card, .card, .stat-card {
+  background: #ffffff;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 10px 15px -5px rgba(0,0,0,0.03);
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 /* ── Form Grids & Layouts ── */
@@ -446,28 +478,42 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   gap: 16px;
 }
 
-/* ── Table Horizontal Scroll Wrappers ── */
+/* ── Table Horizontal Scroll Wrappers with Subtle Cues ── */
 .table-responsive {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin-bottom: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid #e2e8f0;
+  background: #ffffff;
 }
 .table-responsive table {
-  min-width: 600px;
+  min-width: 640px;
   width: 100%;
+  border-collapse: collapse;
+}
+.table-responsive table th {
+  background: #f8fafc;
+  font-weight: 700;
+  color: #475569;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.table-responsive table tr:hover td {
+  background: #f8fafc;
 }
 
-/* Tab Bar Responsive Scrolling */
+/* ── Tab Bar Responsive Momentum Scrolling ── */
 .cf-tabs, .tabs-header, .nav-tabs {
   display: flex !important;
   overflow-x: auto !important;
   white-space: nowrap !important;
   -webkit-overflow-scrolling: touch !important;
   scrollbar-width: none !important;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
+  gap: 6px !important;
 }
 .cf-tabs::-webkit-scrollbar,
 .tabs-header::-webkit-scrollbar,
@@ -476,13 +522,16 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
 }
 .cf-tab {
   flex-shrink: 0 !important;
+  border-radius: 8px !important;
+  transition: all 0.18s ease !important;
 }
 
 /* ── Ultrawide & 4K Desktops (min-width: 1440px) ── */
 @media (min-width: 1440px) {
   .page-content {
-    max-width: 1560px;
+    max-width: 1600px;
     margin: 0 auto;
+    padding: 24px 32px;
   }
 }
 
@@ -521,11 +570,11 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
     position: fixed !important;
     top: 0 !important;
     bottom: 0 !important;
-    left: -300px !important;
-    width: 280px !important;
+    left: -320px !important;
+    width: 290px !important;
     z-index: 99999 !important;
-    transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.35) !important;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 8px 0 32px rgba(0,0,0,0.4) !important;
   }
   .sidebar.mobile-open {
     left: 0 !important;
@@ -534,8 +583,8 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
     display: block !important;
     position: fixed !important;
     inset: 0 !important;
-    background: rgba(15, 23, 42, 0.6) !important;
-    backdrop-filter: blur(3px) !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(4px) !important;
     z-index: 99998 !important;
   }
   .main-content {
@@ -547,8 +596,9 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   /* Header on Mobile */
   .header {
     padding: 0 12px !important;
-    height: 60px !important;
+    height: 58px !important;
     gap: 8px !important;
+    background: #015C94 !important;
   }
   .header-left {
     gap: 8px !important;
@@ -558,13 +608,19 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   }
   .header-search {
     flex: 1 1 auto !important;
-    min-width: 110px !important;
+    min-width: 100px !important;
     max-width: 100% !important;
   }
   .header-search input {
     font-size: 13px !important;
     padding-left: 32px !important;
     height: 36px !important;
+    background: rgba(255,255,255,0.18) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255,255,255,0.25) !important;
+  }
+  .header-search input::placeholder {
+    color: rgba(255,255,255,0.7) !important;
   }
   .header-search kbd {
     display: none !important;
@@ -575,13 +631,16 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
 
   /* Form & Page Content */
   .page-content {
-    padding: 14px 10px !important;
+    padding: 12px 10px !important;
   }
   .page-header {
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 12px !important;
-    margin-bottom: 16px !important;
+    margin-bottom: 14px !important;
+  }
+  .page-title {
+    font-size: 20px !important;
   }
   .page-header > div:last-child {
     display: flex !important;
@@ -593,8 +652,9 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   .page-header > div:last-child > a,
   .page-header > div:last-child > .btn {
     flex: 1 1 auto !important;
-    min-height: 40px !important;
+    min-height: 42px !important;
     justify-content: center !important;
+    font-size: 13px !important;
   }
 
   /* Form Grids -> Single Column */
@@ -630,10 +690,10 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
     gap: 10px !important;
   }
   .cf-section-title {
-    font-size: 13.5px !important;
+    font-size: 14px !important;
   }
   .cf-section-sub {
-    font-size: 11px !important;
+    font-size: 11.5px !important;
   }
   .cf-body {
     padding: 14px 12px !important;
@@ -647,11 +707,19 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
     box-sizing: border-box !important;
   }
 
-  /* Form action buttons */
+  /* Sticky Form Actions Bar on Mobile */
   .cf-form-actions, .form-actions {
+    position: sticky !important;
+    bottom: 0 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(8px) !important;
+    padding: 12px 10px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    z-index: 100 !important;
     flex-direction: column-reverse !important;
-    gap: 10px !important;
-    width: 100% !important;
+    gap: 8px !important;
+    margin: 16px -10px -12px -10px !important;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.06) !important;
   }
   .cf-form-actions > div,
   .cf-form-actions button,
@@ -661,6 +729,7 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
     width: 100% !important;
     justify-content: center !important;
     min-height: 44px !important;
+    font-weight: 700 !important;
   }
 
   /* Modals & Dialogs on Mobile */
@@ -678,7 +747,7 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
   .user-dropdown {
     right: 0 !important;
     left: auto !important;
-    width: calc(100vw - 24px) !important;
+    width: calc(100vw - 20px) !important;
     max-width: 320px !important;
   }
 }
@@ -689,7 +758,7 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
     font-size: 18px !important;
   }
   .page-subtitle {
-    font-size: 12px !important;
+    font-size: 11.5px !important;
   }
   .cf-section-icon {
     width: 34px !important;
@@ -702,3 +771,4 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius:
     padding: 8px 14px !important;
   }
 }
+
