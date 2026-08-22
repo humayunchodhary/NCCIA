@@ -119,6 +119,40 @@ export const DESIGNATION_OPTIONS = [
   { value: 'Other', name: 'Other' },
 ];
 
+export const CASE_CATEGORIES = [
+  'Financial Fraud',
+  'AHTC',
+  'Anti-State',
+  'ATM/Credit Card Skimming',
+  'Audio Sampling/Collection',
+  'Blackmailing',
+  'Blasphemy',
+  'Child Pornography',
+  'Crypto Currency',
+  'Cyber Stalking',
+  'Dark Web',
+  'Defamation',
+  'Departmental Inquiry',
+  'Fake Documents',
+  'Hacking',
+  'Harassment',
+  'Hate Speech',
+  'Hawala / Hundi',
+  'Illegal Drugs',
+  'Illegal SIM Activation',
+  'Impersonation',
+  'Infringement / Copyrights',
+  'Money Laundering',
+  'Murder',
+  'Social Media',
+  'Spamming',
+  'Terrorism (CTW)',
+  'Threatening',
+  'Voice Analysis',
+  'VOIP (Illegal Gateway Exchange)',
+  'Other',
+].map(c => ({ value: c, name: c }));
+
 export const emptyDirectInfo = () => ({
   // Header / case meta
   serial_number: '',
@@ -149,6 +183,7 @@ export const emptyDirectInfo = () => ({
   postal_address: '',
   city: '',
   // Crime
+  case_category: 'Financial Fraud',
   crime_type: '',
   crime_medium: '',
   amount_pkr: '0',

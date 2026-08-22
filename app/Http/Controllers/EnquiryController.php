@@ -131,6 +131,9 @@ class EnquiryController extends Controller
                 if (isset($action['analysis_scope'])) {
                     $meta['analysis_scope'] = $action['analysis_scope'];
                 }
+                if (isset($action['case_category'])) {
+                    $meta['case_category'] = $action['case_category'];
+                }
             } elseif (is_array($action) && array_key_exists('meta', $action) && is_array($action['meta'])) {
                 $meta = $action['meta'];
             }

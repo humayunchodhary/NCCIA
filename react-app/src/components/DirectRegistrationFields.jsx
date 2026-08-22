@@ -15,6 +15,7 @@ import {
   CRIME_MEDIUM_OPTIONS,
   CITY_OPTIONS,
   DESIGNATION_OPTIONS,
+  CASE_CATEGORIES,
 } from '../utils/directCaseOptions';
 
 /**
@@ -216,6 +217,9 @@ export default function DirectRegistrationFields({
 
       {/* Crime */}
       <div className="cf-row-3">
+        <Field label="Case Category" name="case_category" required>
+          <Select name="case_category" options={CASE_CATEGORIES} required placeholder="Choose Case Category" />
+        </Field>
         <Field label="Crime Type" name="crime_type" required>
           <Select
             name="crime_type"
@@ -227,14 +231,11 @@ export default function DirectRegistrationFields({
         <Field label="Crime Medium" name="crime_medium" required>
           <Select name="crime_medium" options={CRIME_MEDIUM_OPTIONS} required placeholder="Choose Crime Medium" />
         </Field>
-        <Field label="Amount (PKR)" name="amount_pkr">
-          <input type="number" className="cf-input" value={direct.amount_pkr} onChange={set('amount_pkr')} min="0" />
-        </Field>
       </div>
 
       <div className="cf-row-2">
-        <Field label="Place of Occurrence" name="place_of_occurrence" required>
-          <input type="text" className="cf-input" value={direct.place_of_occurrence} onChange={set('place_of_occurrence')} />
+        <Field label="Amount (PKR)" name="amount_pkr">
+          <input type="number" className="cf-input" value={direct.amount_pkr} onChange={set('amount_pkr')} min="0" />
         </Field>
         <Field label="Occurrence (City)" name="occurrence_city" required>
           <Select name="occurrence_city" options={CITY_OPTIONS} required placeholder="Choose City" />

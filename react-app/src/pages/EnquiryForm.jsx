@@ -12,6 +12,7 @@ import {
   emptyDirectInfo,
   normalizeDirectInfo,
   buildDirectInfoPayload,
+  CASE_CATEGORIES,
 } from '../utils/directCaseOptions';
 
 const ENQUIRY_STATUS = [
@@ -381,6 +382,7 @@ export default function EnquiryForm() {
         attachment_path: a.attachment_path || '',
         seize_items: Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
         analysis_scope: a.meta?.analysis_scope || a.analysis_scope || '',
+        case_category: a.meta?.case_category || a.case_category || 'Financial Fraud',
       })),
       witnesses: (d.witnesses || []).map(w => ({
         id: w.id,
@@ -592,7 +594,7 @@ export default function EnquiryForm() {
   const updateRequisition = (i, field, value) => setForm(f => ({ ...f, requisitions: f.requisitions.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '' }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '', case_category: 'Financial Fraud' }] }));
   const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
   const updateActivity = (i, field, value) => setForm(f => ({
     ...f,
@@ -947,7 +949,7 @@ export default function EnquiryForm() {
       const fd = new FormData();
       fd.append('enquiry_id', String(id));
       fd.append('destination', destination);
-        fd.append('brief_contents', form.brief_allegation || '');
+      fd.append('external_category', act.case_category || 'Financial Fraud');
       fd.append('brief_contents', form.brief_allegation || '');
       fd.append('analysis_scope', act.analysis_scope || '');
       fd.append('note', act.description || `Seizure memo evidence submitted for ${destination === 'forensic' ? 'forensic' : 'technical'} examination.`);
@@ -2439,25 +2441,47 @@ export default function EnquiryForm() {
                         <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#888' }}>No seized items entered yet. Click "+ Add Item".</p>
                       )}
 
-                      <div className="cf-field" style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
-                        <label className="cf-label"><strong>Analysis Scope (For Forensic Lab)</strong></label>
-                        {isSupervisor ? (
-                          <div style={{ padding: '10px 12px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', lineHeight: 1.6, border: '1px solid #bfdbfe', minHeight: 48, whiteSpace: 'pre-wrap' }}>
-                            {a.analysis_scope || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>EO ne abhi Analysis Scope nahi likha.</span>}
-                          </div>
-                        ) : (
-                          <textarea
-                            className="cf-input"
-                            rows={2}
-                            placeholder="e.g. Conduct forensic examination and data extraction to identify Facebook IDs, communication chats, emails, media..."
-                            value={a.analysis_scope || ''}
-                            onChange={e => updateActivity(i, 'analysis_scope', e.target.value)}
-                            style={{ width: '100%' }}
-                          />
-                        )}
-                        <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>
-                          {isSupervisor ? 'Yeh scope EO ne likha hai. Circle Incharge siraf parh sakta hai, edit nahi kar sakta.' : 'Ye scope text official Forensic Request PDF letter mein print hoga.'}
-                        </span>
+                      <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+                        <div className="cf-field">
+                          <label className="cf-label required"><strong>Case Category / Offence Type</strong></label>
+                          {isSupervisor ? (
+                            <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #bfdbfe' }}>
+                              {a.case_category || 'Financial Fraud'}
+                            </div>
+                          ) : (
+                            <select
+                              className="cf-input"
+                              value={a.case_category || 'Financial Fraud'}
+                              onChange={e => updateActivity(i, 'case_category', e.target.value)}
+                            >
+                              {CASE_CATEGORIES.map(cat => <option key={cat.value} value={cat.value}>{cat.name}</option>)}
+                            </select>
+                          )}
+                          <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>
+                            Forensic Lab analysis category
+                          </span>
+                        </div>
+
+                        <div className="cf-field">
+                          <label className="cf-label"><strong>Analysis Scope (For Forensic Lab)</strong></label>
+                          {isSupervisor ? (
+                            <div style={{ padding: '10px 12px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', lineHeight: 1.6, border: '1px solid #bfdbfe', minHeight: 48, whiteSpace: 'pre-wrap' }}>
+                              {a.analysis_scope || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>EO ne abhi Analysis Scope nahi likha.</span>}
+                            </div>
+                          ) : (
+                            <textarea
+                              className="cf-input"
+                              rows={2}
+                              placeholder="e.g. Conduct forensic examination and data extraction to identify Facebook IDs, communication chats, emails, media..."
+                              value={a.analysis_scope || ''}
+                              onChange={e => updateActivity(i, 'analysis_scope', e.target.value)}
+                              style={{ width: '100%' }}
+                            />
+                          )}
+                          <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>
+                            {isSupervisor ? 'Yeh scope EO ne likha hai. Circle Incharge siraf parh sakta hai, edit nahi kar sakta.' : 'Ye scope text official Forensic Request PDF letter mein print hoga.'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}

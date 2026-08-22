@@ -9,6 +9,7 @@ import {
   emptyDirectInfo,
   normalizeDirectInfo,
   buildDirectInfoPayload,
+  CASE_CATEGORIES,
 } from '../utils/directCaseOptions';
 
 const CASE_STATUS = [
@@ -116,6 +117,7 @@ export default function CaseForm() {
           activities: (d.activities || []).map(a => ({
             id: a.id,
             type: a.type || '',
+            case_category: a.meta?.case_category || a.case_category || 'Financial Fraud',
             description: a.description || '',
             activity_date: a.activity_date ? String(a.activity_date).slice(0, 10) : '',
             attachment: null,
@@ -154,7 +156,7 @@ export default function CaseForm() {
   const setF = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', case_category: 'Financial Fraud', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null }] }));
   const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
   const updateActivity = (i, field, value) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
   const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
@@ -189,6 +191,7 @@ export default function CaseForm() {
         .map(a => ({
           id: a.id,
           type: a.type,
+          case_category: a.case_category || 'Financial Fraud',
           description: a.description,
           activity_date: a.activity_date,
         })),
@@ -381,11 +384,16 @@ export default function CaseForm() {
               </button>
               {form.activities.map((a, i) => (
                 <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Activity Type</label>
                       <select className="cf-input" value={a.type} onChange={e => updateActivity(i, 'type', e.target.value)}>
                         <option value="">— Select Type —</option>
                         {ACTIVITY_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Case Category</label>
+                      <select className="cf-input" value={a.case_category || 'Financial Fraud'} onChange={e => updateActivity(i, 'case_category', e.target.value)}>
+                        {CASE_CATEGORIES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Date</label>
