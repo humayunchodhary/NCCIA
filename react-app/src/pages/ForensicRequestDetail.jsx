@@ -74,9 +74,9 @@ export default function ForensicRequestDetail() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
-  const isAdmin = isForensicAdmin(user);
-  const isDd    = hasRole(user, 'dd_forensic');
-  const isAd    = hasAnyRole(user, ['ad_forensic', 'admin_forensic', 'admin']);
+  const isAdmin = isForensicAdmin(user) || hasAnyRole(user, ['admin', 'admin_forensic', 'director_general']);
+  const isDd    = hasAnyRole(user, ['dd_forensic', 'admin_forensic', 'admin', 'director_general']);
+  const isAd    = hasAnyRole(user, ['ad_forensic', 'admin_forensic', 'admin', 'dd_forensic', 'forensic_team', 'examiner', 'forensic_examiner', 'director_general']) || isForensicUser(user);
   const [custodyRemarks, setCustodyRemarks] = useState('');
   const [additionalScopeCategory, setAdditionalScopeCategory] = useState('');
   const [customLabNo, setCustomLabNo] = useState('');
@@ -459,10 +459,10 @@ export default function ForensicRequestDetail() {
   );
   if (!row) return null;
 
-  const canAssign        = (isDd || isAd || isAdmin) && (row.status === 'submitted' || row.status === 'forwarded_to_forensic' || isAdmin) && row.destination === 'forensic';
-  const canWorkFindings  = isAd && ['assigned','in_progress','submitted_to_ad'].includes(row.status);
-  const canApproveAd     = (isAd || isDd || isAdmin) && ['submitted_to_ad','in_progress','assigned'].includes(row.status);
-  const canHandOver      = (isAd || isDd || isAdmin) && row.status === 'report_ready';
+  const canAssign        = (isDd || isAd || isAdmin) && row.destination === 'forensic';
+  const canWorkFindings  = (isAd || isDd || isAdmin) && row.status !== 'handed_over';
+  const canApproveAd     = (isAd || isDd || isAdmin) && row.status !== 'handed_over';
+  const canHandOver      = (isAd || isDd || isAdmin) && (row.status === 'report_ready' || row.status === 'in_progress');
   const sm               = STATUS_META[row.status] || { label: row.status, color: '#64748b', bg: '#f1f5f9', icon: '' };
   const isExternal       = Boolean(row.is_external || (!row.enquiry_id && !row.case_id && (row.external_organization || row.external_ref)));
   const displayOrg       = row.external_organization || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'External / Main';

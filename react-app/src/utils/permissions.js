@@ -91,10 +91,23 @@ export const ROLE_DUTIES = {
 };
 
 export function hasRole(user, roleName) {
-  return !!user?.roles?.some(r => (r.name || r) === roleName);
+  if (!user) return false;
+  const target = String(roleName).toLowerCase().replace(/[\s-]+/g, '_');
+  const userRole = String(user.role || '').toLowerCase().replace(/[\s-]+/g, '_');
+  if (userRole === target) return true;
+  const userDesig = String(user.designation || '').toLowerCase().replace(/[\s-]+/g, '_');
+  if (userDesig === target || userDesig.includes(target)) return true;
+  if (Array.isArray(user.roles)) {
+    return user.roles.some(r => {
+      const name = String(r?.name || r || '').toLowerCase().replace(/[\s-]+/g, '_');
+      return name === target;
+    });
+  }
+  return false;
 }
 
 export function hasAnyRole(user, roleNames) {
+  if (!user || !Array.isArray(roleNames)) return false;
   return roleNames.some(r => hasRole(user, r));
 }
 
