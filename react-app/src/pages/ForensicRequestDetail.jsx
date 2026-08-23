@@ -82,6 +82,35 @@ export default function ForensicRequestDetail() {
   const [customLabNo, setCustomLabNo] = useState('');
   const [custodyReceivingDateTime, setCustodyReceivingDateTime] = useState('');
 
+  // Hierarchical Send Back Modal
+  const [sendBackModal, setSendBackModal] = useState(false);
+  const [sendBackTarget, setSendBackTarget] = useState('dd'); // 'dd' | 'ci' | 'eo'
+  const [sendBackRemarks, setSendBackRemarks] = useState('');
+
+  const submitSendBack = async () => {
+    if (!sendBackRemarks.trim()) {
+      alert('Please enter reason / remarks for sending back.');
+      return;
+    }
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      let endpoint = `/forensic/requests/${id}/send-back`;
+      if (sendBackTarget === 'dd') endpoint = `/forensic/requests/${id}/send-back-to-dd`;
+      else if (sendBackTarget === 'ci') endpoint = `/forensic/requests/${id}/send-back-to-ci`;
+      else if (sendBackTarget === 'eo') endpoint = `/forensic/requests/${id}/send-back`;
+
+      const r = await api.post(endpoint, { remarks: sendBackRemarks });
+      setRow(r.data.data);
+      setMsg(r.data.message || 'Request successfully sent back.');
+      setSendBackModal(false);
+      setSendBackRemarks('');
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to send back');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const load = () => {
     setLoading(true); setErr('');
     api.get(`/forensic/requests/${id}`)
@@ -722,7 +751,11 @@ export default function ForensicRequestDetail() {
               <label className="cf-label">Directives &amp; Examination Instructions</label>
               <input className="cf-input" placeholder="e.g. Physical extraction of WhatsApp chats, CDRs..." value={remarks} onChange={e=>setRemarks(e.target.value)} />
             </div>
-            <button type="button" className="btn btn-primary" disabled={busy||!assignedTo} onClick={assign}>{busy?'Assigning…':'Mark / Assign to AD Forensic'}</button>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+              <button type="button" className="btn btn-primary" disabled={busy||!assignedTo} onClick={assign}>{busy?'Assigning…':'Mark / Assign to AD Forensic'}</button>
+              <button type="button" className="btn btn-outline" style={{borderColor:'#e11d48',color:'#e11d48'}} onClick={() => { setSendBackTarget('ci'); setSendBackModal(true); }}>↩️ Send Back to Circle Incharge</button>
+              <button type="button" className="btn btn-outline" style={{borderColor:'#e11d48',color:'#e11d48'}} onClick={() => { setSendBackTarget('eo'); setSendBackModal(true); }}>↩️ Send Back to EO</button>
+            </div>
           </div>
         </div>
       )}
@@ -747,6 +780,7 @@ export default function ForensicRequestDetail() {
             <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
               <button type="button" className="btn btn-outline" disabled={busy} onClick={saveFindings}>{busy?'Saving…':'Save Findings Draft'}</button>
               <button type="button" className="btn btn-primary" style={{background:'#7c3aed'}} disabled={busy} onClick={approveAndNotify}>{busy?'Approving & Notifying…':'✅ Finalize Report & Notify EO'}</button>
+              <button type="button" className="btn btn-outline" style={{borderColor:'#e11d48',color:'#e11d48'}} onClick={() => { setSendBackTarget('dd'); setSendBackModal(true); }}>↩️ Return / Send Back to DD Forensic</button>
             </div>
           </div>
         </div>
@@ -970,6 +1004,64 @@ export default function ForensicRequestDetail() {
           </tbody>
         </table>
       </div>
+
+      {/* Hierarchical Send Back Modal */}
+      {sendBackModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16,
+        }}>
+          <div style={{ background: '#fff', borderRadius: 14, maxWidth: 520, width: '100%', padding: 22, boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#e11d48', margin: 0 }}>
+                ↩️ Return / Send Back Request ({row.request_no})
+              </h2>
+              <button type="button" onClick={() => setSendBackModal(false)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+
+            <div className="cf-field" style={{ marginBottom: 14 }}>
+              <label className="cf-label required" style={{ fontSize: 12, fontWeight: 700 }}>Send Back Destination Hierarchy</label>
+              <select
+                className="cf-input"
+                value={sendBackTarget}
+                onChange={e => setSendBackTarget(e.target.value)}
+                style={{ fontWeight: 600 }}
+              >
+                {isAd && <option value="dd">1. Send Back to Deputy Director (DD) Forensic</option>}
+                {(isDd || isAdmin || isAd) && <option value="ci">2. Send Back to Circle Incharge (CI)</option>}
+                <option value="eo">3. Send Back to Enquiry Officer / IO (EO)</option>
+              </select>
+            </div>
+
+            <div className="cf-field" style={{ marginBottom: 16 }}>
+              <label className="cf-label required" style={{ fontSize: 12, fontWeight: 700 }}>
+                Reason / Deficiency Remarks
+              </label>
+              <textarea
+                className="cf-input"
+                rows={3}
+                placeholder="State the reason for return (e.g. Device password missing, scope clarification needed, chain of custody correction)..."
+                value={sendBackRemarks}
+                onChange={e => setSendBackRemarks(e.target.value)}
+                required
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" className="btn btn-outline" onClick={() => setSendBackModal(false)}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ background: '#e11d48', borderColor: '#e11d48' }}
+                disabled={busy || !sendBackRemarks.trim()}
+                onClick={submitSendBack}
+              >
+                {busy ? 'Returning…' : 'Confirm & Dispatch Notification'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

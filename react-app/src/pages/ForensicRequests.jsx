@@ -71,7 +71,7 @@ export default function ForensicRequests() {
     <div className="page-content">
       <div className="page-header" style={{ marginBottom: 16 }}>
         <div className="page-title-group">
-          <div className="page-label">NCCIA Digital Forensic Lab</div>
+          <div className="page-label">NCCIA Forensic Lab</div>
           <h1 className="page-title">{title}</h1>
           <p className="page-subtitle">Master Seizure Evidence &amp; Lab Examination Log</p>
           <div className="title-underline"></div>

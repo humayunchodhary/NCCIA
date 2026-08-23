@@ -516,6 +516,101 @@ class ForensicRequestController extends Controller
         }
     }
 
+    /** AD Forensic sends back request to DD Forensic */
+    public function sendBackToDd(Request $request, ForensicRequest $forensicRequest)
+    {
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['admin', 'admin_forensic', 'ad_forensic', 'dd_forensic', 'forensic_team']), 403);
+
+        $data = $request->validate([
+            'remarks' => 'required|string|max:1000',
+        ]);
+
+        try {
+            $updates = [
+                'status'      => 'forwarded_to_forensic',
+                'assigned_to' => null,
+                'note'        => ($forensicRequest->note ? $forensicRequest->note . "\n\n" : '') . "[Returned to DD Forensic by AD {$user->name}] Reason: " . $data['remarks'],
+            ];
+
+            $forensicRequest->update($updates);
+
+            // Notify DD Forensic users
+            try {
+                $ddUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['dd_forensic', 'admin_forensic', 'admin']))->get();
+                foreach ($ddUsers as $dd) {
+                    try {
+                        $dd->notify(new \App\Notifications\GeneralNotification(
+                            'forensic_request_returned_to_dd',
+                            "Forensic Case {$forensicRequest->request_no} returned to DD Forensic by AD {$user->name}: {$data['remarks']}",
+                            "/forensic/requests/{$forensicRequest->id}"
+                        ));
+                    } catch (\Throwable $e) {}
+                }
+            } catch (\Throwable $e) {}
+
+            return response()->json([
+                'message' => "Request returned to DD Forensic successfully.",
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('sendBackToDd error: ' . $e->getMessage());
+            return response()->json(['message' => 'Send back to DD failed: ' . $e->getMessage()], 422);
+        }
+    }
+
+    /** DD Forensic sends back request to Circle Incharge (CI) */
+    public function sendBackToCi(Request $request, ForensicRequest $forensicRequest)
+    {
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['admin', 'admin_forensic', 'dd_forensic']), 403);
+
+        $data = $request->validate([
+            'remarks' => 'required|string|max:1000',
+        ]);
+
+        try {
+            $updates = [
+                'status' => 'submitted',
+                'note'   => ($forensicRequest->note ? $forensicRequest->note . "\n\n" : '') . "[Returned to Circle Incharge by DD Forensic {$user->name}] Reason: " . $data['remarks'],
+            ];
+
+            $forensicRequest->update($updates);
+
+            // Notify Circle Incharge of the Circle
+            try {
+                $circleId = $forensicRequest->submitter?->circle_id ?: $forensicRequest->enquiry?->complaint?->circle_id;
+                $ciQuery = User::whereHas('roles', fn($q) => $q->whereIn('name', ['circle_incharge', 'admin']));
+                if ($circleId) {
+                    $ciUsers = $ciQuery->where('circle_id', $circleId)->get();
+                    if ($ciUsers->isEmpty()) {
+                        $ciUsers = User::whereHas('roles', fn($q) => $q->where('name', 'circle_incharge'))->get();
+                    }
+                } else {
+                    $ciUsers = $ciQuery->get();
+                }
+
+                foreach ($ciUsers as $ci) {
+                    try {
+                        $ci->notify(new \App\Notifications\GeneralNotification(
+                            'forensic_request_returned_to_ci',
+                            "Forensic Case {$forensicRequest->request_no} returned to Circle Incharge by DD Forensic {$user->name}: {$data['remarks']}",
+                            "/forensic/requests/{$forensicRequest->id}"
+                        ));
+                    } catch (\Throwable $e) {}
+                }
+            } catch (\Throwable $e) {}
+
+            return response()->json([
+                'message' => "Request returned to Circle Incharge successfully.",
+                'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('sendBackToCi error: ' . $e->getMessage());
+            return response()->json(['message' => 'Send back to CI failed: ' . $e->getMessage()], 422);
+        }
+    }
+
     /** Circle Incharge / AD / DD / Director / AD Forensic sends back Scope Letter to EO due to deficiency */
     public function sendBackToEo(Request $request, ForensicRequest $forensicRequest)
     {

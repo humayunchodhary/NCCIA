@@ -100,7 +100,7 @@ export default function ForensicLogin() {
             </div>
           </div>
           <div className="brand-name" style={{fontFamily:"'Playfair Display', serif",fontSize:'1.8rem',fontWeight:700,letterSpacing:'.06em',color:'#fff',textShadow:'0 2px 8px rgba(0,0,0,0.3)',textAlign:'center'}}>NCCIA</div>
-          <div className="brand-sub" style={{fontSize:'.68rem',fontWeight:400,letterSpacing:'.18em',textTransform:'uppercase',color:'#fff',marginTop:'4px',textAlign:'center'}}>Digital Forensic Laboratory</div>
+          <div className="brand-sub" style={{fontSize:'.68rem',fontWeight:400,letterSpacing:'.18em',textTransform:'uppercase',color:'#fff',marginTop:'4px',textAlign:'center'}}>Forensic Laboratory</div>
           <div className="divider-line" style={{width:'48px',height:'1.5px',background:'rgba(255,255,255,0.5)',margin:'22px 0'}}></div>
           <ul className="info-list" style={{listStyle:'none',width:'100%',display:'flex',flexDirection:'column',gap:'14px'}}>
             <li style={{display:'flex',alignItems:'flex-start',gap:'12px',fontSize:'.85rem',lineHeight:1.5,color:'rgba(255,255,255,0.95)'}}>
@@ -121,7 +121,7 @@ export default function ForensicLogin() {
             </li>
           </ul>
           <div className="contact-strip" style={{marginTop:'28px',padding:'14px 20px',background:'rgba(0,0,0,0.25)',borderRadius:'14px',border:'1px solid rgba(255,255,255,0.3)',width:'100%',textAlign:'center',fontSize:'.75rem',color:'rgba(255,255,255,0.9)'}}>
-            <strong style={{color:'#fff'}}>NCCIA</strong> Digital Forensic Laboratory<br />
+            <strong style={{color:'#fff'}}>NCCIA</strong> Forensic Laboratory<br />
             <Link to="/login" style={{color:'rgba(255,255,255,0.8)',fontWeight:500,textDecoration:'underline',fontSize:'.72rem'}}>← Back to Main NCCIA Portal</Link>
           </div>
         </div>

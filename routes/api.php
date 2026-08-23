@@ -309,6 +309,10 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
         ->middleware('role:admin,circle_incharge,ad_legal,dd_legal,additional_director,director_general');
     Route::post('/forensic/requests/{forensicRequest}/send-back', [ForensicRequestController::class, 'sendBackToEo'])
         ->middleware('role:admin,circle_incharge,ad_legal,dd_legal,additional_director,director_general,admin_forensic,dd_forensic,ad_forensic');
+    Route::post('/forensic/requests/{forensicRequest}/send-back-to-dd', [ForensicRequestController::class, 'sendBackToDd'])
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,forensic_team');
+    Route::post('/forensic/requests/{forensicRequest}/send-back-to-ci', [ForensicRequestController::class, 'sendBackToCi'])
+        ->middleware('role:admin,admin_forensic,dd_forensic');
     Route::post('/forensic/requests/{forensicRequest}/assign', [ForensicRequestController::class, 'assign'])
         ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::post('/forensic/requests/{forensicRequest}/findings', [ForensicRequestController::class, 'updateFindings'])

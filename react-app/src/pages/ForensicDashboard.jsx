@@ -90,6 +90,11 @@ export default function ForensicDashboard() {
   const [actionMsg, setActionMsg] = useState('');
   const [actionErr, setActionErr] = useState('');
 
+  // Hierarchical Send Back Modal
+  const [sendBackModalReq, setSendBackModalReq] = useState(null);
+  const [sendBackTarget, setSendBackTarget] = useState('dd');
+  const [sendBackRemarks, setSendBackRemarks] = useState('');
+
   // 3D Chart Hover & Interactive Effects States
   const [hoveredRegion, setHoveredRegion] = useState(null);
   const [hoveredCat, setHoveredCat] = useState(null);
@@ -299,6 +304,29 @@ export default function ForensicDashboard() {
     }
   };
 
+  const handleSendBackSubmit = async () => {
+    if (!sendBackRemarks.trim() || !sendBackModalReq) return;
+    setActionBusy(true);
+    setActionErr('');
+    setActionMsg('');
+    try {
+      let endpoint = `/forensic/requests/${sendBackModalReq.id}/send-back`;
+      if (sendBackTarget === 'dd') endpoint = `/forensic/requests/${sendBackModalReq.id}/send-back-to-dd`;
+      else if (sendBackTarget === 'ci') endpoint = `/forensic/requests/${sendBackModalReq.id}/send-back-to-ci`;
+      else if (sendBackTarget === 'eo') endpoint = `/forensic/requests/${sendBackModalReq.id}/send-back`;
+
+      const res = await api.post(endpoint, { remarks: sendBackRemarks });
+      setActionMsg(res.data.message || 'Request successfully sent back.');
+      setSendBackModalReq(null);
+      setSendBackRemarks('');
+      loadData();
+    } catch (e) {
+      setActionErr(e.response?.data?.message || 'Failed to send back');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="dashboard_page">
@@ -327,7 +355,7 @@ export default function ForensicDashboard() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            &nbsp;·&nbsp; NCCIA Digital Forensic Lab &amp; Evidence Custody
+            &nbsp;·&nbsp; NCCIA Forensic Lab &amp; Evidence Custody
           </p>
           <div className="title-underline"></div>
         </div>
@@ -1339,6 +1367,64 @@ export default function ForensicDashboard() {
               <button type="button" className="btn btn-outline btn-sm" onClick={() => setHandoverModalReq(null)} disabled={actionBusy}>Cancel</button>
               <button type="button" className="btn btn-primary btn-sm" style={{ background: '#059669' }} onClick={handleHandoverSubmit} disabled={actionBusy}>
                 Confirm Handover
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hierarchical Send Back Modal */}
+      {sendBackModalReq && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16,
+        }}>
+          <div style={{ background: '#fff', borderRadius: 14, maxWidth: 520, width: '100%', padding: 22, boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#e11d48', margin: 0 }}>
+                ↩️ Return / Send Back Request ({sendBackModalReq.request_no})
+              </h2>
+              <button type="button" onClick={() => setSendBackModalReq(null)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+
+            <div className="cf-field" style={{ marginBottom: 14 }}>
+              <label className="cf-label required" style={{ fontSize: 12, fontWeight: 700 }}>Send Back Destination Hierarchy</label>
+              <select
+                className="cf-input"
+                value={sendBackTarget}
+                onChange={e => setSendBackTarget(e.target.value)}
+                style={{ fontWeight: 600 }}
+              >
+                {isAd && <option value="dd">1. Send Back to Deputy Director (DD) Forensic</option>}
+                <option value="ci">2. Send Back to Circle Incharge (CI)</option>
+                <option value="eo">3. Send Back to Enquiry Officer / IO (EO)</option>
+              </select>
+            </div>
+
+            <div className="cf-field" style={{ marginBottom: 16 }}>
+              <label className="cf-label required" style={{ fontSize: 12, fontWeight: 700 }}>
+                Reason / Deficiency Remarks
+              </label>
+              <textarea
+                className="cf-input"
+                rows={3}
+                placeholder="State the reason for return (e.g. Device password missing, scope clarification needed, chain of custody correction)..."
+                value={sendBackRemarks}
+                onChange={e => setSendBackRemarks(e.target.value)}
+                required
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setSendBackModalReq(null)}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                style={{ background: '#e11d48', borderColor: '#e11d48' }}
+                disabled={actionBusy || !sendBackRemarks.trim()}
+                onClick={handleSendBackSubmit}
+              >
+                {actionBusy ? 'Returning…' : 'Confirm & Dispatch Notification'}
               </button>
             </div>
           </div>
