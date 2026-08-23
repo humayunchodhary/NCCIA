@@ -228,7 +228,7 @@ export default function ForensicRequestDetail() {
 
         <div><strong>SIR,</strong></div>
         <p style="margin-top:8px;">
-          <strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA IN ENQ NO. <strong>${enqNoDisplay}</strong>, AND THE BELOW DIGITAL MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,
+          <strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA IN ENQ NO. <strong>${enqNoDisplay}</strong>, AND THE BELOW EVIDENTIARY MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,
         </p>
 
         <div style="margin: 6px 0 10px 16px; line-height: 1.6;">
@@ -237,9 +237,9 @@ export default function ForensicRequestDetail() {
 
         <p>THE BRIEF CONTENTS OF THE CASE ARE THAT THE ALLEGED PERSON IS INVOLVED IN <strong>${row.brief_contents || 'alleged cybercrime offences'}</strong>.</p>
 
-        <p>DURING THE COURSE OF ENQUIRY/INVESTIGATION, THE RELEVANT DIGITAL MEDIA WAS TAKEN INTO POSSESSION FOR FORENSIC EXAMINATION. THE DETAIL OF THE DIGITAL MEDIA IS AS UNDER:</p>
+        <p>DURING THE COURSE OF ENQUIRY/INVESTIGATION, THE RELEVANT EVIDENTIARY MEDIA WAS TAKEN INTO POSSESSION FOR FORENSIC EXAMINATION. THE DETAIL OF THE EVIDENTIARY MEDIA IS AS UNDER:</p>
 
-        <div style="font-weight:800; text-decoration:underline; margin: 14px 0 6px 0;">DIGITAL MEDIA RECOVERED</div>
+        <div style="font-weight:800; text-decoration:underline; margin: 14px 0 6px 0;">EVIDENTIARY MEDIA RECOVERED</div>
         <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
           <thead>
             <tr>
@@ -270,7 +270,7 @@ export default function ForensicRequestDetail() {
         <div style="margin-top:16px;">
           <strong>ENCLOSURES:</strong><br/>
           1. COPY OF ENQ NO. <strong>${enqNoDisplay}</strong><br/>
-          2. COPY OF SEIZURE MEMO (RECOVERY MEMO) OF DIGITAL DEVICE
+          2. COPY OF SEIZURE MEMO (RECOVERY MEMO) OF EVIDENTIARY DEVICE
         </div>
 
         <div style="margin-top: 30px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
@@ -286,7 +286,7 @@ export default function ForensicRequestDetail() {
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <div>
               <strong>To,</strong><br/>
-              <strong>Deputy Director (Digital Forensics),</strong><br/>
+              <strong>Deputy Director (Forensics),</strong><br/>
               National Cyber Crime Investigation Agency<br/>
               ${rcName}
             </div>
@@ -297,7 +297,7 @@ export default function ForensicRequestDetail() {
           <div style="margin: 8px 0;">
             <strong>Remarks / Order:</strong>
             <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
-              ${(row.note || 'Approved & Forwarded for Digital Forensic Examination.').trim()}
+              ${(row.note || 'Approved & Forwarded for Forensic Examination.').trim()}
             </div>
           </div>
           <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
@@ -313,7 +313,7 @@ export default function ForensicRequestDetail() {
           <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
             <div>
               <strong>To,</strong><br/>
-              <strong>Assistant Director (Digital Forensics),</strong><br/>
+              <strong>Assistant Director (Forensics),</strong><br/>
               National Cyber Crime Investigation Agency<br/>
               ${rcName}
             </div>
@@ -324,12 +324,12 @@ export default function ForensicRequestDetail() {
           <div style="margin: 8px 0;">
             <strong>Remarks / Order:</strong>
             <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
-              ${(row.examiner_assignment_notes || row.forensic_remarks || 'Marked to AD (Digital Forensics) / Forensic Examiner for examination and detailed forensic report.').trim()}
+              ${(row.examiner_assignment_notes || row.forensic_remarks || 'Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.').trim()}
             </div>
           </div>
           <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
             <br/>
-            <strong>Assistant Director (Digital Forensics)</strong><br/>
+            <strong>Assistant Director (Forensics)</strong><br/>
             National Cyber Crime Investigation Agency<br/>
             ${rcName}
           </div>
@@ -745,7 +745,7 @@ export default function ForensicRequestDetail() {
           <div style={{textAlign:'center',flex:1,padding:'0 10px'}}>
             <div style={{fontSize:13.5,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
             <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Government of Pakistan • Ministry of Interior and Narcotics Control</div>
-            <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Digital Forensic Lab • NCCIA-RC {circleCity}</div>
+            <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Lab • NCCIA-RC {circleCity}</div>
             <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:5,letterSpacing:0.5}}>CHAIN OF CUSTODY FORM</div>
           </div>
           <div style={{width:65,textAlign:'right'}}>
@@ -878,16 +878,16 @@ export default function ForensicRequestDetail() {
               },
               {
                 from_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
-                from_des: 'AD Forensic (Digital Forensic Lab)',
+                from_des: 'AD Forensic (Forensic Lab)',
                 from_date: row.opened_at?formatDisplayDateTime(row.opened_at):(row.assigned_at?formatDisplayDateTime(row.assigned_at):null),
                 to_name: row.assignee?.name||'AD Forensic',
-                to_des: 'Digital Forensic Examination',
+                to_des: 'Forensic Examination',
                 to_date: row.report_ready_at?formatDisplayDateTime(row.report_ready_at):null,
                 remark: '',
               },
               {
                 from_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
-                from_des: 'Digital Forensic Lab',
+                from_des: 'Forensic Lab',
                 from_date: row.handed_over_at?formatDisplayDateTime(row.handed_over_at):null,
                 to_name: row.handedTo?.name||row.submitter?.name||'—',
                 to_des: 'Enquiry Officer',

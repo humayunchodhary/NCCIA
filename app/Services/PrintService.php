@@ -1069,7 +1069,7 @@ HTML;
               <tr>
                 <td style="border: none; padding: 0; vertical-align: top; width: 60%;">
                   <strong>To,</strong><br/>
-                  <strong>Deputy Director (Digital Forensics),</strong><br/>
+                  <strong>Deputy Director (Forensics),</strong><br/>
                   National Cyber Crime Investigation Agency<br/>
                   NCCIA-RC {$circleName}
                 </td>
@@ -1081,7 +1081,7 @@ HTML;
             <div style="margin: 8px 0;">
               <strong>Remarks / Order:</strong>
               <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
-                Approved & Forwarded for Digital Forensic Examination.
+                Approved & Forwarded for Forensic Examination.
               </div>
             </div>
             <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
@@ -1098,7 +1098,7 @@ HTML;
               <tr>
                 <td style="border: none; padding: 0; vertical-align: top; width: 60%;">
                   <strong>To,</strong><br/>
-                  <strong>Assistant Director (Digital Forensics),</strong><br/>
+                  <strong>Assistant Director (Forensics),</strong><br/>
                   National Cyber Crime Investigation Agency<br/>
                   NCCIA-RC {$circleName}
                 </td>
@@ -1110,12 +1110,12 @@ HTML;
             <div style="margin: 8px 0;">
               <strong>Remarks / Order:</strong>
               <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
-                Marked to AD (Digital Forensics) / Forensic Examiner for examination and detailed forensic report.
+                Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.
               </div>
             </div>
             <div style="margin-top: 18px; margin-left: auto; width: 280px; text-align: right; line-height: 1.35;">
               <br/>
-              <strong>Assistant Director (Digital Forensics)</strong><br/>
+              <strong>Assistant Director (Forensics)</strong><br/>
               National Cyber Crime Investigation Agency<br/>
               NCCIA-RC {$circleName}
             </div>
