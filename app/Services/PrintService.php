@@ -610,21 +610,13 @@ class PrintService
             <div class="notice-date"><strong>Dated:</strong>{$noticeDate}</div>
           </div>
 
-          <table class="to-complainant-table" style="width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; line-height: 1.45;">
-            <tr>
-              <td style="vertical-align: top; width: 60%; padding-right: 15px;">
-                <div class="to-line"><strong>To,</strong></div>
-                <div class="to-name" style="font-size: 13.5px; margin: 2px 0;"><strong>{$receiverName}{$parentageStr}</strong></div>
-                <div class="to-cnic"><strong>CNIC No.</strong> {$cnic}</div>
-                <div class="to-addr">{$address}</div>
-                <div class="to-phone">{$phone}</div>
-              </td>
-              <td style="vertical-align: top; width: 40%; text-align: right;">
-                <div style="font-size: 12.5px;"><strong>Complainant:</strong></div>
-                <div style="font-size: 13.5px; margin-top: 2px;"><strong>{$compName}</strong></div>
-              </td>
-            </tr>
-          </table>
+          <div class="to-block">
+            <div class="to-line"><strong>To,</strong></div>
+            <div class="to-name"><strong>{$receiverName}{$parentageStr}</strong></div>
+            <div class="to-cnic"><strong>CNIC No.</strong> {$cnic}</div>
+            <div class="to-addr">{$address}</div>
+            <div class="to-phone">{$phone}</div>
+          </div>
 
           <div class="subject-line">
             <strong>SUBJECT: 160 Cr.PC Enquiry NO. {$enquiryNo} OF Cyber Crime Reporting Center, {$circleName}</strong>
