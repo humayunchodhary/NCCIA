@@ -483,6 +483,14 @@ class PrintService
         // Gist of Allegation
         $gistOfAllegation = e($notice->description ?: ($enquiry?->charge_against ?: ($complaint?->offence_type ?: ($complaint?->description ? \Illuminate\Support\Str::limit($complaint->description, 120) : 'Financial Fraud / Cyber Crime Allegation'))));
 
+        // Complainant Details
+        $compName       = e($complaint?->complainant_name ?: ($enquiry?->direct_info['complainant_name'] ?? '—'));
+        $compFatherName = e($complaint?->father_name ?: ($enquiry?->direct_info['father_name'] ?? ''));
+        $compParentage  = $compFatherName ? ' S/O ' . $compFatherName : '';
+        $compCnic       = e($complaint?->cnic ?: ($enquiry?->direct_info['cnic'] ?? '—'));
+        $compPhone      = e($complaint?->contact_no ?: ($enquiry?->direct_info['contact_no'] ?? '—'));
+        $compAddress    = e($complaint?->address ?: ($enquiry?->direct_info['address'] ?? '—'));
+
         // Officer Info & Profile Signature
         $officer      = $enquiry?->officer ?: request()->user();
         $officerName  = e($officer?->name ?: 'NABEEL HUSSAIN');
@@ -563,7 +571,7 @@ class PrintService
               <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                 <thead>
                   <tr style="background: #e2e8f0;">
-                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Notice Number</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Notice No.</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Issue Date</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Appearance Date</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Status</th>
@@ -602,13 +610,24 @@ class PrintService
             <div class="notice-date"><strong>Dated:</strong>{$noticeDate}</div>
           </div>
 
-          <div class="to-block">
-            <div class="to-line"><strong>To,</strong></div>
-            <div class="to-name"><strong>{$receiverName}{$parentageStr}</strong></div>
-            <div class="to-cnic"><strong>CNIC No.</strong> {$cnic}</div>
-            <div class="to-addr">{$address}</div>
-            <div class="to-phone">{$phone}</div>
-          </div>
+          <table class="to-complainant-table" style="width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; line-height: 1.45;">
+            <tr>
+              <td style="vertical-align: top; width: 55%; padding-right: 15px;">
+                <div class="to-line"><strong>To,</strong></div>
+                <div class="to-name" style="font-size: 13.5px; margin: 2px 0;"><strong>{$receiverName}{$parentageStr}</strong></div>
+                <div class="to-cnic"><strong>CNIC No.</strong> {$cnic}</div>
+                <div class="to-addr">{$address}</div>
+                <div class="to-phone">{$phone}</div>
+              </td>
+              <td style="vertical-align: top; width: 45%; border-left: 1.5px solid #cbd5e1; padding-left: 15px;">
+                <div style="color: #334155; font-weight: 700; font-size: 12px; text-transform: uppercase;"><strong>Complainant:</strong></div>
+                <div style="font-size: 13.5px; margin: 2px 0;"><strong>{$compName}{$compParentage}</strong></div>
+                <div><strong>CNIC No.</strong> {$compCnic}</div>
+                <div>{$compAddress}</div>
+                <div>{$compPhone}</div>
+              </td>
+            </tr>
+          </table>
 
           <div class="subject-line">
             <strong>SUBJECT: 160 Cr.PC Enquiry NO. {$enquiryNo} OF Cyber Crime Reporting Center, {$circleName}</strong>
@@ -621,7 +640,7 @@ class PrintService
             <div class="enq-details-box">
               <div><strong>Enquiry No.</strong> {$enquiryNo}</div>
               <div><strong>Enquiry Registration Date:</strong> {$regDate}</div>
-              <div><strong>Complainant Name:</strong> {$complainantName}</div>
+              <div><strong>Complainant Name:</strong> {$compName}</div>
               <div><strong>Gist of Allegation:</strong> {$gistOfAllegation}</div>
             </div>
 
