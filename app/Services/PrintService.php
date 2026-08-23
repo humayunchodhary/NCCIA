@@ -610,24 +610,26 @@ class PrintService
             <div class="notice-date"><strong>Dated:</strong>{$noticeDate}</div>
           </div>
 
-          <div class="to-block">
-            <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 3px;">To,</div>
-            <table style="border-collapse: collapse; font-size: 13px; line-height: 1.45;">
+          <div style="margin: 8px 0 12px 0; border: 1.5px solid #1e293b; background: #ffffff; border-radius: 4px; overflow: hidden;">
+            <div style="background: #e2e8f0; font-weight: 800; font-size: 11.5px; color: #0f172a; padding: 4px 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #cbd5e1;">
+              To (Notice Recipient):
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
               <tr>
-                <td style="padding: 1px 8px 1px 0; font-weight: 700; width: 68px; vertical-align: top;">Name:</td>
-                <td style="padding: 1px 0; vertical-align: top;"><strong>{$receiverName}{$parentageStr}</strong></td>
+                <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1; width: 85px; font-weight: 700; background: #f8fafc; color: #1e293b;">Name</td>
+                <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1; font-size: 13px;"><strong>{$receiverName}{$parentageStr}</strong></td>
               </tr>
               <tr>
-                <td style="padding: 1px 8px 1px 0; font-weight: 700; vertical-align: top;">CNIC:</td>
-                <td style="padding: 1px 0; vertical-align: top;">{$cnic}</td>
+                <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700; background: #f8fafc; color: #1e293b;">CNIC</td>
+                <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1;">{$cnic}</td>
               </tr>
               <tr>
-                <td style="padding: 1px 8px 1px 0; font-weight: 700; vertical-align: top;">Contact:</td>
-                <td style="padding: 1px 0; vertical-align: top;">{$phone}</td>
+                <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700; background: #f8fafc; color: #1e293b;">Contact</td>
+                <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1;">{$phone}</td>
               </tr>
               <tr>
-                <td style="padding: 1px 8px 1px 0; font-weight: 700; vertical-align: top;">Address:</td>
-                <td style="padding: 1px 0; vertical-align: top;">{$address}</td>
+                <td style="padding: 4px 10px; font-weight: 700; background: #f8fafc; color: #1e293b;">Address</td>
+                <td style="padding: 4px 10px;">{$address}</td>
               </tr>
             </table>
           </div>
@@ -640,11 +642,28 @@ class PrintService
             <p style="margin: 6px 0;">
               NCCIA, Cyber Crime Reporting Center, {$circleName}, is conducting a probe on the above titled Enquiry. The details are mentioned below:
             </p>
-            <div class="enq-details-box">
-              <div><strong>Enquiry No.</strong> {$enquiryNo}</div>
-              <div><strong>Enquiry Registration Date:</strong> {$regDate}</div>
-              <div><strong>Complainant Name:</strong> {$compName}</div>
-              <div><strong>Gist of Allegation:</strong> {$gistOfAllegation}</div>
+            <div style="margin: 8px 0 10px 0; border: 1.5px solid #1e293b; background: #ffffff; border-radius: 4px; overflow: hidden;">
+              <div style="background: #e2e8f0; font-weight: 800; font-size: 11.5px; color: #0f172a; padding: 4px 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #cbd5e1;">
+                Enquiry Information:
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <tr>
+                  <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1; width: 170px; font-weight: 700; background: #f8fafc; color: #1e293b;">Enquiry No.</td>
+                  <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700;">{$enquiryNo}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700; background: #f8fafc; color: #1e293b;">Enquiry Registration Date</td>
+                  <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1;">{$regDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1; font-weight: 700; background: #f8fafc; color: #1e293b;">Complainant Name</td>
+                  <td style="padding: 4px 10px; border-bottom: 1px solid #cbd5e1;">{$compName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 10px; font-weight: 700; background: #f8fafc; color: #1e293b;">Gist of Allegation</td>
+                  <td style="padding: 4px 10px;">{$gistOfAllegation}</td>
+                </tr>
+              </table>
             </div>
 
             <p style="margin: 12px 0 6px 0; text-align: justify; line-height: 1.6;">
