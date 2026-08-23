@@ -442,17 +442,38 @@ class PrintService
                 break;
             }
         }
-        $seq = $notice->sequence_no ?: ($noticeIndex + 1);
-        $suffix = match($seq) { 1 => 'st', 2 => 'nd', 3 => 'rd', default => 'th' };
+        $seq = (int) ($notice->sequence_no ?: ($noticeIndex + 1));
+        if ($seq <= 0) {
+            $seq = 1;
+        }
+        $suffix = match ($seq % 100) {
+            11, 12, 13 => 'th',
+            default => match ($seq % 10) {
+                1 => 'st',
+                2 => 'nd',
+                3 => 'rd',
+                default => 'th',
+            },
+        };
         $noticeLabel = $seq . $suffix . ' Notice';
 
-        // Build Notice History Box for 2nd and 3rd Notices
+        // Build Notice History Box for 2nd, 3rd, 4th Notices
         $historyHtml = '';
         if ($seq >= 2 && $allNotices->count() > 0) {
             $historyRows = '';
             for ($i = 0; $i < min($seq - 1, $allNotices->count()); $i++) {
                 $prev = $allNotices[$i];
-                $prevNum = ($i + 1) . ($i === 0 ? 'st' : ($i === 1 ? 'nd' : 'rd')) . ' Notice';
+                $prevIndex = $i + 1;
+                $pSuffix = match ($prevIndex % 100) {
+                    11, 12, 13 => 'th',
+                    default => match ($prevIndex % 10) {
+                        1 => 'st',
+                        2 => 'nd',
+                        3 => 'rd',
+                        default => 'th',
+                    },
+                };
+                $prevNum = $prevIndex . $pSuffix . ' Notice';
                 $pDate = $prev->notice_date ? $prev->notice_date->format('d-m-Y') : '—';
                 $pAppDate = $prev->appearance_date ? \Carbon\Carbon::parse($prev->appearance_date)->format('d-m-Y') : '—';
                 
