@@ -679,7 +679,6 @@ export default function ForensicDashboard() {
 
             {/* Left Box: Evidentiary Categories wise Cases (Live Data + Dynamic 3D Pie) */}
             {(() => {
-              // 1. Collect live data from reqStats or actual items
               const rawMap = reqStats?.evidentiary_categories || {};
               const catItems = [
                 { name: 'Mobile Phone', val: Number(rawMap['Mobile Phone']) || 0, color: '#2e7d32', rimColor: '#1b5e20' },
@@ -695,12 +694,9 @@ export default function ForensicDashboard() {
                 { name: 'Other', val: Number(rawMap['Other']) || 0, color: '#78909c', rimColor: '#455a64' },
               ];
 
-              // Filter positive items
-              const activeItems = catItems.filter(it => it.val > 0);
+              const activeItems = catItems.filter(it => it.val > 0).sort((a, b) => b.val - a.val);
               const totalVal = activeItems.reduce((acc, it) => acc + it.val, 0);
-
-              // Sort with largest slice first
-              activeItems.sort((a, b) => b.val - a.val);
+              const cx = 265, cy = 108, rx = 125, ry = 50, depth = 26;
 
               return (
                 <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, padding: '18px 20px', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
@@ -715,33 +711,63 @@ export default function ForensicDashboard() {
 
                   {/* 3D Pie SVG */}
                   <div style={{ position: 'relative', width: '100%', minHeight: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg viewBox="0 0 460 230" style={{ width: '100%', maxHeight: 230 }}>
+                    <svg viewBox="0 0 530 235" style={{ width: '100%', maxHeight: 235 }}>
                       <defs>
-                        <filter id="pieGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="pieGlowCat" x="-20%" y="-20%" width="140%" height="140%">
                           <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#38bdf8" floodOpacity="0.8" />
                         </filter>
-                        <filter id="pieDropShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="pieShadowCat" x="-20%" y="-20%" width="140%" height="140%">
                           <feDropShadow dx="0" dy="12" stdDeviation="6" floodColor="#000" floodOpacity="0.25" />
                         </filter>
                       </defs>
 
                       {/* 3D Base Drop Shadow */}
-                      <ellipse cx="235" cy="136" rx="135" ry="54" fill="#000" opacity="0.2" filter="url(#pieDropShadow)" />
+                      <ellipse cx={cx} cy={cy + 30} rx={rx + 6} ry={ry} fill="#000" opacity="0.2" filter="url(#pieShadowCat)" />
 
                       {totalVal === 0 ? (
-                        /* Empty State 3D Disc */
                         <g>
-                          <path d="M 100,105 L 100,133 A 135,58 0 0,0 370,133 L 370,105 A 135,58 0 0,1 100,105 Z" fill="#94a3b8" />
-                          <ellipse cx="235" cy="105" rx="135" ry="58" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
-                          <text x="235" y="110" fontSize="13" fontWeight="bold" fill="#64748b" textAnchor="middle">
-                            No Evidence Items Registered Yet
+                          <path d={`M ${cx - rx},${cy} L ${cx - rx},${cy + depth} A ${rx},${ry} 0 0,0 ${cx + rx},${cy + depth} L ${cx + rx},${cy} A ${rx},${ry} 0 0,1 ${cx - rx},${cy} Z`} fill="#94a3b8" />
+                          <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
+                          <text x={cx} y={cy + 4} fontSize="13" fontWeight="bold" fill="#64748b" textAnchor="middle">
+                            No Evidence Registered Yet
                           </text>
                         </g>
-                      ) : (
+                      ) : activeItems.length === 1 ? (
+                        /* Single 100% Item */
                         (() => {
-                          const cx = 235, cy = 105, rx = 135, ry = 58, depth = 28;
-                          let currentAngle = -60;
-
+                          const item = activeItems[0];
+                          const isHov = hoveredCat === 0;
+                          return (
+                            <g
+                              onMouseEnter={() => setHoveredCat(0)}
+                              onMouseLeave={() => setHoveredCat(null)}
+                              style={{ cursor: 'pointer' }}
+                              filter={isHov ? 'url(#pieGlowCat)' : undefined}
+                            >
+                              <path
+                                d={`M ${cx - rx},${cy} L ${cx - rx},${cy + depth} A ${rx},${ry} 0 0,0 ${cx + rx},${cy + depth} L ${cx + rx},${cy} A ${rx},${ry} 0 0,1 ${cx - rx},${cy} Z`}
+                                fill={item.rimColor}
+                                stroke="#0f172a"
+                                strokeWidth="0.8"
+                              />
+                              <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={item.color} stroke="#0f172a" strokeWidth="1" />
+                              <polyline
+                                points={`${cx + rx * 0.5},${cy + ry * 0.4} ${cx + rx + 25},${cy + ry + 20} ${cx + rx + 75},${cy + ry + 20}`}
+                                fill="none"
+                                stroke="#0f172a"
+                                strokeWidth="1.2"
+                              />
+                              <circle cx={cx + rx * 0.5} cy={cy + ry * 0.4} r="2.5" fill="#0f172a" />
+                              <text x={cx + rx + 80} y={cy + ry + 24} fontSize="10.5" fontWeight="bold" fill="#0f172a">
+                                {item.name}, {item.val} (100%)
+                              </text>
+                            </g>
+                          );
+                        })()
+                      ) : (
+                        /* Multiple Slices */
+                        (() => {
+                          let currentAngle = -45;
                           const slices = activeItems.map((item, idx) => {
                             const angleSpan = (item.val / totalVal) * 360;
                             const startA = currentAngle;
@@ -760,9 +786,8 @@ export default function ForensicDashboard() {
                             const largeArc = angleSpan > 180 ? 1 : 0;
                             const pathTop = `M ${cx},${cy} L ${x1.toFixed(1)},${y1.toFixed(1)} A ${rx},${ry} 0 ${largeArc},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
 
-                            // Pop-out vector on hover
-                            const popX = Math.cos(midRad) * 10;
-                            const popY = Math.sin(midRad) * 6;
+                            const popX = Math.cos(midRad) * 8;
+                            const popY = Math.sin(midRad) * 5;
 
                             return {
                               ...item,
@@ -779,7 +804,7 @@ export default function ForensicDashboard() {
 
                           return (
                             <g>
-                              {/* 3D Extrusion Side Wall for front facing slices */}
+                              {/* 3D Extrusion Side Wall */}
                               <path
                                 d={`M ${cx - rx},${cy} L ${cx - rx},${cy + depth} A ${rx},${ry} 0 0,0 ${cx + rx},${cy + depth} L ${cx + rx},${cy} A ${rx},${ry} 0 0,1 ${cx - rx},${cy} Z`}
                                 fill={slices[0]?.rimColor || '#1b5e20'}
@@ -797,7 +822,7 @@ export default function ForensicDashboard() {
                                     onMouseLeave={() => setHoveredCat(null)}
                                     transform={isHov ? `translate(${sl.popX}, ${sl.popY})` : undefined}
                                     style={{ cursor: 'pointer', transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)' }}
-                                    filter={isHov ? 'url(#pieGlow)' : undefined}
+                                    filter={isHov ? 'url(#pieGlowCat)' : undefined}
                                   >
                                     <path
                                       d={sl.pathTop}
@@ -809,7 +834,7 @@ export default function ForensicDashboard() {
                                 );
                               })}
 
-                              {/* Interactive Callout lines & Labels for active items */}
+                              {/* Callout Lines with No Cut-off */}
                               {slices.map((sl, sIdx) => {
                                 const calloutRadius = rx + 8;
                                 const lx1 = cx + (rx * 0.7) * Math.cos(sl.midRad);
@@ -817,7 +842,7 @@ export default function ForensicDashboard() {
                                 const isRight = Math.cos(sl.midRad) >= 0;
                                 const lx2 = cx + calloutRadius * Math.cos(sl.midRad);
                                 const ly2 = cy + (ry + 8) * Math.sin(sl.midRad);
-                                const lx3 = isRight ? lx2 + 40 : lx2 - 40;
+                                const lx3 = isRight ? Math.min(lx2 + 35, 515) : Math.max(lx2 - 35, 10);
 
                                 return (
                                   <g key={sIdx} opacity={hoveredCat === null || hoveredCat === sl.idx ? 1 : 0.4} style={{ transition: 'opacity 0.2s' }}>
@@ -831,7 +856,7 @@ export default function ForensicDashboard() {
                                     <text
                                       x={isRight ? lx3 + 4 : lx3 - 4}
                                       y={ly2 + 4}
-                                      fontSize="10"
+                                      fontSize="9.5"
                                       fontWeight="bold"
                                       fill="#0f172a"
                                       textAnchor={isRight ? 'start' : 'end'}
@@ -882,7 +907,6 @@ export default function ForensicDashboard() {
 
             {/* Right Box: Organization wise Cases (Live Data + Dynamic 3D Pie) */}
             {(() => {
-              // 1. Collect live data from reqStats or actual items
               const rawMap = reqStats?.organizations || {};
               const orgItems = [
                 { name: 'CCRC', val: Number(rawMap['CCRC']) || 0, color: '#c62828', rimColor: '#8e0000' },
@@ -902,12 +926,9 @@ export default function ForensicDashboard() {
                 { name: 'Other', val: Number(rawMap['Other']) || 0, color: '#78909c', rimColor: '#455a64' },
               ];
 
-              // Filter positive items
-              const activeItems = orgItems.filter(it => it.val > 0);
+              const activeItems = orgItems.filter(it => it.val > 0).sort((a, b) => b.val - a.val);
               const totalVal = activeItems.reduce((acc, it) => acc + it.val, 0);
-
-              // Sort with largest slice first
-              activeItems.sort((a, b) => b.val - a.val);
+              const cx = 265, cy = 108, rx = 125, ry = 50, depth = 26;
 
               return (
                 <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, padding: '18px 20px', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
@@ -922,30 +943,63 @@ export default function ForensicDashboard() {
 
                   {/* 3D Pie SVG */}
                   <div style={{ position: 'relative', width: '100%', minHeight: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg viewBox="0 0 460 230" style={{ width: '100%', maxHeight: 230 }}>
+                    <svg viewBox="0 0 530 235" style={{ width: '100%', maxHeight: 235 }}>
                       <defs>
-                        <filter id="orgGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id="pieGlowOrg" x="-20%" y="-20%" width="140%" height="140%">
                           <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#f43f5e" floodOpacity="0.8" />
+                        </filter>
+                        <filter id="pieShadowOrg" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="12" stdDeviation="6" floodColor="#000" floodOpacity="0.25" />
                         </filter>
                       </defs>
 
                       {/* 3D Base Drop Shadow */}
-                      <ellipse cx="235" cy="136" rx="135" ry="54" fill="#000" opacity="0.2" filter="url(#pieDropShadow)" />
+                      <ellipse cx={cx} cy={cy + 30} rx={rx + 6} ry={ry} fill="#000" opacity="0.2" filter="url(#pieShadowOrg)" />
 
                       {totalVal === 0 ? (
-                        /* Empty State 3D Disc */
                         <g>
-                          <path d="M 100,105 L 100,133 A 135,58 0 0,0 370,133 L 370,105 A 135,58 0 0,1 100,105 Z" fill="#94a3b8" />
-                          <ellipse cx="235" cy="105" rx="135" ry="58" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
-                          <text x="235" y="110" fontSize="13" fontWeight="bold" fill="#64748b" textAnchor="middle">
+                          <path d={`M ${cx - rx},${cy} L ${cx - rx},${cy + depth} A ${rx},${ry} 0 0,0 ${cx + rx},${cy + depth} L ${cx + rx},${cy} A ${rx},${ry} 0 0,1 ${cx - rx},${cy} Z`} fill="#94a3b8" />
+                          <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1" />
+                          <text x={cx} y={cy + 4} fontSize="13" fontWeight="bold" fill="#64748b" textAnchor="middle">
                             No Organization Cases Registered Yet
                           </text>
                         </g>
-                      ) : (
+                      ) : activeItems.length === 1 ? (
+                        /* Single 100% Item (e.g. CCRC = 20) */
                         (() => {
-                          const cx = 235, cy = 105, rx = 135, ry = 58, depth = 28;
-                          let currentAngle = -60;
-
+                          const item = activeItems[0];
+                          const isHov = hoveredOrg === 0;
+                          return (
+                            <g
+                              onMouseEnter={() => setHoveredOrg(0)}
+                              onMouseLeave={() => setHoveredOrg(null)}
+                              style={{ cursor: 'pointer' }}
+                              filter={isHov ? 'url(#pieGlowOrg)' : undefined}
+                            >
+                              <path
+                                d={`M ${cx - rx},${cy} L ${cx - rx},${cy + depth} A ${rx},${ry} 0 0,0 ${cx + rx},${cy + depth} L ${cx + rx},${cy} A ${rx},${ry} 0 0,1 ${cx - rx},${cy} Z`}
+                                fill={item.rimColor}
+                                stroke="#4a0000"
+                                strokeWidth="0.8"
+                              />
+                              <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={item.color} stroke="#5c0000" strokeWidth="1" />
+                              <polyline
+                                points={`${cx + rx * 0.5},${cy + ry * 0.4} ${cx + rx + 25},${cy + ry + 20} ${cx + rx + 75},${cy + ry + 20}`}
+                                fill="none"
+                                stroke="#0f172a"
+                                strokeWidth="1.2"
+                              />
+                              <circle cx={cx + rx * 0.5} cy={cy + ry * 0.4} r="2.5" fill="#0f172a" />
+                              <text x={cx + rx + 80} y={cy + ry + 24} fontSize="10.5" fontWeight="bold" fill="#0f172a">
+                                {item.name}, {item.val} (100%)
+                              </text>
+                            </g>
+                          );
+                        })()
+                      ) : (
+                        /* Multiple Slices */
+                        (() => {
+                          let currentAngle = -45;
                           const slices = activeItems.map((item, idx) => {
                             const angleSpan = (item.val / totalVal) * 360;
                             const startA = currentAngle;
@@ -964,8 +1018,8 @@ export default function ForensicDashboard() {
                             const largeArc = angleSpan > 180 ? 1 : 0;
                             const pathTop = `M ${cx},${cy} L ${x1.toFixed(1)},${y1.toFixed(1)} A ${rx},${ry} 0 ${largeArc},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
 
-                            const popX = Math.cos(midRad) * 10;
-                            const popY = Math.sin(midRad) * 6;
+                            const popX = Math.cos(midRad) * 8;
+                            const popY = Math.sin(midRad) * 5;
 
                             return {
                               ...item,
@@ -1000,7 +1054,7 @@ export default function ForensicDashboard() {
                                     onMouseLeave={() => setHoveredOrg(null)}
                                     transform={isHov ? `translate(${sl.popX}, ${sl.popY})` : undefined}
                                     style={{ cursor: 'pointer', transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)' }}
-                                    filter={isHov ? 'url(#orgGlow)' : undefined}
+                                    filter={isHov ? 'url(#pieGlowOrg)' : undefined}
                                   >
                                     <path
                                       d={sl.pathTop}
@@ -1012,7 +1066,7 @@ export default function ForensicDashboard() {
                                 );
                               })}
 
-                              {/* Callout lines & Labels */}
+                              {/* Callout Lines */}
                               {slices.map((sl, sIdx) => {
                                 const calloutRadius = rx + 8;
                                 const lx1 = cx + (rx * 0.7) * Math.cos(sl.midRad);
@@ -1020,7 +1074,7 @@ export default function ForensicDashboard() {
                                 const isRight = Math.cos(sl.midRad) >= 0;
                                 const lx2 = cx + calloutRadius * Math.cos(sl.midRad);
                                 const ly2 = cy + (ry + 8) * Math.sin(sl.midRad);
-                                const lx3 = isRight ? lx2 + 35 : lx2 - 35;
+                                const lx3 = isRight ? Math.min(lx2 + 35, 515) : Math.max(lx2 - 35, 10);
 
                                 return (
                                   <g key={sIdx} opacity={hoveredOrg === null || hoveredOrg === sl.idx ? 1 : 0.4} style={{ transition: 'opacity 0.2s' }}>
