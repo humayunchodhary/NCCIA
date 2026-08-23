@@ -55,6 +55,204 @@ const STATUS_META = {
   handed_over:  { label: 'Handed Over to EO',      sub: 'Custody Completed',    color: '#64748b', barColor: '#64748b' },
 };
 
+function shadeColor(color, percent) {
+  let num = parseInt((color || '#64748b').replace('#', ''), 16);
+  let amt = Math.round(2.55 * percent);
+  let R = (num >> 16) + amt;
+  let G = (num >> 8 & 0x00FF) + amt;
+  let B = (num & 0x0000FF) + amt;
+  return '#' + (0x1000000 + (R < 255 ? (R < 0 ? 0 : R) : 255) * 0x10000 +
+    (G < 255 ? (G < 0 ? 0 : G) : 255) * 0x100 +
+    (B < 255 ? (B < 0 ? 0 : B) : 255)).toString(16).slice(1);
+}
+
+function TruePie3D({ title, items = [], defaultTotal = 1000 }) {
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+
+  const total = items.reduce((acc, it) => acc + (Number(it.val) || 0), 0) || defaultTotal;
+  const cx = 220;
+  const cy = 95;
+  const rx = 125;
+  const ry = 62;
+  const depth = 26;
+
+  let currentAngle = -Math.PI / 3;
+  const slices = items.map((it, idx) => {
+    const v = Number(it.val) || 0;
+    const sweep = total > 0 ? (v / total) * (Math.PI * 2) : 0;
+    const startA = currentAngle;
+    const endA = currentAngle + sweep;
+    const midA = startA + sweep / 2;
+    currentAngle = endA;
+
+    return {
+      ...it,
+      idx,
+      v,
+      startA,
+      endA,
+      midA,
+      sweep,
+      pct: total > 0 ? Math.round((v / total) * 100) : 0,
+    };
+  });
+
+  return (
+    <div style={{ background: '#fcfcfd', border: '1px solid #e2e8f0', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
+      <div style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a', textAlign: 'center', marginBottom: 14, letterSpacing: 0.3 }}>
+        {title}
+      </div>
+
+      <div style={{ position: 'relative', width: '100%', minHeight: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg viewBox="0 0 440 220" style={{ width: '100%', maxHeight: 220, overflow: 'visible' }}>
+          <defs>
+            <filter id={`pieShadow-${title.replace(/[^a-zA-Z0-9]/g, '')}`} x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="16" stdDeviation="8" floodColor="#0f172a" floodOpacity="0.22" />
+            </filter>
+            {slices.map((s, i) => (
+              <radialGradient key={i} id={`grad-${title.replace(/[^a-zA-Z0-9]/g, '')}-${i}`} cx="45%" cy="40%" r="60%">
+                <stop offset="0%" stopColor={shadeColor(s.color, 25)} />
+                <stop offset="70%" stopColor={s.color} />
+                <stop offset="100%" stopColor={shadeColor(s.color, -20)} />
+              </radialGradient>
+            ))}
+          </defs>
+
+          {/* 3D Base Drop Shadow */}
+          <ellipse cx={cx} cy={cy + depth + 4} rx={rx + 6} ry={ry + 3} fill="#0f172a" opacity="0.16" filter={`url(#pieShadow-${title.replace(/[^a-zA-Z0-9]/g, '')})`} />
+
+          {/* 3D Side Extrusions for front-facing arcs */}
+          {slices.filter(s => s.v > 0).map((s, i) => {
+            const steps = 18;
+            const pointsTop = [];
+            const pointsBottom = [];
+
+            for (let step = 0; step <= steps; step++) {
+              const a = s.startA + (s.sweep * step) / steps;
+              if (Math.sin(a) >= -0.05) {
+                const x = cx + rx * Math.cos(a);
+                const y = cy + ry * Math.sin(a);
+                pointsTop.push(`${x},${y}`);
+                pointsBottom.unshift(`${x},${y + depth}`);
+              }
+            }
+
+            if (pointsTop.length < 2) return null;
+
+            const isHovered = hoveredIdx === s.idx;
+            const sidePath = `M ${pointsTop[0]} L ${pointsBottom[pointsBottom.length - 1]} ` +
+              pointsBottom.map(p => `L ${p}`).join(' ') +
+              pointsTop.slice().reverse().map(p => `L ${p}`).join(' ') + ' Z';
+
+            return (
+              <path
+                key={`side-${i}`}
+                d={sidePath}
+                fill={shadeColor(s.color, isHovered ? -10 : -35)}
+                stroke={shadeColor(s.color, -45)}
+                strokeWidth="0.7"
+                style={{ transition: 'all 0.25s ease', cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredIdx(s.idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+              />
+            );
+          })}
+
+          {/* 3D Top Faces */}
+          {slices.filter(s => s.v > 0).map((s, i) => {
+            const x1 = cx + rx * Math.cos(s.startA);
+            const y1 = cy + ry * Math.sin(s.startA);
+            const x2 = cx + rx * Math.cos(s.endA);
+            const y2 = cy + ry * Math.sin(s.endA);
+            const largeArc = s.sweep > Math.PI ? 1 : 0;
+            const isHovered = hoveredIdx === s.idx;
+
+            const hoverDx = isHovered ? Math.cos(s.midA) * 6 : 0;
+            const hoverDy = isHovered ? Math.sin(s.midA) * 4 : 0;
+
+            const topPath = `M ${cx + hoverDx} ${cy + hoverDy} L ${x1 + hoverDx} ${y1 + hoverDy} A ${rx} ${ry} 0 ${largeArc} 1 ${x2 + hoverDx} ${y2 + hoverDy} Z`;
+
+            return (
+              <path
+                key={`top-${i}`}
+                d={topPath}
+                fill={`url(#grad-${title.replace(/[^a-zA-Z0-9]/g, '')}-${i})`}
+                stroke={isHovered ? '#fff' : shadeColor(s.color, -25)}
+                strokeWidth={isHovered ? '2' : '0.8'}
+                style={{ transition: 'all 0.25s ease', cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredIdx(s.idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+              />
+            );
+          })}
+
+          {/* Callout Leader Lines and Badges for Major Slices */}
+          {slices.filter(s => s.v > 0 && s.pct >= 3).slice(0, 5).map((s, i) => {
+            const isRight = Math.cos(s.midA) >= 0;
+            const isBottom = Math.sin(s.midA) >= 0;
+            const startX = cx + rx * Math.cos(s.midA);
+            const startY = cy + (ry + (isBottom ? depth * 0.4 : 0)) * Math.sin(s.midA);
+            
+            const elbowX = cx + (rx + 28) * Math.cos(s.midA);
+            const elbowY = cy + (ry + 18 + (isBottom ? depth * 0.5 : 0)) * Math.sin(s.midA);
+
+            const endX = isRight ? elbowX + 38 : elbowX - 38;
+
+            return (
+              <g key={`callout-${i}`} style={{ pointerEvents: 'none' }}>
+                <polyline
+                  points={`${startX},${startY} ${elbowX},${elbowY} ${endX},${elbowY}`}
+                  fill="none"
+                  stroke="#334155"
+                  strokeWidth="1.2"
+                />
+                <circle cx={startX} cy={startY} r="2.2" fill="#0f172a" />
+                <text
+                  x={isRight ? elbowX + 4 : elbowX - 4}
+                  y={elbowY - 4}
+                  textAnchor={isRight ? 'start' : 'end'}
+                  fontSize="10"
+                  fontWeight="800"
+                  fill="#0f172a"
+                >
+                  {s.name}, {s.v.toLocaleString()}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Legend Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))', gap: '6px 10px', fontSize: 10.5, color: '#334155', borderTop: '1px solid #f1f5f9', paddingTop: 14, marginTop: 'auto' }}>
+        {items.map((leg, idx) => {
+          const isHovered = hoveredIdx === idx;
+          return (
+            <div
+              key={idx}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '2px 4px',
+                borderRadius: 4,
+                background: isHovered ? '#f1f5f9' : 'transparent',
+                cursor: 'pointer',
+                transition: 'background 0.2s ease',
+              }}
+              onMouseEnter={() => setHoveredIdx(idx)}
+              onMouseLeave={() => setHoveredIdx(null)}
+            >
+              <span style={{ width: 8.5, height: 8.5, borderRadius: '50%', background: leg.color, display: 'inline-block', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></span>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHovered ? 800 : 600 }}>{leg.name}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ForensicDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -602,190 +800,50 @@ export default function ForensicDashboard() {
             })()}
           </div>
 
-          {/* 2. Middle Row: Evidentiary Categories & Organization Wise Cases (3D Pie Charts) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 20, marginBottom: 30 }}>
+          {/* 2. Middle Row: Evidentiary Categories & Organization Wise Cases (True 3D Pie Charts) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: 20, marginBottom: 30 }}>
 
-            {/* Left Box: Evidentiary Categories wise Cases */}
-            <div style={{ background: '#fcfcfd', border: '1px solid #e2e8f0', borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', textAlign: 'center', marginBottom: 16 }}>
-                Evidentiary Categories wise Cases
-              </div>
+            {/* Left: Evidentiary Categories */}
+            <TruePie3D
+              title="Evidentiary Categories wise Cases"
+              items={[
+                { name: 'Mobile Phone', val: reqStats?.evidentiary_categories?.['Mobile Phone'] || (totalDevices > 0 ? totalDevices : 2537), color: '#16a34a' },
+                { name: 'Hard Disk - HDD', val: reqStats?.evidentiary_categories?.['Hard Disk - HDD'] || 385, color: '#ea580c' },
+                { name: 'USB', val: reqStats?.evidentiary_categories?.['USB'] || 133, color: '#991b1b' },
+                { name: 'Laptop', val: reqStats?.evidentiary_categories?.['Laptop'] || 31, color: '#0284c7' },
+                { name: 'Memory Card', val: reqStats?.evidentiary_categories?.['Memory Card'] || 21, color: '#8b5cf6' },
+                { name: 'IPAD/Tablet', val: reqStats?.evidentiary_categories?.['IPAD/Tablet'] || 12, color: '#06b6d4' },
+                { name: 'Computer', val: reqStats?.evidentiary_categories?.['Computer'] || 6, color: '#f59e0b' },
+                { name: 'SIM Card', val: reqStats?.evidentiary_categories?.['SIM Card'] || 4, color: '#eab308' },
+                { name: 'CD/DVD', val: reqStats?.evidentiary_categories?.['CD/DVD'] || 2, color: '#38bdf8' },
+                { name: 'DVR', val: reqStats?.evidentiary_categories?.['DVR'] || 1, color: '#10b981' },
+                { name: 'Other', val: reqStats?.evidentiary_categories?.['Other'] || 1, color: '#64748b' },
+              ]}
+              defaultTotal={3133}
+            />
 
-              {/* 3D Perspective Slice Visualization */}
-              <div style={{ position: 'relative', minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '10px 0' }}>
-                <svg viewBox="0 0 380 200" style={{ width: '100%', maxHeight: 210 }}>
-                  <defs>
-                    <radialGradient id="phoneGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#15803d" />
-                      <stop offset="100%" stopColor="#14532d" />
-                    </radialGradient>
-                    <radialGradient id="hddGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#ea580c" />
-                      <stop offset="100%" stopColor="#9a3412" />
-                    </radialGradient>
-                    <radialGradient id="usbGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#881337" />
-                      <stop offset="100%" stopColor="#4c0519" />
-                    </radialGradient>
-                    <radialGradient id="laptopGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#0284c7" />
-                      <stop offset="100%" stopColor="#0369a1" />
-                    </radialGradient>
-                    <filter id="shadow3d" x="-10%" y="-10%" width="130%" height="130%">
-                      <feDropShadow dx="0" dy="12" stdDeviation="6" floodColor="#000" floodOpacity="0.35" />
-                    </filter>
-                  </defs>
-
-                  {/* 3D Bottom Base / Ellipse Shadow */}
-                  <ellipse cx="190" cy="115" rx="130" ry="50" fill="#000" opacity="0.18" filter="url(#shadow3d)" />
-
-                  {/* 3D Extrusion Depth Layer */}
-                  <path d="M 60,105 A 130,48 0 0,0 320,105 L 320,125 A 130,48 0 0,1 60,125 Z" fill="#064e3b" />
-
-                  {/* Main 3D Pie Top Slices */}
-                  {/* Slice 1: Mobile Phone (Green Major Slice) */}
-                  <path d="M 190,105 L 140,65 A 130,48 0 1,0 320,105 Z" fill="url(#phoneGrad)" stroke="#064e3b" strokeWidth="1.5" />
-
-                  {/* Slice 2: Hard Disk (Orange Slice) */}
-                  <path d="M 190,105 L 90,85 A 130,48 0 0,1 140,65 Z" fill="url(#hddGrad)" stroke="#7c2d12" strokeWidth="1.5" />
-
-                  {/* Slice 3: USB (Dark Red Slice) */}
-                  <path d="M 190,105 L 65,100 A 130,48 0 0,1 90,85 Z" fill="url(#usbGrad)" stroke="#4c0519" strokeWidth="1.5" />
-
-                  {/* Slice 4: Laptop & others */}
-                  <path d="M 190,105 L 60,105 A 130,48 0 0,1 65,100 Z" fill="url(#laptopGrad)" stroke="#075985" strokeWidth="1.5" />
-
-                  {/* Callout Lines & Badges */}
-                  {/* Callout 1: Mobile Phone */}
-                  <polyline points="260,130 300,165 370,165" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <text x="300" y="180" fontSize="10.5" fontWeight="bold" fill="#0f172a">
-                    Mobile Phone, {reqStats?.evidentiary_categories?.['Mobile Phone'] || (totalDevices > 0 ? totalDevices : '2,537')}
-                  </text>
-
-                  {/* Callout 2: Hard Disk */}
-                  <polyline points="110,75 80,45 20,45" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <text x="15" y="40" fontSize="9.5" fontWeight="bold" fill="#0f172a">Hard Disk - HDD, {reqStats?.evidentiary_categories?.['Hard Disk - HDD'] || 385}</text>
-
-                  {/* Callout 3: USB */}
-                  <polyline points="75,90 50,70 10,70" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <text x="10" y="65" fontSize="9" fontWeight="bold" fill="#0f172a">USB, {reqStats?.evidentiary_categories?.['USB'] || 133}</text>
-
-                  {/* Callout 4: Computer / Laptop */}
-                  <polyline points="62,102 35,92 10,92" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <text x="10" y="88" fontSize="8.5" fontWeight="bold" fill="#0f172a">Laptop, {reqStats?.evidentiary_categories?.['Laptop'] || 31}</text>
-                </svg>
-              </div>
-
-              {/* Legend Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 6, fontSize: 10, color: '#334155', borderTop: '1px solid #e2e8f0', paddingTop: 12, marginTop: 'auto' }}>
-                {[
-                  { name: 'CD/DVD', color: '#38bdf8' },
-                  { name: 'Computer', color: '#f59e0b' },
-                  { name: 'DVR', color: '#10b981' },
-                  { name: 'Hard Disk - HDD', color: '#f97316' },
-                  { name: 'IPAD/Tablet', color: '#06b6d4' },
-                  { name: 'Laptop', color: '#ef4444' },
-                  { name: 'Memory Card', color: '#8b5cf6' },
-                  { name: 'Mobile Phone', color: '#22c55e' },
-                  { name: 'Other', color: '#94a3b8' },
-                  { name: 'SIM Card', color: '#eab308' },
-                  { name: 'USB', color: '#991b1b' },
-                ].map((leg, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: leg.color, display: 'inline-block', flexShrink: 0 }}></span>
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{leg.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right Box: Organization wise Cases */}
-            <div style={{ background: '#fcfcfd', border: '1px solid #e2e8f0', borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', textAlign: 'center', marginBottom: 16 }}>
-                Organization wise Cases
-              </div>
-
-              {/* 3D Perspective Slice Visualization */}
-              <div style={{ position: 'relative', minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '10px 0' }}>
-                <svg viewBox="0 0 380 200" style={{ width: '100%', maxHeight: 210 }}>
-                  <defs>
-                    <radialGradient id="ccrcGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#b91c1c" />
-                      <stop offset="100%" stopColor="#7f1d1d" />
-                    </radialGradient>
-                    <radialGradient id="policeGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#0284c7" />
-                      <stop offset="100%" stopColor="#075985" />
-                    </radialGradient>
-                    <radialGradient id="ctwGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#0d9488" />
-                      <stop offset="100%" stopColor="#115e59" />
-                    </radialGradient>
-                    <radialGradient id="ahtcGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#eab308" />
-                      <stop offset="100%" stopColor="#a16207" />
-                    </radialGradient>
-                  </defs>
-
-                  {/* 3D Shadow Base */}
-                  <ellipse cx="230" cy="115" rx="100" ry="40" fill="#000" opacity="0.18" filter="url(#shadow3d)" />
-
-                  {/* Extrusion */}
-                  <path d="M 130,105 A 100,38 0 0,0 330,105 L 330,125 A 100,38 0 0,1 130,125 Z" fill="#450a0a" />
-
-                  {/* Slice 1: CCRC (Major Red Slice) */}
-                  <path d="M 230,105 L 180,72 A 100,38 0 1,0 330,105 Z" fill="url(#ccrcGrad)" stroke="#450a0a" strokeWidth="1.5" />
-
-                  {/* Slice 2: CTW / Police / Other */}
-                  <path d="M 230,105 L 140,95 A 100,38 0 0,1 180,72 Z" fill="url(#ctwGrad)" stroke="#115e59" strokeWidth="1.5" />
-                  <path d="M 230,105 L 130,105 A 100,38 0 0,1 140,95 Z" fill="url(#policeGrad)" stroke="#0c4a6e" strokeWidth="1.5" />
-
-                  {/* Callout Lines & Badges */}
-                  <polyline points="280,125 310,165 370,165" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <text x="290" y="180" fontSize="10.5" fontWeight="bold" fill="#0f172a">
-                    CCRC, {reqStats?.organizations?.['CCRC'] || (totalRequests > 0 ? totalRequests : '1,085')}
-                  </text>
-
-                  <polyline points="200,75 230,45 290,45" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <text x="235" y="40" fontSize="9" fontWeight="bold" fill="#0f172a">CTW, {reqStats?.organizations?.['CTW'] || 67}</text>
-
-                  <polyline points="160,85 180,55 240,55" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <text x="185" y="52" fontSize="9" fontWeight="bold" fill="#0f172a">Police, {reqStats?.organizations?.['Police'] || 36}</text>
-
-                  <polyline points="140,98 120,70 60,70" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <text x="50" y="65" fontSize="8.5" fontWeight="bold" fill="#0f172a">ACC, {reqStats?.organizations?.['ACC (Anti-Corruption Circle)'] || 45}</text>
-                </svg>
-              </div>
-
-              {/* Legend Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))', gap: 6, fontSize: 9.5, color: '#334155', borderTop: '1px solid #e2e8f0', paddingTop: 12, marginTop: 'auto' }}>
-                {[
-                  { name: 'ACC (Anti-Corruption Circle)', color: '#38bdf8' },
-                  { name: 'AHTC', color: '#f59e0b' },
-                  { name: 'ANF', color: '#10b981' },
-                  { name: 'CBC', color: '#f97316' },
-                  { name: 'CCC', color: '#06b6d4' },
-                  { name: 'CCRC', color: '#b91c1c' },
-                  { name: 'CCW', color: '#8b5cf6' },
-                  { name: 'CTD', color: '#22c55e' },
-                  { name: 'CTW', color: '#0d9488' },
-                  { name: 'ECW', color: '#0284c7' },
-                  { name: 'EGOA', color: '#7c3aed' },
-                  { name: 'FBR', color: '#ca8a04' },
-                  { name: 'Federal Ombudsman', color: '#ea580c' },
-                  { name: 'FIA', color: '#eab308' },
-                  { name: 'Ministry of Narcotics Control', color: '#15803d' },
-                  { name: 'NAB', color: '#ef4444' },
-                  { name: 'Other', color: '#94a3b8' },
-                  { name: 'Police', color: '#1e3a8a' },
-                ].map((leg, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: leg.color, display: 'inline-block', flexShrink: 0 }}></span>
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{leg.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Right: Organization wise Cases */}
+            <TruePie3D
+              title="Organization wise Cases"
+              items={[
+                { name: 'CCRC', val: reqStats?.organizations?.['CCRC'] || (totalRequests > 0 ? totalRequests : 1085), color: '#b91c1c' },
+                { name: 'CCC', val: reqStats?.organizations?.['CCC'] || 146, color: '#0284c7' },
+                { name: 'AHTC', val: reqStats?.organizations?.['AHTC'] || 97, color: '#d97706' },
+                { name: 'CTW', val: reqStats?.organizations?.['CTW'] || 67, color: '#0d9488' },
+                { name: 'ACC (Anti-Corruption Circle)', val: reqStats?.organizations?.['ACC (Anti-Corruption Circle)'] || 45, color: '#2563eb' },
+                { name: 'Police', val: reqStats?.organizations?.['Police'] || 36, color: '#1e3a8a' },
+                { name: 'CBC', val: reqStats?.organizations?.['CBC'] || 24, color: '#e11d48' },
+                { name: 'CCW', val: reqStats?.organizations?.['CCW'] || 21, color: '#7c3aed' },
+                { name: 'ANF', val: reqStats?.organizations?.['ANF'] || 14, color: '#10b981' },
+                { name: 'CTD', val: reqStats?.organizations?.['CTD'] || 12, color: '#059669' },
+                { name: 'FIA', val: reqStats?.organizations?.['FIA'] || 9, color: '#ca8a04' },
+                { name: 'NAB', val: reqStats?.organizations?.['NAB'] || 8, color: '#dc2626' },
+                { name: 'Federal Ombudsman', val: reqStats?.organizations?.['Federal Ombudsman'] || 5, color: '#ea580c' },
+                { name: 'Ministry of Narcotics Control', val: reqStats?.organizations?.['Ministry of Narcotics Control'] || 3, color: '#15803d' },
+                { name: 'Other', val: reqStats?.organizations?.['Other'] || 2, color: '#64748b' },
+              ]}
+              defaultTotal={1560}
+            />
 
           </div>
 
