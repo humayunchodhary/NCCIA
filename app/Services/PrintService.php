@@ -504,7 +504,7 @@ class PrintService
               <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                 <thead>
                   <tr style="background: #e2e8f0;">
-                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Notice Level</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Notice Number</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Issue Date</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Appearance Date</th>
                     <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Status</th>
