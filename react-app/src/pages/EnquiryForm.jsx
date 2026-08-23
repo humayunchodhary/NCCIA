@@ -444,7 +444,9 @@ export default function EnquiryForm() {
         id: n.id,
         notice_number: n.notice_number || '',
         notice_type: n.notice_type || '',
-        receiver_name: n.receiver_name || '', cnic: n.cnic || '',
+        receiver_name: n.receiver_name || '',
+        father_name: n.father_name || '',
+        cnic: n.cnic || '',
         person_type: n.person_type || '',
         person_ref: n.person_ref ?? '',
         notice_via: n.notice_via || '',
@@ -682,7 +684,7 @@ export default function EnquiryForm() {
   const addNotice = () => {
     setForm(f => {
       setEditingNoticeIndex(f.notices.length);
-      return { ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', cnic: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] };
+      return { ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', father_name: '', cnic: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] };
     });
   };
   const duplicateNotice = (i) => {
@@ -709,6 +711,7 @@ export default function EnquiryForm() {
           const a = f.accused[Number(personRef)];
           if (a) {
             next.receiver_name = a.name || '';
+            next.father_name = a.father_name || '';
             next.cnic = a.cnic || '';
             next.phone = a.contact_no || a.whatsapp_no || '';
             next.address = a.postal_address || a.permanent_address || '';
@@ -717,6 +720,7 @@ export default function EnquiryForm() {
           const w = f.witnesses[Number(personRef)];
           if (w) {
             next.receiver_name = w.name || '';
+            next.father_name = w.father_name || '';
             next.cnic = w.cnic || '';
             next.phone = w.contact_no || w.whatsapp_no || '';
             next.address = w.address || w.mailing_address || w.permanent_address || '';
@@ -724,11 +728,13 @@ export default function EnquiryForm() {
         } else if (personType === 'complainant') {
           if (selectedComplaint) {
             next.receiver_name = selectedComplaint.complainant_name || '';
+            next.father_name = selectedComplaint.father_name || '';
             next.cnic = selectedComplaint.cnic || '';
             next.phone = selectedComplaint.contact_no || selectedComplaint.whatsapp_no || '';
             next.address = selectedComplaint.address || '';
           } else if (directMode && direct) {
             next.receiver_name = direct.complainant_name || '';
+            next.father_name = direct.father_name || '';
             next.cnic = direct.cnic || '';
             next.phone = direct.contact_no || direct.whatsapp_no || '';
             next.address = direct.address || '';
@@ -748,7 +754,7 @@ export default function EnquiryForm() {
     setForm(f => ({
       ...f,
       notices: f.notices.map((n, idx) => idx === noticeIndex
-        ? { ...n, person_type: personType, person_ref: '', receiver_name: '', cnic: '', phone: '', address: '' }
+        ? { ...n, person_type: personType, person_ref: '', receiver_name: '', father_name: '', cnic: '', phone: '', address: '' }
         : n),
     }));
   };
@@ -1946,7 +1952,7 @@ export default function EnquiryForm() {
                       ))}
                     </div>
                   )}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Person Type</label>
                       <select className="cf-input" value={n.person_type} onChange={e => onNoticePersonTypeChange(i, e.target.value)}>
                         <option value="">— Select —</option>
@@ -1954,7 +1960,7 @@ export default function EnquiryForm() {
                       </select>
                     </div>
                     {n.person_type === 'accused' && (
-                      <div className="cf-field"><label className="cf-label">Accused Name</label>
+                      <div className="cf-field"><label className="cf-label">Select Accused</label>
                         <select
                           className="cf-input"
                           value={n.person_ref ?? ''}
@@ -1970,7 +1976,7 @@ export default function EnquiryForm() {
                       </div>
                     )}
                     {n.person_type === 'witness' && (
-                      <div className="cf-field"><label className="cf-label">Witness Name</label>
+                      <div className="cf-field"><label className="cf-label">Select Witness</label>
                         <select
                           className="cf-input"
                           value={n.person_ref ?? ''}
@@ -1987,6 +1993,9 @@ export default function EnquiryForm() {
                     )}
                     <div className="cf-field"><label className="cf-label">Receiver Name</label>
                       <input type="text" className="cf-input" value={n.receiver_name} onChange={e => updateNotice(i, 'receiver_name', e.target.value)} placeholder="Recipient name" />
+                    </div>
+                    <div className="cf-field"><label className="cf-label">Father Name</label>
+                      <input type="text" className="cf-input" value={n.father_name || ''} onChange={e => updateNotice(i, 'father_name', e.target.value)} placeholder="Father name" />
                     </div>
                     <div className="cf-field"><label className="cf-label">CNIC</label>
                       <input type="text" className="cf-input" value={n.cnic || ''} onChange={e => updateNotice(i, 'cnic', e.target.value.replace(/\D/g, '').slice(0,13))} placeholder="CNIC Number" />

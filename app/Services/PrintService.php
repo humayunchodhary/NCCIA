@@ -412,11 +412,54 @@ class PrintService
         $complainantName = e($complaint?->complainant_name ?: ($enquiry?->direct_info['complainant_name'] ?? '—'));
         
         $receiverName = e($notice->receiver_name ?: '—');
-        $fatherName   = e($notice->father_name ?: ($complaint?->father_name ?: ''));
+        
+        $personFatherName = $notice->father_name;
+        $personCnic       = $notice->cnic;
+        $personPhone      = $notice->phone;
+        $personAddress    = $notice->address;
+
+        // If father_name / details are empty on notice record, resolve from matching accused / witness / complainant
+        if (empty($personFatherName) || empty($personCnic) || empty($personAddress) || empty($personPhone)) {
+            if ($enquiry && $notice->person_type === 'accused') {
+                $matchedAccused = $enquiry->accusedPersons->first(fn ($a) => trim(strtolower($a->name ?? '')) === trim(strtolower($notice->receiver_name ?? '')))
+                    ?: $enquiry->accusedPersons->first();
+                if ($matchedAccused) {
+                    $personFatherName = $personFatherName ?: $matchedAccused->father_name;
+                    $personCnic       = $personCnic ?: $matchedAccused->cnic;
+                    $personPhone      = $personPhone ?: ($matchedAccused->contact_no ?: $matchedAccused->whatsapp_no);
+                    $personAddress    = $personAddress ?: ($matchedAccused->postal_address ?: $matchedAccused->permanent_address);
+                }
+            } elseif ($enquiry && $notice->person_type === 'witness') {
+                $matchedWitness = $enquiry->witnesses->first(fn ($w) => trim(strtolower($w->name ?? '')) === trim(strtolower($notice->receiver_name ?? '')))
+                    ?: $enquiry->witnesses->first();
+                if ($matchedWitness) {
+                    $personFatherName = $personFatherName ?: $matchedWitness->father_name;
+                    $personCnic       = $personCnic ?: $matchedWitness->cnic;
+                    $personPhone      = $personPhone ?: ($matchedWitness->contact_no ?: $matchedWitness->whatsapp_no);
+                    $personAddress    = $personAddress ?: ($matchedWitness->address ?: ($matchedWitness->mailing_address ?: $matchedWitness->permanent_address));
+                }
+            } elseif ($notice->person_type === 'complainant') {
+                $personFatherName = $personFatherName ?: ($complaint?->father_name ?: ($enquiry?->direct_info['father_name'] ?? ''));
+                $personCnic       = $personCnic ?: ($complaint?->cnic ?: ($enquiry?->direct_info['cnic'] ?? ''));
+                $personPhone      = $personPhone ?: ($complaint?->contact_no ?: ($enquiry?->direct_info['contact_no'] ?? ''));
+                $personAddress    = $personAddress ?: ($complaint?->address ?: ($enquiry?->direct_info['address'] ?? ''));
+            } else {
+                // If person_type is unset, check if receiver matches an accused
+                $matchedAccused = $enquiry?->accusedPersons?->first(fn ($a) => trim(strtolower($a->name ?? '')) === trim(strtolower($notice->receiver_name ?? '')));
+                if ($matchedAccused) {
+                    $personFatherName = $personFatherName ?: $matchedAccused->father_name;
+                    $personCnic       = $personCnic ?: $matchedAccused->cnic;
+                    $personPhone      = $personPhone ?: ($matchedAccused->contact_no ?: $matchedAccused->whatsapp_no);
+                    $personAddress    = $personAddress ?: ($matchedAccused->postal_address ?: $matchedAccused->permanent_address);
+                }
+            }
+        }
+
+        $fatherName   = e($personFatherName ?: '');
         $parentageStr = $fatherName ? ' S/O ' . $fatherName : '';
-        $cnic         = e($notice->cnic ?: ($complaint?->cnic ?: '0000000000000'));
-        $address      = e($notice->address ?: ($complaint?->address ?: 'Cyber Crime Reporting Center Area'));
-        $phone        = e($notice->phone ?: ($complaint?->contact_no ?: '—'));
+        $cnic         = e($personCnic ?: '0000000000000');
+        $address      = e($personAddress ?: 'Cyber Crime Reporting Center Area');
+        $phone        = e($personPhone ?: '—');
         
         $noticeDate   = $notice->notice_date ? $notice->notice_date->format('d-m-Y') : date('d-m-Y');
         
