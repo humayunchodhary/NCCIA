@@ -612,19 +612,16 @@ class PrintService
 
           <table class="to-complainant-table" style="width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; line-height: 1.45;">
             <tr>
-              <td style="vertical-align: top; width: 55%; padding-right: 15px;">
+              <td style="vertical-align: top; width: 60%; padding-right: 15px;">
                 <div class="to-line"><strong>To,</strong></div>
                 <div class="to-name" style="font-size: 13.5px; margin: 2px 0;"><strong>{$receiverName}{$parentageStr}</strong></div>
                 <div class="to-cnic"><strong>CNIC No.</strong> {$cnic}</div>
                 <div class="to-addr">{$address}</div>
                 <div class="to-phone">{$phone}</div>
               </td>
-              <td style="vertical-align: top; width: 45%; border-left: 1.5px solid #cbd5e1; padding-left: 15px;">
-                <div style="color: #334155; font-weight: 700; font-size: 12px; text-transform: uppercase;"><strong>Complainant:</strong></div>
-                <div style="font-size: 13.5px; margin: 2px 0;"><strong>{$compName}{$compParentage}</strong></div>
-                <div><strong>CNIC No.</strong> {$compCnic}</div>
-                <div>{$compAddress}</div>
-                <div>{$compPhone}</div>
+              <td style="vertical-align: top; width: 40%; text-align: right;">
+                <div style="font-size: 12.5px;"><strong>Complainant:</strong></div>
+                <div style="font-size: 13.5px; margin-top: 2px;"><strong>{$compName}</strong></div>
               </td>
             </tr>
           </table>
