@@ -266,7 +266,7 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
         <td style="border:1px solid #000;padding:6px;">${e.condition||`Sealed`}</td>
         <td style="border:1px solid #000;padding:6px;">${e.description||`—`}</td>
       </tr>
-      `}).join(``),m=`NCCIA - ZONE ${(t.complaint?.circle?.city||t.complaint?.circle?.name||t.direct_info?.circle_name||`Lahore`).replace(/circle|zone|nccia-rc|nccia|-/gi,``).trim().toUpperCase()||`LAHORE`}`,h=(G.linkedRequests||[])[0]||null,g=(G.ciRemarks||h?.note||`Approved & Forwarded for Forensic Examination.`).trim(),_=(h?.examiner_assignment_notes||h?.forensic_remarks||`Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.`).trim(),v=h?.created_at?new Date(h.created_at).toLocaleDateString(`en-GB`):c,y=h?.assigned_to_examiner_at?new Date(h.assigned_to_examiner_at).toLocaleDateString(`en-GB`):c;Is(`
+      `}).join(``),m=(t.complaint?.circle?.city||t.complaint?.circle?.name||t.direct_info?.circle_name||`Lahore`).replace(/circle|zone|nccia-rc|nccia|-/gi,``).trim().toUpperCase()||`LAHORE`,h=`NCCIA-RC ${m}`,g=`NCCIA - ZONE ${m}`,_=(G.linkedRequests||[])[0]||null,v=(G.ciRemarks||_?.note||`Approved & Forwarded for Forensic Examination.`).trim(),y=(_?.examiner_assignment_notes||_?.forensic_remarks||`Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.`).trim(),b=_?.created_at?new Date(_.created_at).toLocaleDateString(`en-GB`):c,x=_?.assigned_to_examiner_at?new Date(_.assigned_to_examiner_at).toLocaleDateString(`en-GB`):c;Is(`
       <!DOCTYPE html>
       <html>
       <head>
@@ -338,7 +338,7 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
           ${u}<br/>
           ${d?`<span>Contact: <strong>${d}</strong></span><br/>`:``}
           National Cyber Crime Investigation Agency<br/>
-          ${m}
+          ${h}
         </div>
 
         <!-- ── 1. Endorsement: Circle Incharge to DD Forensic ── -->
@@ -348,23 +348,23 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
               <strong>To,</strong><br/>
               <strong>Deputy Director (Forensics),</strong><br/>
               National Cyber Crime Investigation Agency<br/>
-              ${m}
+              ${g}
             </div>
             <div style="text-align:right;">
-              <strong>Dated:</strong> ${v}
+              <strong>Dated:</strong> ${b}
             </div>
           </div>
           <div style="margin: 8px 0;">
             <strong>Remarks / Order:</strong>
             <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
-              ${g}
+              ${v}
             </div>
           </div>
           <div class="sign-block" style="margin-top: 18px;">
             <br/>
             <strong>Circle Incharge</strong><br/>
             National Cyber Crime Investigation Agency<br/>
-            ${m}
+            ${h}
           </div>
         </div>
 
@@ -375,23 +375,23 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
               <strong>To,</strong><br/>
               <strong>Assistant Director (Forensics),</strong><br/>
               National Cyber Crime Investigation Agency<br/>
-              ${m}
+              ${g}
             </div>
             <div style="text-align:right;">
-              <strong>Dated:</strong> ${y}
+              <strong>Dated:</strong> ${x}
             </div>
           </div>
           <div style="margin: 8px 0;">
             <strong>Remarks / Order:</strong>
             <div style="margin-top: 3px; padding: 4px 8px; border-bottom: 1px dotted #555; min-height: 20px; font-style: italic;">
-              ${_}
+              ${y}
             </div>
           </div>
           <div class="sign-block" style="margin-top: 18px;">
             <br/>
             <strong>Assistant Director (Forensics)</strong><br/>
             National Cyber Crime Investigation Agency<br/>
-            ${m}
+            ${g}
           </div>
         </div>
       </body>
