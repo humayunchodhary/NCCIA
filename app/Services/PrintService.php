@@ -968,9 +968,15 @@ class PrintService
                 $serialText = trim(e($dev['serial_no'] ?? ''));
                 
                 $identifiers = [];
-                if ($imeiText) $identifiers[] = 'IMEI1: ' . $imeiText;
-                if ($imei2Text) $identifiers[] = 'IMEI2: ' . $imei2Text;
-                if ($serialText) $identifiers[] = 'SN: ' . $serialText;
+                if ($imeiText && $imei2Text) {
+                    $identifiers[] = 'IMEI 1: ' . $imeiText;
+                    $identifiers[] = 'IMEI 2: ' . $imei2Text;
+                } elseif ($imeiText || $imei2Text) {
+                    $identifiers[] = 'IMEI: ' . ($imeiText ?: $imei2Text);
+                }
+                if ($serialText) {
+                    $identifiers[] = 'SN: ' . $serialText;
+                }
                 $devImei = empty($identifiers) ? '—' : implode('<br/>', $identifiers);
                 
                 $devStorage = e($dev['storage_capacity'] ?? '—');

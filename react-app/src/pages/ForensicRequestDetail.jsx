@@ -173,9 +173,17 @@ export default function ForensicRequestDetail() {
 
     const itemRows = (row.items && row.items.length > 0 ? row.items : [{ item_type: 'Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
       let imeiStr = [];
-      if (it.imei) imeiStr.push('IMEI1: ' + it.imei);
-      if (it.imei2) imeiStr.push('IMEI2: ' + it.imei2);
-      if (it.serial_no) imeiStr.push('SN: ' + it.serial_no);
+      const hasImei1 = Boolean(it.imei && it.imei.trim());
+      const hasImei2 = Boolean(it.imei2 && it.imei2.trim());
+      if (hasImei1 && hasImei2) {
+        imeiStr.push('IMEI 1: ' + it.imei.trim());
+        imeiStr.push('IMEI 2: ' + it.imei2.trim());
+      } else if (hasImei1 || hasImei2) {
+        imeiStr.push('IMEI: ' + (it.imei || it.imei2).trim());
+      }
+      if (it.serial_no && it.serial_no.trim()) {
+        imeiStr.push('SN: ' + it.serial_no.trim());
+      }
       let imeiFinal = imeiStr.length > 0 ? imeiStr.join('<br/>') : '—';
       
       const seizedFromPerson = it.seized_from
@@ -828,39 +836,53 @@ export default function ForensicRequestDetail() {
                   : rawBase;
               }
 
-              return (
-                <tr key={i}>
-                  <td style={{border:'1px solid #000',padding:'5px 7px',textAlign:'center',verticalAlign:'top',fontWeight:'bold'}}>{i+1}</td>
-                  <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',lineHeight:1.5}}>
-                    <div><strong>Category:</strong> {catName}</div>
-                    <div><strong>Brand:</strong> {brandStr}</div>
-                    {modelStr && <div><strong>Model:</strong> {modelStr}</div>}
-                    {it.storage_capacity && <div style={{fontSize:10.5,color:'#444'}}>Storage: {it.storage_capacity} GB</div>}
-                  </td>
-                  <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',lineHeight:1.5}}>
-                    {(() => {
-                      const isMobile = ['phone', 'mobile_phone', 'sim', 'tablet', 'ipad'].includes((it.item_type || '').toLowerCase());
-                      if (isMobile) {
-                        return (
-                          <>
-                            {imeis.length > 0 && <div><strong>IMEI:</strong> {imeis.join(', ')}</div>}
-                            {it.serial_no && <div><strong>Serial No:</strong> {it.serial_no}</div>}
-                            {imeis.length === 0 && !it.serial_no && '—'}
-                          </>
-                        );
-                      } else {
-                        const serialVal = it.serial_no || imeis.join(', ');
-                        return serialVal ? (
-                          <div><strong>Serial No:</strong> {serialVal}</div>
-                        ) : '—';
-                      }
-                    })()}
-                  </td>
-                  <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>
-                    <div>[Lab No: {itemLabNo || '36671'}]</div>
-                  </td>
-                </tr>
-              );
+                const accusedNames = (row.enquiry?.accused_persons || row.enquiry?.accusedPersons || []).map(a => a.name).filter(Boolean);
+                const seizedFromPerson = it.seized_from
+                  || (accusedNames[i] ? accusedNames[i] : (accusedNames.length > 0 ? accusedNames[0] : (complainantName || '—')));
+
+                return (
+                  <tr key={i}>
+                    <td style={{border:'1px solid #000',padding:'5px 7px',textAlign:'center',verticalAlign:'top',fontWeight:'bold'}}>{i+1}</td>
+                    <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',lineHeight:1.5}}>
+                      <div><strong>Category:</strong> {catName}</div>
+                      <div><strong>Brand:</strong> {brandStr}</div>
+                      {modelStr && <div><strong>Model:</strong> {modelStr}</div>}
+                      {it.storage_capacity && <div style={{fontSize:10.5,color:'#444'}}>Storage: {it.storage_capacity} GB</div>}
+                      {seizedFromPerson && <div style={{marginTop:3,fontSize:11,color:'#0f172a'}}><strong>Seized From:</strong> {seizedFromPerson}</div>}
+                    </td>
+                    <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',lineHeight:1.5}}>
+                      {(() => {
+                        const isMobile = ['phone', 'mobile_phone', 'sim', 'tablet', 'ipad'].includes((it.item_type || '').toLowerCase());
+                        const hasImei1 = Boolean(it.imei && it.imei.trim());
+                        const hasImei2 = Boolean(it.imei2 && it.imei2.trim());
+                        if (isMobile) {
+                          return (
+                            <>
+                              {hasImei1 && hasImei2 ? (
+                                <>
+                                  <div><strong>IMEI 1:</strong> {it.imei.trim()}</div>
+                                  <div><strong>IMEI 2:</strong> {it.imei2.trim()}</div>
+                                </>
+                              ) : (hasImei1 || hasImei2) ? (
+                                <div><strong>IMEI:</strong> {(it.imei || it.imei2).trim()}</div>
+                              ) : null}
+                              {it.serial_no && <div><strong>Serial No:</strong> {it.serial_no.trim()}</div>}
+                              {!hasImei1 && !hasImei2 && !it.serial_no && '—'}
+                            </>
+                          );
+                        } else {
+                          const serialVal = (it.serial_no || it.imei || it.imei2 || '').trim();
+                          return serialVal ? (
+                            <div><strong>Serial No:</strong> {serialVal}</div>
+                          ) : '—';
+                        }
+                      })()}
+                    </td>
+                    <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>
+                      <div>[Lab No: {itemLabNo || '36671'}]</div>
+                    </td>
+                  </tr>
+                );
             }):(
               <tr>
                 <td style={{border:'1px solid #000',padding:'5px 7px',textAlign:'center',height:40}}>1</td>

@@ -279,9 +279,17 @@ export default function Enquiries() {
 
     const itemRows = (scopeLetterData.items.length ? scopeLetterData.items : [{ item_type: 'Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
       let imeiStr = [];
-      if (it.imei) imeiStr.push('IMEI1: ' + it.imei);
-      if (it.imei2) imeiStr.push('IMEI2: ' + it.imei2);
-      if (it.serial_no) imeiStr.push('SN: ' + it.serial_no);
+      const hasImei1 = Boolean(it.imei && it.imei.trim());
+      const hasImei2 = Boolean(it.imei2 && it.imei2.trim());
+      if (hasImei1 && hasImei2) {
+        imeiStr.push('IMEI 1: ' + it.imei.trim());
+        imeiStr.push('IMEI 2: ' + it.imei2.trim());
+      } else if (hasImei1 || hasImei2) {
+        imeiStr.push('IMEI: ' + (it.imei || it.imei2).trim());
+      }
+      if (it.serial_no && it.serial_no.trim()) {
+        imeiStr.push('SN: ' + it.serial_no.trim());
+      }
       let imeiFinal = imeiStr.length > 0 ? imeiStr.join('<br/>') : '—';
       
       const seizedFromPerson = it.seized_from
