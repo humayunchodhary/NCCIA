@@ -831,13 +831,23 @@ export default function ForensicRequestDetail() {
                     {it.storage_capacity && <div style={{fontSize:10.5,color:'#444'}}>Storage: {it.storage_capacity} GB</div>}
                   </td>
                   <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',lineHeight:1.5}}>
-                    {imeis.length > 0 && (
-                      <div><strong>IMEI:</strong> {imeis.join(', ')}</div>
-                    )}
-                    {it.serial_no && (
-                      <div><strong>Serial No:</strong> {it.serial_no}</div>
-                    )}
-                    {imeis.length === 0 && !it.serial_no && '—'}
+                    {(() => {
+                      const isMobile = ['phone', 'mobile_phone', 'sim', 'tablet', 'ipad'].includes((it.item_type || '').toLowerCase());
+                      if (isMobile) {
+                        return (
+                          <>
+                            {imeis.length > 0 && <div><strong>IMEI:</strong> {imeis.join(', ')}</div>}
+                            {it.serial_no && <div><strong>Serial No:</strong> {it.serial_no}</div>}
+                            {imeis.length === 0 && !it.serial_no && '—'}
+                          </>
+                        );
+                      } else {
+                        const serialVal = it.serial_no || imeis.join(', ');
+                        return serialVal ? (
+                          <div><strong>Serial No:</strong> {serialVal}</div>
+                        ) : '—';
+                      }
+                    })()}
                   </td>
                   <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>
                     <div>[Lab No: {itemLabNo || '36671'}]</div>
