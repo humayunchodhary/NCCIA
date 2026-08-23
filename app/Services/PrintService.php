@@ -1385,7 +1385,22 @@ HTML;
         $officer      = $enquiry->officer ?: request()->user();
         $officerName  = e($officer?->name ?: 'Enquiry Officer');
         $officerDesig = e($officer?->designation ?: 'Sub-Inspector');
-        $officerSigHtml = $this->getOfficerSignatureHtml($officer, 35);
+        $officerSigHtml = $this->getOfficerSignatureHtml($officer, 38);
+
+        // Dual Logos: NCCIA (Left) and Ministry of Interior / Government of Pakistan (Right)
+        $ncciaLogo    = url('images/images.jpg');
+        $interiorLogo = url('images/pak-govt-logo.png');
+
+        // System generated Date & Time
+        $dateTimeStr  = now()->format('d-m-Y h:i A');
+
+        // Dynamic EO vs IO designation & label
+        $officerRole = strtolower(($officer?->designation ?? '') . ' ' . ($officer?->role ?? '') . ' ' . ($officer?->name ?? ''));
+        $isIo = str_contains($officerRole, 'io') 
+             || str_contains($officerRole, 'investigation') 
+             || $enquiry->hasRegisteredCase()
+             || !empty($enquiry->case_file_id);
+        $officerTypeLabel = $isIo ? 'IO' : 'EO';
 
         $fraudAmount = '';
         if (!empty($params['fraud_amount'])) {
@@ -1409,9 +1424,26 @@ HTML;
 
         $body = <<<HTML
         <div class="proforma-doc">
-          <div class="header-row">
-            <div>PS: <u>NCCIA, CCRC</u></div>
-            <div>Distt: <u>{$circleName}</u></div>
+          <table class="proforma-top-table">
+            <tr>
+              <td class="top-logo-left">
+                <img src="{$ncciaLogo}" alt="NCCIA" class="proforma-logo" />
+              </td>
+              <td class="top-center-cell">
+                <div class="agency-title">NATIONAL CYBER CRIME INVESTIGATION AGENCY</div>
+                <div class="agency-sub">MINISTRY OF INTERIOR &bull; GOVERNMENT OF PAKISTAN</div>
+                <div class="center-name">Cyber Crime Reporting Center, {$circleName}</div>
+              </td>
+              <td class="top-logo-right">
+                <img src="{$interiorLogo}" alt="Ministry of Interior" class="proforma-logo" />
+              </td>
+            </tr>
+          </table>
+
+          <div class="proforma-meta-row">
+            <div><strong>PS:</strong> <u>NCCIA, CCRC, {$circleName}</u></div>
+            <div><strong>Distt:</strong> <u>{$circleName}</u></div>
+            <div><strong>Generated:</strong> <u>{$dateTimeStr}</u></div>
           </div>
 
           <div class="proforma-title">
@@ -1469,8 +1501,9 @@ HTML;
 
           <div class="sign-section">
             <div><strong>Signature with date:</strong> {$officerSigHtml}</div>
-            <div style="margin-top: 6px;"><strong>Name of EO / IO:</strong> {$officerName}</div>
+            <div style="margin-top: 6px;"><strong>Name of {$officerTypeLabel}:</strong> {$officerName}</div>
             <div><strong>Designation:</strong> {$officerDesig}</div>
+            <div style="font-size: 11px; color: #475569; margin-top: 2px;">Date: {$dateTimeStr}</div>
           </div>
 
           <div class="authorities-section">
@@ -1485,22 +1518,31 @@ HTML;
 
         return $this->document(
             $body,
-            '@page { size: A4 portrait; margin: 20mm 22mm; }
-             body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; line-height: 1.6; }
-             .proforma-doc { width: 100%; max-width: 170mm; margin: 0 auto; font-size: 13.5px; }
-             .header-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 13.5px; margin-bottom: 24px; }
-             .proforma-title { text-align: center; font-size: 15px; font-weight: 800; text-decoration: underline; margin-bottom: 28px; letter-spacing: 0.5px; text-transform: uppercase; }
-             .form-body { line-height: 2.2; }
-             .field-row { margin-bottom: 6px; }
-             .field-block { margin-bottom: 8px; }
-             .hint { font-size: 12px; color: #222; font-weight: normal; }
-             .line-fill { display: inline-block; border-bottom: 1px solid #000; min-width: 320px; padding-left: 8px; font-weight: 600; }
-             .full-line { border-bottom: 1px solid #000; min-height: 24px; padding-left: 8px; }
-             .empty-line { margin-top: 6px; }
-             .closing-text { margin-top: 16px; margin-bottom: 20px; text-align: justify; line-height: 1.5; font-size: 13.5px; }
-             .sign-section { margin-top: 35px; margin-left: auto; width: 240px; font-size: 13px; line-height: 1.6; }
-             .authorities-section { margin-top: 45px; font-size: 13.5px; line-height: 1.8; }
-             .auth-line { border-bottom: 1px solid #000; width: 380px; min-height: 24px; margin-top: 6px; }'
+            '@page { size: A4 portrait; margin: 16mm 20mm; }
+             body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; line-height: 1.5; }
+             .proforma-doc { width: 100%; max-width: 172mm; margin: 0 auto; font-size: 13px; }
+             .proforma-top-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+             .proforma-top-table td { vertical-align: middle; padding: 0; }
+             .top-logo-left { width: 65px; text-align: left; }
+             .top-logo-right { width: 65px; text-align: right; }
+             .proforma-logo { width: 60px; height: 60px; object-fit: contain; }
+             .top-center-cell { text-align: center; padding: 0 10px; }
+             .agency-title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #000; letter-spacing: 0.5px; }
+             .agency-sub { font-size: 10.5px; font-weight: 700; color: #333; margin-top: 2px; letter-spacing: 0.5px; }
+             .center-name { font-size: 12px; font-weight: 700; color: #111; margin-top: 2px; }
+             .proforma-meta-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin: 8px 0 16px 0; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 4px 0; }
+             .proforma-title { text-align: center; font-size: 14.5px; font-weight: 800; text-decoration: underline; margin-bottom: 20px; letter-spacing: 0.5px; text-transform: uppercase; }
+             .form-body { line-height: 2.1; }
+             .field-row { margin-bottom: 5px; }
+             .field-block { margin-bottom: 6px; }
+             .hint { font-size: 11.5px; color: #333; font-weight: normal; }
+             .line-fill { display: inline-block; border-bottom: 1px solid #000; min-width: 300px; padding-left: 8px; font-weight: 600; }
+             .full-line { border-bottom: 1px solid #000; min-height: 22px; padding-left: 8px; }
+             .empty-line { margin-top: 5px; }
+             .closing-text { margin-top: 14px; margin-bottom: 16px; text-align: justify; line-height: 1.45; font-size: 13px; }
+             .sign-section { margin-top: 28px; margin-left: auto; width: 250px; font-size: 12.5px; line-height: 1.5; }
+             .authorities-section { margin-top: 36px; font-size: 13px; line-height: 1.7; }
+             .auth-line { border-bottom: 1px solid #000; width: 360px; min-height: 22px; margin-top: 5px; }'
         );
     }
 
