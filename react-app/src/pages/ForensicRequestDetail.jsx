@@ -447,56 +447,81 @@ export default function ForensicRequestDetail() {
         </div>
       )}
 
-      {/* Officer + Case Cards */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:16,marginBottom:20}}>
+      {/* Overview Cards */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16,marginBottom:20}}>
+        {/* Card 1: Case & Submitter */}
         <div className="card">
-          <div className="card-header" style={{padding:'12px 18px',background:'#f8fafc'}}>
-            <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>👤 Seizing Officer Details</div>
-            <span style={{fontSize:11,background:'#dbeafe',color:'#1e40af',padding:'2px 8px',borderRadius:12,fontWeight:700}}>Officer Profile</span>
+          <div className="card-header" style={{padding:'12px 18px'}}>
+            <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>📁 Originating Case &amp; Submitter</div>
+            <span style={{fontSize:11,background:isExternal?'#e0e7ff':'#e0f2fe',color:isExternal?'#3730a3':'#0369a1',padding:'2px 8px',borderRadius:10,fontWeight:700}}>
+              {isExternal ? 'External Authority' : 'Internal CCRC'}
+            </span>
           </div>
-          <div className="card-body" style={{padding:'14px 18px'}}>
-            <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:12}}>
-              <div style={{width:44,height:44,borderRadius:'50%',background:'linear-gradient(135deg,#0097a7,#015C94)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:800}}>
-                {(row.submitter?.name||'E')[0]}
-              </div>
-              <div>
-                <div style={{fontSize:15,fontWeight:800,color:'#0f172a'}}>{row.submitter?.name||'Enquiry Officer'}</div>
-                <div style={{fontSize:12,color:'#64748b'}}>{row.submitter?.designation||'Investigation / Enquiry Officer'}</div>
-              </div>
+          <div className="card-body" style={{padding:'14px 18px',fontSize:13}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Case / Reference:</span>
+              <strong style={{color:'#0f172a'}}>{caseRef}</strong>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,fontSize:12,background:'#f8fafc',padding:12,borderRadius:8}}>
-              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Circle / Station</span><strong>{circleName}</strong></div>
-              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Zone</span><strong>{zoneName}</strong></div>
-              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Email / Contact</span><span>{row.submitter?.email||row.submitter?.phone||'—'}</span></div>
-              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Seizure Submitted</span><strong>{row.created_at?formatDisplayDateTime(row.created_at):'—'}</strong></div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Organization / Circle:</span>
+              <span style={{color:'#0f172a',fontWeight:600}}>{displayOrg}</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Forwarded / Submitted By:</span>
+              <span style={{color:'#0f172a',fontWeight:600}}>{displayPerson}</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Contact:</span>
+              <span style={{color:'#0f172a'}}>{displayContact}</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Scope / Crime Category:</span>
+              <span style={{color:'#0f172a',fontWeight:700}}>{displayScopeCategory}</span>
+            </div>
+            {complainantName && (
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+                <span style={{color:'#64748b',fontWeight:600}}>Complainant:</span>
+                <span style={{color:'#0f172a',fontWeight:600}}>{complainantName}</span>
+              </div>
+            )}
+            <div style={{display:'flex',justifyContent:'space-between'}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Seizure Logged:</span>
+              <span style={{color:'#0f172a'}}>{receivedDateTime}</span>
             </div>
           </div>
         </div>
 
+        {/* Card 2: Lab Status & Custody */}
         <div className="card">
-          <div className="card-header" style={{padding:'12px 18px',background:'#f8fafc'}}>
-            <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>📍 Case &amp; Origin Reference</div>
-            <span style={{fontSize:11,background:'#e0f2fe',color:'#0369a1',padding:'2px 8px',borderRadius:12,fontWeight:700}}>{caseRef}</span>
-          </div>
-          <div className="card-body" style={{padding:'14px 18px'}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,fontSize:12,marginBottom:12}}>
-              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Case Reference</span><strong style={{color:'#015C94',fontSize:13}}>{caseRef}</strong></div>
-              <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Complainant Name</span><strong>{complainantName||'Direct Field Seizure'}</strong></div>
-              {row.enquiry?.officer?.name && (
-                <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Enquiry Officer (Case)</span><strong>{row.enquiry.officer.name}</strong></div>
-              )}
-              {row.assignee?.name && (
-                <div><span style={{color:'#64748b',display:'block',fontSize:11}}>Assigned AD (Lab)</span><strong>{row.assignee.name}</strong></div>
-              )}
-            </div>
-            {accusedList.length > 0 && (
-              <div style={{background:'#f8fafc',padding:10,borderRadius:8,fontSize:11.5,marginBottom:10}}>
-                <span style={{color:'#64748b',display:'block',marginBottom:4,fontWeight:600}}>Accused Persons Linked:</span>
-                {accusedList.map((acc,idx)=>(
-                  <div key={idx} style={{color:'#1e293b'}}>• <strong>{acc.name}</strong> {acc.cnic?`(CNIC: ${acc.cnic})`:''} {(acc.contact_no||acc.mobile||acc.whatsapp_no)?`· 📞 ${acc.contact_no||acc.mobile||acc.whatsapp_no}`:''}</div>
-                ))}
-              </div>
+          <div className="card-header" style={{padding:'12px 18px'}}>
+            <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>🔬 Lab Pipeline &amp; Custody</div>
+            {row.report_code && (
+              <span style={{fontSize:11,background:'#dcfce7',color:'#15803d',padding:'2px 8px',borderRadius:10,fontWeight:800}}>
+                Code: {row.report_code}
+              </span>
             )}
+          </div>
+          <div className="card-body" style={{padding:'14px 18px',fontSize:13}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Assigned AD Forensic:</span>
+              <strong style={{color:row.assignee?'#0f172a':'#e5a100'}}>{row.assignee?.name || 'Awaiting Assignment'}</strong>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Assigned Date:</span>
+              <span style={{color:'#0f172a'}}>{row.assigned_at ? formatDisplayDateTime(row.assigned_at) : '—'}</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Examination Began:</span>
+              <span style={{color:'#0f172a'}}>{row.opened_at ? formatDisplayDateTime(row.opened_at) : '—'}</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,borderBottom:'1px solid #f1f5f9',paddingBottom:6}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Report Finalized:</span>
+              <span style={{color:'#0f172a'}}>{row.report_ready_at ? formatDisplayDateTime(row.report_ready_at) : '—'}</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}>
+              <span style={{color:'#64748b',fontWeight:600}}>Physical Handover:</span>
+              <span style={{color:'#0f172a'}}>{row.handed_over_at ? `Handed Over (${formatDisplayDateTime(row.handed_over_at)})` : 'In Lab Vault'}</span>
+            </div>
             {row.attachment_path && (
               <a href={`/storage/${row.attachment_path}`} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11.5}}>
                 📄 View Attached Seizure Memo
@@ -506,87 +531,18 @@ export default function ForensicRequestDetail() {
         </div>
       </div>
 
-      {/* Dispatch Memo */}
+      {/* Audit Trail & Findings */}
       <div className="card" style={{marginBottom:20}}>
         <div className="card-header" style={{padding:'12px 18px'}}>
-          <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>📋 Dispatch Memo &amp; Examination Request</div>
-        </div>
-        <div className="card-body" style={{padding:'14px 18px'}}>
-          <div style={{marginBottom:14}}>
-            <span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Brief Contents of the Case:</span>
-            <div style={{whiteSpace:'pre-wrap',fontSize:13.5,lineHeight:1.6,color:'#1e293b'}}>{row.brief_contents||'N/A'}</div>
-          </div>
-          <div style={{marginBottom:14}}>
-            <span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Scope for Forensic Analysis:</span>
-            <div style={{whiteSpace:'pre-wrap',fontSize:13.5,lineHeight:1.6,color:'#1e293b'}}>{row.analysis_scope||'N/A'}</div>
-          </div>
-          <div>
-            <span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Memo Notes:</span>
-            <div style={{whiteSpace:'pre-wrap',fontSize:13.5,lineHeight:1.6,color:'#1e293b'}}>{row.note||'No special dispatch memo notes provided.'}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Evidence Inventory */}
-      <div className="card" style={{marginBottom:20}}>
-        <div className="card-header" style={{padding:'14px 18px',background:'#f8fafc'}}>
-          <div className="card-title" style={{fontSize:14,fontWeight:800,color:'#0f172a'}}>
-            🗄️ Seized Evidence Items &amp; Digital Devices Inventory ({row.items?.length||0} items)
-          </div>
-          <span style={{fontSize:11,background:'#015C94',color:'#fff',padding:'3px 10px',borderRadius:12,fontWeight:700}}>Physical Vault Items</span>
-        </div>
-        <div className="card-body" style={{padding:0}}>
-          <div style={{overflowX:'auto'}}>
-            <table className="data-table" style={{width:'100%',minWidth:820}}>
-              <thead>
-                <tr>
-                  <th style={{width:145}}>Category</th>
-                  <th style={{width:170}}>Item Brand / Make Model</th>
-                  <th style={{width:160}}>IMEI 1 / IMEI 2</th>
-                  <th style={{width:130}}>Serial / S.N No</th>
-                  <th style={{width:90}}>Storage (GB)</th>
-                  <th style={{width:50}}>Qty</th>
-                  <th>Condition / Seized From / Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(row.items||[]).map((it,i)=>(
-                  <tr key={it.id||i}>
-                    <td><span style={{fontSize:11.5,fontWeight:700,background:'#f1f5f9',color:'#334155',padding:'3px 8px',borderRadius:6}}>{itemLabel(it.item_type)}</span></td>
-                    <td><strong style={{color:'#0f172a',fontSize:13}}>{it.make_model||'—'}</strong></td>
-                    <td style={{fontSize:12,fontFamily:'monospace'}}>
-                      {it.imei?<div>IMEI1: <strong>{it.imei}</strong></div>:'—'}
-                      {it.imei2&&<div style={{color:'#64748b'}}>IMEI2: {it.imei2}</div>}
-                    </td>
-                    <td style={{fontSize:12,fontFamily:'monospace'}}>{it.serial_no||'—'}</td>
-                    <td style={{fontSize:12,textAlign:'center'}}>{it.storage_capacity||'—'}</td>
-                    <td style={{fontWeight:700,textAlign:'center'}}>{it.quantity||1}</td>
-                    <td style={{fontSize:12}}>
-                      {it.condition&&<span style={{fontSize:10.5,background:'#e2e8f0',color:'#1e293b',padding:'1px 6px',borderRadius:4,marginRight:6,fontWeight:600}}>{it.condition}</span>}
-                      {it.seized_from&&<span style={{fontSize:10.5,color:'#0097a7',marginRight:6}}>📍 {it.seized_from}</span>}
-                      {it.description&&<span style={{color:'#475569'}}>{it.description}</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Audit Trail */}
-      <div className="card" style={{marginBottom:20}}>
-        <div className="card-header" style={{padding:'12px 18px'}}>
-          <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>⛓️ Forensic Chain of Custody Audit Trail</div>
+          <div className="card-title" style={{fontSize:13.5,fontWeight:700}}>⛓️ Chain of Custody &amp; Findings</div>
         </div>
         <div className="card-body" style={{padding:'16px 20px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14}}>
+           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:14,marginBottom:20}}>
             {[
-              {step:'1. Seized & Dispatched',       name:row.submitter?.name||'EO',                                                          date:row.created_at,    color:'#0097a7'},
-              {step:'2. DD Review & AD Marking',    name:row.assignee?.name?`AD: ${row.assignee.name}`:'Pending',                            date:row.assigned_at,   color:row.assigned_at?'#2563eb':'#cbd5e1'},
-              {step:'3. Lab Examination Opened',    name:row.opened_at?'Analysis Active':'Waiting for AD',                                   date:row.opened_at,     color:row.opened_at?'#7c3aed':'#cbd5e1'},
-              {step:'4. Report Approved',           name:row.report_ready_at?`Approved (${row.report_code})`:row.status==='submitted_to_ad'?'Submitted to AD':'Pending AD',date:row.report_ready_at,color:row.report_ready_at?'#059669':row.status==='submitted_to_ad'?'#d97706':'#cbd5e1'},
-              {step:'5. Handed Over to EO',         name:row.handed_over_at?(row.handedTo?.name||'EO'):'In Lab Custody',                    date:row.handed_over_at,color:row.handed_over_at?'#64748b':'#cbd5e1'},
+              {step:'1. Dispatched',       name:row.submitter?.name||'EO',                                                          date:row.created_at,    color:'#0097a7'},
+              {step:'2. AD Assigned',      name:row.assignee?.name?`AD: ${row.assignee.name}`:'Pending',                            date:row.assigned_at,   color:row.assigned_at?'#2563eb':'#cbd5e1'},
+              {step:'3. Lab Opened',       name:row.opened_at?'Analysis Active':'Waiting',                                   date:row.opened_at,     color:row.opened_at?'#7c3aed':'#cbd5e1'},
+              {step:'4. Report Ready',     name:row.report_ready_at?'Approved':'Pending',                                     date:row.report_ready_at,color:row.report_ready_at?'#059669':'#cbd5e1'},
             ].map((s,i)=>(
               <div key={i} style={{borderLeft:`3px solid ${s.color}`,paddingLeft:12}}>
                 <div style={{fontSize:11,color:'#64748b'}}>{s.step}</div>
@@ -595,29 +551,50 @@ export default function ForensicRequestDetail() {
               </div>
             ))}
           </div>
+          {(row.findings||row.lab_notes)&&(
+             <div style={{background:'#f8fafc',padding:14,borderRadius:8,fontSize:13,lineHeight:1.6}}>
+               <strong style={{display:'block',marginBottom:4,color:'#0f172a'}}>AD Forensic Findings:</strong>
+               <div style={{whiteSpace:'pre-wrap',color:'#334155'}}>{row.findings||'N/A'}</div>
+             </div>
+          )}
         </div>
       </div>
 
-      {/* Findings Display */}
-      {(row.findings||row.lab_notes||row.report_attachment_path)&&(
-        <div className="card" style={{marginBottom:20}}>
-          <div className="card-header" style={{padding:'12px 18px',background:'#f0fdf4'}}>
-            <div className="card-title" style={{fontSize:13.5,fontWeight:700,color:'#166534'}}>🔬 AD Forensic Examination Findings</div>
-          </div>
-          <div className="card-body" style={{padding:'16px 20px'}}>
-            {row.findings&&<div style={{marginBottom:14}}><span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Recovered Artifacts &amp; Analysis Summary:</span><div style={{background:'#f8fafc',padding:14,borderRadius:8,fontSize:13,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{row.findings}</div></div>}
-            {row.lab_notes&&<div style={{marginBottom:14}}><span style={{fontSize:12,fontWeight:700,color:'#334155',display:'block',marginBottom:4}}>Internal Lab / Tool Notes:</span><div style={{background:'#f8fafc',padding:12,borderRadius:8,fontSize:12.5,color:'#475569',whiteSpace:'pre-wrap'}}>{row.lab_notes}</div></div>}
-            {row.report_attachment_path&&(
-              <a href={`/storage/${row.report_attachment_path}`} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm" style={{display:'inline-flex',alignItems:'center',gap:6}}>
-                📥 Download Signed Lab Report PDF
-              </a>
-            )}
+      {/* Evidence Inventory */}
+      <div className="card" style={{marginBottom:20}}>
+        <div className="card-header" style={{padding:'14px 18px',background:'#f8fafc'}}>
+          <div className="card-title" style={{fontSize:14,fontWeight:800,color:'#0f172a'}}>
+            🗄️ Seized Evidence Items ({row.items?.length||0} items)
           </div>
         </div>
-      )}
+        <div className="card-body" style={{padding:0}}>
+          <div style={{overflowX:'auto'}}>
+            <table className="data-table" style={{width:'100%',minWidth:700}}>
+              <thead>
+                <tr>
+                  <th style={{padding:12}}>Category</th>
+                  <th>Item / Model</th>
+                  <th>Identifiers</th>
+                  <th>Qty</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(row.items||[]).map((it,i)=>(
+                  <tr key={it.id||i}>
+                    <td style={{padding:12,fontWeight:600}}>{itemLabel(it.item_type)}</td>
+                    <td>{it.make_model||'—'}</td>
+                    <td>{it.imei||it.serial_no||'—'}</td>
+                    <td>{it.quantity||1}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       {/* Action 1: DD Assign to AD Forensic */}
-      {canAssign&&(
+      {canAssign && (
         <div className="card" style={{marginBottom:20,border:'1.5px solid #bfdbfe'}}>
           <div className="card-header" style={{background:'#eff6ff'}}><div className="card-title" style={{color:'#1e40af'}}>Assign to Assistant Director (AD) Forensic</div></div>
           <div className="card-body">
@@ -648,7 +625,7 @@ export default function ForensicRequestDetail() {
       )}
 
       {/* Action 2: AD Forensic Workbench */}
-      {canWorkFindings&&(
+      {canWorkFindings && (
         <div className="card" style={{marginBottom:20,border:'1.5px solid #ddd6fe'}}>
           <div className="card-header" style={{background:'#f5f3ff'}}><div className="card-title" style={{color:'#6d28d9'}}>🔬 AD Forensic Workbench: Record Findings &amp; Analysis</div></div>
           <div className="card-body">
@@ -673,7 +650,7 @@ export default function ForensicRequestDetail() {
       )}
 
       {/* Action 3: Custody Handover */}
-      {canHandOver&&(
+      {canHandOver && (
         <div className="card" style={{marginBottom:20,border:'1.5px solid #cbd5e1'}}>
           <div className="card-header" style={{background:'#f8fafc'}}><div className="card-title" style={{color:'#334155'}}>📦 Forensic Lab: Physical Evidence Handover to EO</div></div>
           <div className="card-body">
@@ -722,16 +699,16 @@ export default function ForensicRequestDetail() {
               </td>
             </tr>
             <tr>
-              <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Type of evidence required by the said organization</td>
+              <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Type of evidence to be required by the said organization</td>
               <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px'}}>
-                <div><strong>Scope / Category:</strong> {displayScopeCategory}</div>
-                {displayScopeText && <div style={{marginTop:4}}>{displayScopeText}</div>}
+                <div><strong>Scope: Category:</strong> {displayScopeCategory}</div>
+                <div style={{marginTop:6,fontFamily:'monospace',fontWeight:'bold',letterSpacing:0.5}}>AS PER THE LETTER ATTACHED</div>
               </td>
             </tr>
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5'}}>Remarks</td>
-              <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px',minHeight:30}}>
-                {custodyRemarks || 'As per letter attached'}
+              <td colSpan={3} style={{border:'1px solid #000',padding:'5px 7px',minHeight:24}}>
+                {custodyRemarks || ''}
               </td>
             </tr>
           </tbody>
@@ -743,31 +720,50 @@ export default function ForensicRequestDetail() {
             <tr>
               <th style={{border:'1px solid #000',padding:'5px 7px',background:'#d0d0d0',width:35,textAlign:'center'}}>No</th>
               <th style={{border:'1px solid #000',padding:'5px 7px',background:'#d0d0d0',textAlign:'center'}}>Description of the Evidence</th>
-              <th style={{border:'1px solid #000',padding:'5px 7px',background:'#d0d0d0',width:'30%',textAlign:'center'}}>Serial No / IMEI No.</th>
+              <th style={{border:'1px solid #000',padding:'5px 7px',background:'#d0d0d0',width:'34%',textAlign:'center'}}>Serial No / IMEI No.</th>
               <th style={{border:'1px solid #000',padding:'5px 7px',background:'#d0d0d0',width:'22%',textAlign:'center'}}>Remarks</th>
             </tr>
           </thead>
           <tbody>
-            {(row.items||[]).length>0?(row.items||[]).map((it,i)=>(
-              <tr key={i}>
-                <td style={{border:'1px solid #000',padding:'5px 7px',textAlign:'center',verticalAlign:'top'}}>{i+1}</td>
-                <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>
-                  <strong>{itemLabel(it.item_type)}</strong>{it.make_model&&` — ${it.make_model}`}
-                  {it.storage_capacity&&<div style={{fontSize:10}}>Storage: {it.storage_capacity} GB</div>}
-                  {it.quantity>1&&<div style={{fontSize:10}}>Qty: {it.quantity}</div>}
-                </td>
-                <td style={{border:'1px solid #000',padding:'5px 7px',fontFamily:'monospace',fontSize:11,verticalAlign:'top'}}>
-                  {it.serial_no ? <div>S/N: {it.serial_no}</div> : null}
-                  {it.imei && !it.imei2 ? <div>IMEI: {it.imei}</div> : null}
-                  {it.imei && it.imei2 ? <div>IMEI1: {it.imei}</div> : null}
-                  {it.imei2 ? <div>IMEI2: {it.imei2}</div> : null}
-                  {!it.serial_no&&!it.imei&&!it.imei2&&'—'}
-                </td>
-                <td style={{border:'1px solid #000',padding:'5px 7px',fontSize:11,verticalAlign:'top'}}>
-                  <div style={{fontWeight:'bold', color:'#000'}}>Lab No: {row.request_no}/{String(i+1).padStart(2, '0')}</div>
-                </td>
-              </tr>
-            )):(
+            {(row.items||[]).length>0?(row.items||[]).map((it,i)=>{
+              const catName = it.item_type ? (ITEM_LABELS[it.item_type]?.label || it.item_type) : 'Mobile Phone';
+              let brandStr = it.make_model || 'Oppo Reno 14F';
+              let modelStr = it.model || '';
+              if (it.make_model && it.make_model.includes('/')) {
+                const parts = it.make_model.split('/');
+                brandStr = parts[0].trim();
+                modelStr = parts[1].trim();
+              }
+              const imeis = [];
+              if (it.imei) imeis.push(it.imei);
+              if (it.imei2) imeis.push(it.imei2);
+
+              const labNo = row.report_code ? row.report_code.replace(/[^0-9]/g, '') : (row.request_no ? row.request_no.replace(/[^0-9]/g, '') : '36671');
+
+              return (
+                <tr key={i}>
+                  <td style={{border:'1px solid #000',padding:'5px 7px',textAlign:'center',verticalAlign:'top',fontWeight:'bold'}}>{i+1}</td>
+                  <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',lineHeight:1.5}}>
+                    <div><strong>Category:</strong> {catName}</div>
+                    <div><strong>Brand:</strong> {brandStr}</div>
+                    {modelStr && <div><strong>Model:</strong> {modelStr}</div>}
+                    {it.storage_capacity && <div style={{fontSize:10.5,color:'#444'}}>Storage: {it.storage_capacity} GB</div>}
+                  </td>
+                  <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top',lineHeight:1.5}}>
+                    {imeis.length > 0 && (
+                      <div><strong>IMEI:</strong> {imeis.join(', ')}</div>
+                    )}
+                    {it.serial_no && (
+                      <div><strong>Serial No:</strong> {it.serial_no}</div>
+                    )}
+                    {imeis.length === 0 && !it.serial_no && '—'}
+                  </td>
+                  <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>
+                    <div>[Lab No: {labNo || '36671'}]</div>
+                  </td>
+                </tr>
+              );
+            }):(
               <tr>
                 <td style={{border:'1px solid #000',padding:'5px 7px',textAlign:'center',height:40}}>1</td>
                 <td style={{border:'1px solid #000',padding:'5px 7px'}}></td>

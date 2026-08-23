@@ -928,47 +928,115 @@ class ForensicRequestController extends Controller
             : 0;
 
         // Seized Devices breakdown
-        $itemCounts = DB::table('forensic_request_items')
+        $rawItemCounts = DB::table('forensic_request_items')
             ->join('forensic_requests', 'forensic_request_items.forensic_request_id', '=', 'forensic_requests.id')
             ->where('forensic_requests.destination', 'forensic')
-            ->select('forensic_request_items.item_type', DB::raw('SUM(forensic_request_items.quantity) as total_qty'))
+            ->select('forensic_request_items.item_type', DB::raw('SUM(COALESCE(forensic_request_items.quantity, 1)) as total_qty'))
             ->groupBy('forensic_request_items.item_type')
             ->pluck('total_qty', 'item_type')
             ->all();
 
-        $totalDevices = array_sum($itemCounts);
+        $totalDevices = array_sum($rawItemCounts);
 
-        // Circle distribution
-        $circleCounts = DB::table('forensic_requests')
-            ->join('users', 'forensic_requests.submitted_by', '=', 'users.id')
-            ->leftJoin('circles', 'users.circle_id', '=', 'circles.id')
+        // Evidentiary Categories mapping
+        $catMap = [
+            'Mobile Phone'     => (int) ($rawItemCounts['phone'] ?? $rawItemCounts['mobile'] ?? 0),
+            'Hard Disk - HDD'  => (int) ($rawItemCounts['hdd'] ?? $rawItemCounts['hard_disk'] ?? $rawItemCounts['ssd'] ?? 0),
+            'USB'              => (int) ($rawItemCounts['usb'] ?? $rawItemCounts['flash_drive'] ?? 0),
+            'Laptop'           => (int) ($rawItemCounts['laptop'] ?? $rawItemCounts['notebook'] ?? 0),
+            'Memory Card'      => (int) ($rawItemCounts['memory_card'] ?? $rawItemCounts['sd_card'] ?? 0),
+            'IPAD/Tablet'      => (int) ($rawItemCounts['ipad_tablet'] ?? $rawItemCounts['tablet'] ?? 0),
+            'Computer'         => (int) ($rawItemCounts['computer'] ?? $rawItemCounts['desktop'] ?? 0),
+            'SIM Card'         => (int) ($rawItemCounts['sim'] ?? $rawItemCounts['sim_card'] ?? 0),
+            'CD/DVD'           => (int) ($rawItemCounts['cd_dvd'] ?? $rawItemCounts['dvd'] ?? 0),
+            'DVR'              => (int) ($rawItemCounts['dvr'] ?? $rawItemCounts['cctv'] ?? 0),
+            'Other'            => (int) ($rawItemCounts['other'] ?? 0),
+        ];
+
+        // Regions distribution (Master List matching Pakistan Cybercrime Zones & Circles)
+        $masterRegions = ['Bahawalpur', 'D. G. Khan', 'Faisalabad', 'Gujranwala', 'Gujrat', 'Lahore', 'Multan', 'Sargodha', 'Sukkur', 'Rawalpindi', 'Islamabad', 'Peshawar', 'Quetta', 'Karachi'];
+        $dbCircleCounts = DB::table('forensic_requests')
+            ->leftJoin('enquiries', 'forensic_requests.enquiry_id', '=', 'enquiries.id')
+            ->leftJoin('complaints', 'enquiries.complaint_id', '=', 'complaints.id')
+            ->leftJoin('circles', 'complaints.circle_id', '=', 'circles.id')
+            ->leftJoin('users', 'forensic_requests.submitted_by', '=', 'users.id')
+            ->leftJoin('circles as user_circles', 'users.circle_id', '=', 'user_circles.id')
             ->where('forensic_requests.destination', 'forensic')
-            ->select(DB::raw('COALESCE(circles.name, "Headquarters") as circle_name'), DB::raw('COUNT(forensic_requests.id) as count'))
+            ->select(DB::raw('COALESCE(circles.name, user_circles.name, "Lahore") as circle_name'), DB::raw('COUNT(forensic_requests.id) as count'))
             ->groupBy('circle_name')
-            ->orderByDesc('count')
-            ->limit(8)
             ->pluck('count', 'circle_name')
             ->all();
 
+        $regionsData = [];
+        foreach ($masterRegions as $reg) {
+            $matchedVal = 0;
+            foreach ($dbCircleCounts as $cName => $cCount) {
+                if (stripos($cName, $reg) !== false) {
+                    $matchedVal += (int) $cCount;
+                }
+            }
+            $regionsData[$reg] = $matchedVal;
+        }
+
+        // Organizations distribution
+        $dbOrgCounts = DB::table('forensic_requests')
+            ->where('destination', 'forensic')
+            ->select(DB::raw('COALESCE(external_organization, "CCRC") as org_name'), DB::raw('COUNT(id) as count'))
+            ->groupBy('org_name')
+            ->pluck('count', 'org_name')
+            ->all();
+
+        $masterOrgs = ['CCRC', 'CTW', 'Police', 'ACC (Anti-Corruption Circle)', 'AHTC', 'CBC', 'CCC', 'CCW', 'ANF', 'CTD', 'Federal Ombudsman', 'FIA', 'Ministry of Narcotics Control', 'NAB', 'Other'];
+        $orgsData = [];
+        foreach ($masterOrgs as $org) {
+            $matchedVal = 0;
+            foreach ($dbOrgCounts as $oName => $oCount) {
+                if (stripos($oName, $org) !== false || (str_contains($org, 'CCRC') && stripos($oName, 'CCRC') !== false)) {
+                    $matchedVal += (int) $oCount;
+                }
+            }
+            $orgsData[$org] = $matchedVal;
+        }
+
+        // Forensic Experts Workload
+        $feUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic', 'forensic_team', 'dd_forensic']))
+            ->orderBy('name')
+            ->get();
+
+        $feWorkload = [];
+        foreach ($feUsers as $fe) {
+            $wNew       = ForensicRequest::where('assigned_to', $fe->id)->whereIn('status', ['submitted', 'assigned'])->count();
+            $wWorking   = ForensicRequest::where('assigned_to', $fe->id)->where('status', 'in_progress')->count();
+            $wCompleted = ForensicRequest::where('assigned_to', $fe->id)->where('status', 'report_ready')->count();
+            $wReturned  = ForensicRequest::where('assigned_to', $fe->id)->where('status', 'handed_over')->count();
+            $wTotal     = $wNew + $wWorking + $wCompleted + $wReturned;
+
+            $feWorkload[] = [
+                'id'        => $fe->id,
+                'name'      => $fe->name,
+                'new'       => $wNew,
+                'working'   => $wWorking,
+                'completed' => $wCompleted,
+                'returned'  => $wReturned,
+                'total'     => $wTotal,
+            ];
+        }
+
         $response = [
-            'submitted'     => $submitted,
-            'assigned'      => $assigned,
-            'in_progress'   => $inProgress,
-            'report_ready'  => $reportReady,
-            'handed_over'   => $handedOver,
-            'total'         => $total,
-            'urgent_count'  => $urgentCount,
-            'my_assigned'   => $myAssigned,
-            'total_devices' => $totalDevices,
-            'devices_by_type' => [
-                'phone'     => (int) ($itemCounts['phone'] ?? $itemCounts['mobile'] ?? 0),
-                'laptop'    => (int) ($itemCounts['laptop'] ?? $itemCounts['computer'] ?? $itemCounts['pc'] ?? 0),
-                'storage'   => (int) ($itemCounts['hdd'] ?? $itemCounts['ssd'] ?? $itemCounts['storage'] ?? 0),
-                'sim'       => (int) ($itemCounts['sim'] ?? $itemCounts['usb'] ?? $itemCounts['flash_drive'] ?? 0),
-                'documents' => (int) ($itemCounts['documents'] ?? $itemCounts['report'] ?? 0),
-                'other'     => (int) ($itemCounts['other'] ?? 0),
-            ],
-            'by_circle'     => $circleCounts,
+            'submitted'             => $submitted,
+            'assigned'              => $assigned,
+            'in_progress'           => $inProgress,
+            'report_ready'          => $reportReady,
+            'handed_over'           => $handedOver,
+            'total'                 => $total,
+            'urgent_count'          => $urgentCount,
+            'my_assigned'           => $myAssigned,
+            'total_devices'         => $totalDevices,
+            'by_region'             => $regionsData,
+            'evidentiary_categories'=> $catMap,
+            'organizations'         => $orgsData,
+            'fe_workload'           => $feWorkload,
+            'by_circle'             => $dbCircleCounts,
         ];
 
         if (\Illuminate\Support\Facades\Cache::has('login_alert_' . $user->id)) {
