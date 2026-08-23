@@ -585,6 +585,77 @@ class PrintService
             HTML;
         }
 
+        // Build Accused Persons Table
+        $accusedRows = '';
+        $accList = $enquiry ? $enquiry->accusedPersons : collect([]);
+        if ($accList->isEmpty() && !empty($complaint?->initial_accused) && is_array($complaint->initial_accused)) {
+            $accList = collect($complaint->initial_accused);
+        }
+
+        if ($accList->isNotEmpty()) {
+            foreach ($accList as $aIdx => $a) {
+                $sr = $aIdx + 1;
+                if (is_array($a)) {
+                    $aName = e($a['name'] ?? '—');
+                    $aFather = e($a['father_name'] ?? '');
+                    $aCnic = e($a['cnic'] ?? '—');
+                    $aPhone = e($a['mobile_no'] ?? ($a['phone'] ?? '—'));
+                    $aAddr = e($a['postal_address'] ?? ($a['address'] ?? ($a['permanent_address'] ?? '—')));
+                } else {
+                    $aName = e($a->name ?? '—');
+                    $aFather = e($a->father_name ?? '');
+                    $aCnic = e($a->cnic ?? '—');
+                    $aPhone = e($a->contact_no ?? ($a->whatsapp_no ?? '—'));
+                    $aAddr = e($a->postal_address ?? ($a->permanent_address ?? '—'));
+                }
+                $aParentage = $aFather ? ' S/O ' . $aFather : '';
+                $accusedRows .= <<<HTML
+                <tr>
+                  <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700;">{$sr}</td>
+                  <td style="padding: 4px 8px; border: 1px solid #cbd5e1; font-weight: 600;">{$aName}{$aParentage}</td>
+                  <td style="padding: 4px 8px; border: 1px solid #cbd5e1;">{$aCnic}</td>
+                  <td style="padding: 4px 8px; border: 1px solid #cbd5e1;">{$aPhone}</td>
+                  <td style="padding: 4px 8px; border: 1px solid #cbd5e1;">{$aAddr}</td>
+                </tr>
+                HTML;
+            }
+        } elseif ($notice->person_type === 'accused' || !empty($receiverName)) {
+            $accusedRows = <<<HTML
+            <tr>
+              <td style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700;">1</td>
+              <td style="padding: 4px 8px; border: 1px solid #cbd5e1; font-weight: 600;">{$receiverName}{$parentageStr}</td>
+              <td style="padding: 4px 8px; border: 1px solid #cbd5e1;">{$cnic}</td>
+              <td style="padding: 4px 8px; border: 1px solid #cbd5e1;">{$phone}</td>
+              <td style="padding: 4px 8px; border: 1px solid #cbd5e1;">{$address}</td>
+            </tr>
+            HTML;
+        }
+
+        $accusedTableHtml = '';
+        if (!empty($accusedRows)) {
+            $accusedTableHtml = <<<HTML
+            <div style="margin: 10px 0 10px 0; border: 1.5px solid #1e293b; padding: 6px 8px; background: #f8fafc; border-radius: 4px;">
+              <div style="font-weight: 800; font-size: 11px; color: #0f172a; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">
+                DETAIL OF ACCUSED PERSON(S):
+              </div>
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                <thead>
+                  <tr style="background: #e2e8f0;">
+                    <th style="padding: 4px 6px; border: 1px solid #cbd5e1; text-align: center; width: 30px;">#</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Name &amp; Parentage</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">CNIC No.</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Contact No.</th>
+                    <th style="padding: 4px 8px; border: 1px solid #cbd5e1; text-align: left;">Address</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {$accusedRows}
+                </tbody>
+              </table>
+            </div>
+            HTML;
+        }
+
         return <<<HTML
         <div class="callup-notice">
           <table class="notice-top-table">
@@ -633,10 +704,12 @@ class PrintService
               <div><strong>Gist of Allegation:</strong> {$gistOfAllegation}</div>
             </div>
 
-            <p style="margin: 12px 0 6px 0; text-align: justify; line-height: 1.6;">
+            {$accusedTableHtml}
+
+            <p style="margin: 10px 0 6px 0; text-align: justify; line-height: 1.5;">
               Therefore, you are directed to appear in person before the undersigned to record your version, on date: <strong>{$appDate}</strong> time <strong>{$appTime}</strong> at the following address <strong>{$stationAddress}</strong>
             </p>
-            <p style="margin: 8px 0; text-align: justify;">
+            <p style="margin: 6px 0; text-align: justify;">
               In case of non-appearance, it will be assumed that you have nothing to present or state in your defense.
             </p>
 
