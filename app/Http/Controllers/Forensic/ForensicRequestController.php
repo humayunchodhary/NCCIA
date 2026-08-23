@@ -31,7 +31,7 @@ class ForensicRequestController extends Controller
 
             $enquiryWith = [
                 'officer:id,name,email,designation',
-                'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id',
+                'complaint:id,tracking_no,complainant_name,contact_no,cnic,circle_id,offence_type,description',
                 'complaint.circle:id,name,code',
             ];
             if ($hasAccused) {

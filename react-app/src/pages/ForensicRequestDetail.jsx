@@ -24,6 +24,29 @@ function itemLabel(type) {
   return `${m.icon} ${m.label}`;
 }
 
+const OFFENCE_LABELS = {
+  financial_fraud: 'Financial / Banking Fraud',
+  online_scam:     'Online Scam / Phishing',
+  crypto_fraud:    'Cryptocurrency Fraud',
+  extortion:       'Cyber Extortion / Blackmail',
+  cyberstalking:   'Cyberstalking',
+  impersonation:   'Impersonation / Identity Theft',
+  defamation:      'Online Defamation / Fake Profile',
+  harassment:      'Online Harassment / Threats',
+  non_consensual:  'Non-Consensual Content',
+  hacking:         'Hacking / Unauthorized Access',
+  malware:         'Malware / Ransomware Attack',
+  data_breach:     'Data Breach / Theft',
+  ddos:            'DDoS / System Disruption',
+  anti_state:      'Anti-State / Terrorism Content',
+  hate_speech:     'Hate Speech / Extremism',
+};
+
+function formatOffenceCategory(offenceKey) {
+  if (!offenceKey) return '';
+  return OFFENCE_LABELS[offenceKey] || offenceKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
 const STATUS_META = {
   submitted:             { label: 'Pending CI Review',             color: '#e5a100', bg: '#fef3c7', icon: '\u23F3' },
   forwarded_to_forensic: { label: 'Pending AD Review',             color: '#e5a100', bg: '#fef3c7', icon: '\u23F3' },
@@ -55,6 +78,7 @@ export default function ForensicRequestDetail() {
   const isDd    = hasRole(user, 'dd_forensic');
   const isAd    = hasAnyRole(user, ['ad_forensic', 'admin_forensic', 'admin']);
   const [custodyRemarks, setCustodyRemarks] = useState('');
+  const [additionalScopeCategory, setAdditionalScopeCategory] = useState('');
 
   const load = () => {
     setLoading(true); setErr('');
@@ -342,7 +366,7 @@ export default function ForensicRequestDetail() {
   const displayOrg       = row.external_organization || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'External / Main';
   const displayPerson    = row.external_person_name || row.submitter?.name || '—';
   const displayContact   = row.external_person_contact || row.submitter?.phone || row.submitter?.email || '—';
-  const circleCity       = row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore';
+  const circleCity       = (row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore').replace(/\s*Circle\s*$/i, '');
   const circleName       = row.external_organization || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
   const zoneName         = row.enquiry?.complaint?.zone?.name || 'NCCIA';
   const caseRef          = isExternal
@@ -352,9 +376,21 @@ export default function ForensicRequestDetail() {
       : (row.caseFile?.fir_no ? `FIR #${row.caseFile.fir_no}` : 'Direct Case Seizure'));
   const accusedList      = row.enquiry?.accused_persons || row.enquiry?.accusedPersons || [];
   const complainantName  = row.enquiry?.complaint?.complainant_name || row.external_person_name;
-  const displayScopeCategory = isExternal
-    ? `${row.external_category || 'External Case'}${row.external_ref ? ` (${row.external_ref})` : ''}`
-    : (row.enquiry?.enquiry_number ? `Enquiry #${row.enquiry.enquiry_number}` : (row.caseFile?.fir_no ? `FIR #${row.caseFile.fir_no}` : 'Case'));
+
+  const rawEoCategory = row?.external_category
+    || (row?.enquiry?.complaint?.offence_type ? formatOffenceCategory(row.enquiry.complaint.offence_type) : '')
+    || row?.enquiry?.charge_against
+    || (row?.enquiry?.direct_info?.crime_category ? formatOffenceCategory(row.enquiry.direct_info.crime_category) : '')
+    || 'Blackmailing, Harassment';
+
+  const eoCategory = (rawEoCategory.startsWith('Enquiry #') || rawEoCategory.startsWith('FIR #') || !rawEoCategory.trim())
+    ? 'Blackmailing, Harassment'
+    : rawEoCategory;
+
+  const displayScopeCategory = additionalScopeCategory
+    ? `${eoCategory}, ${additionalScopeCategory}`
+    : eoCategory;
+
   const displayScopeText = isExternal
     ? (row.external_scope || row.note || 'AS PER THE LETTER ATTACHED')
     : (row.note || 'Seized evidence memo submitted for examination');
@@ -409,23 +445,47 @@ export default function ForensicRequestDetail() {
         </div>
       )}
 
-      {/* Chain of Custody Open Remarks Editor for AD */}
+      {/* Chain of Custody Open Remarks & Category Editor for AD */}
       {isAd && (
         <div className="card" style={{marginBottom:18,border:'1.5px solid #93c5fd',background:'#f0f9ff'}}>
-          <div className="card-header" style={{padding:'10px 18px',background:'#e0f2fe'}}>
+          <div className="card-header" style={{padding:'10px 18px',background:'#e0f2fe',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div className="card-title" style={{fontSize:13,fontWeight:700,color:'#0369a1'}}>
-              📝 Chain of Custody Remarks (Open Field for Print)
+              📝 Chain of Custody: Scope Categories &amp; Remarks (AD Forensic Workbench)
             </div>
-            <span style={{fontSize:11,color:'#0284c7',fontWeight:600}}>Only AD Forensic can edit &amp; print</span>
+            <span style={{fontSize:11,color:'#0284c7',fontWeight:600}}>Editable before printing Chain of Custody</span>
           </div>
-          <div className="card-body" style={{padding:'12px 18px'}}>
-            <textarea
-              className="cf-input"
-              rows={2}
-              placeholder="Enter remarks for Chain of Custody print..."
-              value={custodyRemarks}
-              onChange={e=>setCustodyRemarks(e.target.value)}
-            />
+          <div className="card-body" style={{padding:'14px 18px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:12}}>
+              <div className="cf-field">
+                <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#334155'}}>
+                  Original Scope Category (from EO/IO)
+                </label>
+                <input className="cf-input" value={eoCategory} readOnly style={{background:'#f1f5f9',cursor:'not-allowed',fontWeight:600}} />
+              </div>
+              <div className="cf-field">
+                <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#0369a1'}}>
+                  Add Additional Forensic Category (Optional)
+                </label>
+                <input
+                  className="cf-input"
+                  placeholder="e.g. Cyber Extortion, Financial Fraud, Defamation..."
+                  value={additionalScopeCategory}
+                  onChange={e=>setAdditionalScopeCategory(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="cf-field">
+              <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#334155'}}>
+                Chain of Custody Remarks (Open Field for Print)
+              </label>
+              <textarea
+                className="cf-input"
+                rows={2}
+                placeholder="Enter remarks for Chain of Custody print..."
+                value={custodyRemarks}
+                onChange={e=>setCustodyRemarks(e.target.value)}
+              />
+            </div>
           </div>
         </div>
       )}
