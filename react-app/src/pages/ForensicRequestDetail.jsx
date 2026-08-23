@@ -513,57 +513,59 @@ export default function ForensicRequestDetail() {
         </div>
       )}
 
-      {/* Scope Letter Parameters (EO / IO / CI Workbench) */}
-      <div className="card" style={{marginBottom:18,border:'1.5px solid #fed7aa',background:'#fffaf5'}}>
-        <div className="card-header" style={{padding:'10px 18px',background:'#ffedd5',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div className="card-title" style={{fontSize:13,fontWeight:700,color:'#c2410c'}}>
-            📄 Scope Letter: Parameters (EO / IO / CI Workbench)
-          </div>
-          <span style={{fontSize:11,color:'#ea580c',fontWeight:600}}>Editable before printing Scope Letter</span>
-        </div>
-        <div className="card-body" style={{padding:'14px 18px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginBottom:12}}>
-            <div className="cf-field">
-              <label className="cf-label required" style={{fontSize:12,fontWeight:700,color:'#9a3412'}}>
-                Case Category / Type
-              </label>
-              <select
-                className="cf-input"
-                value={scopeCaseType}
-                onChange={e => setScopeCaseType(e.target.value)}
-                style={{fontWeight:700}}
-              >
-                <option value="enquiry">Enquiry (ENQUIRY NO.)</option>
-                <option value="case">Case FIR (CASE FIR NO.)</option>
-              </select>
+      {/* Scope Letter Parameters (EO / IO / CI Workbench — only shown to Enquiry / Investigation / Circle Incharge officers) */}
+      {!isAd && !isDd && (
+        <div className="card" style={{marginBottom:18,border:'1.5px solid #fed7aa',background:'#fffaf5'}}>
+          <div className="card-header" style={{padding:'10px 18px',background:'#ffedd5',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div className="card-title" style={{fontSize:13,fontWeight:700,color:'#c2410c'}}>
+              📄 Scope Letter: Parameters (EO / IO / CI Workbench)
             </div>
-            <div className="cf-field" style={{gridColumn:'span 2'}}>
+            <span style={{fontSize:11,color:'#ea580c',fontWeight:600}}>Editable before printing Scope Letter</span>
+          </div>
+          <div className="card-body" style={{padding:'14px 18px'}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginBottom:12}}>
+              <div className="cf-field">
+                <label className="cf-label required" style={{fontSize:12,fontWeight:700,color:'#9a3412'}}>
+                  Case Category / Type
+                </label>
+                <select
+                  className="cf-input"
+                  value={scopeCaseType}
+                  onChange={e => setScopeCaseType(e.target.value)}
+                  style={{fontWeight:700}}
+                >
+                  <option value="enquiry">Enquiry (ENQUIRY NO.)</option>
+                  <option value="case">Case FIR (CASE FIR NO.)</option>
+                </select>
+              </div>
+              <div className="cf-field" style={{gridColumn:'span 2'}}>
+                <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#9a3412'}}>
+                  Alleged Offences / Brief Case Contents (Editable)
+                </label>
+                <input
+                  className="cf-input"
+                  placeholder="e.g. alleged cybercrime offences / Section 13, 14 PECA 2016..."
+                  value={scopeBriefContents}
+                  onChange={e => setScopeBriefContents(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="cf-field">
               <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#9a3412'}}>
-                Alleged Offences / Brief Case Contents (Editable)
+                Custom Scope Letter Background Paragraph (Optional — overrides default)
               </label>
-              <input
+              <textarea
                 className="cf-input"
-                placeholder="e.g. alleged cybercrime offences / Section 13, 14 PECA 2016..."
-                value={scopeBriefContents}
-                onChange={e => setScopeBriefContents(e.target.value)}
+                rows={2}
+                placeholder="Leave blank to use official standard background text, or type custom text here..."
+                value={scopeBackgroundText}
+                onChange={e => setScopeBackgroundText(e.target.value)}
               />
             </div>
           </div>
-
-          <div className="cf-field">
-            <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#9a3412'}}>
-              Custom Scope Letter Background Paragraph (Optional — overrides default)
-            </label>
-            <textarea
-              className="cf-input"
-              rows={2}
-              placeholder="Leave blank to use official standard background text, or type custom text here..."
-              value={scopeBackgroundText}
-              onChange={e => setScopeBackgroundText(e.target.value)}
-            />
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Chain of Custody Open Remarks & Category Editor for AD */}
       {isAd && (
