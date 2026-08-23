@@ -409,6 +409,7 @@ class PrintService
 
         $enquiryNo = e($enquiry?->enquiry_number ?: ($complaint?->tracking_no ?: ('ENQ-CCRC-' . $circleCode . '-' . $enquiry?->id)));
         $regDate   = $enquiry?->reg_date ? $enquiry->reg_date->format('d-m-Y') : ($complaint?->report_date ? \Carbon\Carbon::parse($complaint->report_date)->format('d-m-Y') : date('d-m-Y'));
+        $complainantName = e($complaint?->complainant_name ?: ($enquiry?->direct_info['complainant_name'] ?? '—'));
         
         $receiverName = e($notice->receiver_name ?: '—');
         $fatherName   = e($notice->father_name ?: ($complaint?->father_name ?: ''));
@@ -562,6 +563,7 @@ class PrintService
             <div class="enq-details-box">
               <div><strong>Enquiry No.</strong> {$enquiryNo}</div>
               <div><strong>Enquiry Registration Date:</strong> {$regDate}</div>
+              <div><strong>Complainant Name:</strong> {$complainantName}</div>
               <div><strong>Gist of Allegation:</strong> {$gistOfAllegation}</div>
             </div>
 
