@@ -2495,17 +2495,7 @@ export default function EnquiryForm() {
                                 : <input type="text" className="cf-input" placeholder="e.g. 256GB, 1TB" value={it.storage_capacity || ''} onChange={e => updateSeizeItem(i, si, 'storage_capacity', e.target.value)} />
                               }
                             </div>
-                            <div className="cf-field"><label className="cf-label">Condition</label>
-                              {isSupervisor
-                                ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.condition === 'good' ? 'Intact / Good' : it.condition === 'damaged' ? 'Damaged / Broken' : it.condition === 'locked' ? 'PIN / Pattern Locked' : it.condition === 'sealed' ? 'Sealed / Evidence Bag' : it.condition || '—'}</div>
-                                : <select className="cf-input" value={it.condition || 'good'} onChange={e => updateSeizeItem(i, si, 'condition', e.target.value)}>
-                                    <option value="good">Intact / Good</option>
-                                    <option value="damaged">Damaged / Broken</option>
-                                    <option value="locked">PIN / Pattern Locked</option>
-                                    <option value="sealed">Sealed / Evidence Bag</option>
-                                  </select>
-                              }
-                            </div>
+                            {/* Condition is managed by AD Forensic Lab */}
                             <div className="cf-field"><label className="cf-label">Item Description / Seized From</label>
                               {isSupervisor
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.description || '—'}</div>

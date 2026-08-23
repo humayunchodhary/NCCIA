@@ -1028,7 +1028,7 @@ class PrintService
           <div class="salutation"><strong>SIR,</strong></div>
 
           <div class="req-body">
-            <p><strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC {$circleName}, NCCIA IN {$caseTypeLabel} NO. <strong>{$enquiryNoDisplay}</strong>, AND THE BELOW EVIDENTIARY MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED {$caseTypeLabel} HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,</p>
+            <p><strong>BRIEF:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC {$circleName}, NCCIA IN {$caseTypeLabel} NO. <strong>{$enquiryNoDisplay}</strong>, AND THE BELOW EVIDENTIARY MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED {$caseTypeLabel} HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,</p>
             <div class="accused-list" style="margin: 6px 0 10px 16px;">
               {$accRows}
             </div>

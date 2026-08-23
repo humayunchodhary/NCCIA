@@ -259,6 +259,10 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
         return response()->json(\Spatie\Permission\Models\Role::orderBy('name')->pluck('name'));
     });
     Route::get('/lookup/circles', function () {
+        try {
+            \App\Models\Circle::firstOrCreate(['code' => 'RC1'], ['name' => 'NCCIA-RC 1']);
+            \App\Models\Circle::firstOrCreate(['code' => 'RC2'], ['name' => 'NCCIA-RC 2']);
+        } catch (\Throwable $e) {}
         return response()->json(\App\Models\Circle::orderBy('name')->get(['id', 'name', 'code', 'zone_id']));
     });
     Route::get('/lookup/zones', function () {
@@ -316,9 +320,13 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/forensic/requests/{forensicRequest}/assign', [ForensicRequestController::class, 'assign'])
         ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::post('/forensic/requests/{forensicRequest}/findings', [ForensicRequestController::class, 'updateFindings'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,forensic_team');
+    Route::post('/forensic/requests/{forensicRequest}/status', [ForensicRequestController::class, 'updateStatus'])
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,forensic_team');
+    Route::post('/forensic/requests/{forensicRequest}/items/{item}/condition', [ForensicRequestController::class, 'updateItemCondition'])
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,forensic_team');
     Route::post('/forensic/requests/{forensicRequest}/submit-to-ad', [ForensicRequestController::class, 'submitToAd'])
-        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
+        ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic,forensic_team');
     Route::post('/forensic/requests/{forensicRequest}/mark-ready', [ForensicRequestController::class, 'markReady'])
         ->middleware('role:admin,admin_forensic,dd_forensic,ad_forensic');
     Route::post('/forensic/requests/{forensicRequest}/hand-over', [ForensicRequestController::class, 'handOver'])

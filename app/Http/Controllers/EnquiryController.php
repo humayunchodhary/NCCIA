@@ -296,6 +296,17 @@ class EnquiryController extends Controller
     {
         $keep = [];
 
+        $hasFatherName = false;
+        try {
+            $hasFatherName = \Illuminate\Support\Facades\Schema::hasColumn('enquiry_notices', 'father_name');
+            if (!$hasFatherName) {
+                try {
+                    \Illuminate\Support\Facades\DB::statement("ALTER TABLE `enquiry_notices` ADD COLUMN `father_name` VARCHAR(255) NULL AFTER `receiver_name`");
+                    $hasFatherName = true;
+                } catch (\Throwable $e) {}
+            }
+        } catch (\Throwable $e) {}
+
         foreach ($notices as $idx => $n) {
             if (empty($n['receiver_name']) && empty($n['notice_type']) && empty($n['notice_number']) && empty($n['description'])) {
                 continue;
@@ -306,7 +317,6 @@ class EnquiryController extends Controller
                 'notice_number'       => $n['notice_number'] ?? null,
                 'notice_type'         => $n['notice_type'] ?? null,
                 'receiver_name'       => $n['receiver_name'] ?? null,
-                'father_name'         => $n['father_name'] ?? null,
                 'cnic'                => $n['cnic'] ?? null,
                 'person_type'         => $n['person_type'] ?? null,
                 'notice_via'          => !empty($n['notice_via']) ? $n['notice_via'] : null,
@@ -318,6 +328,10 @@ class EnquiryController extends Controller
                 'appearance_date'     => !empty($n['appearance_date']) ? $n['appearance_date'] : null,
                 'appearance_remarks'  => $n['appearance_remarks'] ?? null,
             ];
+
+            if ($hasFatherName) {
+                $attrs['father_name'] = $n['father_name'] ?? null;
+            }
 
             if (in_array($attrs['status'], ['served', 'non_appearance'], true) && empty($n['served_at'])) {
                 $attrs['served_at'] = now();

@@ -116,6 +116,32 @@ export default function ForensicRequestDetail() {
     }
   };
 
+  const updateReqStatus = async (newStatus) => {
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      const r = await api.post(`/forensic/requests/${id}/status`, { status: newStatus });
+      setRow(r.data.data);
+      setMsg(r.data.message || `Status updated to ${newStatus}`);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to update status');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateItemCondition = async (itemId, newCondition) => {
+    setBusy(true); setErr(''); setMsg('');
+    try {
+      const r = await api.post(`/forensic/requests/${id}/items/${itemId}/condition`, { condition: newCondition });
+      setRow(r.data.data);
+      setMsg('Item condition updated');
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to update condition');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const load = () => {
     setLoading(true); setErr('');
     api.get(`/forensic/requests/${id}`)
@@ -129,7 +155,15 @@ export default function ForensicRequestDetail() {
         
         const isCaseDetected = Boolean(d.case_number || d.case_id || (d.enquiry?.enquiry_number && d.enquiry.enquiry_number.toUpperCase().includes('FIR')));
         setScopeCaseType(isCaseDetected ? 'case' : 'enquiry');
-        setScopeBriefContents(d.brief_contents || 'alleged cybercrime offences');
+        
+        const autoBrief = d.enquiry?.verification_report?.brief_allegation
+          || d.enquiry?.brief_contents
+          || d.enquiry?.complaint?.description
+          || d.enquiry?.direct_info?.brief_facts
+          || d.enquiry?.direct_info?.description
+          || d.brief_contents
+          || 'alleged cybercrime offences';
+        setScopeBriefContents(autoBrief);
         setScopeBackgroundText('');
 
         const now = new Date();
@@ -294,7 +328,7 @@ export default function ForensicRequestDetail() {
 
         <div><strong>SIR,</strong></div>
         <p style="margin-top:8px;">
-          <strong>BACKGROUND:</strong> ${scopeBackgroundText && scopeBackgroundText.trim() ? scopeBackgroundText.trim() : `THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA IN ${caseLabelUpper} NO. <strong>${enqNoDisplay}</strong>, AND THE BELOW EVIDENTIARY MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ${caseLabelUpper} HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,`}
+          <strong>BRIEF:</strong> ${scopeBackgroundText && scopeBackgroundText.trim() ? scopeBackgroundText.trim() : `THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA IN ${caseLabelUpper} NO. <strong>${enqNoDisplay}</strong>, AND THE BELOW EVIDENTIARY MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ${caseLabelUpper} HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,`}
         </p>
 
         <div style="margin: 6px 0 10px 16px; line-height: 1.6;">
@@ -766,10 +800,11 @@ export default function ForensicRequestDetail() {
 
       {/* Evidence Inventory */}
       <div className="card" style={{marginBottom:20}}>
-        <div className="card-header" style={{padding:'14px 18px',background:'#f8fafc'}}>
+        <div className="card-header" style={{padding:'14px 18px',background:'#f8fafc',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div className="card-title" style={{fontSize:14,fontWeight:800,color:'#0f172a'}}>
             🗄️ Seized Evidence Items ({row.items?.length||0} items)
           </div>
+          {isAd && <span style={{fontSize:11.5,fontWeight:600,color:'#0284c7'}}>💡 Device physical condition can be updated by AD Forensic</span>}
         </div>
         <div className="card-body" style={{padding:0}}>
           <div style={{overflowX:'auto'}}>
@@ -780,6 +815,7 @@ export default function ForensicRequestDetail() {
                   <th>Item / Model</th>
                   <th>Identifiers</th>
                   <th>Qty</th>
+                  <th>Condition</th>
                 </tr>
               </thead>
               <tbody>
@@ -789,6 +825,26 @@ export default function ForensicRequestDetail() {
                     <td>{it.make_model||'—'}</td>
                     <td>{it.imei||it.serial_no||'—'}</td>
                     <td>{it.quantity||1}</td>
+                    <td>
+                      {isAd ? (
+                        <select
+                          className="cf-input"
+                          style={{padding:'4px 8px',fontSize:12,width:'auto',fontWeight:600}}
+                          value={it.condition || 'sealed'}
+                          onChange={e => updateItemCondition(it.id, e.target.value)}
+                          disabled={busy}
+                        >
+                          <option value="sealed">Sealed / Evidence Bag</option>
+                          <option value="good">Intact / Good</option>
+                          <option value="damaged">Damaged / Broken</option>
+                          <option value="locked">PIN / Pattern Locked</option>
+                        </select>
+                      ) : (
+                        <span style={{fontSize:12,fontWeight:600,color:'#475569'}}>
+                          {it.condition === 'good' ? 'Intact / Good' : it.condition === 'damaged' ? 'Damaged / Broken' : it.condition === 'locked' ? 'PIN / Pattern Locked' : 'Sealed / Evidence Bag'}
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -837,6 +893,41 @@ export default function ForensicRequestDetail() {
         <div className="card" style={{marginBottom:20,border:'1.5px solid #ddd6fe'}}>
           <div className="card-header" style={{background:'#f5f3ff'}}><div className="card-title" style={{color:'#6d28d9'}}>🔬 AD Forensic Workbench: Record Findings &amp; Analysis</div></div>
           <div className="card-body">
+            
+            {/* Quick Status Update Bar */}
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16,padding:'10px 14px',background:'#f1f5f9',borderRadius:8,flexWrap:'wrap'}}>
+              <span style={{fontSize:13,fontWeight:700,color:'#334155'}}>Status Update:</span>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${row.status === 'assigned' ? 'btn-primary' : 'btn-outline'}`}
+                  style={row.status === 'assigned' ? {background:'#2563eb'} : {}}
+                  disabled={busy}
+                  onClick={() => updateReqStatus('assigned')}
+                >
+                  ⏳ Pending
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${row.status === 'in_progress' ? 'btn-primary' : 'btn-outline'}`}
+                  style={row.status === 'in_progress' ? {background:'#7c3aed'} : {}}
+                  disabled={busy}
+                  onClick={() => updateReqStatus('in_progress')}
+                >
+                  🔬 Working (In Progress)
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${row.status === 'report_ready' ? 'btn-primary' : 'btn-outline'}`}
+                  style={row.status === 'report_ready' ? {background:'#059669'} : {}}
+                  disabled={busy}
+                  onClick={() => updateReqStatus('report_ready')}
+                >
+                  ✅ Completed
+                </button>
+              </div>
+            </div>
+
             <div className="cf-field" style={{marginBottom:12}}>
               <label className="cf-label">Forensic Examination Findings</label>
               <textarea className="cf-input" rows={4} placeholder="Enter extraction results, hash values, chat logs, call records..." value={findings} onChange={e=>setFindings(e.target.value)} />
@@ -1031,15 +1122,15 @@ export default function ForensicRequestDetail() {
               {
                 from_name: row.submitter?.name||'—',
                 from_des: (row.submitter?.designation||'Enquiry Officer')+' · '+circleName,
-                from_date: custodyReceivingDateTime || receivedDateTime,
+                from_date: null,
                 to_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
-                to_des: 'AD Forensic',
-                to_date: row.assigned_at?formatDisplayDateTime(row.assigned_at):null,
+                to_des: 'Assistant Director Forensic',
+                to_date: custodyReceivingDateTime || receivedDateTime,
                 remark:'',
               },
               {
                 from_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
-                from_des: 'AD Forensic (Forensic Lab)',
+                from_des: 'Assistant Director Forensic',
                 from_date: row.opened_at?formatDisplayDateTime(row.opened_at):(row.assigned_at?formatDisplayDateTime(row.assigned_at):null),
                 to_name: row.assignee?.name||'AD Forensic',
                 to_des: 'Forensic Examination',
@@ -1048,7 +1139,7 @@ export default function ForensicRequestDetail() {
               },
               {
                 from_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
-                from_des: 'Forensic Lab',
+                from_des: 'Assistant Director Forensic',
                 from_date: row.handed_over_at?formatDisplayDateTime(row.handed_over_at):null,
                 to_name: row.handedTo?.name||row.submitter?.name||'—',
                 to_des: 'Enquiry Officer',

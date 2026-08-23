@@ -1140,4 +1140,54 @@ class ForensicRequestController extends Controller
 
         return response()->json($response);
     }
+
+    /** AD Forensic updates request status: in_progress (working), report_ready (completed), assigned (pending) */
+    public function updateStatus(Request $request, ForensicRequest $forensicRequest)
+    {
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['admin', 'ad_forensic', 'dd_forensic', 'admin_forensic', 'forensic_team']), 403);
+        $data = $request->validate([
+            'status'  => 'required|in:assigned,in_progress,report_ready,submitted_to_ad',
+            'remarks' => 'nullable|string|max:2000',
+        ]);
+        
+        $updates = ['status' => $data['status']];
+        if ($data['status'] === 'in_progress' && empty($forensicRequest->opened_at)) {
+            $updates['opened_at'] = now();
+        }
+        if ($data['status'] === 'report_ready') {
+            if (empty($forensicRequest->report_ready_at)) {
+                $updates['report_ready_at'] = now();
+            }
+            if (empty($forensicRequest->ad_reviewed_at)) {
+                $updates['ad_reviewed_at'] = now();
+                $updates['ad_reviewed_by'] = $user->id;
+            }
+        }
+        if (!empty($data['remarks'])) {
+            $updates['forensic_remarks'] = $data['remarks'];
+        }
+
+        $forensicRequest->update($updates);
+
+        return response()->json([
+            'message' => 'Forensic request status updated successfully.',
+            'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+        ]);
+    }
+
+    /** AD Forensic updates individual item condition */
+    public function updateItemCondition(Request $request, ForensicRequest $forensicRequest, \App\Models\ForensicRequestItem $item)
+    {
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['admin', 'ad_forensic', 'dd_forensic', 'admin_forensic', 'forensic_team']), 403);
+        $data = $request->validate([
+            'condition' => 'required|string|max:100',
+        ]);
+        $item->update(['condition' => $data['condition']]);
+        return response()->json([
+            'message' => 'Item condition updated successfully.',
+            'data'    => $this->safeLoadRelations($forensicRequest->fresh() ?: $forensicRequest),
+        ]);
+    }
 }
