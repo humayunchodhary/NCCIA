@@ -682,11 +682,25 @@ class PrintService
           </div>
 
           <div class="to-block">
-            <div class="to-line"><strong>To,</strong></div>
-            <div class="to-name"><strong>{$receiverName}{$parentageStr}</strong></div>
-            <div class="to-cnic"><strong>CNIC No.</strong> {$cnic}</div>
-            <div class="to-addr">{$address}</div>
-            <div class="to-phone">{$phone}</div>
+            <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 3px;">To,</div>
+            <table style="border-collapse: collapse; font-size: 13px; line-height: 1.45;">
+              <tr>
+                <td style="padding: 1px 8px 1px 0; font-weight: 700; width: 68px; vertical-align: top;">Name:</td>
+                <td style="padding: 1px 0; vertical-align: top;"><strong>{$receiverName}{$parentageStr}</strong></td>
+              </tr>
+              <tr>
+                <td style="padding: 1px 8px 1px 0; font-weight: 700; vertical-align: top;">CNIC:</td>
+                <td style="padding: 1px 0; vertical-align: top;">{$cnic}</td>
+              </tr>
+              <tr>
+                <td style="padding: 1px 8px 1px 0; font-weight: 700; vertical-align: top;">Contact:</td>
+                <td style="padding: 1px 0; vertical-align: top;">{$phone}</td>
+              </tr>
+              <tr>
+                <td style="padding: 1px 8px 1px 0; font-weight: 700; vertical-align: top;">Address:</td>
+                <td style="padding: 1px 0; vertical-align: top;">{$address}</td>
+              </tr>
+            </table>
           </div>
 
           <div class="subject-line">
