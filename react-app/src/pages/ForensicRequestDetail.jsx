@@ -273,7 +273,7 @@ export default function ForensicRequestDetail() {
         </div>
 
         <div class="subj">
-          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / CASE FIR NO. ${enqNoDisplay} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, ${circleName.toUpperCase()}.
+          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / CASE FIR NO. ${enqNoDisplay} OF PS. NCCIA, CCRC, ${circleName.toUpperCase()}.
         </div>
 
         <div><strong>SIR,</strong></div>

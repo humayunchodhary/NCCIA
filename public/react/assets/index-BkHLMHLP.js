@@ -80,7 +80,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         </div>
 
         <div class="subj">
-          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / CASE FIR NO. ${r} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, ${d.toUpperCase()}.
+          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / CASE FIR NO. ${r} OF PS. NCCIA, CCRC, ${d.toUpperCase()}.
         </div>
 
         <div><strong>SIR,</strong></div>

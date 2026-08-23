@@ -1017,7 +1017,7 @@ class PrintService
           </div>
 
           <div class="subject-block">
-            <strong>SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / Case FIR NO. {$enquiryNoDisplay} (SEIZURE MEMO ATTACHED) OF PS. NCCIA, CCRC, {$circleName}.</strong>
+            <strong>SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / Case FIR NO. {$enquiryNoDisplay} OF PS. NCCIA, CCRC, {$circleName}.</strong>
           </div>
 
           <div class="salutation"><strong>SIR,</strong></div>
