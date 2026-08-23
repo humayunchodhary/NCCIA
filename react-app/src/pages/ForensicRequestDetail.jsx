@@ -82,6 +82,11 @@ export default function ForensicRequestDetail() {
   const [customLabNo, setCustomLabNo] = useState('');
   const [custodyReceivingDateTime, setCustodyReceivingDateTime] = useState('');
 
+  // Scope Letter Live Editable States (for EO / IO / CI / AD)
+  const [scopeCaseType, setScopeCaseType] = useState('enquiry'); // 'enquiry' | 'case'
+  const [scopeBriefContents, setScopeBriefContents] = useState('');
+  const [scopeBackgroundText, setScopeBackgroundText] = useState('');
+
   // Hierarchical Send Back Modal
   const [sendBackModal, setSendBackModal] = useState(false);
   const [sendBackTarget, setSendBackTarget] = useState('dd'); // 'dd' | 'ci' | 'eo'
@@ -121,6 +126,12 @@ export default function ForensicRequestDetail() {
         setLabNotes(d.lab_notes || '');
         setAssignPriority(d.priority || 'normal');
         setCustodyRemarks(d.handover_remarks || d.findings || '');
+        
+        const isCaseDetected = Boolean(d.case_number || d.case_id || (d.enquiry?.enquiry_number && d.enquiry.enquiry_number.toUpperCase().includes('FIR')));
+        setScopeCaseType(isCaseDetected ? 'case' : 'enquiry');
+        setScopeBriefContents(d.brief_contents || 'alleged cybercrime offences');
+        setScopeBackgroundText('');
+
         const now = new Date();
         const defaultRecDate = d.submitted_at ? formatDisplayDateTime(d.submitted_at) : (d.created_at ? formatDisplayDateTime(d.created_at) : now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
         setCustodyReceivingDateTime(defaultRecDate);
@@ -183,9 +194,13 @@ export default function ForensicRequestDetail() {
 
   const handlePrintScopeLetter = () => {
     if (!row) return;
-    const enqNo = row.enquiry?.enquiry_number || row.enquiry?.complaint?.tracking_no || `ENQ-${row.enquiry_id}`;
+    const rawNo = row.enquiry?.enquiry_number || row.enquiry?.complaint?.tracking_no || `ENQ-${row.enquiry_id}`;
     const enqRegDate = row.enquiry?.reg_date ? new Date(row.enquiry.reg_date).toLocaleDateString('en-GB') : (row.enquiry?.created_at ? new Date(row.enquiry.created_at).toLocaleDateString('en-GB') : '');
-    const enqNoDisplay = enqRegDate ? `${enqNo} dated ${enqRegDate}` : enqNo;
+    const enqNoDisplay = enqRegDate ? `${rawNo} dated ${enqRegDate}` : rawNo;
+    const isCase = scopeCaseType === 'case';
+    const caseLabelUpper = isCase ? 'CASE FIR' : 'ENQUIRY';
+    const caseLabelFull = isCase ? `CASE FIR NO. ${enqNoDisplay}` : `ENQUIRY NO. ${enqNoDisplay}`;
+
     const compName = row.enquiry?.complaint?.complainant_name || row.enquiry?.direct_info?.complainant_name || 'Complainant';
     const complainantName = compName;
     const compCnic = row.enquiry?.complaint?.cnic || row.enquiry?.direct_info?.cnic || '—';
@@ -197,7 +212,7 @@ export default function ForensicRequestDetail() {
     const rawCircle = row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore';
     const cleanCity = rawCircle.replace(/circle|zone|nccia-rc|nccia|-/gi, '').trim().toUpperCase() || 'LAHORE';
     const circleCity = cleanCity;
-    const circleName = row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
+    const circleName = (row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main').replace(/\s*Circle\s*$/i, '');
     const rcName = `NCCIA-RC ${cleanCity}`;
     const zoneName = `NCCIA - ZONE ${cleanCity}`;
     
@@ -245,7 +260,7 @@ export default function ForensicRequestDetail() {
       <html>
       <head>
         <meta charset="utf-8"/>
-        <title>Forensic Scope Letter - ${enqNo}</title>
+        <title>Forensic Scope Letter - ${rawNo}</title>
         <style>
           @page { size: A4 portrait; margin: 15mm 15mm; }
           body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.45; font-size: 13px; }
@@ -264,7 +279,7 @@ export default function ForensicRequestDetail() {
         </div>
 
         <div class="meta-row">
-          <div><strong>Enquiry / Case No:</strong> ${enqNoDisplay}</div>
+          <div><strong>${caseLabelUpper} No:</strong> ${enqNoDisplay}</div>
           <div><strong>Dated:</strong> ${dateStr}</div>
         </div>
 
@@ -274,19 +289,19 @@ export default function ForensicRequestDetail() {
         </div>
 
         <div class="subj">
-          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ENQ / CASE FIR NO. ${enqNoDisplay} OF PS. NCCIA, CCRC, ${circleName.toUpperCase()}.
+          SUBJECT: REQUEST FOR PROVIDING FORENSIC ANALYSIS REPORT IN ${caseLabelFull} OF PS. NCCIA, CCRC, ${circleName.toUpperCase()}.
         </div>
 
         <div><strong>SIR,</strong></div>
         <p style="margin-top:8px;">
-          <strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA IN ENQ NO. <strong>${enqNoDisplay}</strong>, AND THE BELOW EVIDENTIARY MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,
+          <strong>BACKGROUND:</strong> ${scopeBackgroundText && scopeBackgroundText.trim() ? scopeBackgroundText.trim() : `THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC ${circleName}, NCCIA IN ${caseLabelUpper} NO. <strong>${enqNoDisplay}</strong>, AND THE BELOW EVIDENTIARY MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ${caseLabelUpper} HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,`}
         </p>
 
         <div style="margin: 6px 0 10px 16px; line-height: 1.6;">
           ${accRows}
         </div>
 
-        <p>THE BRIEF CONTENTS OF THE CASE ARE THAT THE ALLEGED PERSON IS INVOLVED IN <strong>${row.brief_contents || 'alleged cybercrime offences'}</strong>.</p>
+        <p>THE BRIEF CONTENTS OF THE CASE ARE THAT THE ALLEGED PERSON IS INVOLVED IN <strong>${scopeBriefContents || row.brief_contents || 'alleged cybercrime offences'}</strong>.</p>
 
         <p>DURING THE COURSE OF ENQUIRY/INVESTIGATION, THE RELEVANT EVIDENTIARY MEDIA WAS TAKEN INTO POSSESSION FOR FORENSIC EXAMINATION. THE DETAIL OF THE EVIDENTIARY MEDIA IS AS UNDER:</p>
 
@@ -321,7 +336,7 @@ export default function ForensicRequestDetail() {
 
         <div style="margin-top:16px;">
           <strong>ENCLOSURES:</strong><br/>
-          1. COPY OF ENQ NO. <strong>${enqNoDisplay}</strong><br/>
+          1. COPY OF ${caseLabelUpper} NO. <strong>${enqNoDisplay}</strong><br/>
           2. COPY OF SEIZURE MEMO (RECOVERY MEMO) OF EVIDENTIARY DEVICE
         </div>
 
@@ -497,6 +512,58 @@ export default function ForensicRequestDetail() {
           <button type="button" onClick={()=>setErr('')} style={{background:'none',border:'none',cursor:'pointer',color:'#991b1b',fontWeight:'bold'}}>×</button>
         </div>
       )}
+
+      {/* Scope Letter Parameters (EO / IO / CI Workbench) */}
+      <div className="card" style={{marginBottom:18,border:'1.5px solid #fed7aa',background:'#fffaf5'}}>
+        <div className="card-header" style={{padding:'10px 18px',background:'#ffedd5',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div className="card-title" style={{fontSize:13,fontWeight:700,color:'#c2410c'}}>
+            📄 Scope Letter: Parameters (EO / IO / CI Workbench)
+          </div>
+          <span style={{fontSize:11,color:'#ea580c',fontWeight:600}}>Editable before printing Scope Letter</span>
+        </div>
+        <div className="card-body" style={{padding:'14px 18px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginBottom:12}}>
+            <div className="cf-field">
+              <label className="cf-label required" style={{fontSize:12,fontWeight:700,color:'#9a3412'}}>
+                Case Category / Type
+              </label>
+              <select
+                className="cf-input"
+                value={scopeCaseType}
+                onChange={e => setScopeCaseType(e.target.value)}
+                style={{fontWeight:700}}
+              >
+                <option value="enquiry">Enquiry (ENQUIRY NO.)</option>
+                <option value="case">Case FIR (CASE FIR NO.)</option>
+              </select>
+            </div>
+            <div className="cf-field" style={{gridColumn:'span 2'}}>
+              <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#9a3412'}}>
+                Alleged Offences / Brief Case Contents (Editable)
+              </label>
+              <input
+                className="cf-input"
+                placeholder="e.g. alleged cybercrime offences / Section 13, 14 PECA 2016..."
+                value={scopeBriefContents}
+                onChange={e => setScopeBriefContents(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="cf-field">
+            <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#9a3412'}}>
+              Custom Scope Letter Background Paragraph (Optional — overrides default)
+            </label>
+            <textarea
+              className="cf-input"
+              rows={2}
+              placeholder="Leave blank to use official standard background text, or type custom text here..."
+              value={scopeBackgroundText}
+              onChange={e => setScopeBackgroundText(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Chain of Custody Open Remarks & Category Editor for AD */}
       {isAd && (
