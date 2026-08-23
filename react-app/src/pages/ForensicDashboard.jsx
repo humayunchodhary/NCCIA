@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import Highcharts from 'highcharts';
+import highcharts3d from 'highcharts/highcharts-3d';
+import HighchartsReact from 'highcharts-react-official';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
@@ -7,6 +10,15 @@ import ProgressBar from '../components/ProgressBar';
 import ExternalForensicRequestModal from '../components/ExternalForensicRequestModal';
 import { isForensicAdmin, hasRole, hasAnyRole } from '../utils/permissions';
 import { formatDisplayDateTime } from '../utils/datetime';
+
+// Initialize Highcharts 3D Module safely
+if (typeof highcharts3d === 'function') {
+  try {
+    highcharts3d(Highcharts);
+  } catch (e) {
+    console.warn('Highcharts 3D init:', e);
+  }
+}
 
 const ROLE_PORTALS = {
   admin_forensic: {
@@ -54,204 +66,6 @@ const STATUS_META = {
   report_ready: { label: 'Report Ready',           sub: 'Awaiting Handover',    color: '#059669', barColor: '#059669' },
   handed_over:  { label: 'Handed Over to EO',      sub: 'Custody Completed',    color: '#64748b', barColor: '#64748b' },
 };
-
-function shadeColor(color, percent) {
-  let num = parseInt((color || '#64748b').replace('#', ''), 16);
-  let amt = Math.round(2.55 * percent);
-  let R = (num >> 16) + amt;
-  let G = (num >> 8 & 0x00FF) + amt;
-  let B = (num & 0x0000FF) + amt;
-  return '#' + (0x1000000 + (R < 255 ? (R < 0 ? 0 : R) : 255) * 0x10000 +
-    (G < 255 ? (G < 0 ? 0 : G) : 255) * 0x100 +
-    (B < 255 ? (B < 0 ? 0 : B) : 255)).toString(16).slice(1);
-}
-
-function TruePie3D({ title, items = [], defaultTotal = 1000 }) {
-  const [hoveredIdx, setHoveredIdx] = useState(null);
-
-  const total = items.reduce((acc, it) => acc + (Number(it.val) || 0), 0) || defaultTotal;
-  const cx = 220;
-  const cy = 95;
-  const rx = 125;
-  const ry = 62;
-  const depth = 26;
-
-  let currentAngle = -Math.PI / 3;
-  const slices = items.map((it, idx) => {
-    const v = Number(it.val) || 0;
-    const sweep = total > 0 ? (v / total) * (Math.PI * 2) : 0;
-    const startA = currentAngle;
-    const endA = currentAngle + sweep;
-    const midA = startA + sweep / 2;
-    currentAngle = endA;
-
-    return {
-      ...it,
-      idx,
-      v,
-      startA,
-      endA,
-      midA,
-      sweep,
-      pct: total > 0 ? Math.round((v / total) * 100) : 0,
-    };
-  });
-
-  return (
-    <div style={{ background: '#fcfcfd', border: '1px solid #e2e8f0', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
-      <div style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a', textAlign: 'center', marginBottom: 14, letterSpacing: 0.3 }}>
-        {title}
-      </div>
-
-      <div style={{ position: 'relative', width: '100%', minHeight: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg viewBox="0 0 440 220" style={{ width: '100%', maxHeight: 220, overflow: 'visible' }}>
-          <defs>
-            <filter id={`pieShadow-${title.replace(/[^a-zA-Z0-9]/g, '')}`} x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="16" stdDeviation="8" floodColor="#0f172a" floodOpacity="0.22" />
-            </filter>
-            {slices.map((s, i) => (
-              <radialGradient key={i} id={`grad-${title.replace(/[^a-zA-Z0-9]/g, '')}-${i}`} cx="45%" cy="40%" r="60%">
-                <stop offset="0%" stopColor={shadeColor(s.color, 25)} />
-                <stop offset="70%" stopColor={s.color} />
-                <stop offset="100%" stopColor={shadeColor(s.color, -20)} />
-              </radialGradient>
-            ))}
-          </defs>
-
-          {/* 3D Base Drop Shadow */}
-          <ellipse cx={cx} cy={cy + depth + 4} rx={rx + 6} ry={ry + 3} fill="#0f172a" opacity="0.16" filter={`url(#pieShadow-${title.replace(/[^a-zA-Z0-9]/g, '')})`} />
-
-          {/* 3D Side Extrusions for front-facing arcs */}
-          {slices.filter(s => s.v > 0).map((s, i) => {
-            const steps = 18;
-            const pointsTop = [];
-            const pointsBottom = [];
-
-            for (let step = 0; step <= steps; step++) {
-              const a = s.startA + (s.sweep * step) / steps;
-              if (Math.sin(a) >= -0.05) {
-                const x = cx + rx * Math.cos(a);
-                const y = cy + ry * Math.sin(a);
-                pointsTop.push(`${x},${y}`);
-                pointsBottom.unshift(`${x},${y + depth}`);
-              }
-            }
-
-            if (pointsTop.length < 2) return null;
-
-            const isHovered = hoveredIdx === s.idx;
-            const sidePath = `M ${pointsTop[0]} L ${pointsBottom[pointsBottom.length - 1]} ` +
-              pointsBottom.map(p => `L ${p}`).join(' ') +
-              pointsTop.slice().reverse().map(p => `L ${p}`).join(' ') + ' Z';
-
-            return (
-              <path
-                key={`side-${i}`}
-                d={sidePath}
-                fill={shadeColor(s.color, isHovered ? -10 : -35)}
-                stroke={shadeColor(s.color, -45)}
-                strokeWidth="0.7"
-                style={{ transition: 'all 0.25s ease', cursor: 'pointer' }}
-                onMouseEnter={() => setHoveredIdx(s.idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
-              />
-            );
-          })}
-
-          {/* 3D Top Faces */}
-          {slices.filter(s => s.v > 0).map((s, i) => {
-            const x1 = cx + rx * Math.cos(s.startA);
-            const y1 = cy + ry * Math.sin(s.startA);
-            const x2 = cx + rx * Math.cos(s.endA);
-            const y2 = cy + ry * Math.sin(s.endA);
-            const largeArc = s.sweep > Math.PI ? 1 : 0;
-            const isHovered = hoveredIdx === s.idx;
-
-            const hoverDx = isHovered ? Math.cos(s.midA) * 6 : 0;
-            const hoverDy = isHovered ? Math.sin(s.midA) * 4 : 0;
-
-            const topPath = `M ${cx + hoverDx} ${cy + hoverDy} L ${x1 + hoverDx} ${y1 + hoverDy} A ${rx} ${ry} 0 ${largeArc} 1 ${x2 + hoverDx} ${y2 + hoverDy} Z`;
-
-            return (
-              <path
-                key={`top-${i}`}
-                d={topPath}
-                fill={`url(#grad-${title.replace(/[^a-zA-Z0-9]/g, '')}-${i})`}
-                stroke={isHovered ? '#fff' : shadeColor(s.color, -25)}
-                strokeWidth={isHovered ? '2' : '0.8'}
-                style={{ transition: 'all 0.25s ease', cursor: 'pointer' }}
-                onMouseEnter={() => setHoveredIdx(s.idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
-              />
-            );
-          })}
-
-          {/* Callout Leader Lines and Badges for Major Slices */}
-          {slices.filter(s => s.v > 0 && s.pct >= 3).slice(0, 5).map((s, i) => {
-            const isRight = Math.cos(s.midA) >= 0;
-            const isBottom = Math.sin(s.midA) >= 0;
-            const startX = cx + rx * Math.cos(s.midA);
-            const startY = cy + (ry + (isBottom ? depth * 0.4 : 0)) * Math.sin(s.midA);
-            
-            const elbowX = cx + (rx + 28) * Math.cos(s.midA);
-            const elbowY = cy + (ry + 18 + (isBottom ? depth * 0.5 : 0)) * Math.sin(s.midA);
-
-            const endX = isRight ? elbowX + 38 : elbowX - 38;
-
-            return (
-              <g key={`callout-${i}`} style={{ pointerEvents: 'none' }}>
-                <polyline
-                  points={`${startX},${startY} ${elbowX},${elbowY} ${endX},${elbowY}`}
-                  fill="none"
-                  stroke="#334155"
-                  strokeWidth="1.2"
-                />
-                <circle cx={startX} cy={startY} r="2.2" fill="#0f172a" />
-                <text
-                  x={isRight ? elbowX + 4 : elbowX - 4}
-                  y={elbowY - 4}
-                  textAnchor={isRight ? 'start' : 'end'}
-                  fontSize="10"
-                  fontWeight="800"
-                  fill="#0f172a"
-                >
-                  {s.name}, {s.v.toLocaleString()}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      {/* Legend Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))', gap: '6px 10px', fontSize: 10.5, color: '#334155', borderTop: '1px solid #f1f5f9', paddingTop: 14, marginTop: 'auto' }}>
-        {items.map((leg, idx) => {
-          const isHovered = hoveredIdx === idx;
-          return (
-            <div
-              key={idx}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '2px 4px',
-                borderRadius: 4,
-                background: isHovered ? '#f1f5f9' : 'transparent',
-                cursor: 'pointer',
-                transition: 'background 0.2s ease',
-              }}
-              onMouseEnter={() => setHoveredIdx(idx)}
-              onMouseLeave={() => setHoveredIdx(null)}
-            >
-              <span style={{ width: 8.5, height: 8.5, borderRadius: '50%', background: leg.color, display: 'inline-block', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></span>
-              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isHovered ? 800 : 600 }}>{leg.name}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export default function ForensicDashboard() {
   const { user } = useAuth();
@@ -708,11 +522,7 @@ export default function ForensicDashboard() {
         <div className="card-body" style={{ padding: '20px 24px' }}>
 
           {/* 1. Regions 3D Bar Chart */}
-          <div style={{ marginBottom: 30, background: '#fcfcfd', border: '1px solid #e2e8f0', borderRadius: 12, padding: '20px 16px' }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', marginBottom: 14, textAlign: 'center', letterSpacing: 0.5 }}>
-              Regions wise Cases
-            </div>
-            
+          <div style={{ marginBottom: 25, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 12px' }}>
             {(() => {
               const masterRegs = [
                 { name: 'Bahawalpur', val: reqStats?.by_region?.['Bahawalpur'] ?? 0, color: '#0097a7' },
@@ -728,122 +538,202 @@ export default function ForensicDashboard() {
                 { name: 'Islamabad', val: reqStats?.by_region?.['Islamabad'] ?? 0, color: '#2563eb' },
               ];
 
-              const maxVal = Math.max(...masterRegs.map(r => r.val), 100);
-              const chartHeight = 180;
+              const regionsOptions = {
+                chart: {
+                  type: 'column',
+                  options3d: {
+                    enabled: true,
+                    alpha: 12,
+                    beta: 14,
+                    depth: 45,
+                    viewDistance: 25
+                  },
+                  backgroundColor: 'transparent',
+                  height: 300,
+                },
+                title: {
+                  text: 'Regions wise Cases',
+                  style: { fontSize: '15px', fontWeight: '800', color: '#0f172a' }
+                },
+                xAxis: {
+                  categories: masterRegs.map(r => r.name),
+                  labels: {
+                    rotation: -15,
+                    style: { fontSize: '11px', fontWeight: '600', color: '#334155' }
+                  },
+                  title: {
+                    text: 'Regions',
+                    style: { fontSize: '12px', fontWeight: 'bold', color: '#475569' }
+                  }
+                },
+                yAxis: {
+                  min: 0,
+                  title: null,
+                  gridLineDashStyle: 'Dash',
+                },
+                legend: { enabled: false },
+                plotOptions: {
+                  column: {
+                    depth: 25,
+                    colorByPoint: true,
+                    colors: masterRegs.map(r => r.color),
+                    dataLabels: {
+                      enabled: true,
+                      style: { fontSize: '11px', fontWeight: 'bold', color: '#0f172a', textOutline: 'none' }
+                    }
+                  }
+                },
+                series: [{
+                  name: 'Cases',
+                  data: masterRegs.map(r => r.val)
+                }],
+                credits: { enabled: false }
+              };
 
-              return (
-                <div>
-                  <div style={{ position: 'relative', height: chartHeight + 40, width: '100%', display: 'flex', alignItems: 'flex-end', borderBottom: '2.5px solid #64748b', paddingBottom: 0, paddingLeft: 40, paddingRight: 20 }}>
-                    {/* Y-Axis scale indicators */}
-                    <div style={{ position: 'absolute', left: 0, bottom: 0, top: 10, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 10, color: '#64748b', fontWeight: 700 }}>
-                      <span>{maxVal}</span>
-                      <span>{Math.round(maxVal / 2)}</span>
-                      <span>0</span>
-                    </div>
-
-                    {/* Horizontal grid lines */}
-                    <div style={{ position: 'absolute', left: 35, right: 10, top: 10, borderBottom: '1px dashed #e2e8f0', zIndex: 0 }}></div>
-                    <div style={{ position: 'absolute', left: 35, right: 10, top: chartHeight / 2 + 10, borderBottom: '1px dashed #e2e8f0', zIndex: 0 }}></div>
-
-                    {/* Bars */}
-                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'flex-end', zIndex: 1 }}>
-                      {masterRegs.map((reg, idx) => {
-                        const barH = reg.val > 0 ? Math.max((reg.val / maxVal) * chartHeight, 14) : 4;
-                        return (
-                          <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 40 }}>
-                            <span style={{ fontSize: 11, fontWeight: 800, color: '#1e293b', marginBottom: 4 }}>
-                              {reg.val}
-                            </span>
-                            {/* 3D Pillar */}
-                            <div style={{
-                              width: '55%',
-                              maxWidth: 36,
-                              height: barH,
-                              background: `linear-gradient(135deg, ${reg.color} 0%, #1e293b 100%)`,
-                              borderRadius: '4px 4px 0 0',
-                              boxShadow: '3px -2px 6px rgba(0,0,0,0.25)',
-                              position: 'relative',
-                              transition: 'height 0.4s ease',
-                            }}>
-                              <div style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                height: 5,
-                                background: 'rgba(255,255,255,0.4)',
-                                borderRadius: '4px 4px 0 0',
-                              }}></div>
-                            </div>
-                            <div style={{
-                              fontSize: 10.5,
-                              fontWeight: 700,
-                              color: '#334155',
-                              marginTop: 8,
-                              textAlign: 'center',
-                              whiteSpace: 'nowrap',
-                              transform: 'rotate(-20deg)',
-                              transformOrigin: 'top center',
-                            }}>
-                              {reg.name}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'center', fontSize: 11.5, fontWeight: 800, color: '#475569', marginTop: 22 }}>
-                    Regions
-                  </div>
-                </div>
-              );
+              return <HighchartsReact highcharts={Highcharts} options={regionsOptions} />;
             })()}
           </div>
 
-          {/* 2. Middle Row: Evidentiary Categories & Organization Wise Cases (True 3D Pie Charts) */}
+          {/* 2. Middle Row: Evidentiary Categories & Organization Wise Cases (3D Pie Charts) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: 20, marginBottom: 30 }}>
 
             {/* Left: Evidentiary Categories */}
-            <TruePie3D
-              title="Evidentiary Categories wise Cases"
-              items={[
-                { name: 'Mobile Phone', val: reqStats?.evidentiary_categories?.['Mobile Phone'] || (totalDevices > 0 ? totalDevices : 2537), color: '#16a34a' },
-                { name: 'Hard Disk - HDD', val: reqStats?.evidentiary_categories?.['Hard Disk - HDD'] || 385, color: '#ea580c' },
-                { name: 'USB', val: reqStats?.evidentiary_categories?.['USB'] || 133, color: '#991b1b' },
-                { name: 'Laptop', val: reqStats?.evidentiary_categories?.['Laptop'] || 31, color: '#0284c7' },
-                { name: 'Memory Card', val: reqStats?.evidentiary_categories?.['Memory Card'] || 21, color: '#8b5cf6' },
-                { name: 'IPAD/Tablet', val: reqStats?.evidentiary_categories?.['IPAD/Tablet'] || 12, color: '#06b6d4' },
-                { name: 'Computer', val: reqStats?.evidentiary_categories?.['Computer'] || 6, color: '#f59e0b' },
-                { name: 'SIM Card', val: reqStats?.evidentiary_categories?.['SIM Card'] || 4, color: '#eab308' },
-                { name: 'CD/DVD', val: reqStats?.evidentiary_categories?.['CD/DVD'] || 2, color: '#38bdf8' },
-                { name: 'DVR', val: reqStats?.evidentiary_categories?.['DVR'] || 1, color: '#10b981' },
-                { name: 'Other', val: reqStats?.evidentiary_categories?.['Other'] || 1, color: '#64748b' },
-              ]}
-              defaultTotal={3133}
-            />
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 14px' }}>
+              {(() => {
+                const evidentiaryOptions = {
+                  chart: {
+                    type: 'pie',
+                    options3d: {
+                      enabled: true,
+                      alpha: 45,
+                      beta: 0
+                    },
+                    backgroundColor: 'transparent',
+                    height: 380,
+                  },
+                  title: {
+                    text: 'Evidentiary Categories wise Cases',
+                    style: { fontSize: '15px', fontWeight: '800', color: '#0f172a' }
+                  },
+                  tooltip: {
+                    pointFormat: '{series.name}: <b>{point.y}</b> ({point.percentage:.1f}%)'
+                  },
+                  plotOptions: {
+                    pie: {
+                      allowPointSelect: true,
+                      cursor: 'pointer',
+                      depth: 35,
+                      dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>, {point.y:,.0f}',
+                        style: { fontSize: '10.5px', fontWeight: 'bold', color: '#0f172a', textOutline: 'none' },
+                        connectorColor: '#334155',
+                        connectorWidth: 1.2
+                      },
+                      showInLegend: true
+                    }
+                  },
+                  legend: {
+                    layout: 'horizontal',
+                    align: 'center',
+                    verticalAlign: 'bottom',
+                    itemStyle: { fontSize: '10px', fontWeight: '600', color: '#334155' },
+                    itemMarginTop: 3,
+                    itemMarginBottom: 3
+                  },
+                  series: [{
+                    type: 'pie',
+                    name: 'Cases',
+                    data: [
+                      { name: 'Mobile Phone', y: reqStats?.evidentiary_categories?.['Mobile Phone'] || (totalDevices > 0 ? totalDevices : 2537), color: '#16a34a' },
+                      { name: 'Hard Disk - HDD', y: reqStats?.evidentiary_categories?.['Hard Disk - HDD'] || 385, color: '#ea580c' },
+                      { name: 'USB', y: reqStats?.evidentiary_categories?.['USB'] || 133, color: '#991b1b' },
+                      { name: 'Laptop', y: reqStats?.evidentiary_categories?.['Laptop'] || 31, color: '#0284c7' },
+                      { name: 'Memory Card', y: reqStats?.evidentiary_categories?.['Memory Card'] || 21, color: '#8b5cf6' },
+                      { name: 'IPAD/Tablet', y: reqStats?.evidentiary_categories?.['IPAD/Tablet'] || 12, color: '#06b6d4' },
+                      { name: 'Computer', y: reqStats?.evidentiary_categories?.['Computer'] || 6, color: '#f59e0b' },
+                      { name: 'SIM Card', y: reqStats?.evidentiary_categories?.['SIM Card'] || 4, color: '#eab308' },
+                      { name: 'CD/DVD', y: reqStats?.evidentiary_categories?.['CD/DVD'] || 2, color: '#38bdf8' },
+                      { name: 'DVR', y: reqStats?.evidentiary_categories?.['DVR'] || 1, color: '#10b981' },
+                      { name: 'Other', y: reqStats?.evidentiary_categories?.['Other'] || 1, color: '#64748b' },
+                    ]
+                  }],
+                  credits: { enabled: false }
+                };
+                return <HighchartsReact highcharts={Highcharts} options={evidentiaryOptions} />;
+              })()}
+            </div>
 
             {/* Right: Organization wise Cases */}
-            <TruePie3D
-              title="Organization wise Cases"
-              items={[
-                { name: 'CCRC', val: reqStats?.organizations?.['CCRC'] || (totalRequests > 0 ? totalRequests : 1085), color: '#b91c1c' },
-                { name: 'CCC', val: reqStats?.organizations?.['CCC'] || 146, color: '#0284c7' },
-                { name: 'AHTC', val: reqStats?.organizations?.['AHTC'] || 97, color: '#d97706' },
-                { name: 'CTW', val: reqStats?.organizations?.['CTW'] || 67, color: '#0d9488' },
-                { name: 'ACC (Anti-Corruption Circle)', val: reqStats?.organizations?.['ACC (Anti-Corruption Circle)'] || 45, color: '#2563eb' },
-                { name: 'Police', val: reqStats?.organizations?.['Police'] || 36, color: '#1e3a8a' },
-                { name: 'CBC', val: reqStats?.organizations?.['CBC'] || 24, color: '#e11d48' },
-                { name: 'CCW', val: reqStats?.organizations?.['CCW'] || 21, color: '#7c3aed' },
-                { name: 'ANF', val: reqStats?.organizations?.['ANF'] || 14, color: '#10b981' },
-                { name: 'CTD', val: reqStats?.organizations?.['CTD'] || 12, color: '#059669' },
-                { name: 'FIA', val: reqStats?.organizations?.['FIA'] || 9, color: '#ca8a04' },
-                { name: 'NAB', val: reqStats?.organizations?.['NAB'] || 8, color: '#dc2626' },
-                { name: 'Federal Ombudsman', val: reqStats?.organizations?.['Federal Ombudsman'] || 5, color: '#ea580c' },
-                { name: 'Ministry of Narcotics Control', val: reqStats?.organizations?.['Ministry of Narcotics Control'] || 3, color: '#15803d' },
-                { name: 'Other', val: reqStats?.organizations?.['Other'] || 2, color: '#64748b' },
-              ]}
-              defaultTotal={1560}
-            />
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 14px' }}>
+              {(() => {
+                const orgOptions = {
+                  chart: {
+                    type: 'pie',
+                    options3d: {
+                      enabled: true,
+                      alpha: 45,
+                      beta: 0
+                    },
+                    backgroundColor: 'transparent',
+                    height: 380,
+                  },
+                  title: {
+                    text: 'Organization wise Cases',
+                    style: { fontSize: '15px', fontWeight: '800', color: '#0f172a' }
+                  },
+                  tooltip: {
+                    pointFormat: '{series.name}: <b>{point.y}</b> ({point.percentage:.1f}%)'
+                  },
+                  plotOptions: {
+                    pie: {
+                      allowPointSelect: true,
+                      cursor: 'pointer',
+                      depth: 35,
+                      dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>, {point.y:,.0f}',
+                        style: { fontSize: '10px', fontWeight: 'bold', color: '#0f172a', textOutline: 'none' },
+                        connectorColor: '#334155',
+                        connectorWidth: 1.2
+                      },
+                      showInLegend: true
+                    }
+                  },
+                  legend: {
+                    layout: 'horizontal',
+                    align: 'center',
+                    verticalAlign: 'bottom',
+                    itemStyle: { fontSize: '9.5px', fontWeight: '600', color: '#334155' },
+                    itemMarginTop: 3,
+                    itemMarginBottom: 3
+                  },
+                  series: [{
+                    type: 'pie',
+                    name: 'Cases',
+                    data: [
+                      { name: 'CCRC', y: reqStats?.organizations?.['CCRC'] || (totalRequests > 0 ? totalRequests : 1085), color: '#b91c1c' },
+                      { name: 'CCC', y: reqStats?.organizations?.['CCC'] || 146, color: '#0284c7' },
+                      { name: 'AHTC', y: reqStats?.organizations?.['AHTC'] || 97, color: '#d97706' },
+                      { name: 'CTW', y: reqStats?.organizations?.['CTW'] || 67, color: '#0d9488' },
+                      { name: 'ACC (Anti-Corruption Circle)', y: reqStats?.organizations?.['ACC (Anti-Corruption Circle)'] || 45, color: '#2563eb' },
+                      { name: 'Police', y: reqStats?.organizations?.['Police'] || 36, color: '#1e3a8a' },
+                      { name: 'CBC', y: reqStats?.organizations?.['CBC'] || 24, color: '#e11d48' },
+                      { name: 'CCW', y: reqStats?.organizations?.['CCW'] || 21, color: '#7c3aed' },
+                      { name: 'ANF', y: reqStats?.organizations?.['ANF'] || 14, color: '#10b981' },
+                      { name: 'CTD', y: reqStats?.organizations?.['CTD'] || 12, color: '#059669' },
+                      { name: 'FIA', y: reqStats?.organizations?.['FIA'] || 9, color: '#ca8a04' },
+                      { name: 'NAB', y: reqStats?.organizations?.['NAB'] || 8, color: '#dc2626' },
+                      { name: 'Federal Ombudsman', y: reqStats?.organizations?.['Federal Ombudsman'] || 5, color: '#ea580c' },
+                      { name: 'Ministry of Narcotics Control', y: reqStats?.organizations?.['Ministry of Narcotics Control'] || 3, color: '#15803d' },
+                      { name: 'Other', y: reqStats?.organizations?.['Other'] || 2, color: '#64748b' },
+                    ]
+                  }],
+                  credits: { enabled: false }
+                };
+                return <HighchartsReact highcharts={Highcharts} options={orgOptions} />;
+              })()}
+            </div>
 
           </div>
 
