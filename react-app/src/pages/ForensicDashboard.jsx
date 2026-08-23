@@ -638,91 +638,109 @@ export default function ForensicDashboard() {
               </div>
 
               {/* Exact 3D Pie Chart Graphic */}
-              <div style={{ position: 'relative', width: '100%', minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg viewBox="0 0 460 210" style={{ width: '100%', maxHeight: 210 }}>
+              <div style={{ position: 'relative', width: '100%', minHeight: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg viewBox="0 0 460 230" style={{ width: '100%', maxHeight: 230 }}>
                   <defs>
-                    <radialGradient id="green3d" cx="60%" cy="50%" r="60%">
-                      <stop offset="0%" stopColor="#388e3c" />
+                    <radialGradient id="green3d" cx="40%" cy="40%" r="65%">
+                      <stop offset="0%" stopColor="#4caf50" />
+                      <stop offset="60%" stopColor="#2e7d32" />
                       <stop offset="100%" stopColor="#1b5e20" />
                     </radialGradient>
+                    <linearGradient id="greenSideGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#0d3b14" />
+                      <stop offset="50%" stopColor="#1b5e20" />
+                      <stop offset="100%" stopColor="#0a2c0f" />
+                    </linearGradient>
                     <radialGradient id="orange3d" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#f57c00" />
+                      <stop offset="0%" stopColor="#ffa726" />
                       <stop offset="100%" stopColor="#e65100" />
                     </radialGradient>
                     <radialGradient id="maroon3d" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#880e4f" />
+                      <stop offset="0%" stopColor="#ad1457" />
                       <stop offset="100%" stopColor="#4a148c" />
                     </radialGradient>
                     <radialGradient id="blue3d" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#0288d1" />
-                      <stop offset="100%" stopColor="#01579b" />
+                      <stop offset="0%" stopColor="#29b6f6" />
+                      <stop offset="100%" stopColor="#0277bd" />
                     </radialGradient>
                     <filter id="pieDropShad" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="0" dy="12" stdDeviation="6" floodColor="#000" floodOpacity="0.25" />
+                      <feDropShadow dx="0" dy="14" stdDeviation="6" floodColor="#000" floodOpacity="0.3" />
                     </filter>
                   </defs>
 
                   {/* 3D Base Drop Shadow */}
-                  <ellipse cx="235" cy="120" rx="125" ry="46" fill="#000" opacity="0.2" filter="url(#pieDropShad)" />
+                  <ellipse cx="235" cy="136" rx="135" ry="54" fill="#000" opacity="0.22" filter="url(#pieDropShad)" />
 
-                  {/* 3D Cylinder Extrusion (Front Green Rim) */}
-                  <path d="M 110,110 A 125,46 0 0,0 360,110 L 360,132 A 125,46 0 0,1 110,132 Z" fill="#0f3d14" stroke="#0a290d" strokeWidth="1" />
+                  {/* 3D Cylinder Extrusion (Front 3D Rim Depth) */}
+                  <path d="M 100,105 L 100,133 A 135,58 0 0,0 370,133 L 370,105 A 135,58 0 0,1 100,105 Z" fill="url(#greenSideGrad)" stroke="#09280d" strokeWidth="0.8" />
 
-                  {/* Major Green Slice: Mobile Phone (75% of Wheel) */}
-                  <path d="M 235,110 L 195,68 A 125,46 0 1,0 360,110 Z" fill="url(#green3d)" stroke="#0f3d14" strokeWidth="1.2" />
+                  {/* Top Slices (Clustered on Top-Left from 9 o'clock to 1 o'clock) */}
+                  {/* 1. Memory Card (Purple) */}
+                  <path d="M 235,105 L 100,105 A 135,58 0 0,1 131.6,67.7 Z" fill="#8e24aa" stroke="#4a148c" strokeWidth="0.8" />
 
-                  {/* Hard Disk - HDD Slice (Orange) */}
-                  <path d="M 235,110 L 155,75 A 125,46 0 0,1 195,68 Z" fill="url(#orange3d)" stroke="#bf360c" strokeWidth="1.2" />
+                  {/* 2. Laptop (Red) */}
+                  <path d="M 235,105 L 131.6,67.7 A 135,58 0 0,1 157.6,57.5 Z" fill="url(#blue3d)" stroke="#01579b" strokeWidth="0.8" />
 
-                  {/* USB Slice (Maroon) */}
-                  <path d="M 235,110 L 130,88 A 125,46 0 0,1 155,75 Z" fill="url(#maroon3d)" stroke="#311b92" strokeWidth="1.2" />
+                  {/* 3. IPAD / Tablet (Cyan) */}
+                  <path d="M 235,105 L 157.6,57.5 A 135,58 0 0,1 188.8,50.5 Z" fill="#00acc1" stroke="#006064" strokeWidth="0.8" />
 
-                  {/* Computer & Laptop Slices (Blue / Cyan / Yellow) */}
-                  <path d="M 235,110 L 118,98 A 125,46 0 0,1 130,88 Z" fill="#00838f" stroke="#004d40" strokeWidth="1.2" />
-                  <path d="M 235,110 L 110,110 A 125,46 0 0,1 118,98 Z" fill="url(#blue3d)" stroke="#01579b" strokeWidth="1.2" />
+                  {/* 4. Hard Disk - HDD (Orange) */}
+                  <path d="M 235,105 L 188.8,50.5 A 135,58 0 0,1 223.2,47.2 Z" fill="url(#orange3d)" stroke="#bf360c" strokeWidth="0.8" />
+
+                  {/* 5. Computer (Amber) */}
+                  <path d="M 235,105 L 223.2,47.2 A 135,58 0 0,1 258.4,47.9 Z" fill="#ffa726" stroke="#e65100" strokeWidth="0.8" />
+
+                  {/* 6. USB (Maroon) */}
+                  <path d="M 235,105 L 258.4,47.9 A 135,58 0 0,1 285.0,51.0 Z" fill="url(#maroon3d)" stroke="#4a148c" strokeWidth="0.8" />
+
+                  {/* 7. SIM Card (Yellow) */}
+                  <path d="M 235,105 L 285.0,51.0 A 135,58 0 0,1 305.0,55.5 Z" fill="#fbc02d" stroke="#f57f17" strokeWidth="0.8" />
+
+                  {/* Major Green Slice: Mobile Phone (Covers full remaining 75% of Disc seamlessly) */}
+                  <path d="M 235,105 L 305.0,55.5 A 135,58 0 1,1 100,105 Z" fill="url(#green3d)" stroke="#0f3d14" strokeWidth="1" />
 
                   {/* Callout Lines & Labels (Matching Picture 2 perfectly) */}
                   {/* 1. Mobile Phone (Bottom Right) */}
-                  <polyline points="295,130 330,165 425,165" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="295" cy="130" r="2.5" fill="#0f172a" />
-                  <text x="335" y="160" fontSize="10.5" fontWeight="bold" fill="#0f172a">
+                  <polyline points="305,130 340,175 435,175" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="305" cy="130" r="2.5" fill="#0f172a" />
+                  <text x="345" y="170" fontSize="10.5" fontWeight="bold" fill="#0f172a">
                     Mobile Phone, {reqStats?.evidentiary_categories?.['Mobile Phone'] || (totalDevices > 0 ? totalDevices : '2,537')}
                   </text>
 
                   {/* 2. SIM Card (Top Line) */}
-                  <polyline points="215,70 215,22 170,22" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="215" cy="70" r="2.5" fill="#0f172a" />
-                  <text x="165" y="18" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">SIM Card, 4</text>
+                  <polyline points="295,53 295,18 240,18" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="295" cy="53" r="2.5" fill="#0f172a" />
+                  <text x="235" y="14" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">SIM Card, 4</text>
 
                   {/* 3. USB */}
-                  <polyline points="180,72 170,38 125,38" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="180" cy="72" r="2.5" fill="#0f172a" />
-                  <text x="120" y="34" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">USB, 133</text>
+                  <polyline points="272,49 255,34 190,34" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="272" cy="49" r="2.5" fill="#0f172a" />
+                  <text x="185" y="30" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">USB, 133</text>
 
                   {/* 4. Computer */}
-                  <polyline points="160,78 145,54 90,54" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="160" cy="78" r="2.5" fill="#0f172a" />
-                  <text x="85" y="50" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">Computer, 6</text>
+                  <polyline points="240,47 220,50 145,50" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="240" cy="47" r="2.5" fill="#0f172a" />
+                  <text x="140" y="46" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">Computer, 6</text>
 
                   {/* 5. Hard Disk - HDD */}
-                  <polyline points="142,86 120,72 40,72" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="142" cy="86" r="2.5" fill="#0f172a" />
-                  <text x="35" y="68" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">Hard Disk - HDD, 385</text>
+                  <polyline points="205,49 175,68 45,68" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="205" cy="49" r="2.5" fill="#0f172a" />
+                  <text x="40" y="64" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">Hard Disk - HDD, 385</text>
 
                   {/* 6. IPAD / Tablet */}
-                  <polyline points="126,94 100,90 40,90" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="126" cy="94" r="2.5" fill="#0f172a" />
-                  <text x="35" y="86" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">IPAD/Tablet, 12</text>
+                  <polyline points="173,54 140,86 45,86" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="173" cy="54" r="2.5" fill="#0f172a" />
+                  <text x="40" y="82" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">IPAD/Tablet, 12</text>
 
                   {/* 7. Laptop */}
-                  <polyline points="116,102 95,108 40,108" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="116" cy="102" r="2.5" fill="#0f172a" />
-                  <text x="35" y="104" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">Laptop, 31</text>
+                  <polyline points="144,63 120,104 45,104" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="144" cy="63" r="2.5" fill="#0f172a" />
+                  <text x="40" y="100" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">Laptop, 31</text>
 
                   {/* 8. Memory Card */}
-                  <polyline points="112,110 80,126 30,126" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="112" cy="110" r="2.5" fill="#0f172a" />
-                  <text x="25" y="122" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">Memory Card, 21</text>
+                  <polyline points="115,86 90,122 35,122" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="115" cy="86" r="2.5" fill="#0f172a" />
+                  <text x="30" y="118" fontSize="9.5" fontWeight="bold" fill="#0f172a" textAnchor="end">Memory Card, 21</text>
                 </svg>
               </div>
 
@@ -758,83 +776,105 @@ export default function ForensicDashboard() {
               </div>
 
               {/* Exact 3D Pie Graphic matching Picture 2 */}
-              <div style={{ position: 'relative', width: '100%', minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg viewBox="0 0 460 210" style={{ width: '100%', maxHeight: 210 }}>
+              <div style={{ position: 'relative', width: '100%', minHeight: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg viewBox="0 0 460 230" style={{ width: '100%', maxHeight: 230 }}>
                   <defs>
-                    <radialGradient id="redOrgGrad" cx="60%" cy="50%" r="60%">
-                      <stop offset="0%" stopColor="#c62828" />
+                    <radialGradient id="redOrgGrad" cx="40%" cy="40%" r="65%">
+                      <stop offset="0%" stopColor="#e53935" />
+                      <stop offset="60%" stopColor="#c62828" />
                       <stop offset="100%" stopColor="#8e0000" />
                     </radialGradient>
+                    <linearGradient id="redSideGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#5c0000" />
+                      <stop offset="50%" stopColor="#8e0000" />
+                      <stop offset="100%" stopColor="#4a0000" />
+                    </linearGradient>
                     <radialGradient id="blueOrgGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#1565c0" />
+                      <stop offset="0%" stopColor="#1e88e5" />
                       <stop offset="100%" stopColor="#0d47a1" />
                     </radialGradient>
                     <radialGradient id="goldOrgGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#fbc02d" />
+                      <stop offset="0%" stopColor="#fdd835" />
                       <stop offset="100%" stopColor="#f57f17" />
                     </radialGradient>
                     <radialGradient id="tealOrgGrad" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#00897b" />
+                      <stop offset="0%" stopColor="#26a69a" />
                       <stop offset="100%" stopColor="#004d40" />
                     </radialGradient>
                   </defs>
 
-                  {/* 3D Drop Shadow */}
-                  <ellipse cx="245" cy="120" rx="120" ry="44" fill="#000" opacity="0.2" filter="url(#pieDropShad)" />
+                  {/* 3D Base Drop Shadow */}
+                  <ellipse cx="235" cy="136" rx="135" ry="54" fill="#000" opacity="0.22" filter="url(#pieDropShad)" />
 
-                  {/* 3D Cylinder Extrusion (Front Red Rim) */}
-                  <path d="M 125,110 A 120,44 0 0,0 365,110 L 365,130 A 120,44 0 0,1 125,130 Z" fill="#5c0000" stroke="#3b0000" strokeWidth="1" />
+                  {/* 3D Cylinder Extrusion (Front Red Rim Depth) */}
+                  <path d="M 100,105 L 100,133 A 135,58 0 0,0 370,133 L 370,105 A 135,58 0 0,1 100,105 Z" fill="url(#redSideGrad)" stroke="#4a0000" strokeWidth="0.8" />
 
-                  {/* Major Red Slice: CCRC (70% of Wheel) */}
-                  <path d="M 245,110 L 205,70 A 120,44 0 1,0 365,110 Z" fill="url(#redOrgGrad)" stroke="#5c0000" strokeWidth="1.2" />
+                  {/* Top-Left Slices */}
+                  {/* 1. CCC (Blue) */}
+                  <path d="M 235,105 L 100,105 A 135,58 0 0,1 135,66 Z" fill="url(#blueOrgGrad)" stroke="#0d47a1" strokeWidth="0.8" />
 
-                  {/* Top Slices (CCC, AHTC, CTW, ACC, Police) */}
-                  <path d="M 245,110 L 165,77 A 120,44 0 0,1 205,70 Z" fill="url(#blueOrgGrad)" stroke="#0d47a1" strokeWidth="1.2" />
-                  <path d="M 245,110 L 140,88 A 120,44 0 0,1 165,77 Z" fill="url(#goldOrgGrad)" stroke="#f57f17" strokeWidth="1.2" />
-                  <path d="M 245,110 L 128,98 A 120,44 0 0,1 140,88 Z" fill="url(#tealOrgGrad)" stroke="#004d40" strokeWidth="1.2" />
-                  <path d="M 245,110 L 125,110 A 120,44 0 0,1 128,98 Z" fill="#6a1b9a" stroke="#4a148c" strokeWidth="1.2" />
+                  {/* 2. CBC (Orange) */}
+                  <path d="M 235,105 L 135,66 A 135,58 0 0,1 165,56 Z" fill="#fb8c00" stroke="#e65100" strokeWidth="0.8" />
+
+                  {/* 3. AHTC (Gold) */}
+                  <path d="M 235,105 L 165,56 A 135,58 0 0,1 200,50 Z" fill="url(#goldOrgGrad)" stroke="#f57f17" strokeWidth="0.8" />
+
+                  {/* 4. ACC (Sky Blue) */}
+                  <path d="M 235,105 L 200,50 A 135,58 0 0,1 235,47 Z" fill="#4fc3f7" stroke="#0288d1" strokeWidth="0.8" />
+
+                  {/* 5. Police (Navy) */}
+                  <path d="M 235,105 L 235,47 A 135,58 0 0,1 268,49 Z" fill="#1a237e" stroke="#0d47a1" strokeWidth="0.8" />
+
+                  {/* 6. CTW (Teal) */}
+                  <path d="M 235,105 L 268,49 A 135,58 0 0,1 298,55 Z" fill="url(#tealOrgGrad)" stroke="#004d40" strokeWidth="0.8" />
+
+                  {/* 7. CCW (Purple) */}
+                  <path d="M 235,105 L 298,55 A 135,58 0 0,1 325,65 Z" fill="#8e24aa" stroke="#4a148c" strokeWidth="0.8" />
+
+                  {/* Major Red Slice: CCRC (Covers full remaining 75% of Disc seamlessly) */}
+                  <path d="M 235,105 L 325,65 A 135,58 0 1,1 100,105 Z" fill="url(#redOrgGrad)" stroke="#5c0000" strokeWidth="1" />
 
                   {/* Callout Lines & Labels matching Picture 2 */}
                   {/* 1. CCRC (Bottom Right) */}
-                  <polyline points="290,130 330,165 425,165" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="290" cy="130" r="2.5" fill="#0f172a" />
-                  <text x="335" y="160" fontSize="10.5" fontWeight="bold" fill="#0f172a">
+                  <polyline points="305,130 340,175 435,175" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="305" cy="130" r="2.5" fill="#0f172a" />
+                  <text x="345" y="170" fontSize="10.5" fontWeight="bold" fill="#0f172a">
                     CCRC, {reqStats?.organizations?.['CCRC'] || (totalRequests > 0 ? totalRequests : '1,085')}
                   </text>
 
                   {/* 2. CCW */}
-                  <polyline points="230,70 240,24 285,24" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="230" cy="70" r="2.5" fill="#0f172a" />
-                  <text x="290" y="20" fontSize="9" fontWeight="bold" fill="#0f172a">CCW, 21</text>
+                  <polyline points="312,60 330,22 380,22" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="312" cy="60" r="2.5" fill="#0f172a" />
+                  <text x="385" y="18" fontSize="9" fontWeight="bold" fill="#0f172a">CCW, 21</text>
 
                   {/* 3. CTW */}
-                  <polyline points="210,72 210,24 170,24" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="210" cy="72" r="2.5" fill="#0f172a" />
-                  <text x="165" y="20" fontSize="9" fontWeight="bold" fill="#0f172a" textAnchor="end">CTW, 67</text>
+                  <polyline points="283,52 283,22 230,22" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="283" cy="52" r="2.5" fill="#0f172a" />
+                  <text x="225" y="18" fontSize="9" fontWeight="bold" fill="#0f172a" textAnchor="end">CTW, 67</text>
 
                   {/* 4. Police */}
-                  <polyline points="190,74 185,38 140,38" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="190" cy="74" r="2.5" fill="#0f172a" />
-                  <text x="135" y="34" fontSize="9" fontWeight="bold" fill="#0f172a" textAnchor="end">Police, 36</text>
+                  <polyline points="252,48 245,36 180,36" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="252" cy="48" r="2.5" fill="#0f172a" />
+                  <text x="175" y="32" fontSize="9" fontWeight="bold" fill="#0f172a" textAnchor="end">Police, 36</text>
 
                   {/* 5. ACC */}
-                  <polyline points="175,76 160,52 90,52" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="175" cy="76" r="2.5" fill="#0f172a" />
+                  <polyline points="218,48 200,52 90,52" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="218" cy="48" r="2.5" fill="#0f172a" />
                   <text x="85" y="48" fontSize="8.5" fontWeight="bold" fill="#0f172a" textAnchor="end">ACC (Anti-Corruption Circle), 45</text>
 
                   {/* 6. AHTC */}
-                  <polyline points="155,82 145,66 90,66" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="155" cy="82" r="2.5" fill="#0f172a" />
+                  <polyline points="182,53 165,66 90,66" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="182" cy="53" r="2.5" fill="#0f172a" />
                   <text x="85" y="62" fontSize="9" fontWeight="bold" fill="#0f172a" textAnchor="end">AHTC, 97</text>
 
                   {/* 7. CBC */}
-                  <polyline points="140,90 120,80 70,80" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="140" cy="90" r="2.5" fill="#0f172a" />
+                  <polyline points="150,61 130,80 70,80" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="150" cy="61" r="2.5" fill="#0f172a" />
                   <text x="65" y="76" fontSize="9" fontWeight="bold" fill="#0f172a" textAnchor="end">CBC, 24</text>
 
                   {/* 8. CCC */}
-                  <polyline points="130,98 105,96 50,96" fill="none" stroke="#334155" strokeWidth="1.2" />
-                  <circle cx="130" cy="98" r="2.5" fill="#0f172a" />
+                  <polyline points="118,85 95,96 50,96" fill="none" stroke="#1e293b" strokeWidth="1.2" />
+                  <circle cx="118" cy="85" r="2.5" fill="#0f172a" />
                   <text x="45" y="92" fontSize="9" fontWeight="bold" fill="#0f172a" textAnchor="end">CCC, 146</text>
                 </svg>
               </div>
