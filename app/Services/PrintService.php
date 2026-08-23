@@ -916,6 +916,7 @@ class PrintService
         $cleanCity  = strtoupper(trim(str_ireplace(['circle', 'zone', 'nccia-rc', 'nccia', '-'], '', $circleCity))) ?: 'LAHORE';
         $circleName = e($circle?->name ?? 'LAHORE');
         $zoneName   = "NCCIA - ZONE {$cleanCity}";
+        $rcName     = "NCCIA-RC {$cleanCity}";
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
 
         // Accused List
@@ -1074,7 +1075,7 @@ HTML;
         }
         $body .= <<<HTML
             National Cyber Crime Investigation Agency<br/>
-            <strong>{$zoneName}</strong>
+            <strong>{$rcName}</strong>
           </div>
 
           <!-- ── 1. Endorsement: Circle Incharge to DD Forensic ── -->
@@ -1102,7 +1103,7 @@ HTML;
               <br/>
               <strong>Circle Incharge</strong><br/>
               National Cyber Crime Investigation Agency<br/>
-              {$zoneName}
+              {$rcName}
             </div>
           </div>
 

@@ -198,7 +198,8 @@ export default function ForensicRequestDetail() {
     const cleanCity = rawCircle.replace(/circle|zone|nccia-rc|nccia|-/gi, '').trim().toUpperCase() || 'LAHORE';
     const circleCity = cleanCity;
     const circleName = row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
-    const rcName = `NCCIA - ZONE ${cleanCity}`;
+    const rcName = `NCCIA-RC ${cleanCity}`;
+    const zoneName = `NCCIA - ZONE ${cleanCity}`;
     
     const accusedList = row.enquiry?.accused_persons || [];
     const accRows = accusedList.length > 0 
@@ -339,7 +340,7 @@ export default function ForensicRequestDetail() {
               <strong>To,</strong><br/>
               <strong>Deputy Director (Forensics),</strong><br/>
               National Cyber Crime Investigation Agency<br/>
-              ${rcName}
+              ${zoneName}
             </div>
             <div style="text-align:right;">
               <strong>Dated:</strong> ${row.created_at ? new Date(row.created_at).toLocaleDateString('en-GB') : dateStr}
@@ -366,7 +367,7 @@ export default function ForensicRequestDetail() {
               <strong>To,</strong><br/>
               <strong>Assistant Director (Forensics),</strong><br/>
               National Cyber Crime Investigation Agency<br/>
-              ${rcName}
+              ${zoneName}
             </div>
             <div style="text-align:right;">
               <strong>Dated:</strong> ${row.assigned_to_examiner_at ? new Date(row.assigned_to_examiner_at).toLocaleDateString('en-GB') : dateStr}
@@ -382,7 +383,7 @@ export default function ForensicRequestDetail() {
             <br/>
             <strong>Assistant Director (Forensics)</strong><br/>
             National Cyber Crime Investigation Agency<br/>
-            ${rcName}
+            ${zoneName}
           </div>
         </div>
       </body>
