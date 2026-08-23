@@ -813,7 +813,7 @@ export default function ForensicRequestDetail() {
             <div style={{fontSize:13.5,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
             <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Government of Pakistan • Ministry of Interior and Narcotics Control</div>
             <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Laboratory • NCCIA - ZONE {circleCity}</div>
-            <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:5,letterSpacing:0.5}}>CHAIN OF CUSTODY FORM</div>
+            <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:5,letterSpacing:0.5}}>CHAIN OF CUSTODY</div>
           </div>
           <div style={{width:65,textAlign:'right'}}>
             <img src="/images/pak-govt-logo.png" alt="Govt Logo" style={{width:55,height:55,objectFit:'contain'}} />
