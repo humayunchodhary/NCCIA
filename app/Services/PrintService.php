@@ -384,6 +384,19 @@ class PrintService
     }
 
     /**
+     * Resolve uploaded profile signature image HTML.
+     */
+    protected function getOfficerSignatureHtml(?\App\Models\User $officer, int $maxHeight = 45): string
+    {
+        $user = $officer ?: request()->user();
+        if (!$user || !$user->signature) {
+            return '';
+        }
+        $sigUrl = url('storage/' . ltrim($user->signature, '/'));
+        return '<div style="margin-bottom: 4px;"><img src="' . $sigUrl . '" alt="Signature" style="max-height: ' . $maxHeight . 'px; max-width: 140px; object-fit: contain;" /></div>';
+    }
+
+    /**
      * Printable Call Up Notice document (Notice For Attendance U/S 160 Cr.PC) with QR verification.
      */
     public function noticeDocument(EnquiryNotice $notice): string
@@ -470,9 +483,11 @@ class PrintService
         // Gist of Allegation
         $gistOfAllegation = e($notice->description ?: ($enquiry?->charge_against ?: ($complaint?->offence_type ?: ($complaint?->description ? \Illuminate\Support\Str::limit($complaint->description, 120) : 'Financial Fraud / Cyber Crime Allegation'))));
 
-        // Officer Info
-        $officerName = e($enquiry?->officer?->name ?: 'NABEEL HUSSAIN');
-        $officerDesig = e($enquiry?->officer?->designation ?: 'Sub Inspector');
+        // Officer Info & Profile Signature
+        $officer      = $enquiry?->officer ?: request()->user();
+        $officerName  = e($officer?->name ?: 'NABEEL HUSSAIN');
+        $officerDesig = e($officer?->designation ?: 'Sub Inspector');
+        $officerSigHtml = $this->getOfficerSignatureHtml($officer);
 
         // Address of reporting center (phone removed)
         $stationAddress = 'Cyber Crime Reporting Center, ' . $circleName . ', Police Station, National Cybercrime Investigation Agency (NCCIA), Street No 15, Wafaqi Colony, Canal Road ' . $circleCity . '.';
@@ -621,6 +636,7 @@ class PrintService
           </div>
 
           <div class="officer-sign-block">
+            {$officerSigHtml}
             <div class="off-name"><strong>{$officerName}</strong></div>
             <div class="off-desig">{$officerDesig}</div>
             <div class="off-branch">Cyber Crime Reporting Center, {$circleName}</div>
@@ -732,8 +748,10 @@ class PrintService
         $conclusion = nl2br(e($enquiry->conclusion ?: ($enquiry->cfr_summary ?: 'Based on the oral and documentary evidence gathered, the allegations stand substantiated against the accused person(s). Regular Case/FIR is recommended for registration.')));
 
         // Officer Info
-        $officerName  = e($enquiry->officer?->name ?: 'Sub Inspector');
-        $officerDesig = e($enquiry->officer?->designation ?: 'Sub Inspector');
+        $officer      = $enquiry->officer ?: request()->user();
+        $officerName  = e($officer?->name ?: 'Sub Inspector');
+        $officerDesig = e($officer?->designation ?: 'Sub Inspector');
+        $officerSigHtml = $this->getOfficerSignatureHtml($officer);
 
         $body = <<<HTML
         <div class="cfr-doc">
@@ -820,6 +838,7 @@ class PrintService
           </div>
 
           <div class="cfr-sign-block">
+            {$officerSigHtml}
             <strong>{$officerName}</strong><br/>
             {$officerDesig}<br/>
             <strong>NCCIA/CCRC/{$circleCode}</strong>
@@ -920,9 +939,11 @@ class PrintService
             HTML;
         }
 
-        $officerName  = e($enquiry->officer?->name ?: 'Investigation Officer');
-        $officerDesig = e($enquiry->officer?->designation ?: 'Investigation Officer');
-        $officerPhone = e($enquiry->officer?->phone ?: ($enquiry->officer?->contact_no ?: ''));
+        $officer      = $enquiry->officer ?: request()->user();
+        $officerName  = e($officer?->name ?: 'Investigation Officer');
+        $officerDesig = e($officer?->designation ?: 'Investigation Officer');
+        $officerPhone = e($officer?->phone ?: ($officer?->contact_no ?: ''));
+        $officerSigHtml = $this->getOfficerSignatureHtml($officer);
         $dateTimeStr  = now()->format('d/m/Y h:i A');
         $enqRegDate   = $enquiry->reg_date ? \Carbon\Carbon::parse($enquiry->reg_date)->format('d/m/Y') : ($enquiry->created_at ? $enquiry->created_at->format('d/m/Y') : '');
         $enquiryNoDisplay = $enqRegDate ? "{$enquiryNo} dated {$enqRegDate}" : $enquiryNo;
@@ -989,6 +1010,7 @@ class PrintService
           </div>
 
           <div class="req-sign-block">
+            {$officerSigHtml}
             <strong>{$officerName}</strong><br/>
             {$officerDesig}<br/>
 HTML;
@@ -1115,8 +1137,10 @@ HTML;
             HTML;
         }
 
-        $officerName  = e($enquiry->officer?->name ?: 'Sub-Inspector');
-        $officerDesig = e($enquiry->officer?->designation ?: 'Sub-Inspector');
+        $officer      = $enquiry->officer ?: request()->user();
+        $officerName  = e($officer?->name ?: 'Sub-Inspector');
+        $officerDesig = e($officer?->designation ?: 'Sub-Inspector');
+        $officerSigHtml = $this->getOfficerSignatureHtml($officer);
 
         $body = <<<HTML
         <div class="raid-doc">
@@ -1154,6 +1178,7 @@ HTML;
           </div>
 
           <div class="raid-sign">
+            {$officerSigHtml}
             <strong>{$officerName}</strong><br/>
             {$officerDesig}<br/>
             <strong>NCCIA/CCRC/{$circleName}</strong>
@@ -1279,7 +1304,11 @@ HTML;
           <div class="mrow"><span class="k">Circle:</span><span>{$circle}</span></div>
           <hr/>
           <div class="body"><strong>Description</strong><p class="desc">{$desc}</p></div>
-          <div class="sign center"><div class="sign-line"></div><div class="small">Enquiry Officer</div></div>
+          <div class="sign center">
+            {$this->getOfficerSignatureHtml($enquiry->officer, 35)}
+            <div class="sign-line"></div>
+            <div class="small">Enquiry Officer</div>
+          </div>
           <div class="small center">Printed: {$issuedAt}</div>
         </div>
         HTML;
@@ -1297,7 +1326,7 @@ HTML;
              .mrow .k { display:inline-block; width:120px; font-weight:700; }
              .body { margin-top:12px; }
              .desc { white-space:pre-wrap; margin-top:6px; }
-             .sign { margin-top:40px; width:180px; }
+             .sign { margin:40px auto 0 auto; width:180px; }
              .sign-line { border-top:1px solid #000; margin-bottom:4px; }
              .small { font-size:11px; }
              hr { border:none; border-top:1px solid #000; margin:10px 0; }'
@@ -1312,8 +1341,10 @@ HTML;
 
         $circleName = e($enquiry->complaint?->circle?->name ?: 'Lahore');
         $enquiryNo  = e($enquiry->enquiry_number ?: ('#' . $enquiry->id));
-        $officerName  = e($enquiry->officer?->name ?: 'Enquiry Officer');
-        $officerDesig = e($enquiry->officer?->designation ?: 'Sub-Inspector');
+        $officer      = $enquiry->officer ?: request()->user();
+        $officerName  = e($officer?->name ?: 'Enquiry Officer');
+        $officerDesig = e($officer?->designation ?: 'Sub-Inspector');
+        $officerSigHtml = $this->getOfficerSignatureHtml($officer, 35);
 
         $fraudAmount = '';
         if (!empty($params['fraud_amount'])) {
@@ -1396,7 +1427,7 @@ HTML;
           </div>
 
           <div class="sign-section">
-            <div><strong>Signature with date:</strong> _______________________</div>
+            <div><strong>Signature with date:</strong> {$officerSigHtml}</div>
             <div style="margin-top: 6px;"><strong>Name of EO / IO:</strong> {$officerName}</div>
             <div><strong>Designation:</strong> {$officerDesig}</div>
           </div>

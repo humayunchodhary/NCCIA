@@ -418,7 +418,16 @@
         </td>
         <td style="width: 50%;">
           <div class="vo-sig-box">
-            <div class="vo-sig-line"></div>
+            @php
+              $voSigPath = $report->signature ?? $report->creator?->signature;
+            @endphp
+            @if($voSigPath && file_exists(public_path('storage/' . ltrim($voSigPath, '/'))))
+              <div style="margin-bottom: 2px;"><img src="{{ public_path('storage/' . ltrim($voSigPath, '/')) }}" alt="Signature" style="max-height: 38px; max-width: 120px; object-fit: contain;"></div>
+            @elseif($voSigPath)
+              <div style="margin-bottom: 2px;"><img src="{{ url('storage/' . ltrim($voSigPath, '/')) }}" alt="Signature" style="max-height: 38px; max-width: 120px; object-fit: contain;"></div>
+            @else
+              <div class="vo-sig-line"></div>
+            @endif
             <strong>{{ $report->creator?->name ?? 'Verification Officer' }}</strong><br>
             {{ $report->creator?->designation ?? 'Investigation / Verification Officer' }}<br>
             NCCIA {{ $report->creator?->circle?->name ?? 'Circle' }}
