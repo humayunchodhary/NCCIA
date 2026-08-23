@@ -159,10 +159,11 @@ export default function ForensicRequestDetail() {
     const dateStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     const officerName = row.submitter?.name || row.enquiry?.officer?.name || 'Enquiry Officer';
     const officerDesig = row.submitter?.designation || row.enquiry?.officer?.designation || 'Enquiry Officer';
-    const officerPhone = row.submitter?.phone || row.submitter?.contact_no || row.enquiry?.officer?.phone || row.enquiry?.officer?.contact_no || '';
-    const circleCity = row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore';
+    const rawCircle = row.submitter?.circle?.city || row.enquiry?.complaint?.circle?.city || row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Lahore';
+    const cleanCity = rawCircle.replace(/circle|zone|nccia-rc|nccia|-/gi, '').trim().toUpperCase() || 'LAHORE';
+    const circleCity = cleanCity;
     const circleName = row.submitter?.circle?.name || row.enquiry?.complaint?.circle?.name || 'Headquarters / Main';
-    const rcName = `NCCIA-RC ${circleCity}`;
+    const rcName = `NCCIA - ZONE ${cleanCity}`;
     
     const accusedList = row.enquiry?.accused_persons || [];
     const accRows = accusedList.length > 0 
@@ -760,7 +761,7 @@ export default function ForensicRequestDetail() {
           <div style={{textAlign:'center',flex:1,padding:'0 10px'}}>
             <div style={{fontSize:13.5,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
             <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Government of Pakistan • Ministry of Interior and Narcotics Control</div>
-            <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Lab • NCCIA-RC {circleCity}</div>
+            <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Lab • NCCIA - ZONE {circleCity}</div>
             <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:5,letterSpacing:0.5}}>CHAIN OF CUSTODY FORM</div>
           </div>
           <div style={{width:65,textAlign:'right'}}>

@@ -912,8 +912,10 @@ class PrintService
         $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons']);
 
         $circle     = $enquiry->complaint?->circle;
+        $circleCity = e($circle?->city ?: ($circle?->name ?: 'LAHORE'));
+        $cleanCity  = strtoupper(trim(str_ireplace(['circle', 'zone', 'nccia-rc', 'nccia', '-'], '', $circleCity))) ?: 'LAHORE';
         $circleName = e($circle?->name ?? 'LAHORE');
-        $circleZone = e($circle?->name ? $circle->name . ' ZONE' : 'LAHORE ZONE');
+        $zoneName   = "NCCIA - ZONE {$cleanCity}";
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
 
         // Accused List
@@ -1072,7 +1074,7 @@ HTML;
         }
         $body .= <<<HTML
             National Cyber Crime Investigation Agency<br/>
-            <strong>NCCIA-RC {$circleName}</strong>
+            <strong>{$zoneName}</strong>
           </div>
 
           <!-- ── 1. Endorsement: Circle Incharge to DD Forensic ── -->
@@ -1083,7 +1085,7 @@ HTML;
                   <strong>To,</strong><br/>
                   <strong>Deputy Director (Forensics),</strong><br/>
                   National Cyber Crime Investigation Agency<br/>
-                  NCCIA-RC {$circleName}
+                  {$zoneName}
                 </td>
                 <td style="border: none; padding: 0; vertical-align: top; text-align: right; width: 40%;">
                   <strong>Dated:</strong> ____________________
@@ -1100,7 +1102,7 @@ HTML;
               <br/>
               <strong>Circle Incharge</strong><br/>
               National Cyber Crime Investigation Agency<br/>
-              NCCIA-RC {$circleName}
+              {$zoneName}
             </div>
           </div>
 
@@ -1112,7 +1114,7 @@ HTML;
                   <strong>To,</strong><br/>
                   <strong>Assistant Director (Forensics),</strong><br/>
                   National Cyber Crime Investigation Agency<br/>
-                  NCCIA-RC {$circleName}
+                  {$zoneName}
                 </td>
                 <td style="border: none; padding: 0; vertical-align: top; text-align: right; width: 40%;">
                   <strong>Dated:</strong> ____________________
@@ -1129,7 +1131,7 @@ HTML;
               <br/>
               <strong>Assistant Director (Forensics)</strong><br/>
               National Cyber Crime Investigation Agency<br/>
-              NCCIA-RC {$circleName}
+              {$zoneName}
             </div>
           </div>
         </div>

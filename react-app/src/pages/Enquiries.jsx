@@ -309,8 +309,9 @@ export default function Enquiries() {
       `;
     }).join('');
 
-    const circleCity = (enq.complaint?.circle?.city || enq.complaint?.circle?.name || enq.direct_info?.circle_name || 'Lahore').replace(/\s*Circle\s*$/i, '');
-    const rcName = `NCCIA-RC ${circleCity}`;
+    const rawCircle = enq.complaint?.circle?.city || enq.complaint?.circle?.name || enq.direct_info?.circle_name || 'Lahore';
+    const cleanCity = rawCircle.replace(/circle|zone|nccia-rc|nccia|-/gi, '').trim().toUpperCase() || 'LAHORE';
+    const rcName = `NCCIA - ZONE ${cleanCity}`;
     const linkedReq = (scopeLetterData.linkedRequests || [])[0] || null;
     const ciRemarks = (scopeLetterData.ciRemarks || linkedReq?.note || 'Approved & Forwarded for Forensic Examination.').trim();
     const ddRemarks = (linkedReq?.examiner_assignment_notes || linkedReq?.forensic_remarks || 'Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.').trim();
