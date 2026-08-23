@@ -275,31 +275,37 @@ export default function Enquiries() {
     const officerDesig = enq.officer?.designation || user?.designation || 'Enquiry Officer';
     const officerPhone = enq.officer?.phone || enq.officer?.contact_no || user?.phone || user?.contact_no || '';
 
-    const itemRows = (scopeLetterData.items.length ? scopeLetterData.items : [{ item_type: 'Digital Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
+    const accusedNames = (enq.accused_persons || enq.accusedPersons || []).map(a => a.name).filter(Boolean);
+
+    const itemRows = (scopeLetterData.items.length ? scopeLetterData.items : [{ item_type: 'Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
       let imeiStr = [];
       if (it.imei) imeiStr.push('IMEI1: ' + it.imei);
       if (it.imei2) imeiStr.push('IMEI2: ' + it.imei2);
       if (it.serial_no) imeiStr.push('SN: ' + it.serial_no);
       let imeiFinal = imeiStr.length > 0 ? imeiStr.join('<br/>') : '—';
       
+      const seizedFromPerson = it.seized_from
+        || (accusedNames[idx] ? `Accused: ${accusedNames[idx]}` : (accusedNames.length > 0 ? `Accused: ${accusedNames[0]}` : (compName ? `Case: ${compName}` : '—')));
+
       return `
       <tr>
         <td style="border:1px solid #000;padding:6px;text-align:center;">${idx + 1}</td>
-        <td style="border:1px solid #000;padding:6px;"><strong>${it.item_type || 'Digital Device'}</strong></td>
+        <td style="border:1px solid #000;padding:6px;font-weight:bold;color:#0f172a;">${seizedFromPerson}</td>
+        <td style="border:1px solid #000;padding:6px;"><strong>${it.item_type || 'Device'}</strong></td>
         <td style="border:1px solid #000;padding:6px;">${it.make_model || '—'}</td>
         <td style="border:1px solid #000;padding:6px;font-family:monospace;">${imeiFinal}</td>
-        <td style="border:1px solid #000;padding:6px;">${it.storage_capacity || '—'}</td>
+        <td style="border:1px solid #000;padding:6px;">${it.storage_capacity ? it.storage_capacity + ' GB' : '—'}</td>
         <td style="border:1px solid #000;padding:6px;">${it.condition || 'Sealed'}</td>
         <td style="border:1px solid #000;padding:6px;">${it.description || '—'}</td>
       </tr>
       `;
     }).join('');
 
-    const circleCity = enq.complaint?.circle?.city || enq.complaint?.circle?.name || enq.direct_info?.circle_name || 'Lahore';
+    const circleCity = (enq.complaint?.circle?.city || enq.complaint?.circle?.name || enq.direct_info?.circle_name || 'Lahore').replace(/\s*Circle\s*$/i, '');
     const rcName = `NCCIA-RC ${circleCity}`;
     const linkedReq = (scopeLetterData.linkedRequests || [])[0] || null;
-    const ciRemarks = (scopeLetterData.ciRemarks || linkedReq?.note || 'Approved & Forwarded for Digital Forensic Examination.').trim();
-    const ddRemarks = (linkedReq?.examiner_assignment_notes || linkedReq?.forensic_remarks || 'Marked to AD (Digital Forensics) / Forensic Examiner for examination and detailed forensic report.').trim();
+    const ciRemarks = (scopeLetterData.ciRemarks || linkedReq?.note || 'Approved & Forwarded for Forensic Examination.').trim();
+    const ddRemarks = (linkedReq?.examiner_assignment_notes || linkedReq?.forensic_remarks || 'Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.').trim();
     const ciDateStr = linkedReq?.created_at ? new Date(linkedReq.created_at).toLocaleDateString('en-GB') : dateStr;
     const ddDateStr = linkedReq?.assigned_to_examiner_at ? new Date(linkedReq.assigned_to_examiner_at).toLocaleDateString('en-GB') : dateStr;
 
@@ -338,17 +344,18 @@ export default function Enquiries() {
         </div>
         <div class="to-sec">
           To,<br/>
-          <strong>The Assistant Director / Deputy Director (Digital Forensics),</strong><br/>
-          Digital Forensic Lab, NCCIA HQ / Regional Center.
+          <strong>The Assistant Director / Deputy Director (Forensics),</strong><br/>
+          Forensic Lab, NCCIA HQ / Regional Center.
         </div>
-        <div class="subj">SUBJECT: REQUEST FOR DIGITAL FORENSIC EXAMINATION & ANALYSIS OF SEIZED EVIDENCE / DEVICES IN ENQ NO. ${enqNoDisplay}</div>
+        <div class="subj">SUBJECT: REQUEST FOR FORENSIC EXAMINATION & ANALYSIS OF SEIZED EVIDENCE / DEVICES IN ENQ NO. ${enqNoDisplay}</div>
         <p style="margin: 6px 0;">
-          With reference to Enquiry No. <strong>${enqNoDisplay}</strong> regarding complainant <strong>${compName}</strong> (CNIC: ${compCnic}), the following seized digital evidence/devices have been submitted for technical & forensic analysis:
+          With reference to Enquiry No. <strong>${enqNoDisplay}</strong> regarding complainant <strong>${compName}</strong> (CNIC: ${compCnic}), the following seized evidentiary media/devices have been submitted for technical & forensic analysis:
         </p>
         <table>
           <thead>
             <tr>
               <th style="width:30px;text-align:center;">#</th>
+              <th>Recovered / Seized From</th>
               <th>Item Type</th>
               <th>Make / Model</th>
               <th>IMEI / Serial No.</th>
@@ -366,7 +373,7 @@ export default function Enquiries() {
           ${(scopeLetterData.analysisScope || '').replace(/\\n/g, '<br/>')}
         </div>
         <p style="margin: 8px 0;">
-          It is requested that the digital evidence may kindly be examined in the forensic lab and official Forensic Report (Chain of Custody) be prepared and furnished at the earliest.
+          It is requested that the evidentiary media may kindly be examined in the forensic lab and official Forensic Report (Chain of Custody) be prepared and furnished at the earliest.
         </p>
         <div class="sign-block">
           <br/>
@@ -382,7 +389,7 @@ export default function Enquiries() {
           <div class="endorsement-head">
             <div>
               <strong>To,</strong><br/>
-              <strong>Deputy Director (Digital Forensics),</strong><br/>
+              <strong>Deputy Director (Forensics),</strong><br/>
               National Cyber Crime Investigation Agency<br/>
               ${rcName}
             </div>
@@ -409,7 +416,7 @@ export default function Enquiries() {
           <div class="endorsement-head">
             <div>
               <strong>To,</strong><br/>
-              <strong>Assistant Director (Digital Forensics),</strong><br/>
+              <strong>Assistant Director (Forensics),</strong><br/>
               National Cyber Crime Investigation Agency<br/>
               ${rcName}
             </div>
@@ -425,7 +432,7 @@ export default function Enquiries() {
           </div>
           <div class="sign-block" style="margin-top: 18px;">
             <br/>
-            <strong>Assistant Director (Digital Forensics)</strong><br/>
+            <strong>Assistant Director (Forensics)</strong><br/>
             National Cyber Crime Investigation Agency<br/>
             ${rcName}
           </div>

@@ -917,8 +917,22 @@ export default function EnquiryForm() {
     setSendingForensic(true);
     setForensicSendMsg('');
     try {
-      // Save enquiry first so report text/file is persisted
-      await saveEnquiry({ navigateAway: false });
+      const resolveSeizedPerson = (it) => {
+        if (it.seized_from) return it.seized_from;
+        if (it.owner_type === 'accused') {
+          const acc = form.accused[it.owner_ref] || form.accused[0];
+          return acc?.name ? `Accused: ${acc.name}` : (it.owner_ref || null);
+        }
+        if (it.owner_type === 'witness') {
+          const wit = form.witnesses[it.owner_ref];
+          return wit?.name ? `Witness: ${wit.name}` : (it.owner_ref || null);
+        }
+        if (it.owner_type === 'complainant') {
+          return form.complainant_name ? `Complainant: ${form.complainant_name}` : 'Complainant';
+        }
+        return it.owner_ref || null;
+      };
+
       const seizeItems = (form.activities || [])
         .filter(a => a.type === 'seizures' || a.type === 'search_seize')
         .flatMap(a => a.seize_items || [])
@@ -931,14 +945,13 @@ export default function EnquiryForm() {
           serial_no: it.serial_no || null,
           storage_capacity: it.storage_capacity || null,
           condition: it.condition || null,
-          seized_from: it.seized_from || null,
+          seized_from: resolveSeizedPerson(it),
           quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
           description: it.description || null,
         }));
       const fd = new FormData();
       fd.append('enquiry_id', String(id));
       fd.append('destination', destination);
-        fd.append('brief_contents', form.brief_allegation || '');
       fd.append('brief_contents', form.brief_allegation || '');
       fd.append('analysis_scope', act.analysis_scope || '');
       fd.append('note', note);
@@ -969,6 +982,22 @@ export default function EnquiryForm() {
     setForensicSendMsg('');
     try {
       await saveEnquiry({ navigateAway: false });
+      const resolveSeizedPerson = (it) => {
+        if (it.seized_from) return it.seized_from;
+        if (it.owner_type === 'accused') {
+          const acc = form.accused[it.owner_ref] || form.accused[0];
+          return acc?.name ? `Accused: ${acc.name}` : (it.owner_ref || null);
+        }
+        if (it.owner_type === 'witness') {
+          const wit = form.witnesses[it.owner_ref];
+          return wit?.name ? `Witness: ${wit.name}` : (it.owner_ref || null);
+        }
+        if (it.owner_type === 'complainant') {
+          return form.complainant_name ? `Complainant: ${form.complainant_name}` : 'Complainant';
+        }
+        return it.owner_ref || null;
+      };
+
       const items = (act.seize_items || [])
         .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
         .map(it => ({
@@ -979,7 +1008,7 @@ export default function EnquiryForm() {
           serial_no: it.serial_no || null,
           storage_capacity: it.storage_capacity || null,
           condition: it.condition || null,
-          seized_from: it.seized_from || null,
+          seized_from: resolveSeizedPerson(it),
           quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
           description: it.description || null,
         }));

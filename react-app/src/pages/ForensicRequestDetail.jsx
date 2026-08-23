@@ -169,20 +169,26 @@ export default function ForensicRequestDetail() {
       ? accusedList.map((a, i) => `<div><strong>${i+1}. ${a.name || '—'}</strong> S/O ${a.father_name || '—'} R/O ${a.postal_address || a.permanent_address || '—'}</div>`).join('')
       : '<div>1. Name S/o R/o ________________________________________________</div>';
 
-    const itemRows = (row.items && row.items.length > 0 ? row.items : [{ item_type: 'Digital Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
+    const accusedNames = (row.enquiry?.accused_persons || row.enquiry?.accusedPersons || []).map(a => a.name).filter(Boolean);
+
+    const itemRows = (row.items && row.items.length > 0 ? row.items : [{ item_type: 'Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
       let imeiStr = [];
       if (it.imei) imeiStr.push('IMEI1: ' + it.imei);
       if (it.imei2) imeiStr.push('IMEI2: ' + it.imei2);
       if (it.serial_no) imeiStr.push('SN: ' + it.serial_no);
       let imeiFinal = imeiStr.length > 0 ? imeiStr.join('<br/>') : '—';
       
+      const seizedFromPerson = it.seized_from
+        || (accusedNames[idx] ? `Accused: ${accusedNames[idx]}` : (accusedNames.length > 0 ? `Accused: ${accusedNames[0]}` : (complainantName ? `Case: ${complainantName}` : '—')));
+
       return `
       <tr>
         <td style="border:1px solid #000;padding:6px;text-align:center;">${idx + 1}</td>
-        <td style="border:1px solid #000;padding:6px;"><strong>${it.item_type || 'Digital Device'}</strong></td>
+        <td style="border:1px solid #000;padding:6px;font-weight:bold;color:#0f172a;">${seizedFromPerson}</td>
+        <td style="border:1px solid #000;padding:6px;"><strong>${it.item_type || 'Device'}</strong></td>
         <td style="border:1px solid #000;padding:6px;">${it.make_model || '—'}</td>
         <td style="border:1px solid #000;padding:6px;font-family:monospace;">${imeiFinal}</td>
-        <td style="border:1px solid #000;padding:6px;">${it.storage_capacity || '—'}</td>
+        <td style="border:1px solid #000;padding:6px;">${it.storage_capacity ? it.storage_capacity + ' GB' : '—'}</td>
         <td style="border:1px solid #000;padding:6px;">${it.condition || 'Sealed'}</td>
         <td style="border:1px solid #000;padding:6px;">${it.description || '—'}</td>
       </tr>
@@ -243,7 +249,8 @@ export default function ForensicRequestDetail() {
         <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
           <thead>
             <tr>
-              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;width:40px;">SR. NO.</th>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;width:35px;">SR. NO.</th>
+              <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">RECOVERED / SEIZED FROM</th>
               <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">TYPE OF EVIDENTIARY DEVICE</th>
               <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">MAKE / MODEL</th>
               <th style="border:1px solid #000;padding:6px;background:#f1f5f9;">IMEI / SERIAL NO</th>

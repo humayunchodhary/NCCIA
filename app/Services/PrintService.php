@@ -948,15 +948,19 @@ class PrintService
 
         // Seized Devices Table
         $deviceRows = '';
+        $accusedArr = $enquiry->accusedPersons ? $enquiry->accusedPersons->toArray() : ($enquiry->accused_persons ?: []);
         if (count($devices) > 0) {
             foreach ($devices as $i => $dev) {
                 $n = $i + 1;
                 $devType = e($dev['type'] ?? 'Mobile Phone');
                 $devModel = e($dev['model'] ?? '—');
                 
-                $devOwner = e($dev['owner'] ?? '');
-                if ($devOwner) {
-                    $devType .= '<br/><span style="font-size: 10px; color: #555;">(Owner: ' . $devOwner . ')</span>';
+                $devOwner = e($dev['owner'] ?? ($dev['seized_from'] ?? ''));
+                if (empty($devOwner) && !empty($accusedArr)) {
+                    $devOwner = e($accusedArr[$i]['name'] ?? ($accusedArr[0]['name'] ?? '—'));
+                }
+                if (empty($devOwner)) {
+                    $devOwner = '—';
                 }
                 
                 $imeiText = trim(e($dev['imei'] ?? ''));
@@ -970,13 +974,14 @@ class PrintService
                 $devImei = empty($identifiers) ? '—' : implode('<br/>', $identifiers);
                 
                 $devStorage = e($dev['storage_capacity'] ?? '—');
-                $deviceRows .= "<tr><td style=\"text-align:center;\">{$n}</td><td>{$devType}</td><td>{$devModel}</td><td>{$devImei}</td><td>{$devStorage}</td></tr>";
+                $deviceRows .= "<tr><td style=\"text-align:center;\">{$n}</td><td><strong>{$devOwner}</strong></td><td>{$devType}</td><td>{$devModel}</td><td>{$devImei}</td><td>{$devStorage}</td></tr>";
             }
         } else {
+            $firstAcc = !empty($accusedArr) ? e($accusedArr[0]['name'] ?? 'Accused') : '—';
             $deviceRows = <<<HTML
-            <tr><td style="text-align:center; height:24px;">1</td><td>Mobile Phone / Smartphone</td><td>Apple / Samsung</td><td>IMEI1: 358900000000000</td><td>256GB</td></tr>
-            <tr><td style="text-align:center; height:24px;">2</td><td>SIM Card / Memory Card</td><td>SanDisk 64GB</td><td>N/A</td><td>64GB</td></tr>
-            <tr><td style="text-align:center; height:24px;">3</td><td>Laptop / Hard Drive</td><td>Dell Inspiron</td><td>SN: 4598000</td><td>1TB</td></tr>
+            <tr><td style="text-align:center; height:24px;">1</td><td><strong>{$firstAcc}</strong></td><td>Mobile Phone / Smartphone</td><td>Apple / Samsung</td><td>IMEI1: 358900000000000</td><td>256GB</td></tr>
+            <tr><td style="text-align:center; height:24px;">2</td><td><strong>{$firstAcc}</strong></td><td>SIM Card / Memory Card</td><td>SanDisk 64GB</td><td>N/A</td><td>64GB</td></tr>
+            <tr><td style="text-align:center; height:24px;">3</td><td><strong>{$firstAcc}</strong></td><td>Laptop / Hard Drive</td><td>Dell Inspiron</td><td>SN: 4598000</td><td>1TB</td></tr>
             HTML;
         }
 
@@ -1010,20 +1015,21 @@ class PrintService
           <div class="salutation"><strong>SIR,</strong></div>
 
           <div class="req-body">
-            <p><strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC {$circleName}, NCCIA IN ENQ NO. <strong>{$enquiryNoDisplay}</strong>, AND THE BELOW DIGITAL MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,</p>
+            <p><strong>BACKGROUND:</strong> THE SUBJECT CASE HAS BEEN REGISTERED AT CCRC {$circleName}, NCCIA IN ENQ NO. <strong>{$enquiryNoDisplay}</strong>, AND THE BELOW EVIDENTIARY MEDIA REQUIRES FORENSIC ANALYSIS TO CONCLUDE THE INVESTIGATION ON MERIT. THE SUBJECT-CITED ENQUIRY HAS BEEN REGISTERED AGAINST THE ACCUSED PERSON,</p>
             <div class="accused-list" style="margin: 6px 0 10px 16px;">
               {$accRows}
             </div>
 
             <p>THE BRIEF CONTENTS OF THE CASE ARE THAT THE ALLEGED PERSON IS INVOLVED IN <strong>{$briefContents}</strong></p>
 
-            <p>DURING THE COURSE OF ENQUIRY/INVESTIGATION, THE RELEVANT DIGITAL MEDIA WAS TAKEN INTO POSSESSION FOR FORENSIC EXAMINATION. THE DETAIL OF THE DIGITAL MEDIA IS AS UNDER:</p>
+            <p>DURING THE COURSE OF ENQUIRY/INVESTIGATION, THE RELEVANT EVIDENTIARY MEDIA WAS TAKEN INTO POSSESSION FOR FORENSIC EXAMINATION. THE DETAIL OF THE EVIDENTIARY MEDIA IS AS UNDER:</p>
 
-            <div class="sec-title">DIGITAL MEDIA RECOVERED</div>
+            <div class="sec-title">EVIDENTIARY MEDIA RECOVERED</div>
             <table class="forensic-table">
               <thead>
                 <tr>
-                  <th style="width: 50px;">SR. NO.</th>
+                  <th style="width: 40px;">SR. NO.</th>
+                  <th>RECOVERED / SEIZED FROM</th>
                   <th>TYPE OF EVIDENTIARY DEVICE</th>
                   <th>MAKE / MODEL</th>
                   <th>IMEI / SERIAL NO</th>
