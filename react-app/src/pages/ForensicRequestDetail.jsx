@@ -79,6 +79,7 @@ export default function ForensicRequestDetail() {
   const isAd    = hasAnyRole(user, ['ad_forensic', 'admin_forensic', 'admin']);
   const [custodyRemarks, setCustodyRemarks] = useState('');
   const [additionalScopeCategory, setAdditionalScopeCategory] = useState('');
+  const [customLabNo, setCustomLabNo] = useState('');
 
   const load = () => {
     setLoading(true); setErr('');
@@ -455,7 +456,7 @@ export default function ForensicRequestDetail() {
             <span style={{fontSize:11,color:'#0284c7',fontWeight:600}}>Editable before printing Chain of Custody</span>
           </div>
           <div className="card-body" style={{padding:'14px 18px'}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14,marginBottom:12}}>
               <div className="cf-field">
                 <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#334155'}}>
                   Original Scope Category (from EO/IO)
@@ -464,13 +465,24 @@ export default function ForensicRequestDetail() {
               </div>
               <div className="cf-field">
                 <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#0369a1'}}>
-                  Add Additional Forensic Category (Optional)
+                  Add Additional Category (Optional)
                 </label>
                 <input
                   className="cf-input"
-                  placeholder="e.g. Cyber Extortion, Financial Fraud, Defamation..."
+                  placeholder="e.g. Cyber Extortion, Financial Fraud..."
                   value={additionalScopeCategory}
                   onChange={e=>setAdditionalScopeCategory(e.target.value)}
+                />
+              </div>
+              <div className="cf-field">
+                <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#0369a1'}}>
+                  Lab No. Base / Register No.
+                </label>
+                <input
+                  className="cf-input"
+                  placeholder="e.g. 260007 or 36671"
+                  value={customLabNo}
+                  onChange={e=>setCustomLabNo(e.target.value)}
                 />
               </div>
             </div>
@@ -798,7 +810,16 @@ export default function ForensicRequestDetail() {
               if (it.imei) imeis.push(it.imei);
               if (it.imei2) imeis.push(it.imei2);
 
-              const labNo = row.report_code ? row.report_code.replace(/[^0-9]/g, '') : (row.request_no ? row.request_no.replace(/[^0-9]/g, '') : '36671');
+              const labInputParts = customLabNo ? customLabNo.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean) : [];
+              let itemLabNo = '';
+              if (labInputParts.length > i) {
+                itemLabNo = labInputParts[i];
+              } else {
+                const rawBase = (customLabNo || (row.report_code ? row.report_code.replace(/[^0-9]/g, '') : (row.request_no ? row.request_no.replace(/[^0-9]/g, '') : '36671'))).trim();
+                itemLabNo = (row.items || []).length > 1
+                  ? `${rawBase}/${String(i + 1).padStart(2, '0')}`
+                  : rawBase;
+              }
 
               return (
                 <tr key={i}>
@@ -819,7 +840,7 @@ export default function ForensicRequestDetail() {
                     {imeis.length === 0 && !it.serial_no && '—'}
                   </td>
                   <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>
-                    <div>[Lab No: {labNo || '36671'}]</div>
+                    <div>[Lab No: {itemLabNo || '36671'}]</div>
                   </td>
                 </tr>
               );
