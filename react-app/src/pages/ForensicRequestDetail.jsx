@@ -80,6 +80,7 @@ export default function ForensicRequestDetail() {
   const [custodyRemarks, setCustodyRemarks] = useState('');
   const [additionalScopeCategory, setAdditionalScopeCategory] = useState('');
   const [customLabNo, setCustomLabNo] = useState('');
+  const [custodyReceivingDateTime, setCustodyReceivingDateTime] = useState('');
 
   const load = () => {
     setLoading(true); setErr('');
@@ -91,6 +92,9 @@ export default function ForensicRequestDetail() {
         setLabNotes(d.lab_notes || '');
         setAssignPriority(d.priority || 'normal');
         setCustodyRemarks(d.handover_remarks || d.findings || '');
+        const now = new Date();
+        const defaultRecDate = d.submitted_at ? formatDisplayDateTime(d.submitted_at) : (d.created_at ? formatDisplayDateTime(d.created_at) : now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }));
+        setCustodyReceivingDateTime(defaultRecDate);
       })
       .catch(e => setErr(e.response?.data?.message || 'Failed to load request details'))
       .finally(() => setLoading(false));
@@ -501,6 +505,17 @@ export default function ForensicRequestDetail() {
                   onChange={e=>setCustomLabNo(e.target.value)}
                 />
               </div>
+              <div className="cf-field">
+                <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#0369a1'}}>
+                  Date &amp; Time of Receiving (Editable)
+                </label>
+                <input
+                  className="cf-input"
+                  placeholder="e.g. 23/08/2026 11:30 AM"
+                  value={custodyReceivingDateTime}
+                  onChange={e=>setCustodyReceivingDateTime(e.target.value)}
+                />
+              </div>
             </div>
             <div className="cf-field">
               <label className="cf-label" style={{fontSize:12,fontWeight:700,color:'#334155'}}>
@@ -761,7 +776,7 @@ export default function ForensicRequestDetail() {
           <div style={{textAlign:'center',flex:1,padding:'0 10px'}}>
             <div style={{fontSize:13.5,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
             <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Government of Pakistan • Ministry of Interior and Narcotics Control</div>
-            <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Lab • NCCIA - ZONE {circleCity}</div>
+            <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Digital Forensic Laboratory • NCCIA - ZONE {circleCity}</div>
             <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:5,letterSpacing:0.5}}>CHAIN OF CUSTODY FORM</div>
           </div>
           <div style={{width:65,textAlign:'right'}}>
@@ -775,7 +790,7 @@ export default function ForensicRequestDetail() {
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',width:'38%'}}>Laboratory Case File No.</td>
               <td style={{border:'1px solid #000',padding:'5px 7px',width:'22%'}}>{row.request_no}</td>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',width:'18%'}}>Date &amp; Time of Receiving</td>
-              <td style={{border:'1px solid #000',padding:'5px 7px'}}>_________________________</td>
+              <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold'}}>{custodyReceivingDateTime || receivedDateTime || '_________________________'}</td>
             </tr>
             <tr>
               <td style={{border:'1px solid #000',padding:'5px 7px',fontWeight:'bold',background:'#f5f5f5',verticalAlign:'top'}}>Name of the Organization from which the equipment is received</td>
@@ -910,7 +925,7 @@ export default function ForensicRequestDetail() {
               {
                 from_name: row.submitter?.name||'—',
                 from_des: (row.submitter?.designation||'Enquiry Officer')+' · '+circleName,
-                from_date: receivedDateTime,
+                from_date: custodyReceivingDateTime || receivedDateTime,
                 to_name: row.assignee?.name||row.adReviewer?.name||'AD Forensic',
                 to_des: 'AD Forensic',
                 to_date: row.assigned_at?formatDisplayDateTime(row.assigned_at):null,
