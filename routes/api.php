@@ -256,17 +256,23 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/lookup/cmu-options', [LookupController::class, 'cmuOptions']);
     Route::get('/lookup/offence-types', [LookupController::class, 'offenceTypes']);
     Route::get('/lookup/roles', function () {
-        return response()->json(\Spatie\Permission\Models\Role::orderBy('name')->pluck('name'));
+        return response()->json(\Illuminate\Support\Facades\Cache::remember('lookup_roles', 3600, function () {
+            return \Spatie\Permission\Models\Role::orderBy('name')->pluck('name');
+        }));
     });
     Route::get('/lookup/circles', function () {
-        try {
-            \App\Models\Circle::firstOrCreate(['code' => 'RC1'], ['name' => 'NCCIA-RC 1']);
-            \App\Models\Circle::firstOrCreate(['code' => 'RC2'], ['name' => 'NCCIA-RC 2']);
-        } catch (\Throwable $e) {}
-        return response()->json(\App\Models\Circle::orderBy('name')->get(['id', 'name', 'code', 'zone_id']));
+        return response()->json(\Illuminate\Support\Facades\Cache::remember('lookup_all_circles', 1800, function () {
+            try {
+                \App\Models\Circle::firstOrCreate(['code' => 'RC1'], ['name' => 'NCCIA-RC 1']);
+                \App\Models\Circle::firstOrCreate(['code' => 'RC2'], ['name' => 'NCCIA-RC 2']);
+            } catch (\Throwable $e) {}
+            return \App\Models\Circle::orderBy('name')->get(['id', 'name', 'code', 'zone_id']);
+        }));
     });
     Route::get('/lookup/zones', function () {
-        return response()->json(\App\Models\Zone::orderBy('name')->get(['id', 'name', 'code']));
+        return response()->json(\Illuminate\Support\Facades\Cache::remember('lookup_all_zones', 3600, function () {
+            return \App\Models\Zone::orderBy('name')->get(['id', 'name', 'code']);
+        }));
     });
     Route::get('/lookup/enquiry-officers', [LookupController::class, 'enquiryOfficers']);
     Route::get('/lookup/legal-officers', [LookupController::class, 'legalOfficers']);
