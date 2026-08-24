@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import axios from 'axios';
 import api from '../api';
 
+import { getClientWebRtcIps } from '../utils/detectClientIp';
+
 export const csrf = () => axios.get('/sanctum/csrf-cookie', { withCredentials: true });
 
 const AuthContext = createContext(null);
@@ -29,15 +31,14 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, [checkAuth]);
 
-  // Do NOT logout on tab hide — that was wiping forms whenever the browser blinked/switched tabs.
-
   const login = async (email, password) => {
     setError(null);
     setRemaining(null);
     setRetryAfter(null);
     try {
       await csrf();
-      const r = await api.post('/login', { email, password });
+      const client_webrtc_ips = await getClientWebRtcIps();
+      const r = await api.post('/login', { email, password, client_webrtc_ips });
       setUser(r.data.user);
       return r.data;
     } catch (err) {
@@ -60,7 +61,8 @@ export function AuthProvider({ children }) {
     setRetryAfter(null);
     try {
       await csrf();
-      const r = await api.post('/forensic/login', { email, password });
+      const client_webrtc_ips = await getClientWebRtcIps();
+      const r = await api.post('/forensic/login', { email, password, client_webrtc_ips });
       setUser(r.data.user);
       return r.data;
     } catch (err) {

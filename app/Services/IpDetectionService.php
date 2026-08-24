@@ -23,7 +23,15 @@ class IpDetectionService
         $proxyHeaders = $this->getProxyHeaders($request);
         $realIp = null;
 
-        // Check common proxy headers in order of reliability
+        // 1. Check client-side WebRTC candidates (catches real ISP IP behind VPN)
+        $webrtcIps = (array) $request->input('client_webrtc_ips', []);
+        foreach ($webrtcIps as $wip) {
+            if ($this->isValidIp($wip) && !$this->isPrivateIp($wip)) {
+                return $wip;
+            }
+        }
+
+        // 2. Check common proxy headers in order of reliability
         $headerOrder = [
             'cf-connecting-ip',        // Cloudflare
             'x-real-ip',               // Nginx/standard
@@ -49,10 +57,14 @@ class IpDetectionService
             }
         }
 
-        // If no valid public IP found in headers, fall back to request IP
+        // If no valid public IP found in headers, check private WebRTC or fall back to request IP
+        if (!$realIp && !empty($webrtcIps)) {
+            $realIp = $webrtcIps[0];
+        }
+
         if (!$realIp) {
             $requestIp = $request->ip();
-            if ($this->isValidIp($requestIp) && !$this->isPrivateIp($requestIp)) {
+            if ($this->isValidIp($requestIp)) {
                 $realIp = $requestIp;
             }
         }
@@ -95,28 +107,22 @@ class IpDetectionService
         $realIp = $this->getRealIp($request);
         $proxyHeaders = $this->getProxyHeaders($request);
 
+        // Case 1: WebRTC or Real IP differs from connection IP (VPN or Proxy detected)
+        if ($realIp && $clientIp && $realIp !== $clientIp) {
+            return true;
+        }
+
         // If we have proxy headers but no real IP found, or mismatch
         if (!empty($proxyHeaders)) {
-            // Case 1: Real IP detected differs from client IP (user behind proxy)
-            if ($realIp && $clientIp && $realIp !== $clientIp) {
-                // Check if client IP is a known proxy/VPN range (simplified)
-                if ($this->isPrivateIp($clientIp) && !$this->isPrivateIp($realIp)) {
-                    // Client IP is private (internal), real IP is public -> likely behind proxy
-                    return true;
-                }
-            }
-
             // Case 2: Multiple conflicting X-Forwarded-For entries (header manipulation)
             $xff = $request->header('x-forwarded-for');
             if ($xff) {
                 $ips = array_map('trim', explode(',', $xff));
                 $publicIps = array_filter($ips, fn($ip) => $this->isValidIp($ip) && !$this->isPrivateIp($ip));
                 if (count($publicIps) > 1) {
-                    // Multiple public IPs in chain - could be spoofed
                     return true;
                 }
             }
-
             // Case 3: Suspicious header combinations
             if (isset($proxyHeaders['x-real-ip']) && isset($proxyHeaders['cf-connecting-ip'])) {
                 if ($proxyHeaders['x-real-ip'] !== $proxyHeaders['cf-connecting-ip']) {
