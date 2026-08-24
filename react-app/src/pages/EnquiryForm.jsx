@@ -331,6 +331,79 @@ export default function EnquiryForm() {
     return order;
   }, [showVerificationReport]);
 
+  const mergeAccusedLists = (existingList = [], sourceList = []) => {
+    const merged = [...(Array.isArray(existingList) ? existingList : [])];
+    const isMatch = (a, b) => {
+      const cnicA = (a.cnic || '').replace(/\D/g, '');
+      const cnicB = (b.cnic || '').replace(/\D/g, '');
+      if (cnicA && cnicB && cnicA === cnicB) return true;
+      const nameA = (a.name || '').trim().toLowerCase();
+      const nameB = (b.name || '').trim().toLowerCase();
+      if (nameA && nameB && nameA === nameB) return true;
+      return false;
+    };
+
+    (Array.isArray(sourceList) ? sourceList : []).forEach(src => {
+      if (!src || (!src.name && !src.cnic)) return;
+      const exists = merged.some(m => isMatch(m, src));
+      if (!exists) {
+        merged.push({
+          ...EMPTY_ACCUSED,
+          id: src.id || undefined,
+          name: src.name || '',
+          cnic: src.cnic || '',
+          father_name: src.father_name || '',
+          gender: src.gender || '',
+          contact_no: src.contact_no || src.phone || src.mobile_no || '',
+          whatsapp_no: src.whatsapp_no || src.phone || src.contact_no || '',
+          email: src.email || '',
+          postal_address: src.postal_address || src.post_address || src.address || '',
+          permanent_address: src.permanent_address || src.address || '',
+          religion: src.religion || '',
+          district_domicile: src.district_domicile || '',
+          identification_mark: src.identification_mark || '',
+          occupation: src.occupation || '',
+          is_government: !!src.is_government,
+          department_name: src.department_name || '',
+          designation: src.designation || '',
+          description: src.description || (src.address ? `Address: ${src.address}` : ''),
+          cnic_attachment: src.cnic_attachment || null,
+          passport_attachment: src.passport_attachment || null,
+          nadra_verisys_attachment: src.nadra_verisys_attachment || null,
+        });
+      }
+    });
+
+    return merged;
+  };
+
+  const pullAccusedFromVerification = () => {
+    const sourceAccused = [
+      ...(Array.isArray(verificationReport?.accused) ? verificationReport.accused : []),
+      ...(Array.isArray(selectedComplaint?.latest_verification_report?.accused) ? selectedComplaint.latest_verification_report.accused : []),
+      ...(Array.isArray(complaintDetail?.latest_verification_report?.accused) ? complaintDetail.latest_verification_report.accused : []),
+      ...(Array.isArray(selectedComplaint?.initial_accused) ? selectedComplaint.initial_accused : []),
+      ...(Array.isArray(complaintDetail?.initial_accused) ? complaintDetail.initial_accused : []),
+    ];
+
+    if (!sourceAccused.length) {
+      alert('Verification report ya complaint mein koi naya accused record nahi mila.');
+      return;
+    }
+
+    setForm(f => {
+      const merged = mergeAccusedLists(f.accused, sourceAccused);
+      const addedCount = merged.length - f.accused.length;
+      if (addedCount > 0) {
+        setSuccessMsg(`${addedCount} accused person(s) verification / complaint se sync ho gaye.`);
+        setTimeout(() => setSuccessMsg(''), 4000);
+      } else {
+        alert('Tamam accused persons pehle se list mein mojood hain.');
+      }
+      return { ...f, accused: merged };
+    });
+  };
+
   const applyEnquiryPayload = (d) => {
     const fileUrl = (p) => {
       if (!p) return '';
@@ -340,14 +413,41 @@ export default function EnquiryForm() {
     setTechnicalReportUrl(fileUrl(d.technical_report_attachment) || '');
     setForensicReportUrl(fileUrl(d.forensic_report_attachment) || '');
     setCaseFileId(d.case_file_id || d.case_file?.id || null);
-    setVerificationReport(d.complaint?.latest_verification_report || d.complaint?.latestVerificationReport || null);
+    const vRep = d.complaint?.latest_verification_report || d.complaint?.latestVerificationReport || d.verification_report || null;
+    setVerificationReport(vRep);
     setLinkedVerification(d.complaint?.verification || null);
     const toDate = (v) => (v ? String(v).slice(0, 10) : '');
-    let rawAccused = d.accused_persons || d.accused || [];
-    if ((!Array.isArray(rawAccused) || rawAccused.length === 0) && d.complaint) {
-      rawAccused = d.complaint.latest_verification_report?.accused ||
-                   d.complaint.verification_report?.accused ||
-                   d.complaint.initial_accused || [];
+
+    // Merge existing saved enquiry accused with any verification report / complaint accused
+    let initialAccused = (d.accused_persons || d.accused || []).map(a => ({
+      ...EMPTY_ACCUSED,
+      id: a.id,
+      name: a.name || '',
+      cnic: a.cnic || '',
+      father_name: a.father_name || '',
+      gender: a.gender || '',
+      contact_no: a.contact_no || a.phone || a.mobile_no || '',
+      whatsapp_no: a.whatsapp_no || a.phone || a.contact_no || '',
+      email: a.email || '',
+      postal_address: a.postal_address || a.post_address || a.address || '',
+      permanent_address: a.permanent_address || a.address || '',
+      religion: a.religion || '',
+      district_domicile: a.district_domicile || '',
+      identification_mark: a.identification_mark || '',
+      occupation: a.occupation || '',
+      is_government: !!a.is_government,
+      department_name: a.department_name || '',
+      designation: a.designation || '',
+      description: a.description || '',
+      cnic_attachment: a.cnic_attachment || null,
+      passport_attachment: a.passport_attachment || null,
+      nadra_verisys_attachment: a.nadra_verisys_attachment || null,
+    }));
+
+    if (d.complaint) {
+      const vAccused = vRep?.accused || d.complaint.latest_verification_report?.accused || d.complaint.verification_report?.accused || [];
+      const cAccused = d.complaint.initial_accused || [];
+      initialAccused = mergeAccusedLists(initialAccused, [...(Array.isArray(vAccused) ? vAccused : []), ...(Array.isArray(cAccused) ? cAccused : [])]);
     }
 
     setForm(f => ({
@@ -374,29 +474,7 @@ export default function EnquiryForm() {
       cfr_remarks: d.cfr_remarks || '',
       technical_report: d.technical_report || '',
       forensic_report: d.forensic_report || '',
-      accused: (Array.isArray(rawAccused) ? rawAccused : []).map(a => ({
-        id: a.id,
-        name: a.name || '',
-        cnic: a.cnic || '',
-        father_name: a.father_name || '',
-        gender: a.gender || '',
-        contact_no: a.contact_no || a.phone || a.mobile_no || '',
-        whatsapp_no: a.whatsapp_no || a.phone || a.contact_no || '',
-        email: a.email || '',
-        postal_address: a.postal_address || a.post_address || a.address || '',
-        permanent_address: a.permanent_address || a.address || '',
-        religion: a.religion || '',
-        district_domicile: a.district_domicile || '',
-        identification_mark: a.identification_mark || '',
-        occupation: a.occupation || '',
-        is_government: !!a.is_government,
-        department_name: a.department_name || '',
-        designation: a.designation || '',
-        description: a.description || '',
-        cnic_attachment: a.cnic_attachment || null,
-        passport_attachment: a.passport_attachment || null,
-        nadra_verisys_attachment: a.nadra_verisys_attachment || null,
-      })),
+      accused: initialAccused,
       attachments: (d.enquiry_attachments || d.attachments || []).map(at => ({
         id: at.id,
         title: at.title || '',
@@ -623,7 +701,7 @@ export default function EnquiryForm() {
   };
 
   const updateAccusedFile = (i, field, file) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
-  const isAccusedEditing = (a, i) => !a.id || editingAccusedIndex === i;
+  const isAccusedEditing = (a, i) => editingAccusedIndex === i;
 
   // Attachments
   const addAttachment = () => setForm(f => ({ ...f, attachments: [...f.attachments, { ...EMPTY_ATTACHMENT, attachment_date: new Date().toISOString().split('T')[0] }] }));
@@ -1582,11 +1660,23 @@ export default function EnquiryForm() {
               <div><div className="cf-section-title">Accused Persons</div><div className="cf-section-sub">Saved accused list — Edit to update full details</div></div>
             </div>
             <div className="cf-body">
-              <button type="button" className="btn btn-outline btn-sm" onClick={addAccused} style={{ marginBottom: 16 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Accused
-              </button>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={addAccused}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Accused
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={pullAccusedFromVerification}
+                  title="Import / Merge Accused from Verification Report & Complaint"
+                  style={{ color: '#0E7C7B', borderColor: '#0E7C7B', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  Sync Accused from Verification / Complaint
+                </button>
+              </div>
 
-              {form.accused.some((a, i) => a.id && !isAccusedEditing(a, i)) ? (
+              {form.accused.some((a, i) => !isAccusedEditing(a, i)) ? (
                 <div className="table-card" style={{ marginBottom: 16, overflow: 'auto' }}>
                   <table className="data-table">
                     <thead>
@@ -1594,19 +1684,21 @@ export default function EnquiryForm() {
                         <th>#</th>
                         <th>NAME</th>
                         <th>CNIC</th>
+                        <th>CONTACT</th>
                         <th>DESCRIPTION</th>
                         <th>ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
                       {form.accused.map((a, i) => {
-                        if (!a.id || isAccusedEditing(a, i)) return null;
+                        if (isAccusedEditing(a, i)) return null;
                         return (
-                          <tr key={a.id || i}>
+                          <tr key={a.id || `acc-${i}`}>
                             <td><span className="badge" style={{ background: 'rgba(1,92,148,0.12)', color: '#015C94', fontWeight: 700 }}>#{i + 1}</span></td>
                             <td style={{ fontWeight: 600 }}>{a.name || '—'}</td>
                             <td>{a.cnic || '—'}</td>
-                            <td style={{ maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.description || '—'}</td>
+                            <td>{a.contact_no || a.whatsapp_no || '—'}</td>
+                            <td style={{ maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.description || a.permanent_address || a.postal_address || '—'}</td>
                             <td>
                               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                 <button
@@ -1644,11 +1736,9 @@ export default function EnquiryForm() {
                 return (
                 <div key={a.id || `new-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <strong style={{ fontSize: 13, color: '#015C94' }}>{a.id ? `Edit Accused #${i + 1}` : `New Accused #${i + 1}`}</strong>
+                    <strong style={{ fontSize: 13, color: '#015C94' }}>{a.id ? `Edit Accused #${i + 1}` : `Accused Person #${i + 1}`}</strong>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      {a.id ? (
-                        <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingAccusedIndex(null)}>Done</button>
-                      ) : null}
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingAccusedIndex(null)}>Done</button>
                       {(!a.id || isPrivileged) && (
                         <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAccused(i)}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
