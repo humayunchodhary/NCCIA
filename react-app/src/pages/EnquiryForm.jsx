@@ -212,6 +212,7 @@ export default function EnquiryForm() {
   const [submittingCfr, setSubmittingCfr] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [activeTab, setActiveTab] = useState('details');
   const [technicalFile, setTechnicalFile] = useState(null);
   const [forensicFile, setForensicFile] = useState(null);
@@ -281,6 +282,7 @@ export default function EnquiryForm() {
 
   const roleNames = user?.roles?.map?.(r => r.name || r) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
+  const isEO = roleNames.some(r => ['enquiry_officer', 'investigation_officer'].includes(r)) && !roleNames.some(r => ['admin', 'circle_incharge', 'director_general'].includes(r));
   const canEditCfrRemarks = roleNames.some(r => ['admin', 'additional_director'].includes(r));
   const canAuthorizeRequisitions = roleNames.some(r => ['admin', 'director_general', 'additional_director'].includes(r));
   const canRegisterCase = canRegisterCaseFromEnquiry(user);
@@ -341,6 +343,13 @@ export default function EnquiryForm() {
     setVerificationReport(d.complaint?.latest_verification_report || d.complaint?.latestVerificationReport || null);
     setLinkedVerification(d.complaint?.verification || null);
     const toDate = (v) => (v ? String(v).slice(0, 10) : '');
+    let rawAccused = d.accused_persons || d.accused || [];
+    if ((!Array.isArray(rawAccused) || rawAccused.length === 0) && d.complaint) {
+      rawAccused = d.complaint.latest_verification_report?.accused ||
+                   d.complaint.verification_report?.accused ||
+                   d.complaint.initial_accused || [];
+    }
+
     setForm(f => ({
       ...f,
       complaint_id: d.complaint_id || d.complaint?.id || '',
@@ -365,17 +374,17 @@ export default function EnquiryForm() {
       cfr_remarks: d.cfr_remarks || '',
       technical_report: d.technical_report || '',
       forensic_report: d.forensic_report || '',
-      accused: (d.accused_persons || d.accused || []).map(a => ({
+      accused: (Array.isArray(rawAccused) ? rawAccused : []).map(a => ({
         id: a.id,
         name: a.name || '',
         cnic: a.cnic || '',
         father_name: a.father_name || '',
         gender: a.gender || '',
-        contact_no: a.contact_no || '',
-        whatsapp_no: a.whatsapp_no || '',
+        contact_no: a.contact_no || a.phone || a.mobile_no || '',
+        whatsapp_no: a.whatsapp_no || a.phone || a.contact_no || '',
         email: a.email || '',
-        postal_address: a.postal_address || '',
-        permanent_address: a.permanent_address || '',
+        postal_address: a.postal_address || a.post_address || a.address || '',
+        permanent_address: a.permanent_address || a.address || '',
         religion: a.religion || '',
         district_domicile: a.district_domicile || '',
         identification_mark: a.identification_mark || '',
@@ -1191,6 +1200,8 @@ export default function EnquiryForm() {
         navigate(`/enquiries/${saved.id}/edit`, { replace: true });
       }
     }
+    setSuccessMsg('Enquiry record successfully saved / updated.');
+    setTimeout(() => setSuccessMsg(''), 5000);
     if (navigateAway) navigate('/enquiries');
   };
 
@@ -1199,8 +1210,9 @@ export default function EnquiryForm() {
     setSaving(true);
     setErrors({});
     setServerError('');
+    setSuccessMsg('');
     try {
-      await saveEnquiry({ navigateAway: true });
+      await saveEnquiry({ navigateAway: false });
     } catch (err) {
       const res = err.response?.data;
       if (res?.errors) {
@@ -1348,6 +1360,13 @@ export default function EnquiryForm() {
           ))}
         </div>
 
+        {successMsg && (
+          <div className="cf-alert cf-alert-success" style={{ marginBottom: 20, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', padding: '12px 16px', borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            {successMsg}
+          </div>
+        )}
+
         {serverError && (
           <div className="cf-alert cf-alert-error" style={{ marginBottom: 20 }}>{serverError}
             {Object.keys(errors).length > 0 && <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>{Object.entries(errors).map(([k, v]) => <li key={k}><strong>{k}:</strong> {Array.isArray(v) ? v.join(', ') : v}</li>)}</ul>}
@@ -1424,56 +1443,58 @@ export default function EnquiryForm() {
               </div>
             )}
 
-            <div className="cf-section">
-              <div className="cf-section-header">
-                <div className="cf-section-icon" style={{ background: '#015C94' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                </div>
-                <div><div className="cf-section-title">Complaint Reference</div><div className="cf-section-sub">Link to complaint with tracking number</div></div>
-                <div className="cf-section-badge">STEP 1</div>
-              </div>
-              <div className="cf-body">
-                <div className="cf-row-3">
-                  <div className="cf-field">
-                    <label className="cf-label">{directMode ? '' : 'Tracking No.'}</label>
-                    {directMode ? (
-                      <div className="cf-input-wrap" style={{background:'#F7F8FA',padding:'8px 10px',borderRadius:6,fontSize:13,color:'#015C94',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                        Direct Enquiry (No Complaint)
-                        <span style={{color:'#015C94',cursor:'pointer',fontWeight:600,textDecoration:'underline'}} onClick={() => { setDirectMode(false); setComplaintDetail(null); }}>Switch to Complaint</span>
-                      </div>
-                    ) : (
-                      <div className="cf-input-wrap">
-                        <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-                        <select className="cf-input cf-select" value={form.tracking_no} onChange={handleTrackingChange} required>
-                          <option value="">— Select Tracking No. —</option>
-                          {complaints.map(c => <option key={c.id} value={c.tracking_no}>{c.tracking_no} — {c.complainant_name}</option>)}
-                        </select>
-                        <span className="cf-hint">Auto-fills from complaint record</span>
-                      </div>
-                    )}
-                    <input type="hidden" name="complaint_id" value={form.complaint_id} />
-                    {!directMode && (
-                      <span style={{color:'#015C94',cursor:'pointer',fontWeight:600,fontSize:12,textDecoration:'underline'}} onClick={() => setDirectMode(true)}>
-                        Complaint nahi hai? Direct enquiry create karein
-                      </span>
-                    )}
+            {!isEO && (
+              <div className="cf-section">
+                <div className="cf-section-header">
+                  <div className="cf-section-icon" style={{ background: '#015C94' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                   </div>
-                  {renderField('Enquiry Number', 'enquiry_number', { placeholder: 'Manual entry (optional)' })}
-                  {renderField('Status', 'status', { options: ENQUIRY_STATUS, required: true })}
+                  <div><div className="cf-section-title">Complaint Reference</div><div className="cf-section-sub">Link to complaint with tracking number</div></div>
+                  <div className="cf-section-badge">STEP 1</div>
                 </div>
+                <div className="cf-body">
+                  <div className="cf-row-3">
+                    <div className="cf-field">
+                      <label className="cf-label">{directMode ? '' : 'Tracking No.'}</label>
+                      {directMode ? (
+                        <div className="cf-input-wrap" style={{background:'#F7F8FA',padding:'8px 10px',borderRadius:6,fontSize:13,color:'#015C94',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                          Direct Enquiry (No Complaint)
+                          <span style={{color:'#015C94',cursor:'pointer',fontWeight:600,textDecoration:'underline'}} onClick={() => { setDirectMode(false); setComplaintDetail(null); }}>Switch to Complaint</span>
+                        </div>
+                      ) : (
+                        <div className="cf-input-wrap">
+                          <span className="cf-input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                          <select className="cf-input cf-select" value={form.tracking_no} onChange={handleTrackingChange} required>
+                            <option value="">— Select Tracking No. —</option>
+                            {complaints.map(c => <option key={c.id} value={c.tracking_no}>{c.tracking_no} — {c.complainant_name}</option>)}
+                          </select>
+                          <span className="cf-hint">Auto-fills from complaint record</span>
+                        </div>
+                      )}
+                      <input type="hidden" name="complaint_id" value={form.complaint_id} />
+                      {!directMode && (
+                        <span style={{color:'#015C94',cursor:'pointer',fontWeight:600,fontSize:12,textDecoration:'underline'}} onClick={() => setDirectMode(true)}>
+                          Complaint nahi hai? Direct enquiry create karein
+                        </span>
+                      )}
+                    </div>
+                    {renderField('Enquiry Number', 'enquiry_number', { placeholder: 'Manual entry (optional)' })}
+                    {renderField('Status', 'status', { options: ENQUIRY_STATUS, required: true })}
+                  </div>
 
-                {directMode && (
-                  <DirectRegistrationFields
-                    direct={direct}
-                    setDirect={setDirect}
-                    errors={errors}
-                    title="VIP / Direct Enquiry Details"
-                    subtitle="Same fields as CMS Enquiry Registration Form"
-                    showCaseExtras={false}
-                  />
-                )}
+                  {directMode && (
+                    <DirectRegistrationFields
+                      direct={direct}
+                      setDirect={setDirect}
+                      errors={errors}
+                      title="VIP / Direct Enquiry Details"
+                      subtitle="Same fields as CMS Enquiry Registration Form"
+                      showCaseExtras={false}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="cf-section">
               <div className="cf-section-header">

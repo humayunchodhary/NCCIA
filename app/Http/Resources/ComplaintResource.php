@@ -138,6 +138,13 @@ class ComplaintResource extends JsonResource
                         : null,
                 ];
             }),
+            'latest_verification_report' => $this->latestVerificationReport ? [
+                'id'             => $this->latestVerificationReport->id,
+                'accused'        => $this->latestVerificationReport->accused,
+                'recommendation' => $this->latestVerificationReport->recommendation,
+                'comments'       => $this->latestVerificationReport->comments,
+                'created_at'     => $this->latestVerificationReport->created_at?->toISOString(),
+            ] : null,
             'created_at'           => $this->created_at?->toISOString(),
             'updated_at'           => $this->updated_at?->toISOString(),
         ];

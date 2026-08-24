@@ -841,8 +841,13 @@ class EnquiryController extends Controller
         $accused = $enquiry->accusedPersons;
 
         // Auto-fallback from verification report or complaint initial_accused if enquiry has none saved yet
-        if ($accused->isEmpty() && $enquiry->complaint) {
-            $reportAccused = $enquiry->complaint->latestVerificationReport?->accused;
+        if ($accused->isEmpty() && $enquiry->complaint_id) {
+            $complaint = $enquiry->complaint ?? \App\Models\Complaint::find($enquiry->complaint_id);
+            $reportAccused = $complaint?->latestVerificationReport?->accused;
+            if (empty($reportAccused) && $complaint) {
+                $vReport = \App\Models\VerificationReport::where('complaint_id', $complaint->id)->latest('id')->first();
+                $reportAccused = $vReport?->accused;
+            }
             if (!empty($reportAccused) && is_array($reportAccused)) {
                 $accused = collect($reportAccused)->map(function ($a) {
                     return [
@@ -858,8 +863,8 @@ class EnquiryController extends Controller
                         'description'       => $a['description'] ?? '',
                     ];
                 });
-            } elseif (!empty($enquiry->complaint->initial_accused) && is_array($enquiry->complaint->initial_accused)) {
-                $accused = collect($enquiry->complaint->initial_accused)->map(function ($a) {
+            } elseif ($complaint && !empty($complaint->initial_accused) && is_array($complaint->initial_accused)) {
+                $accused = collect($complaint->initial_accused)->map(function ($a) {
                     return [
                         'name'              => $a['name'] ?? '',
                         'cnic'              => $a['cnic'] ?? '',
