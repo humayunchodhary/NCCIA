@@ -1,19 +1,48 @@
-/** Format ISO / Date value for <input type="datetime-local"> */
+/** Format ISO / Date / SQL value for <input type="datetime-local"> without timezone shifts */
 export function toLocalInput(value) {
   if (!value) return '';
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) {
-    const s = String(value);
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return s.slice(0, 16);
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10) + 'T00:00';
-    return '';
+  if (value instanceof Date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
   }
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const s = String(value).trim();
+  // Match YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm
+  const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})[T\s](\d{2}):(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}`;
+  }
+  // Match only date YYYY-MM-DD
+  const dateMatch = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (dateMatch) {
+    return `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}T00:00`;
+  }
+  const d = new Date(value);
+  if (!Number.isNaN(d.getTime())) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  return '';
 }
 
 export function formatDisplayDateTime(value) {
   if (!value) return '—';
+  const s = String(value).trim();
+  const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})[T\s](\d{2}):(\d{2})/);
+  if (match) {
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const day = parseInt(match[3], 10);
+    const hours = parseInt(match[4], 10);
+    const mins = parseInt(match[5], 10);
+    const d = new Date(year, month, day, hours, mins);
+    return d.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString('en-GB', {
@@ -24,3 +53,4 @@ export function formatDisplayDateTime(value) {
     minute: '2-digit',
   });
 }
+

@@ -131,7 +131,7 @@ export default function VerificationReportForm() {
     complaint_id: '',
     registration_at: '',
     assignment_date: '',
-    verification_date: '',
+    verification_date: toLocalInput(new Date()),
     victim_name: '',
     victim_father_name: '',
     victim_occupation: '',
@@ -631,7 +631,7 @@ const handleTrackingChange = (e) => {
               <div className="cf-field">
                 <label className="cf-label">Registration Date &amp; Time</label>
                 <div className="cf-input-wrap">
-                  <input type="datetime-local" className="cf-input" name="registration_at" value={form.registration_at} onChange={setF('registration_at')} readOnly style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}} />
+                  <input type="datetime-local" className="cf-input" name="registration_at" value={form.registration_at} onChange={setF('registration_at')} disabled={isVoLocked} />
                 </div>
                 <span className="cf-hint">When complaint was registered</span>
               </div>
@@ -640,14 +640,14 @@ const handleTrackingChange = (e) => {
               <div className="cf-field">
                 <label className="cf-label">Assignment Date &amp; Time</label>
                 <div className="cf-input-wrap">
-                  <input type="datetime-local" className="cf-input" name="assignment_date" value={form.assignment_date} onChange={setF('assignment_date')} readOnly style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}} />
+                  <input type="datetime-local" className="cf-input" name="assignment_date" value={form.assignment_date} onChange={setF('assignment_date')} disabled={isVoLocked} />
                 </div>
                 <span className="cf-hint">When assigned to verification officer</span>
               </div>
               <div className="cf-field">
-                <label className="cf-label">Verification Date &amp; Time</label>
+                <label className="cf-label required">Verification Date &amp; Time</label>
                 <div className="cf-input-wrap">
-                  <input type="datetime-local" className="cf-input" name="verification_date" value={form.verification_date} onChange={setF('verification_date')} readOnly style={{backgroundColor: '#f8f9fa', cursor: 'not-allowed'}} />
+                  <input type="datetime-local" className="cf-input" name="verification_date" value={form.verification_date} onChange={setF('verification_date')} disabled={isVoLocked} required />
                 </div>
                 <span className="cf-hint">When verification was completed / complainant appeared</span>
               </div>
