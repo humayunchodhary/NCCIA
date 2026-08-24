@@ -289,7 +289,11 @@ class EnquiryController extends Controller
             }
         }
 
-        $enquiry->witnesses()->whereNotIn('id', $keep ?: [0])->delete();
+        $user = $request->user();
+        $canDelete = $user && $user->hasAnyRole(['admin', 'circle_incharge', 'additional_director', 'director_general', 'dd_legal', 'ad_legal']);
+        if ($canDelete) {
+            $enquiry->witnesses()->whereNotIn('id', $keep ?: [0])->delete();
+        }
     }
 
     private function syncNotices(Enquiry $enquiry, array $notices, Request $request): void
@@ -409,7 +413,11 @@ class EnquiryController extends Controller
             }
         }
 
-        $enquiry->accusedPersons()->whereNotIn('id', $keep ?: [0])->delete();
+        $user = $request->user();
+        $canDelete = $user && $user->hasAnyRole(['admin', 'circle_incharge', 'additional_director', 'director_general', 'dd_legal', 'ad_legal']);
+        if ($canDelete) {
+            $enquiry->accusedPersons()->whereNotIn('id', $keep ?: [0])->delete();
+        }
     }
 
     private function syncEnquiryAttachments(Enquiry $enquiry, array $attachments, Request $request): void

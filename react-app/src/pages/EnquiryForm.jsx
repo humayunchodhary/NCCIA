@@ -282,6 +282,7 @@ export default function EnquiryForm() {
 
   const roleNames = user?.roles?.map?.(r => r.name || r) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
+  const canDeleteAccusedWitness = roleNames.some(r => ['admin', 'circle_incharge', 'additional_director', 'director_general', 'dd_legal', 'ad_legal'].includes(r));
   const isEO = roleNames.some(r => ['enquiry_officer', 'investigation_officer'].includes(r)) && !roleNames.some(r => ['admin', 'circle_incharge', 'director_general'].includes(r));
   const canEditCfrRemarks = roleNames.some(r => ['admin', 'additional_director'].includes(r));
   const canAuthorizeRequisitions = roleNames.some(r => ['admin', 'director_general', 'additional_director'].includes(r));
@@ -671,6 +672,10 @@ export default function EnquiryForm() {
     });
   };
   const removeAccused = (i) => {
+    if (!canDeleteAccusedWitness) {
+      alert('Accused delete karne ki authority sirf Circle Incharge / AD / DD / Admin ke paas hai.');
+      return;
+    }
     setForm(f => ({ ...f, accused: f.accused.filter((_, idx) => idx !== i) }));
     setEditingAccusedIndex(prev => (prev === i ? null : (prev != null && prev > i ? prev - 1 : prev)));
   };
@@ -763,7 +768,13 @@ export default function EnquiryForm() {
 
   // Witnesses
   const addWitness = () => setForm(f => ({ ...f, witnesses: [...f.witnesses, { ...EMPTY_WITNESS }] }));
-  const removeWitness = (i) => setForm(f => ({ ...f, witnesses: f.witnesses.filter((_, idx) => idx !== i) }));
+  const removeWitness = (i) => {
+    if (!canDeleteAccusedWitness) {
+      alert('Witness delete karne ki authority sirf Circle Incharge / AD / DD / Admin ke paas hai.');
+      return;
+    }
+    setForm(f => ({ ...f, witnesses: f.witnesses.filter((_, idx) => idx !== i) }));
+  };
   const updateWitness = (i, field, value) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
   const updateWitnessFile = (i, field, file) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
 
@@ -1710,13 +1721,13 @@ export default function EnquiryForm() {
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                   Edit
                                 </button>
-                                {(!a.id || isPrivileged) && (
+                                {canDeleteAccusedWitness && (
                                   <button
                                     type="button"
                                     className="btn btn-sm"
                                     style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36 }}
                                     onClick={() => removeAccused(i)}
-                                    title="Remove"
+                                    title="Delete Accused (CI/AD/DD/Admin only)"
                                   >
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                   </button>
@@ -1739,8 +1750,8 @@ export default function EnquiryForm() {
                     <strong style={{ fontSize: 13, color: '#015C94' }}>{a.id ? `Edit Accused #${i + 1}` : `Accused Person #${i + 1}`}</strong>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingAccusedIndex(null)}>Done</button>
-                      {(!a.id || isPrivileged) && (
-                        <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAccused(i)}>
+                      {canDeleteAccusedWitness && (
+                        <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAccused(i)} title="Delete Accused (CI/AD/DD/Admin only)">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
                       )}
@@ -1841,8 +1852,8 @@ export default function EnquiryForm() {
                         {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
-                    {(!w.id || isPrivileged) && (
-                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeWitness(i)}>
+                    {canDeleteAccusedWitness && (
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeWitness(i)} title="Delete Witness (CI/AD/DD/Admin only)">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </button>
                     )}
