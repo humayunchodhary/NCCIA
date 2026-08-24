@@ -280,6 +280,13 @@ class EnquiryController extends Controller
             }
 
             $existing = !empty($w['id']) ? EnquiryWitness::find($w['id']) : null;
+            if (!$existing && !empty($w['cnic'])) {
+                $existing = $enquiry->witnesses()->where('cnic', $w['cnic'])->first();
+            }
+            if (!$existing && !empty($w['name'])) {
+                $existing = $enquiry->witnesses()->where('name', $w['name'])->first();
+            }
+
             if ($existing && $existing->enquiry_id === $enquiry->id) {
                 $existing->update($attrs);
                 $keep[] = $existing->id;
@@ -289,11 +296,7 @@ class EnquiryController extends Controller
             }
         }
 
-        $user = $request->user();
-        $canDelete = $user && $user->hasAnyRole(['admin', 'circle_incharge', 'additional_director', 'director_general', 'dd_legal', 'ad_legal']);
-        if ($canDelete) {
-            $enquiry->witnesses()->whereNotIn('id', $keep ?: [0])->delete();
-        }
+        $enquiry->witnesses()->whereNotIn('id', $keep ?: [0])->delete();
     }
 
     private function syncNotices(Enquiry $enquiry, array $notices, Request $request): void
@@ -404,6 +407,13 @@ class EnquiryController extends Controller
             }
 
             $existing = !empty($a['id']) ? EnquiryAccused::find($a['id']) : null;
+            if (!$existing && !empty($a['cnic'])) {
+                $existing = $enquiry->accusedPersons()->where('cnic', $a['cnic'])->first();
+            }
+            if (!$existing && !empty($a['name'])) {
+                $existing = $enquiry->accusedPersons()->where('name', $a['name'])->first();
+            }
+
             if ($existing && $existing->enquiry_id === $enquiry->id) {
                 $existing->update($attrs);
                 $keep[] = $existing->id;
@@ -413,11 +423,7 @@ class EnquiryController extends Controller
             }
         }
 
-        $user = $request->user();
-        $canDelete = $user && $user->hasAnyRole(['admin', 'circle_incharge', 'additional_director', 'director_general', 'dd_legal', 'ad_legal']);
-        if ($canDelete) {
-            $enquiry->accusedPersons()->whereNotIn('id', $keep ?: [0])->delete();
-        }
+        $enquiry->accusedPersons()->whereNotIn('id', $keep ?: [0])->delete();
     }
 
     private function syncEnquiryAttachments(Enquiry $enquiry, array $attachments, Request $request): void
@@ -886,10 +892,35 @@ class EnquiryController extends Controller
                         'description'       => $a['description'] ?? '',
                     ];
                 });
+        // Clean up historical duplicate accused in DB
+        $seenAcc = [];
+        $uniqueAcc = collect();
+        foreach ($enquiry->accusedPersons as $item) {
+            $key = strtolower(trim(($item->cnic ?: '') . '|' . ($item->name ?: '')));
+            if ($key !== '|' && isset($seenAcc[$key])) {
+                $item->delete();
+            } else {
+                if ($key !== '|') $seenAcc[$key] = true;
+                $uniqueAcc->push($item);
+            }
+        }
+        $accused = $uniqueAcc;
+
+        // Clean up historical duplicate witnesses in DB
+        $seenWit = [];
+        $uniqueWit = collect();
+        foreach ($enquiry->witnesses as $item) {
+            $key = strtolower(trim(($item->cnic ?: '') . '|' . ($item->name ?: '')));
+            if ($key !== '|' && isset($seenWit[$key])) {
+                $item->delete();
+            } else {
+                if ($key !== '|') $seenWit[$key] = true;
+                $uniqueWit->push($item);
             }
         }
 
         $payload['accused'] = $accused;
+        $payload['witnesses'] = $uniqueWit;
         $payload['attachments'] = $enquiry->enquiryAttachments;
 
         return response()->json($payload);

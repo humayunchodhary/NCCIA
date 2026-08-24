@@ -230,6 +230,7 @@ export default function EnquiryForm() {
   const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
   const [editingAccusedIndex, setEditingAccusedIndex] = useState(null);
+  const [editingWitnessIndex, setEditingWitnessIndex] = useState(null);
   const [editingNoticeIndex, setEditingNoticeIndex] = useState(null);
   const [linkedForensicRequests, setLinkedForensicRequests] = useState([]);
   const [loadingLinkedReports, setLoadingLinkedReports] = useState(false);
@@ -419,7 +420,7 @@ export default function EnquiryForm() {
     setLinkedVerification(d.complaint?.verification || null);
     const toDate = (v) => (v ? String(v).slice(0, 10) : '');
 
-    // Merge existing saved enquiry accused with any verification report / complaint accused
+    // Deduplicate loaded accused from enquiry
     let initialAccused = (d.accused_persons || d.accused || []).map(a => ({
       ...EMPTY_ACCUSED,
       id: a.id,
@@ -445,11 +446,51 @@ export default function EnquiryForm() {
       nadra_verisys_attachment: a.nadra_verisys_attachment || null,
     }));
 
-    if (d.complaint) {
+    // Deduplicate in memory
+    initialAccused = mergeAccusedLists([], initialAccused);
+
+    if (initialAccused.length === 0 && d.complaint) {
       const vAccused = vRep?.accused || d.complaint.latest_verification_report?.accused || d.complaint.verification_report?.accused || [];
       const cAccused = d.complaint.initial_accused || [];
-      initialAccused = mergeAccusedLists(initialAccused, [...(Array.isArray(vAccused) ? vAccused : []), ...(Array.isArray(cAccused) ? cAccused : [])]);
+      initialAccused = mergeAccusedLists([], [...(Array.isArray(vAccused) ? vAccused : []), ...(Array.isArray(cAccused) ? cAccused : [])]);
     }
+
+    let initialWitnesses = (d.witnesses || []).map(w => ({
+      id: w.id,
+      name: w.name || '',
+      father_name: w.father_name || '',
+      relation: w.relation || '',
+      gender: w.gender || '',
+      cnic: w.cnic || '',
+      domicile_district: w.domicile_district || '',
+      nationality: w.nationality || '',
+      passport: w.passport || '',
+      occupation: w.occupation || '',
+      is_government: !!w.is_government,
+      department_name: w.department_name || '',
+      designation: w.designation || '',
+      scale: w.scale || '',
+      contact_no: w.contact_no || '',
+      whatsapp_no: w.whatsapp_no || '',
+      mailing_address: w.mailing_address || '',
+      permanent_address: w.permanent_address || '',
+      address: w.address || w.mailing_address || '',
+      attachment: null,
+      picture: null,
+      statement_attachment: null,
+      attachment_path: w.attachment || '',
+      picture_path: w.picture || '',
+      statement_path: w.statement_attachment || '',
+    }));
+
+    const seenWit = {};
+    initialWitnesses = initialWitnesses.filter(w => {
+      const key = ((w.cnic || '').replace(/\D/g, '') || (w.name || '').trim().toLowerCase());
+      if (!key) return true;
+      if (seenWit[key]) return false;
+      seenWit[key] = true;
+      return true;
+    });
 
     setForm(f => ({
       ...f,
@@ -476,6 +517,7 @@ export default function EnquiryForm() {
       technical_report: d.technical_report || '',
       forensic_report: d.forensic_report || '',
       accused: initialAccused,
+      witnesses: initialWitnesses,
       attachments: (d.enquiry_attachments || d.attachments || []).map(at => ({
         id: at.id,
         title: at.title || '',
@@ -767,14 +809,21 @@ export default function EnquiryForm() {
   const updateApproval = (i, field, value) => setForm(f => ({ ...f, approvals: f.approvals.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Witnesses
-  const addWitness = () => setForm(f => ({ ...f, witnesses: [...f.witnesses, { ...EMPTY_WITNESS }] }));
+  const addWitness = () => {
+    setForm(f => {
+      setEditingWitnessIndex(f.witnesses.length);
+      return { ...f, witnesses: [...f.witnesses, { ...EMPTY_WITNESS }] };
+    });
+  };
   const removeWitness = (i) => {
     if (!canDeleteAccusedWitness) {
       alert('Witness delete karne ki authority sirf Circle Incharge / AD / DD / Admin ke paas hai.');
       return;
     }
     setForm(f => ({ ...f, witnesses: f.witnesses.filter((_, idx) => idx !== i) }));
+    setEditingWitnessIndex(prev => (prev === i ? null : (prev != null && prev > i ? prev - 1 : prev)));
   };
+  const isWitnessEditing = (w, i) => editingWitnessIndex === i;
   const updateWitness = (i, field, value) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
   const updateWitnessFile = (i, field, file) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
 
@@ -1840,9 +1889,80 @@ export default function EnquiryForm() {
               <button type="button" className="btn btn-outline btn-sm" onClick={addWitness} style={{ marginBottom: 16 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Witness
               </button>
-              {form.witnesses.map((w, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
+
+              {form.witnesses.some((w, i) => !isWitnessEditing(w, i)) ? (
+                <div className="table-card" style={{ marginBottom: 16, overflow: 'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>NAME</th>
+                        <th>CNIC</th>
+                        <th>RELATION</th>
+                        <th>CONTACT</th>
+                        <th>ADDRESS</th>
+                        <th>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {form.witnesses.map((w, i) => {
+                        if (isWitnessEditing(w, i)) return null;
+                        return (
+                          <tr key={w.id || `wit-${i}`}>
+                            <td><span className="badge" style={{ background: 'rgba(38,64,120,0.12)', color: '#264078', fontWeight: 700 }}>#{i + 1}</span></td>
+                            <td style={{ fontWeight: 600 }}>{w.name || '—'}</td>
+                            <td>{w.cnic || '—'}</td>
+                            <td>{w.relation || '—'}</td>
+                            <td>{w.contact_no || w.whatsapp_no || '—'}</td>
+                            <td style={{ maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.address || w.permanent_address || w.mailing_address || '—'}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => setEditingWitnessIndex(i)}
+                                  title="Edit"
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  Edit
+                                </button>
+                                {canDeleteAccusedWitness && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm"
+                                    style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36 }}
+                                    onClick={() => removeWitness(i)}
+                                    title="Delete Witness (CI/AD/DD/Admin only)"
+                                  >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              {form.witnesses.map((w, i) => {
+                if (!isWitnessEditing(w, i)) return null;
+                return (
+                <div key={w.id || `new-wit-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <strong style={{ fontSize: 13, color: '#264078' }}>{w.id ? `Edit Witness #${i + 1}` : `Witness Person #${i + 1}`}</strong>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingWitnessIndex(null)}>Done</button>
+                      {canDeleteAccusedWitness && (
+                        <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeWitness(i)} title="Delete Witness (CI/AD/DD/Admin only)">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Witness Name</label><input type="text" className="cf-input" value={w.name} onChange={e => updateWitness(i, 'name', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Father Name</label><input type="text" className="cf-input" value={w.father_name} onChange={e => updateWitness(i, 'father_name', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Relation</label><input type="text" className="cf-input" value={w.relation} onChange={e => updateWitness(i, 'relation', e.target.value)} /></div>
@@ -1852,11 +1972,6 @@ export default function EnquiryForm() {
                         {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
-                    {canDeleteAccusedWitness && (
-                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end' }} onClick={() => removeWitness(i)} title="Delete Witness (CI/AD/DD/Admin only)">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </button>
-                    )}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">CNIC</label><input type="text" className="cf-input" value={w.cnic} onChange={e => updateWitnessCnic(i, e.target.value)} placeholder="00000-0000000-0" maxLength={15} /></div>
@@ -1897,13 +2012,14 @@ export default function EnquiryForm() {
                         <label className="cf-label">{label}</label>
                         <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateWitnessFile(i, field, e.target.files[0])} />
                         {w[field] && typeof w[field] === 'string' && (
-                          <a href={w[field]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Existing file Γåù</a>
+                          <a href={w[field]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Existing file ↗</a>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
-              ))}
+              );
+              })}
               {form.witnesses.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No witnesses added yet. Click "Add Witness" to start.</p>}
             </div>
           </div>
