@@ -1160,6 +1160,25 @@ export default function EnquiryForm() {
           description: it.description || null,
         }));
 
+      if (destination === 'forensic') {
+        if (!act.checklist_tech_report || !act.checklist_seizure_memo) {
+          alert('⚠️ Forensic submission ke liye Technical Report aur Seizure Memo dono ka verified/attached hona compulsory (lazmi) hai!');
+          return;
+        }
+        const catLower = (act.case_category || '').toLowerCase();
+        const isAudio = catLower.includes('audio') || catLower.includes('voice');
+        if (isAudio) {
+          if (!act.audio_script || !act.audio_script.trim()) {
+            alert('⚠️ Audio Forensic ke liye Written Transcript / Script likhna compulsory hai!');
+            return;
+          }
+          if (!act.audio_source_file || !act.audio_sample_file) {
+            alert('⚠️ Audio Forensic ke liye Source File (Questioned recording) aur Sample File (Known voice sample) dono attach karna compulsory hain!\n(All Audio Forensics are routed to Islamabad HQ).');
+            return;
+          }
+        }
+      }
+
       const fd = new FormData();
       fd.append('enquiry_id', String(id));
       fd.append('destination', destination);
@@ -1167,6 +1186,11 @@ export default function EnquiryForm() {
       fd.append('brief_contents', form.brief_allegation || '');
       fd.append('analysis_scope', act.analysis_scope || '');
       fd.append('note', act.description || `Seizure memo evidence submitted for ${destination === 'forensic' ? 'forensic' : 'technical'} examination.`);
+      fd.append('checklist_tech_report', act.checklist_tech_report ? '1' : '0');
+      fd.append('checklist_seizure_memo', act.checklist_seizure_memo ? '1' : '0');
+      if (act.audio_script) fd.append('audio_script', act.audio_script);
+      if (act.audio_source_file) fd.append('audio_source', act.audio_source_file);
+      if (act.audio_sample_file) fd.append('audio_sample', act.audio_sample_file);
       fd.append('items', JSON.stringify(items.length ? items : [{
         item_type: 'other',
         description: act.description || 'Seizure evidence items',
@@ -2790,6 +2814,89 @@ export default function EnquiryForm() {
                           </span>
                         </div>
                       </div>
+
+                      {/* Forensic Submission Mandatory Checklist */}
+                      <div style={{ marginTop: 14, padding: '12px 14px', background: '#eff6ff', borderRadius: 8, border: '1.5px solid #bfdbfe' }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: '#1e40af', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          📋 Forensic Submission Mandatory Checklist (Compulsory):
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isSupervisor ? 'default' : 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(a.checklist_tech_report)}
+                              onChange={e => updateActivity(i, 'checklist_tech_report', e.target.checked)}
+                              disabled={isSupervisor}
+                            />
+                            <span><strong>Technical Report</strong> verified &amp; attached <span style={{ color: '#dc2626' }}>*</span></span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: isSupervisor ? 'default' : 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(a.checklist_seizure_memo)}
+                              onChange={e => updateActivity(i, 'checklist_seizure_memo', e.target.checked)}
+                              disabled={isSupervisor}
+                            />
+                            <span><strong>Seizure Memo</strong> verified &amp; generated <span style={{ color: '#dc2626' }}>*</span></span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Audio Forensics Specific Requirements & Islamabad Routing */}
+                      {(String(a.case_category || '').toLowerCase().includes('audio') || String(a.case_category || '').toLowerCase().includes('voice')) && (
+                        <div style={{ marginTop: 14, padding: '14px', background: '#fffbeb', borderRadius: 8, border: '1.5px solid #fde68a' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#b45309', fontWeight: 800, fontSize: 13.5, marginBottom: 8 }}>
+                            🏛️ NOTICE: All Audio &amp; Voice Forensic Examinations are exclusively routed to and examined at NCCIA Forensic HQ, Islamabad.
+                          </div>
+                          <p style={{ fontSize: 12, color: '#92400e', marginBottom: 12 }}>
+                            For Audio/Voice examination, a written script and both audio files (Source &amp; Sample) are <strong>compulsory</strong> before submitting to forensics.
+                          </p>
+
+                          <div className="cf-field" style={{ marginBottom: 12 }}>
+                            <label className="cf-label required"><strong>1. Audio Script / Written Transcript (Compulsory):</strong></label>
+                            {isSupervisor ? (
+                              <div style={{ padding: '8px 12px', background: '#fff', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #fde68a', whiteSpace: 'pre-wrap' }}>
+                                {a.audio_script || '—'}
+                              </div>
+                            ) : (
+                              <textarea
+                                className="cf-input"
+                                rows={3}
+                                placeholder="Enter complete written transcript/dialogue of the disputed audio in Urdu or English..."
+                                value={a.audio_script || ''}
+                                onChange={e => updateActivity(i, 'audio_script', e.target.value)}
+                              />
+                            )}
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div className="cf-field">
+                              <label className="cf-label required"><strong>2. Source Audio File (Questioned/Disputed):</strong></label>
+                              {!isSupervisor && (
+                                <input
+                                  type="file"
+                                  className="cf-input"
+                                  accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg"
+                                  onChange={e => updateActivity(i, 'audio_source_file', e.target.files?.[0] || null)}
+                                />
+                              )}
+                              <span style={{ fontSize: 11, color: '#64748b' }}>Original disputed voice recording file</span>
+                            </div>
+                            <div className="cf-field">
+                              <label className="cf-label required"><strong>3. Sample Audio File (Known Voice):</strong></label>
+                              {!isSupervisor && (
+                                <input
+                                  type="file"
+                                  className="cf-input"
+                                  accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg"
+                                  onChange={e => updateActivity(i, 'audio_sample_file', e.target.files?.[0] || null)}
+                                />
+                              )}
+                              <span style={{ fontSize: 11, color: '#64748b' }}>Standard voice sample recorded from subject/accused</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 

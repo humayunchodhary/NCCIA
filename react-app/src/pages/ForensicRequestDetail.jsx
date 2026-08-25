@@ -810,6 +810,94 @@ export default function ForensicRequestDetail() {
         </div>
       </div>
 
+      {/* Mandatory Submission Checklist Verification Card */}
+      <div className="card" style={{marginBottom:20,border:'1.5px solid #dbeafe',background:'#f8fafc'}}>
+        <div className="card-header" style={{padding:'12px 18px',background:'#eff6ff',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div className="card-title" style={{fontSize:13.5,fontWeight:800,color:'#1e40af'}}>
+            📋 Forensic Submission Checklist &amp; Enclosures
+          </div>
+          {row.routed_to && (
+            <span style={{background:'#fef3c7',color:'#92400e',padding:'3px 10px',borderRadius:12,fontSize:11.5,fontWeight:800,border:'1px solid #fde68a'}}>
+              🏛️ Routed to: {row.routed_to}
+            </span>
+          )}
+        </div>
+        <div className="card-body" style={{padding:'14px 18px'}}>
+          <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,fontSize:13,background:row.checklist_tech_report!==false?'#dcfce7':'#fee2e2',padding:'6px 12px',borderRadius:6,border:row.checklist_tech_report!==false?'1px solid #86efac':'1px solid #fca5a5',color:row.checklist_tech_report!==false?'#166534':'#991b1b',fontWeight:700}}>
+              {row.checklist_tech_report!==false ? '✅' : '❌'} Technical Report: {row.checklist_tech_report!==false ? 'Attached / Verified' : 'Not Attached'}
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:6,fontSize:13,background:row.checklist_seizure_memo!==false?'#dcfce7':'#fee2e2',padding:'6px 12px',borderRadius:6,border:row.checklist_seizure_memo!==false?'1px solid #86efac':'1px solid #fca5a5',color:row.checklist_seizure_memo!==false?'#166534':'#991b1b',fontWeight:700}}>
+              {row.checklist_seizure_memo!==false ? '✅' : '❌'} Seizure Memo: {row.checklist_seizure_memo!==false ? 'Attached / Verified' : 'Not Attached'}
+            </div>
+            {(row.case_id || isExternal || row.checklist_fir_copy) && (
+              <div style={{display:'flex',alignItems:'center',gap:6,fontSize:13,background:row.checklist_fir_copy?'#dcfce7':'#f1f5f9',padding:'6px 12px',borderRadius:6,border:row.checklist_fir_copy?'1px solid #86efac':'1px solid #cbd5e1',color:row.checklist_fir_copy?'#166534':'#475569',fontWeight:700}}>
+                {row.checklist_fir_copy ? '✅' : 'ℹ️'} FIR / Court Copy: {row.checklist_fir_copy ? 'Attached' : 'N/A'}
+              </div>
+            )}
+            {isExternal && (
+              <div style={{display:'flex',alignItems:'center',gap:6,fontSize:13,background:row.checklist_scope_letter?'#dcfce7':'#f1f5f9',padding:'6px 12px',borderRadius:6,border:row.checklist_scope_letter?'1px solid #86efac':'1px solid #cbd5e1',color:row.checklist_scope_letter?'#166534':'#475569',fontWeight:700}}>
+                {row.checklist_scope_letter ? '✅' : 'ℹ️'} Scope Letter: {row.checklist_scope_letter ? 'Received &amp; Verified' : 'N/A'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Audio Forensics Examination Details (Islamabad HQ Routing) */}
+      {(row.audio_script || row.audio_source_path || row.audio_sample_path || String(row.external_category || '').toLowerCase().includes('audio') || String(row.external_category || '').toLowerCase().includes('voice')) && (
+        <div className="card" style={{marginBottom:20,border:'1.5px solid #fde68a',background:'#fffdf5'}}>
+          <div className="card-header" style={{padding:'12px 18px',background:'#fef3c7',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div className="card-title" style={{fontSize:13.5,fontWeight:800,color:'#92400e',display:'flex',alignItems:'center',gap:6}}>
+              🎙️ Audio / Voice Forensic Examination (Islamabad HQ)
+            </div>
+            <span style={{fontSize:11.5,fontWeight:700,background:'#b45309',color:'#fff',padding:'2px 8px',borderRadius:10}}>
+              Specialized Voice Analysis
+            </span>
+          </div>
+          <div className="card-body" style={{padding:'16px 18px'}}>
+            <div style={{marginBottom:14,padding:'10px 14px',background:'#fffbeb',borderRadius:8,border:'1px solid #fde68a',fontSize:12.5,color:'#92400e'}}>
+              🏛️ <strong>Official Notice:</strong> Audio forensics, voice biometric matching and acoustic spectrogram examinations are processed at <strong>NCCIA Forensic HQ, Islamabad</strong>.
+            </div>
+
+            {row.audio_script && (
+              <div style={{marginBottom:16}}>
+                <strong style={{fontSize:13,color:'#0f172a',display:'block',marginBottom:6}}>📝 Written Transcript / Audio Script:</strong>
+                <div style={{padding:'12px 14px',background:'#fff',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13,lineHeight:1.6,whiteSpace:'pre-wrap',color:'#1e293b'}}>
+                  {row.audio_script}
+                </div>
+              </div>
+            )}
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14}}>
+              {row.audio_source_path && (
+                <div style={{padding:12,background:'#fff',border:'1px solid #cbd5e1',borderRadius:8}}>
+                  <strong style={{fontSize:12.5,color:'#0f172a',display:'block',marginBottom:6}}>🎵 1. Source Audio File (Disputed/Questioned):</strong>
+                  <audio controls style={{width:'100%',height:36,marginBottom:8}} src={`/storage/${row.audio_source_path}`}>
+                    Your browser does not support the audio element.
+                  </audio>
+                  <a href={`/storage/${row.audio_source_path}`} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{fontSize:11,display:'inline-flex',alignItems:'center',gap:4}}>
+                    📥 Download Source Audio
+                  </a>
+                </div>
+              )}
+
+              {row.audio_sample_path && (
+                <div style={{padding:12,background:'#fff',border:'1px solid #cbd5e1',borderRadius:8}}>
+                  <strong style={{fontSize:12.5,color:'#0f172a',display:'block',marginBottom:6}}>🎙️ 2. Sample Audio File (Known Voice):</strong>
+                  <audio controls style={{width:'100%',height:36,marginBottom:8}} src={`/storage/${row.audio_sample_path}`}>
+                    Your browser does not support the audio element.
+                  </audio>
+                  <a href={`/storage/${row.audio_sample_path}`} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{fontSize:11,display:'inline-flex',alignItems:'center',gap:4}}>
+                    📥 Download Sample Audio
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Evidence Inventory */}
       <div className="card" style={{marginBottom:20}}>
         <div className="card-header" style={{padding:'14px 18px',background:'#f8fafc',display:'flex',justifyContent:'space-between',alignItems:'center'}}>

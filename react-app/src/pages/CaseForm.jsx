@@ -407,8 +407,87 @@ export default function CaseForm() {
                     </button>
                   </div>
                   <div className="cf-field"><label className="cf-label">Description</label>
-                    <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity…" style={{ width: '100%' }}></textarea>
+                    <textarea className="cf-input" rows={2} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity…" style={{ width: '100%' }}></textarea>
                   </div>
+
+                  {/* IO Mandatory Checklist for Forensics / Seizure */}
+                  {(a.type === 'seizures' || a.type === 'search_seize' || a.type === 'forensic_report') && (
+                    <div style={{ marginTop: 12, padding: '12px 14px', background: '#eff6ff', borderRadius: 8, border: '1.5px solid #bfdbfe' }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: '#1e40af', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        📋 IO Forensic Submission Mandatory Checklist (Compulsory for FIR):
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(a.checklist_tech_report)}
+                            onChange={e => updateActivity(i, 'checklist_tech_report', e.target.checked)}
+                          />
+                          <span><strong>Technical Report</strong> <span style={{ color: '#dc2626' }}>*</span></span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(a.checklist_seizure_memo)}
+                            onChange={e => updateActivity(i, 'checklist_seizure_memo', e.target.checked)}
+                          />
+                          <span><strong>Seizure Memo</strong> <span style={{ color: '#dc2626' }}>*</span></span>
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(a.checklist_fir_copy)}
+                            onChange={e => updateActivity(i, 'checklist_fir_copy', e.target.checked)}
+                          />
+                          <span><strong>FIR Copy</strong> (Certified) <span style={{ color: '#dc2626' }}>*</span></span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Audio Forensics Specific Requirements & Islamabad Routing */}
+                  {(String(a.case_category || '').toLowerCase().includes('audio') || String(a.case_category || '').toLowerCase().includes('voice')) && (
+                    <div style={{ marginTop: 12, padding: '14px', background: '#fffbeb', borderRadius: 8, border: '1.5px solid #fde68a' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#b45309', fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+                        🏛️ NOTICE: All Audio &amp; Voice Forensic Examinations are exclusively routed to and examined at NCCIA Forensic HQ, Islamabad.
+                      </div>
+                      <p style={{ fontSize: 11.5, color: '#92400e', marginBottom: 10 }}>
+                        For Audio/Voice examination, a written script and both audio files (Source &amp; Sample) are <strong>compulsory</strong>.
+                      </p>
+
+                      <div className="cf-field" style={{ marginBottom: 10 }}>
+                        <label className="cf-label required"><strong>1. Audio Script / Written Transcript (Compulsory):</strong></label>
+                        <textarea
+                          className="cf-input"
+                          rows={2}
+                          placeholder="Enter complete written transcript/dialogue of the disputed audio..."
+                          value={a.audio_script || ''}
+                          onChange={e => updateActivity(i, 'audio_script', e.target.value)}
+                        />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div className="cf-field">
+                          <label className="cf-label required"><strong>2. Source Audio File:</strong></label>
+                          <input
+                            type="file"
+                            className="cf-input"
+                            accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg"
+                            onChange={e => updateActivity(i, 'audio_source_file', e.target.files?.[0] || null)}
+                          />
+                        </div>
+                        <div className="cf-field">
+                          <label className="cf-label required"><strong>3. Sample Audio File:</strong></label>
+                          <input
+                            type="file"
+                            className="cf-input"
+                            accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg"
+                            onChange={e => updateActivity(i, 'audio_sample_file', e.target.files?.[0] || null)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               {form.activities.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No activities added yet. Click "Add Activity" to start.</p>}

@@ -112,9 +112,21 @@ class ForensicRequestController extends Controller
             'items.*.quantity'         => 'nullable|integer|min:1|max:999',
             'items.*.description'      => 'nullable|string|max:1000',
             'attachment'               => 'nullable|file|max:20480',
+            'checklist_tech_report'    => 'nullable',
+            'checklist_seizure_memo'   => 'nullable',
+            'checklist_fir_copy'       => 'nullable',
+            'checklist_scope_letter'   => 'nullable',
+            'audio_script'             => 'nullable|string|max:50000',
+            'audio_source'             => 'nullable|file|max:51200',
+            'audio_sample'             => 'nullable|file|max:51200',
+            'routed_to'                => 'nullable|string|max:255',
         ]);
 
         $isExternal = filter_var($data['is_external'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $checkTech = filter_var($data['checklist_tech_report'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $checkSeize = filter_var($data['checklist_seizure_memo'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $checkFir = filter_var($data['checklist_fir_copy'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $checkScope = filter_var($data['checklist_scope_letter'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         if (!$isExternal && empty($data['enquiry_id']) && empty($data['case_id'])) {
             return response()->json(['message' => 'Link enquiry or case is required for internal requests.'], 422);
@@ -134,7 +146,24 @@ class ForensicRequestController extends Controller
             $path = $request->file('attachment')->store('forensic-requests', 'public');
         }
 
-        $fr = DB::transaction(function () use ($data, $user, $gen, $path, $items, $isExternal) {
+        $audioSourcePath = null;
+        if ($request->hasFile('audio_source')) {
+            $audioSourcePath = $request->file('audio_source')->store('forensic-audio', 'public');
+        }
+
+        $audioSamplePath = null;
+        if ($request->hasFile('audio_sample')) {
+            $audioSamplePath = $request->file('audio_sample')->store('forensic-audio', 'public');
+        }
+
+        $category = strtolower($data['external_category'] ?? '');
+        $isAudio = str_contains($category, 'audio') || str_contains($category, 'voice');
+        $routedTo = $isAudio ? 'NCCIA Forensic HQ, Islamabad' : ($data['routed_to'] ?? null);
+
+        $fr = DB::transaction(function () use (
+            $data, $user, $gen, $path, $audioSourcePath, $audioSamplePath,
+            $items, $isExternal, $checkTech, $checkSeize, $checkFir, $checkScope, $routedTo
+        ) {
             $fr = null;
             if (!$isExternal) {
                 $frQuery = ForensicRequest::where('destination', $data['destination']);
@@ -166,6 +195,14 @@ class ForensicRequestController extends Controller
                     'external_person_contact' => $data['external_person_contact'] ?? null,
                     'external_category'       => $data['external_category'] ?? null,
                     'external_scope'          => $data['external_scope'] ?? null,
+                    'checklist_tech_report'   => $checkTech,
+                    'checklist_seizure_memo'  => $checkSeize,
+                    'checklist_fir_copy'      => $checkFir,
+                    'checklist_scope_letter'  => $checkScope,
+                    'audio_script'            => $data['audio_script'] ?? null,
+                    'audio_source_path'       => $audioSourcePath,
+                    'audio_sample_path'       => $audioSamplePath,
+                    'routed_to'               => $routedTo,
                     'attachment_path'         => $path,
                 ]);
             } else {
@@ -173,8 +210,24 @@ class ForensicRequestController extends Controller
                 if ($path) {
                     $fr->attachment_path = $path;
                 }
+                if ($audioSourcePath) {
+                    $fr->audio_source_path = $audioSourcePath;
+                }
+                if ($audioSamplePath) {
+                    $fr->audio_sample_path = $audioSamplePath;
+                }
+                if (!empty($data['audio_script'])) {
+                    $fr->audio_script = $data['audio_script'];
+                }
                 if (!empty($data['note'])) {
                     $fr->note = $fr->note ? ($fr->note . "\n\n" . $data['note']) : $data['note'];
+                }
+                $fr->checklist_tech_report  = $checkTech;
+                $fr->checklist_seizure_memo = $checkSeize;
+                $fr->checklist_fir_copy     = $checkFir;
+                $fr->checklist_scope_letter = $checkScope;
+                if ($routedTo) {
+                    $fr->routed_to = $routedTo;
                 }
                 $fr->save();
             }

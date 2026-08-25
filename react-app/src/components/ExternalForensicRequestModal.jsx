@@ -83,9 +83,15 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
     priority: 'normal',
     destination: 'forensic',
     note: '',
+    checklist_scope_letter: false,
+    checklist_seizure_memo: false,
+    checklist_fir_copy: false,
+    audio_script: '',
   });
 
   const [attachment, setAttachment] = useState(null);
+  const [audioSource, setAudioSource] = useState(null);
+  const [audioSample, setAudioSample] = useState(null);
 
   const [items, setItems] = useState([
     {
@@ -136,6 +142,8 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
     setItems(updated);
   };
 
+  const isAudioCategory = String(formData.external_category || '').toLowerCase().includes('audio') || String(formData.external_category || '').toLowerCase().includes('voice');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -147,6 +155,22 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
     if (!org) {
       setError('Please select or specify the Organization.');
       return;
+    }
+
+    if (!formData.checklist_scope_letter || !formData.checklist_seizure_memo || !formData.checklist_fir_copy) {
+      setError('⚠️ External Seizure ke liye Scope Letter, Seizure Memo, aur FIR / Court Reference Copy ka verified/received hona compulsory (lazmi) hai!');
+      return;
+    }
+
+    if (isAudioCategory) {
+      if (!formData.audio_script || !formData.audio_script.trim()) {
+        setError('⚠️ Audio Forensic ke liye Written Transcript / Script likhna compulsory hai!');
+        return;
+      }
+      if (!audioSource || !audioSample) {
+        setError('⚠️ Audio Forensic ke liye Source Audio File aur Sample Audio File dono upload karna compulsory hain! (Routed to Islamabad HQ).');
+        return;
+      }
     }
 
     setBusy(true);
@@ -164,7 +188,16 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
       fd.append('external_person_address', formData.external_person_address);
       fd.append('external_category', formData.external_category);
       fd.append('external_scope', formData.external_scope);
-      fd.append('note', formData.note || formData.external_scope || 'External Seizure Request');
+      fd.append('checklist_scope_letter', formData.checklist_scope_letter ? '1' : '0');
+      fd.append('checklist_seizure_memo', formData.checklist_seizure_memo ? '1' : '0');
+      fd.append('checklist_fir_copy', formData.checklist_fir_copy ? '1' : '0');
+      if (isAudioCategory) {
+        fd.append('audio_script', formData.audio_script);
+        fd.append('routed_to', 'NCCIA Forensic HQ, Islamabad');
+        if (audioSource) fd.append('audio_source', audioSource);
+        if (audioSample) fd.append('audio_sample', audioSample);
+      }
+      fd.append('note', formData.note || formData.external_scope || 'External Seizure Request addressed to Head of Forensic');
 
       fd.append('items', JSON.stringify(items));
       if (attachment) {
@@ -189,7 +222,7 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: 16,
     }}>
       <div style={{
-        background: '#fff', borderRadius: 14, maxWidth: 900, width: '100%', maxHeight: '92vh',
+        background: '#fff', borderRadius: 14, maxWidth: 920, width: '100%', maxHeight: '92vh',
         display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
       }}>
         {/* Modal Header */}
@@ -199,11 +232,11 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
           borderTopLeftRadius: 14, borderTopRightRadius: 14,
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
-              ➕ Direct Forensic Request / External Seizure (باہر سے آنے والا کیس)
+            <h2 style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: '#0f172a' }}>
+              📑 Direct Seizure Intake &amp; Chain of Custody (External Department)
             </h2>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              Register equipment received directly from outside organizations (Police, Courts, NAB, etc.) without an internal NCCIA Enquiry.
+            <div style={{ fontSize: 12, color: '#0284c7', marginTop: 3, fontWeight: 600 }}>
+              🏛️ Addressed to: <strong>Head of Forensic (DD Forensic)</strong> &rarr; Marked to: <strong>AD Forensic</strong> &bull; Direct Chain of Custody Generation
             </div>
           </div>
           <button
@@ -228,6 +261,42 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
               ⚠️ {error}
             </div>
           )}
+
+          {/* Mandatory Documents Checklist for External Departments */}
+          <div style={{ marginBottom: 18, padding: '14px 16px', background: '#eff6ff', borderRadius: 10, border: '1.5px solid #bfdbfe' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: '#1e40af', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              📋 External Department Intake Mandatory Checklist (Compulsory for F-31 Chain of Custody):
+            </div>
+            <p style={{ fontSize: 12, color: '#3b82f6', margin: '0 0 10px 0' }}>
+              The external representative must present an official Scope Letter addressed to Head of Forensic, Seizure Memo, and FIR / Reference Copy:
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', background: '#fff', padding: '8px 12px', borderRadius: 6, border: '1px solid #dbeafe' }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.checklist_scope_letter)}
+                  onChange={e => setFormData({ ...formData, checklist_scope_letter: e.target.checked })}
+                />
+                <span><strong>Official Scope Letter</strong> received <span style={{ color: '#dc2626' }}>*</span></span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', background: '#fff', padding: '8px 12px', borderRadius: 6, border: '1px solid #dbeafe' }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.checklist_seizure_memo)}
+                  onChange={e => setFormData({ ...formData, checklist_seizure_memo: e.target.checked })}
+                />
+                <span><strong>External Seizure Memo</strong> received <span style={{ color: '#dc2626' }}>*</span></span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', background: '#fff', padding: '8px 12px', borderRadius: 6, border: '1px solid #dbeafe' }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.checklist_fir_copy)}
+                  onChange={e => setFormData({ ...formData, checklist_fir_copy: e.target.checked })}
+                />
+                <span><strong>FIR / Case Copy</strong> received <span style={{ color: '#dc2626' }}>*</span></span>
+              </label>
+            </div>
+          </div>
 
           {/* Section 1: Case Details */}
           <div style={{ marginBottom: 20 }}>
@@ -372,6 +441,52 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
                 onChange={e => setAttachment(e.target.files[0] || null)}
               />
             </div>
+
+            {/* Audio Forensics Specific Requirements & Islamabad Routing */}
+            {isAudioCategory && (
+              <div style={{ marginTop: 16, padding: '14px', background: '#fffbeb', borderRadius: 8, border: '1.5px solid #fde68a' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#b45309', fontWeight: 800, fontSize: 13.5, marginBottom: 8 }}>
+                  🏛️ NOTICE: All Audio &amp; Voice Forensic Examinations are exclusively routed to and examined at NCCIA Forensic HQ, Islamabad.
+                </div>
+                <p style={{ fontSize: 12, color: '#92400e', marginBottom: 12 }}>
+                  For Audio/Voice examination, a written script and both audio files (Source &amp; Sample) are <strong>compulsory</strong> before generating Chain of Custody.
+                </p>
+
+                <div className="cf-field" style={{ marginBottom: 12 }}>
+                  <label className="cf-label required"><strong>1. Audio Script / Written Transcript (Compulsory):</strong></label>
+                  <textarea
+                    className="cf-input"
+                    rows={3}
+                    placeholder="Enter complete written transcript/dialogue of the disputed audio in Urdu or English..."
+                    value={formData.audio_script}
+                    onChange={e => setFormData({ ...formData, audio_script: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="cf-field">
+                    <label className="cf-label required"><strong>2. Source Audio File (Questioned/Disputed):</strong></label>
+                    <input
+                      type="file"
+                      className="cf-input"
+                      accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg"
+                      onChange={e => setAudioSource(e.target.files?.[0] || null)}
+                    />
+                    <span style={{ fontSize: 11, color: '#64748b' }}>Original disputed voice recording file</span>
+                  </div>
+                  <div className="cf-field">
+                    <label className="cf-label required"><strong>3. Sample Audio File (Known Voice):</strong></label>
+                    <input
+                      type="file"
+                      className="cf-input"
+                      accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg"
+                      onChange={e => setAudioSample(e.target.files?.[0] || null)}
+                    />
+                    <span style={{ fontSize: 11, color: '#64748b' }}>Standard voice sample recorded from subject/accused</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 2: Evidentiary Items */}
@@ -524,9 +639,9 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
               type="submit"
               className="btn btn-primary"
               disabled={busy}
-              style={{ minWidth: 160 }}
+              style={{ minWidth: 240, background: '#0284c7', borderColor: '#0284c7', fontWeight: 700 }}
             >
-              {busy ? 'Registering...' : '💾 Save Direct Seizure'}
+              {busy ? 'Generating Chain of Custody...' : '💾 Generate & Save Chain of Custody (F-31)'}
             </button>
           </div>
         </form>
