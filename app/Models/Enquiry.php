@@ -243,17 +243,11 @@ class Enquiry extends Model
 
         if (!$isSupervisor) {
             return $query->where(function ($q) use ($user) {
-                $q->where('enquiry_officer_id', $user->id)
-                  ->orWhere('user_id', $user->id)
-                  ->orWhereHas('complaint', function ($cq) use ($user) {
-                      $cq->where('assigned_to', $user->id)
-                         ->orWhere('user_id', $user->id);
-                  });
+                $q->where('enquiry_officer_id', $user->id);
                 if ($user->circle_id) {
                     $q->orWhere(function ($d) use ($user) {
                         $d->whereNull('complaint_id')
-                          ->where('direct_info->circle_id', $user->circle_id)
-                          ->where('enquiry_officer_id', $user->id);
+                          ->where('direct_info->circle_id', $user->circle_id);
                     });
                 }
             });
