@@ -6,6 +6,7 @@ import { formatDisplayDateTime } from '../utils/datetime';
 import { hasAnyRole, hasRole, isForensicAdmin } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { generateBarcodeSvg } from '../utils/barcode';
+import { generateQrSvg } from '../utils/qrcode';
 
 const ITEM_LABELS = {
   'cd_dvd':      { label: 'CD/DVD',           icon: '\uD83D\uDCC0' },
@@ -227,7 +228,7 @@ export default function ForensicRequestDetail() {
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   };
 
-  const handlePrintScopeLetter = () => {
+  const handlePrintScopeLetter = async () => {
     if (!row) return;
     const rawNo = row.enquiry?.enquiry_number || row.enquiry?.complaint?.tracking_no || `ENQ-${row.enquiry_id}`;
     const enqRegDate = row.enquiry?.reg_date ? new Date(row.enquiry.reg_date).toLocaleDateString('en-GB') : (row.enquiry?.created_at ? new Date(row.enquiry.created_at).toLocaleDateString('en-GB') : '');
@@ -290,8 +291,8 @@ export default function ForensicRequestDetail() {
       `;
     }).join('');
 
-    const barcodeText = (row.request_no || rawNo || `ENQ-${row.enquiry_id || '001'}`).toUpperCase();
-    const barcodeSvg = generateBarcodeSvg(barcodeText, { height: 28, barWidth: 1.05, fontSize: 8.5 });
+    const qrText = (row.request_no || rawNo || `ENQ-${row.enquiry_id || '001'}`).toUpperCase();
+    const qrSvg = await generateQrSvg(qrText, { size: 64, margin: 1 });
 
     const html = `
       <!DOCTYPE html>
@@ -310,15 +311,16 @@ export default function ForensicRequestDetail() {
       <body>
         <table style="width:100%; border-collapse:collapse; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:16px;">
           <tr>
-            <td style="width:26%; vertical-align:middle; text-align:left; border:none; padding:0 4px 8px 0;">
-              ${barcodeSvg}
+            <td style="width:80px; vertical-align:middle; text-align:left; border:none; padding:0 8px 8px 0;">
+              ${qrSvg}
+              <div style="font-family:monospace; font-size:8.5px; font-weight:bold; margin-top:2px; text-align:center;">${qrText}</div>
             </td>
-            <td style="width:60%; vertical-align:middle; text-align:center; border:none; padding:0 8px 8px 8px;">
-              <div style="font-size:14.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; line-height:1.25;">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
-              <div style="font-size:12px; font-weight:600; margin-top:2px;">CYBER CRIME REPORTING CENTRE (CCRC) ${circleName.toUpperCase()}</div>
+            <td style="vertical-align:middle; text-align:center; border:none; padding:0 8px 8px 8px;">
+              <div style="font-size:15px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; line-height:1.25;">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
+              <div style="font-size:12.5px; font-weight:600; margin-top:3px;">CYBER CRIME REPORTING CENTRE (CCRC) ${circleName.toUpperCase()}</div>
             </td>
-            <td style="width:14%; vertical-align:middle; text-align:right; border:none; padding:0 0 8px 4px;">
-              <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:46px; height:46px; object-fit:contain;" />
+            <td style="width:80px; vertical-align:middle; text-align:right; border:none; padding:0 0 8px 8px;">
+              <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:48px; height:48px; object-fit:contain;" />
             </td>
           </tr>
         </table>

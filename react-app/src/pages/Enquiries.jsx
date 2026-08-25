@@ -11,6 +11,7 @@ import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateE
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 import { openPrintWindow } from '../utils/print';
 import { generateBarcodeSvg } from '../utils/barcode';
+import { generateQrSvg } from '../utils/qrcode';
 
 const STATUS_COLORS = {
   registered: 'badge-pending',
@@ -262,7 +263,7 @@ export default function Enquiries() {
     }
   };
 
-  const handlePrintScopeLetterFromModal = () => {
+  const handlePrintScopeLetterFromModal = async () => {
     if (!scopeLetterTarget) return;
     const enq = scopeLetterData.enquiry || scopeLetterTarget;
     const enqNo = enq.enquiry_number || enq.complaint?.tracking_no || `ENQ-${enq.id}`;
@@ -318,8 +319,8 @@ export default function Enquiries() {
     const ciRemarks = (scopeLetterData.ciRemarks || linkedReq?.note || 'Approved & Forwarded for Forensic Examination.').trim();
     const ddRemarks = (linkedReq?.examiner_assignment_notes || linkedReq?.forensic_remarks || 'Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.').trim();
     const ciDateStr = linkedReq?.created_at ? new Date(linkedReq.created_at).toLocaleDateString('en-GB') : dateStr;
-    const barcodeText = String(enqNo || `ENQ-${enq.id || '001'}`).toUpperCase();
-    const barcodeSvg = generateBarcodeSvg(barcodeText, { height: 28, barWidth: 1.05, fontSize: 8.5 });
+    const qrText = String(enqNo || `ENQ-${enq.id || '001'}`).toUpperCase();
+    const qrSvg = await generateQrSvg(qrText, { size: 60, margin: 1 });
 
     const html = `
       <!DOCTYPE html>
@@ -345,14 +346,15 @@ export default function Enquiries() {
       <body>
         <table style="width:100%; border-collapse:collapse; border-bottom:2px solid #000; padding-bottom:6px; margin-bottom:12px;">
           <tr>
-            <td style="width:26%; vertical-align:middle; text-align:left; border:none; padding:0 4px 6px 0;">
-              ${barcodeSvg}
+            <td style="width:80px; vertical-align:middle; text-align:left; border:none; padding:0 8px 6px 0;">
+              ${qrSvg}
+              <div style="font-family:monospace; font-size:8px; font-weight:bold; margin-top:2px; text-align:center;">${qrText}</div>
             </td>
-            <td style="width:60%; vertical-align:middle; text-align:center; border:none; padding:0 8px 6px 8px;">
+            <td style="vertical-align:middle; text-align:center; border:none; padding:0 8px 6px 8px;">
               <div style="font-size:14.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; line-height:1.25;">National Cyber Crime Investigation Agency (NCCIA)</div>
               <div style="font-size:11.5px; font-weight:600; margin-top:2px;">Cyber Crime Reporting Center &middot; Forensic Lab Examination Request</div>
             </td>
-            <td style="width:14%; vertical-align:middle; text-align:right; border:none; padding:0 0 6px 4px;">
+            <td style="width:80px; vertical-align:middle; text-align:right; border:none; padding:0 0 6px 8px;">
               <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:44px; height:44px; object-fit:contain;" />
             </td>
           </tr>
