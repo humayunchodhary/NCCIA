@@ -191,12 +191,17 @@ class Complaint extends Model
             });
         }
 
-        // Scale-safe: EXISTS subqueries — never pluck millions of IDs into PHP
-        $hasVo = $user->hasRole('verification_officer');
-        $hasEo = $user->hasRole('enquiry_officer');
-        $hasIo = $user->hasRole('investigation_officer');
+        // Scale-safe: EXISTS subqueries — recognize all officer roles and designations
+        $userRole = $user->role ?? '';
+        $userDesig = strtolower($user->designation ?? '');
+        $hasVo = $user->hasRole('verification_officer') || $userRole === 'verification_officer';
+        $hasEo = $user->hasRole('enquiry_officer') || $userRole === 'enquiry_officer' || $userRole === 'inspector' || $user->hasRole('inspector') || str_contains($userDesig, 'inspector') || str_contains($userDesig, 'enquiry');
+        $hasIo = $user->hasRole('investigation_officer') || $userRole === 'investigation_officer' || str_contains($userDesig, 'investigation');
 
         if (!$hasVo && !$hasEo && !$hasIo) {
+            if ($user->circle_id) {
+                return $query->where('circle_id', $user->circle_id);
+            }
             return $query->whereRaw('1 = 0');
         }
 

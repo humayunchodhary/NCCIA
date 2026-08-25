@@ -227,46 +227,35 @@ class Enquiry extends Model
         }
 
         $userRole = $user->role ?? '';
-        $isVo = ($user->hasRole('verification_officer') || $userRole === 'verification_officer')
+        $isPureVo = ($user->hasRole('verification_officer') || $userRole === 'verification_officer')
             && !$user->hasAnyRole([
-                'admin', 'circle_incharge', 'enquiry_officer', 'operator',
+                'admin', 'circle_incharge', 'enquiry_officer', 'investigation_officer', 'operator',
                 'moharrar', 'reader_branch', 'ad_legal', 'dd_legal',
                 'additional_director', 'director_general',
-            ]) && !in_array($userRole, ['admin', 'circle_incharge', 'enquiry_officer', 'operator', 'moharrar', 'reader_branch']);
+            ]) && !in_array($userRole, ['admin', 'circle_incharge', 'enquiry_officer', 'investigation_officer', 'operator', 'moharrar', 'reader_branch', 'inspector', 'sub_inspector', 'officer']);
 
-        if ($isVo) {
+        if ($isPureVo) {
             return $query->whereRaw('1 = 0');
         }
 
-        $isSupervisor = $user->hasAnyRole(['admin', 'circle_incharge', 'director_general', 'additional_director'])
-            || in_array($userRole, ['admin', 'circle_incharge', 'director_general', 'additional_director']);
-
-        if (!$isSupervisor) {
-            return $query->where(function ($q) use ($user) {
-                $q->where('enquiry_officer_id', $user->id);
-                if ($user->circle_id) {
-                    $q->orWhere(function ($d) use ($user) {
-                        $d->whereNull('complaint_id')
-                          ->where('direct_info->circle_id', $user->circle_id);
-                    });
-                }
-            });
-        }
-
         return $query->where(function ($q) use ($user) {
-            $q->whereIn('complaint_id', Complaint::visibleTo($user)->select('id'))
-              ->orWhere('enquiry_officer_id', $user->id)
-              ->orWhere(function ($d) use ($user) {
-                  $d->whereNull('complaint_id');
-                  if ($user->circle_id && !$user->hasRole('circle_incharge') && ($user->role ?? '') !== 'circle_incharge') {
-                      $d->where('direct_info->circle_id', $user->circle_id);
-                  } elseif (($user->hasRole('circle_incharge') || ($user->role ?? '') === 'circle_incharge') && $user->circle_id) {
-                      $d->where(function ($c) use ($user) {
-                          $c->where('direct_info->circle_id', $user->circle_id)
-                            ->orWhereNull('direct_info->circle_id');
-                      });
-                  }
-              });
+            // 1. Enquiries assigned directly to this officer
+            $q->where('enquiry_officer_id', $user->id);
+
+            // 2. Enquiries in the user's circle
+            if ($user->circle_id) {
+                $q->orWhere(function ($cq) use ($user) {
+                    $cq->whereHas('complaint', function ($sub) use ($user) {
+                        $sub->where('circle_id', $user->circle_id);
+                    })->orWhere(function ($dq) use ($user) {
+                        $dq->whereNull('complaint_id')
+                           ->where('direct_info->circle_id', $user->circle_id);
+                    });
+                });
+            }
+
+            // 3. Enquiries belonging to complaints visible to user
+            $q->orWhereIn('complaint_id', Complaint::visibleTo($user)->select('id'));
         });
     }
 }
