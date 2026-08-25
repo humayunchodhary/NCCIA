@@ -471,7 +471,7 @@ export default function ForensicRequestDetail() {
   );
   if (!row) return null;
 
-  const canAssign        = (isDd || isAd || isAdmin) && row.destination === 'forensic';
+  const canAssign        = (isDd || isAdmin) && row.destination === 'forensic';
   const canWorkFindings  = (isAd || isDd || isAdmin) && row.status !== 'handed_over';
   const canApproveAd     = (isAd || isDd || isAdmin) && row.status !== 'handed_over';
   const canHandOver      = (isAd || isDd || isAdmin) && (row.status === 'report_ready' || row.status === 'in_progress');
@@ -956,7 +956,7 @@ export default function ForensicRequestDetail() {
       {/* Action 1: DD Assign to AD Forensic */}
       {canAssign && (
         <div className="card" style={{marginBottom:20,border:'1.5px solid #bfdbfe'}}>
-          <div className="card-header" style={{background:'#eff6ff'}}><div className="card-title" style={{color:'#1e40af'}}>Assign to Assistant Director (AD) Forensic</div></div>
+          <div className="card-header" style={{background:'#eff6ff'}}><div className="card-title" style={{color:'#1e40af'}}>🏛️ DD Forensic: Mark &amp; Assign to Assistant Director (AD) Forensic</div></div>
           <div className="card-body">
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:12}}>
               <div className="cf-field">

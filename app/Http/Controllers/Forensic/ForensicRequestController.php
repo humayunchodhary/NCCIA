@@ -460,11 +460,11 @@ class ForensicRequestController extends Controller
         }
     }
 
-    /** AD Forensic assigns FO */
+    /** DD Forensic assigns / marks evidence to AD Forensic / Forensic Examiner */
     public function assign(Request $request, ForensicRequest $forensicRequest)
     {
         $user = $request->user();
-        abort_unless($user->hasAnyRole(['dd_forensic', 'ad_forensic', 'admin_forensic', 'admin']), 403);
+        abort_unless($user->hasAnyRole(['dd_forensic', 'admin_forensic', 'admin']), 403);
         abort_unless($forensicRequest->destination === 'forensic', 422);
 
         $data = $request->validate([
