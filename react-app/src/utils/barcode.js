@@ -62,7 +62,7 @@ export function generateBarcodeSvg(text, options = {}) {
     ? '<text x="' + (totalWidth / 2).toFixed(1) + '" y="' + (height + fontSize + 2).toFixed(1) + '" font-family="Arial, monospace" font-size="' + fontSize + '" font-weight="bold" text-anchor="middle" fill="#000" letter-spacing="1">' + safeText + '</text>' 
     : '';
 
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + totalWidth.toFixed(0) + ' ' + totalHeight.toFixed(0) + '" width="' + totalWidth.toFixed(0) + '" height="' + totalHeight.toFixed(0) + '" style="display:inline-block;vertical-align:middle;">' +
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + totalWidth.toFixed(0) + ' ' + totalHeight.toFixed(0) + '" width="' + totalWidth.toFixed(0) + '" height="' + totalHeight.toFixed(0) + '" style="display:inline-block;vertical-align:middle;max-width:100%;height:auto;">' +
     '<rect width="100%" height="100%" fill="#fff" />' +
     rects +
     textSvg +

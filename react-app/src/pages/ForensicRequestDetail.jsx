@@ -291,7 +291,7 @@ export default function ForensicRequestDetail() {
     }).join('');
 
     const barcodeText = (row.request_no || rawNo || `ENQ-${row.enquiry_id || '001'}`).toUpperCase();
-    const barcodeSvg = generateBarcodeSvg(barcodeText, { height: 36, barWidth: 1.35, fontSize: 9.5 });
+    const barcodeSvg = generateBarcodeSvg(barcodeText, { height: 28, barWidth: 1.05, fontSize: 8.5 });
 
     const html = `
       <!DOCTYPE html>
@@ -302,27 +302,26 @@ export default function ForensicRequestDetail() {
         <style>
           @page { size: A4 portrait; margin: 15mm 15mm; }
           body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.45; font-size: 13px; }
-          .hdr { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px; }
-          .hdr-title { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-          .hdr-sub { font-size: 13px; font-weight: 600; }
           .meta-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
           .to-sec { margin-bottom: 12px; }
           .subj { font-weight: 800; text-transform: uppercase; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin: 12px 0; font-size: 13px; }
         </style>
       </head>
       <body>
-        <div class="hdr" style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="width:160px; text-align:left;">
-            ${barcodeSvg}
-          </div>
-          <div style="text-align:center; flex:1;">
-            <div class="hdr-title">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
-            <div class="hdr-sub">CYBER CRIME REPORTING CENTRE (CCRC) ${circleName.toUpperCase()}</div>
-          </div>
-          <div style="width:160px; text-align:right;">
-            <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:48px; height:48px; object-fit:contain;" />
-          </div>
-        </div>
+        <table style="width:100%; border-collapse:collapse; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:16px;">
+          <tr>
+            <td style="width:26%; vertical-align:middle; text-align:left; border:none; padding:0 4px 8px 0;">
+              ${barcodeSvg}
+            </td>
+            <td style="width:60%; vertical-align:middle; text-align:center; border:none; padding:0 8px 8px 8px;">
+              <div style="font-size:14.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; line-height:1.25;">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
+              <div style="font-size:12px; font-weight:600; margin-top:2px;">CYBER CRIME REPORTING CENTRE (CCRC) ${circleName.toUpperCase()}</div>
+            </td>
+            <td style="width:14%; vertical-align:middle; text-align:right; border:none; padding:0 0 8px 4px;">
+              <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:46px; height:46px; object-fit:contain;" />
+            </td>
+          </tr>
+        </table>
 
         <div class="meta-row">
           <div><strong>${caseLabelUpper} No:</strong> ${enqNoDisplay}</div>

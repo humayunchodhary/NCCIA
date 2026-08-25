@@ -319,7 +319,7 @@ export default function Enquiries() {
     const ddRemarks = (linkedReq?.examiner_assignment_notes || linkedReq?.forensic_remarks || 'Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.').trim();
     const ciDateStr = linkedReq?.created_at ? new Date(linkedReq.created_at).toLocaleDateString('en-GB') : dateStr;
     const barcodeText = String(enqNo || `ENQ-${enq.id || '001'}`).toUpperCase();
-    const barcodeSvg = generateBarcodeSvg(barcodeText, { height: 34, barWidth: 1.3, fontSize: 9 });
+    const barcodeSvg = generateBarcodeSvg(barcodeText, { height: 28, barWidth: 1.05, fontSize: 8.5 });
 
     const html = `
       <!DOCTYPE html>
@@ -330,9 +330,6 @@ export default function Enquiries() {
         <style>
           @page { size: A4 portrait; margin: 12mm 14mm; }
           body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.4; font-size: 12.5px; }
-          .hdr { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; }
-          .hdr-title { font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-          .hdr-sub { font-size: 12px; font-weight: 600; }
           .meta-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12.5px; }
           .to-sec { margin-bottom: 10px; font-size: 12.5px; }
           .subj { font-weight: 800; text-transform: uppercase; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin: 10px 0; font-size: 12px; }
@@ -346,18 +343,20 @@ export default function Enquiries() {
         </style>
       </head>
       <body>
-        <div class="hdr" style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="width:150px; text-align:left;">
-            ${barcodeSvg}
-          </div>
-          <div style="text-align:center; flex:1;">
-            <div class="hdr-title">National Cyber Crime Investigation Agency (NCCIA)</div>
-            <div class="hdr-sub">Cyber Crime Reporting Center &middot; Forensic Lab Examination Request</div>
-          </div>
-          <div style="width:150px; text-align:right;">
-            <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:44px; height:44px; object-fit:contain;" />
-          </div>
-        </div>
+        <table style="width:100%; border-collapse:collapse; border-bottom:2px solid #000; padding-bottom:6px; margin-bottom:12px;">
+          <tr>
+            <td style="width:26%; vertical-align:middle; text-align:left; border:none; padding:0 4px 6px 0;">
+              ${barcodeSvg}
+            </td>
+            <td style="width:60%; vertical-align:middle; text-align:center; border:none; padding:0 8px 6px 8px;">
+              <div style="font-size:14.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; line-height:1.25;">National Cyber Crime Investigation Agency (NCCIA)</div>
+              <div style="font-size:11.5px; font-weight:600; margin-top:2px;">Cyber Crime Reporting Center &middot; Forensic Lab Examination Request</div>
+            </td>
+            <td style="width:14%; vertical-align:middle; text-align:right; border:none; padding:0 0 6px 4px;">
+              <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:44px; height:44px; object-fit:contain;" />
+            </td>
+          </tr>
+        </table>
         <div class="meta-row">
           <div><strong>Enquiry / Case No:</strong> ${enqNoDisplay}</div>
           <div><strong>Dated:</strong> ${dateStr}</div>
