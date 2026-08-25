@@ -10,16 +10,24 @@ const langDir = path.join(outDir, 'lang');
 
 fs.mkdirSync(langDir, { recursive: true });
 
-fs.copyFileSync(
-  path.join(root, 'node_modules/tesseract.js/dist/worker.min.js'),
-  path.join(outDir, 'worker.min.js'),
-);
-console.log('Copied worker.min.js');
+try {
+  fs.copyFileSync(
+    path.join(root, 'node_modules/tesseract.js/dist/worker.min.js'),
+    path.join(outDir, 'worker.min.js'),
+  );
+  console.log('Copied worker.min.js');
+} catch (e) {
+  console.log('Worker asset already present or in use');
+}
 
 const coreFiles = fs.readdirSync(coreSrcDir).filter((f) => /^tesseract-core.*\.wasm\.js$/.test(f));
 for (const name of coreFiles) {
-  fs.copyFileSync(path.join(coreSrcDir, name), path.join(outDir, name));
-  console.log('Copied', name);
+  try {
+    fs.copyFileSync(path.join(coreSrcDir, name), path.join(outDir, name));
+    console.log('Copied', name);
+  } catch (e) {
+    console.log('Core file already present:', name);
+  }
 }
 
 async function download(url, dest) {

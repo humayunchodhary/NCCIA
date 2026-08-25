@@ -10,6 +10,7 @@ import CaseChatModal from '../components/CaseChatModal';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateEnquiry, hasRole as userHasRole, hasAnyRole } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 import { openPrintWindow } from '../utils/print';
+import { generateBarcodeSvg } from '../utils/barcode';
 
 const STATUS_COLORS = {
   registered: 'badge-pending',
@@ -317,7 +318,8 @@ export default function Enquiries() {
     const ciRemarks = (scopeLetterData.ciRemarks || linkedReq?.note || 'Approved & Forwarded for Forensic Examination.').trim();
     const ddRemarks = (linkedReq?.examiner_assignment_notes || linkedReq?.forensic_remarks || 'Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.').trim();
     const ciDateStr = linkedReq?.created_at ? new Date(linkedReq.created_at).toLocaleDateString('en-GB') : dateStr;
-    const ddDateStr = linkedReq?.assigned_to_examiner_at ? new Date(linkedReq.assigned_to_examiner_at).toLocaleDateString('en-GB') : dateStr;
+    const barcodeText = String(enqNo || `ENQ-${enq.id || '001'}`).toUpperCase();
+    const barcodeSvg = generateBarcodeSvg(barcodeText, { height: 34, barWidth: 1.3, fontSize: 9 });
 
     const html = `
       <!DOCTYPE html>
@@ -328,7 +330,7 @@ export default function Enquiries() {
         <style>
           @page { size: A4 portrait; margin: 12mm 14mm; }
           body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.4; font-size: 12.5px; }
-          .hdr { text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; }
+          .hdr { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 12px; }
           .hdr-title { font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
           .hdr-sub { font-size: 12px; font-weight: 600; }
           .meta-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12.5px; }
@@ -344,9 +346,17 @@ export default function Enquiries() {
         </style>
       </head>
       <body>
-        <div class="hdr">
-          <div class="hdr-title">National Cyber Crime Investigation Agency (NCCIA)</div>
-          <div class="hdr-sub">Cyber Crime Reporting Center &middot; Forensic Lab Examination Request</div>
+        <div class="hdr" style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="width:150px; text-align:left;">
+            ${barcodeSvg}
+          </div>
+          <div style="text-align:center; flex:1;">
+            <div class="hdr-title">National Cyber Crime Investigation Agency (NCCIA)</div>
+            <div class="hdr-sub">Cyber Crime Reporting Center &middot; Forensic Lab Examination Request</div>
+          </div>
+          <div style="width:150px; text-align:right;">
+            <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:44px; height:44px; object-fit:contain;" />
+          </div>
         </div>
         <div class="meta-row">
           <div><strong>Enquiry / Case No:</strong> ${enqNoDisplay}</div>

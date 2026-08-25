@@ -5,6 +5,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import { formatDisplayDateTime } from '../utils/datetime';
 import { hasAnyRole, hasRole, isForensicAdmin } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
+import { generateBarcodeSvg } from '../utils/barcode';
 
 const ITEM_LABELS = {
   'cd_dvd':      { label: 'CD/DVD',           icon: '\uD83D\uDCC0' },
@@ -289,6 +290,9 @@ export default function ForensicRequestDetail() {
       `;
     }).join('');
 
+    const barcodeText = (row.request_no || rawNo || `ENQ-${row.enquiry_id || '001'}`).toUpperCase();
+    const barcodeSvg = generateBarcodeSvg(barcodeText, { height: 36, barWidth: 1.35, fontSize: 9.5 });
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -298,7 +302,7 @@ export default function ForensicRequestDetail() {
         <style>
           @page { size: A4 portrait; margin: 15mm 15mm; }
           body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.45; font-size: 13px; }
-          .hdr { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px; }
+          .hdr { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px; }
           .hdr-title { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
           .hdr-sub { font-size: 13px; font-weight: 600; }
           .meta-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
@@ -307,9 +311,17 @@ export default function ForensicRequestDetail() {
         </style>
       </head>
       <body>
-        <div class="hdr">
-          <div class="hdr-title">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
-          <div class="hdr-sub">CYBER CRIME REPORTING CENTRE (CCRC) ${circleName.toUpperCase()}</div>
+        <div class="hdr" style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="width:160px; text-align:left;">
+            ${barcodeSvg}
+          </div>
+          <div style="text-align:center; flex:1;">
+            <div class="hdr-title">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
+            <div class="hdr-sub">CYBER CRIME REPORTING CENTRE (CCRC) ${circleName.toUpperCase()}</div>
+          </div>
+          <div style="width:160px; text-align:right;">
+            <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:48px; height:48px; object-fit:contain;" />
+          </div>
         </div>
 
         <div class="meta-row">
@@ -964,11 +976,12 @@ export default function ForensicRequestDetail() {
         </div>
       )}
 
-      {/* CHAIN OF CUSTODY PRINT AREA (Hidden - opens in popup window) */}
+      {/* Printable F-31 Chain of Custody */}
       <div id="f31PrintArea" style={{display:'none'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'2px solid #000',paddingBottom:10,marginBottom:14}}>
-          <div style={{width:65,textAlign:'left'}}>
-            <img src="/images/images.jpg" alt="NCCIA Logo" style={{width:55,height:55,objectFit:'contain'}} />
+          <div style={{width:160,textAlign:'left'}}>
+            <div style={{marginBottom:4}}><img src="/images/images.jpg" alt="NCCIA Logo" style={{width:45,height:45,objectFit:'contain'}} /></div>
+            <div dangerouslySetInnerHTML={{ __html: generateBarcodeSvg(row.request_no || row.report_code || 'NCCIA-FL', { height: 32, barWidth: 1.25, fontSize: 8.5 }) }} />
           </div>
           <div style={{textAlign:'center',flex:1,padding:'0 10px'}}>
             <div style={{fontSize:13.5,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
@@ -976,8 +989,8 @@ export default function ForensicRequestDetail() {
             <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Laboratory • NCCIA - ZONE {circleCity}</div>
             <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:5,letterSpacing:0.5}}>CHAIN OF CUSTODY</div>
           </div>
-          <div style={{width:65,textAlign:'right'}}>
-            <img src="/images/pak-govt-logo.png" alt="Govt Logo" style={{width:55,height:55,objectFit:'contain'}} />
+          <div style={{width:160,textAlign:'right'}}>
+            <img src="/images/pak-govt-logo.png" alt="Govt Logo" style={{width:52,height:52,objectFit:'contain'}} />
           </div>
         </div>
 
@@ -1091,8 +1104,9 @@ export default function ForensicRequestDetail() {
                         }
                       })()}
                     </td>
-                    <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'top'}}>
-                      <div>[Lab No: {itemLabNo || '36671'}]</div>
+                    <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'middle',textAlign:'center'}}>
+                      <div style={{fontWeight:'bold',fontSize:10.5,marginBottom:3}}>[Lab No: {itemLabNo || '36671'}]</div>
+                      <div dangerouslySetInnerHTML={{ __html: generateBarcodeSvg(itemLabNo || '36671', { height: 26, barWidth: 1.15, fontSize: 8, showText: false }) }} />
                     </td>
                   </tr>
                 );
