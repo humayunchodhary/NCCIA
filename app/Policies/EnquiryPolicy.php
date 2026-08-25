@@ -54,20 +54,13 @@ class EnquiryPolicy
 
     public function viewAny(User $user): bool
     {
-        return $this->canAccessEnquiryModule($user);
+        return true;
     }
 
     public function view(User $user, Enquiry $enquiry): bool
     {
-        if (!$this->canAccessEnquiryModule($user)) {
-            return false;
-        }
-
-        $isSupervisor = $user->hasAnyRole(['admin', 'circle_incharge', 'director_general'])
-            || in_array($user->role ?? '', ['admin', 'circle_incharge', 'director_general']);
-
-        if (!$isSupervisor && ($user->hasRole('enquiry_officer') || ($user->role ?? '') === 'enquiry_officer')) {
-            return (int) $enquiry->enquiry_officer_id === (int) $user->id;
+        if ($user->seesAllData()) {
+            return true;
         }
 
         return Enquiry::visibleTo($user)->whereKey($enquiry->id)->exists();
