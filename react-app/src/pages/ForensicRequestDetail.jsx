@@ -93,6 +93,14 @@ export default function ForensicRequestDetail() {
   const [sendBackModal, setSendBackModal] = useState(false);
   const [sendBackTarget, setSendBackTarget] = useState('dd'); // 'dd' | 'ci' | 'eo'
   const [sendBackRemarks, setSendBackRemarks] = useState('');
+  const [f31QrSvg, setF31QrSvg] = useState('');
+
+  useEffect(() => {
+    if (row) {
+      const code = (row.request_no || row.report_code || `FR-${row.id || '001'}`).toUpperCase();
+      generateQrSvg(code, { size: 62, margin: 1 }).then(svg => setF31QrSvg(svg));
+    }
+  }, [row]);
 
   const submitSendBack = async () => {
     if (!sendBackRemarks.trim()) {
@@ -1067,21 +1075,32 @@ export default function ForensicRequestDetail() {
 
       {/* Printable F-31 Chain of Custody */}
       <div id="f31PrintArea" style={{display:'none'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'2px solid #000',paddingBottom:10,marginBottom:14}}>
-          <div style={{width:160,textAlign:'left'}}>
-            <div style={{marginBottom:4}}><img src="/images/images.jpg" alt="NCCIA Logo" style={{width:45,height:45,objectFit:'contain'}} /></div>
-            <div dangerouslySetInnerHTML={{ __html: generateBarcodeSvg(row.request_no || row.report_code || 'NCCIA-FL', { height: 32, barWidth: 1.25, fontSize: 8.5 }) }} />
-          </div>
-          <div style={{textAlign:'center',flex:1,padding:'0 10px'}}>
-            <div style={{fontSize:13.5,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
-            <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Government of Pakistan • Ministry of Interior and Narcotics Control</div>
-            <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Laboratory • NCCIA - ZONE {circleCity}</div>
-            <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:5,letterSpacing:0.5}}>CHAIN OF CUSTODY</div>
-          </div>
-          <div style={{width:160,textAlign:'right'}}>
-            <img src="/images/pak-govt-logo.png" alt="Govt Logo" style={{width:52,height:52,objectFit:'contain'}} />
-          </div>
-        </div>
+        <table style={{width:'100%',borderCollapse:'collapse',borderBottom:'2px solid #000',paddingBottom:8,marginBottom:12}}>
+          <tbody>
+            <tr>
+              <td style={{width:80,verticalAlign:'middle',textAlign:'left',border:'none',padding:0}}>
+                <div style={{marginBottom:3}}><img src="/images/images.jpg" alt="NCCIA Logo" style={{width:38,height:38,objectFit:'contain'}} /></div>
+                {f31QrSvg ? (
+                  <div dangerouslySetInnerHTML={{ __html: f31QrSvg }} />
+                ) : (
+                  <div dangerouslySetInnerHTML={{ __html: generateBarcodeSvg(row.request_no || row.report_code || 'NCCIA-FL', { height: 26, barWidth: 1.05, fontSize: 8 }) }} />
+                )}
+                <div style={{fontFamily:'monospace',fontSize:8,fontWeight:'bold',marginTop:1,textAlign:'center'}}>
+                  {row.request_no || row.report_code || 'NCCIA-FL'}
+                </div>
+              </td>
+              <td style={{verticalAlign:'middle',textAlign:'center',border:'none',padding:'0 10px'}}>
+                <div style={{fontSize:14,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
+                <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Government of Pakistan • Ministry of Interior and Narcotics Control</div>
+                <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Laboratory • NCCIA - ZONE {circleCity}</div>
+                <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:4,letterSpacing:0.5}}>CHAIN OF CUSTODY</div>
+              </td>
+              <td style={{width:80,verticalAlign:'middle',textAlign:'right',border:'none',padding:0}}>
+                <img src="/images/pak-govt-logo.png" alt="Govt Logo" style={{width:48,height:48,objectFit:'contain'}} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         <table style={{width:'100%',borderCollapse:'collapse',marginBottom:14}}>
           <tbody>
