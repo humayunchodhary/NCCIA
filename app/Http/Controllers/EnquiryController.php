@@ -773,11 +773,18 @@ class EnquiryController extends Controller
 
         $query = Enquiry::visibleTo(request()->user())->with('complaint', 'officer', 'caseFile');
 
-        if ($search = request('search')) {
-            $query->whereHas('complaint', function ($q) use ($search) {
-                $q->where('complainant_name', 'like', "%{$search}%")
-                  ->orWhere('tracking_no', 'like', "%{$search}%");
-            })->orWhere('id', 'like', "%{$search}%");
+        if ($search = trim((string) request('search'))) {
+            $query->where(function ($sq) use ($search) {
+                $sq->whereHas('complaint', function ($q) use ($search) {
+                    $q->where('complainant_name', 'like', "%{$search}%")
+                      ->orWhere('tracking_no', 'like', "%{$search}%")
+                      ->orWhere('cnic', 'like', "%{$search}%");
+                })
+                ->orWhere('enquiry_number', 'like', "%{$search}%")
+                ->orWhere('direct_info->reference_no', 'like', "%{$search}%")
+                ->orWhere('direct_info->complainant_name', 'like', "%{$search}%")
+                ->orWhere('id', $search);
+            });
         }
 
         if ($status = request('status')) {
@@ -792,8 +799,8 @@ class EnquiryController extends Controller
         $statsRow = (clone $q)->toBase()
             ->selectRaw('COUNT(*) as total')
             ->selectRaw("SUM(CASE WHEN status = 'registered' THEN 1 ELSE 0 END) as pending")
-            ->selectRaw("SUM(CASE WHEN status IN ('assigned', 'in_progress') THEN 1 ELSE 0 END) as progress")
-            ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved")
+            ->selectRaw("SUM(CASE WHEN status IN ('assigned', 'in_progress', 'cfr_submitted') THEN 1 ELSE 0 END) as progress")
+            ->selectRaw("SUM(CASE WHEN status IN ('approved', 'case_registered', 'closed') THEN 1 ELSE 0 END) as approved")
             ->first();
 
         $stats = [
@@ -803,7 +810,7 @@ class EnquiryController extends Controller
             'approved' => (int) ($statsRow->approved ?? 0),
         ];
 
-        if (request()->expectsJson()) {
+        if (request()->expectsJson() || request()->is('api/*') || request()->ajax() || request()->wantsJson()) {
             return response()->json($enquiries);
         }
 

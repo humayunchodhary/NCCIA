@@ -89,12 +89,27 @@ export default function Enquiries() {
     if (search) params.search = search;
     if (statusFilter) params.status = statusFilter;
     api.get('/enquiries', { params }).then(r => {
-      const d = r.data.data || r.data;
-      if (Array.isArray(d)) setList(d);
-      else if (d?.data) { setList(d.data); setLastPage(d.last_page || 1); setPage(d.current_page || 1); }
-      else setList([]);
+      const d = r.data;
+      if (Array.isArray(d)) {
+        setList(d);
+      } else if (Array.isArray(d?.data)) {
+        setList(d.data);
+        if (d.last_page) setLastPage(d.last_page);
+        if (d.current_page) setPage(d.current_page);
+      } else if (Array.isArray(d?.data?.data)) {
+        setList(d.data.data);
+        if (d.data.last_page) setLastPage(d.data.last_page);
+        if (d.data.current_page) setPage(d.data.current_page);
+      } else {
+        setList([]);
+      }
+    }).catch(err => {
+      console.error('Failed to fetch enquiries:', err);
+      setList([]);
     }).finally(() => setLoading(false));
-    api.get('/enquiries/stats').then(r => setStats(r.data)).catch(() => {});
+    api.get('/enquiries/stats').then(r => {
+      if (r.data) setStats(r.data);
+    }).catch(() => {});
   }, [page, search, statusFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);

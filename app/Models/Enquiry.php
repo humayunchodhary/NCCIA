@@ -226,27 +226,47 @@ class Enquiry extends Model
             return $query;
         }
 
-        // Flowchart: Verification Officer ends at Verification stage — no Enquiry access.
-        if ($user->hasRole('verification_officer')
+        $userRole = $user->role ?? '';
+        $isVo = ($user->hasRole('verification_officer') || $userRole === 'verification_officer')
             && !$user->hasAnyRole([
                 'admin', 'circle_incharge', 'enquiry_officer', 'operator',
                 'moharrar', 'reader_branch', 'ad_legal', 'dd_legal',
                 'additional_director', 'director_general',
-            ])) {
+            ]) && !in_array($userRole, ['admin', 'circle_incharge', 'enquiry_officer', 'operator', 'moharrar', 'reader_branch']);
+
+        if ($isVo) {
             return $query->whereRaw('1 = 0');
         }
 
-        if ($user->hasRole('enquiry_officer')) {
-            return $query->where('enquiry_officer_id', $user->id);
+        $isSupervisor = $user->hasAnyRole(['admin', 'circle_incharge', 'director_general', 'additional_director'])
+            || in_array($userRole, ['admin', 'circle_incharge', 'director_general', 'additional_director']);
+
+        if (!$isSupervisor) {
+            return $query->where(function ($q) use ($user) {
+                $q->where('enquiry_officer_id', $user->id)
+                  ->orWhere('user_id', $user->id)
+                  ->orWhereHas('complaint', function ($cq) use ($user) {
+                      $cq->where('assigned_to', $user->id)
+                         ->orWhere('user_id', $user->id);
+                  });
+                if ($user->circle_id) {
+                    $q->orWhere(function ($d) use ($user) {
+                        $d->whereNull('complaint_id')
+                          ->where('direct_info->circle_id', $user->circle_id)
+                          ->where('enquiry_officer_id', $user->id);
+                    });
+                }
+            });
         }
 
         return $query->where(function ($q) use ($user) {
             $q->whereIn('complaint_id', Complaint::visibleTo($user)->select('id'))
+              ->orWhere('enquiry_officer_id', $user->id)
               ->orWhere(function ($d) use ($user) {
                   $d->whereNull('complaint_id');
-                  if ($user->circle_id && !$user->hasRole('circle_incharge')) {
+                  if ($user->circle_id && !$user->hasRole('circle_incharge') && ($user->role ?? '') !== 'circle_incharge') {
                       $d->where('direct_info->circle_id', $user->circle_id);
-                  } elseif ($user->hasRole('circle_incharge') && $user->circle_id) {
+                  } elseif (($user->hasRole('circle_incharge') || ($user->role ?? '') === 'circle_incharge') && $user->circle_id) {
                       $d->where(function ($c) use ($user) {
                           $c->where('direct_info->circle_id', $user->circle_id)
                             ->orWhereNull('direct_info->circle_id');

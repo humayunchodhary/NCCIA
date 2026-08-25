@@ -13,12 +13,16 @@ class EnquiryPolicy
      */
     private function canAccessEnquiryModule(User $user): bool
     {
-        if ($user->hasRole('verification_officer')
+        $hasRole = function($role) use ($user) {
+            return $user->hasRole($role) || ($user->role ?? null) === $role;
+        };
+
+        if ($hasRole('verification_officer')
             && !$user->hasAnyRole([
                 'admin', 'circle_incharge', 'enquiry_officer', 'operator',
                 'moharrar', 'reader_branch', 'ad_legal', 'dd_legal',
                 'additional_director', 'director_general',
-            ])) {
+            ]) && !in_array($user->role ?? '', ['admin', 'circle_incharge', 'enquiry_officer', 'operator', 'moharrar', 'reader_branch'])) {
             return false;
         }
 
@@ -26,7 +30,8 @@ class EnquiryPolicy
             'admin', 'circle_incharge', 'enquiry_officer', 'operator',
             'moharrar', 'reader_branch', 'ad_legal', 'dd_legal',
             'additional_director', 'director_general', 'investigation_officer',
-        ]) || $user->can('enquiries');
+        ]) || in_array($user->role ?? '', ['admin', 'circle_incharge', 'enquiry_officer', 'operator', 'moharrar', 'reader_branch', 'investigation_officer', 'inspector', 'sub_inspector', 'officer'])
+        || $user->can('enquiries');
     }
 
     /** Who may register / create a new enquiry (matches enquiries UI access). */
@@ -43,7 +48,8 @@ class EnquiryPolicy
             'ad_legal',
             'dd_legal',
             'additional_director',
-        ]) || $user->can('enquiries');
+        ]) || in_array($user->role ?? '', ['admin', 'circle_incharge', 'enquiry_officer', 'operator', 'moharrar', 'reader_branch', 'inspector'])
+        || $user->can('enquiries');
     }
 
     public function viewAny(User $user): bool
@@ -57,7 +63,10 @@ class EnquiryPolicy
             return false;
         }
 
-        if ($user->hasRole('enquiry_officer') && !$user->hasAnyRole(['admin', 'circle_incharge', 'director_general'])) {
+        $isSupervisor = $user->hasAnyRole(['admin', 'circle_incharge', 'director_general'])
+            || in_array($user->role ?? '', ['admin', 'circle_incharge', 'director_general']);
+
+        if (!$isSupervisor && ($user->hasRole('enquiry_officer') || ($user->role ?? '') === 'enquiry_officer')) {
             return (int) $enquiry->enquiry_officer_id === (int) $user->id;
         }
 
