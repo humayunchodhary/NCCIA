@@ -345,15 +345,18 @@ export default function ForensicRequestDetail() {
         <table style="width:100%; border-collapse:collapse; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:16px;">
           <tr>
             <td style="width:80px; vertical-align:middle; text-align:left; border:none; padding:0 8px 8px 0;">
-              ${qrSvg}
+              <img src="/images/images.jpg" alt="NCCIA" style="width:52px; height:52px; object-fit:contain;" />
+              <div style="margin-top:4px;">${qrSvg}</div>
               <div style="font-family:monospace; font-size:8.5px; font-weight:bold; margin-top:2px; text-align:center;">${qrCaption}</div>
             </td>
             <td style="vertical-align:middle; text-align:center; border:none; padding:0 8px 8px 8px;">
-              <div style="font-size:15px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; line-height:1.25;">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
+              <div style="font-size:22px; font-weight:800; letter-spacing:4px; line-height:1.1;">NCCIA</div>
+              <div style="font-size:11px; font-weight:700; text-transform:uppercase; margin-top:2px;">National Cyber Crime Investigation Agency</div>
+              <div style="font-size:10.5px; font-weight:600; margin-top:2px;">Ministry of Interior &bull; Government of Pakistan</div>
               <div style="font-size:12.5px; font-weight:600; margin-top:3px;">CYBER CRIME REPORTING CENTRE (CCRC) ${circleName.toUpperCase()}</div>
             </td>
             <td style="width:80px; vertical-align:middle; text-align:right; border:none; padding:0 0 8px 8px;">
-              <img src="/images/pak-govt-logo.png" alt="Govt Logo" style="width:48px; height:48px; object-fit:contain;" />
+              <img src="/images/pak-govt-logo.png" alt="Ministry of Interior" style="width:52px; height:52px; object-fit:contain;" />
             </td>
           </tr>
         </table>
@@ -1102,6 +1105,7 @@ export default function ForensicRequestDetail() {
           <tbody>
             <tr>
               <td style={{width:80,verticalAlign:'middle',textAlign:'left',border:'none',padding:0}}>
+                <img src="/images/images.jpg" alt="NCCIA" style={{width:52,height:52,objectFit:'contain'}} />
                 {f31QrSvg ? (
                   <div dangerouslySetInnerHTML={{ __html: f31QrSvg }} />
                 ) : (
@@ -1112,13 +1116,14 @@ export default function ForensicRequestDetail() {
                 </div>
               </td>
               <td style={{verticalAlign:'middle',textAlign:'center',border:'none',padding:'0 10px'}}>
-                <div style={{fontSize:14,fontWeight:800,textTransform:'uppercase',letterSpacing:0.5}}>National Cyber Crime Investigation Agency (NCCIA)</div>
-                <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Government of Pakistan • Ministry of Interior and Narcotics Control</div>
+                <div style={{fontSize:22,fontWeight:800,letterSpacing:4,lineHeight:1.05}}>NCCIA</div>
+                <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',marginTop:2}}>National Cyber Crime Investigation Agency</div>
+                <div style={{fontSize:10.5,fontWeight:600,color:'#222',marginTop:1}}>Ministry of Interior • Government of Pakistan</div>
                 <div style={{fontSize:10.5,fontWeight:700,color:'#1a3d6b',marginTop:2}}>Forensic Laboratory • NCCIA - ZONE {circleCity}</div>
                 <div style={{fontSize:13,fontWeight:800,textDecoration:'underline',marginTop:4,letterSpacing:0.5}}>CHAIN OF CUSTODY</div>
               </td>
               <td style={{width:80,verticalAlign:'middle',textAlign:'right',border:'none',padding:0}}>
-                <img src="/images/pak-govt-logo.png" alt="Govt Logo" style={{width:48,height:48,objectFit:'contain'}} />
+                <img src="/images/pak-govt-logo.png" alt="Ministry of Interior" style={{width:52,height:52,objectFit:'contain'}} />
               </td>
             </tr>
           </tbody>

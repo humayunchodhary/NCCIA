@@ -55,13 +55,20 @@ class PrintService
 
         $voDisplay = $voName ? e($voName) : 'Pending Assignment';
         $issuedAt = now()->format('d/m/Y h:i A');
-        $logo     = url('images/images.jpg');
+        $ncciaLogo = url('images/images.jpg');
+        $interiorLogo = url('images/pak-govt-logo.png');
         $numberE  = e($number);
 
         return <<<HTML
         <div class="slip">
           <div class="head">
-            <img src="{$logo}" alt="NCCIA" class="logo" />
+            <table class="slip-lh">
+              <tr>
+                <td class="slip-lh-l"><img src="{$ncciaLogo}" alt="NCCIA" class="slip-lh-logo" /></td>
+                <td class="slip-lh-c"><div class="slip-nccia">NCCIA</div></td>
+                <td class="slip-lh-r"><img src="{$interiorLogo}" alt="Ministry of Interior" class="slip-lh-logo" /></td>
+              </tr>
+            </table>
             <div class="org">NATIONAL CYBER CRIME<br/>INVESTIGATION AGENCY</div>
             <div class="org-ur">قومی سائبر کرائم تفتیش ایجنسی</div>
             <div class="tag">COMPLAINT RECEIPT</div>
@@ -124,7 +131,13 @@ class PrintService
              body { margin:0; padding:0; background:#fff; }
              .slip { width: 76mm; margin: 0 auto; font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
              .head { text-align:center; border-bottom: 3px solid #000; padding-bottom: 7px; margin-bottom: 6px; }
-             .logo { display:block; width:100px; height:100px; margin:0 auto 4px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
+             .slip-lh { width:100%; border-collapse:collapse; margin-bottom:4px; }
+             .slip-lh td { border:none; vertical-align:middle; padding:0; }
+             .slip-lh-l { width:28%; text-align:left; }
+             .slip-lh-r { width:28%; text-align:right; }
+             .slip-lh-c { text-align:center; }
+             .slip-lh-logo { width:42px; height:42px; object-fit:contain; }
+             .slip-nccia { font-size:16px; font-weight:800; letter-spacing:2px; }
              .org { font-weight:800; font-size:11px; line-height:1.3; margin-top:3px; letter-spacing:0.2px; text-align:center; }
              .org-ur { font-size:11px; font-weight:700; margin-top:2px; text-align:center; }
              .tag { display:inline-block; margin-top:6px; padding:2px 10px; border:2px solid #000; font-weight:800; font-size:10px; letter-spacing:1.2px; text-align:center; }
@@ -145,7 +158,8 @@ class PrintService
              .foot { text-align:center; margin-top:4px; border-top:2px solid #000; padding-top:4px; }
              .small { font-size:9.5px; font-weight:700; text-align:center; }
              .tiny { font-size:8.5px; margin-top:1px; text-align:center; }
-             .muted { color:#444; word-break:break-all; line-height:1.2; }'
+             .muted { color:#444; word-break:break-all; line-height:1.2; }',
+            false
         );
     }
 
@@ -292,9 +306,6 @@ class PrintService
             <tr>
               <td class="head-qr">{$qrHtml}</td>
               <td class="head-center">
-                <img src="{$logo}" alt="NCCIA" class="logo" />
-                <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
-                <div class="addr">Islamabad — Pakistan</div>
                 <div class="tag">COMPLAINT REPORT</div>
               </td>
               <td class="head-qr"></td>
@@ -630,11 +641,8 @@ class PrintService
         <div class="callup-notice">
           <table class="notice-top-table">
             <tr>
-              <td class="top-logo-cell">
-                <img src="{$logo}" alt="NCCIA" class="notice-logo" />
-              </td>
+              <td class="top-logo-cell"></td>
               <td class="notice-center-cell">
-                <div class="agency-title">NATIONAL CYBER CRIME INVESTIGATION AGENCY</div>
                 <div class="center-name">Cyber Crime Reporting Center, {$circleName}</div>
                 <div class="station-addr">{$stationAddress}</div>
                 <div class="notice-main-heading">NOTICE FOR ATTENDANCE U/S 160 Cr.PC</div>
@@ -1077,8 +1085,7 @@ class PrintService
             <tr>
               <td style="width:80px;border:none;vertical-align:middle;">{$qrHtml}</td>
               <td style="border:none;text-align:center;vertical-align:middle;">
-                <div style="font-size:13px;font-weight:800;text-transform:uppercase;">National Cyber Crime Investigation Agency (NCCIA)</div>
-                <div style="font-size:11px;font-weight:600;margin-top:2px;">Forensic Lab Examination Request</div>
+                <div style="font-size:12px;font-weight:700;">Forensic Lab Examination Request</div>
               </td>
               <td style="width:80px;border:none;"></td>
             </tr>
@@ -1629,8 +1636,6 @@ HTML;
               <td style="width:80px;border:none;vertical-align:middle;">{$qrHtml}</td>
               <td style="border:none;text-align:center;vertical-align:middle;">
           <div class="center">
-            <img src="{$logo}" alt="NCCIA" class="logo" />
-            <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
             <div class="tag">CASE DIARY</div>
           </div>
               </td>
@@ -1737,6 +1742,7 @@ HTML;
                 <img src="{$ncciaLogo}" alt="NCCIA" class="proforma-logo" />
               </td>
               <td class="top-center-cell">
+                <div class="agency-nccia">NCCIA</div>
                 <div class="agency-title">NATIONAL CYBER CRIME INVESTIGATION AGENCY</div>
                 <div class="agency-sub">MINISTRY OF INTERIOR &bull; GOVERNMENT OF PAKISTAN</div>
                 <div class="center-name">Cyber Crime Reporting Center, {$circleName}</div>
@@ -1834,7 +1840,8 @@ HTML;
              .top-logo-right { width: 65px; text-align: right; }
              .proforma-logo { width: 60px; height: 60px; object-fit: contain; }
              .top-center-cell { text-align: center; padding: 0 10px; }
-             .agency-title { font-size: 14px; font-weight: 800; text-transform: uppercase; color: #000; letter-spacing: 0.5px; }
+             .agency-nccia { font-size: 22px; font-weight: 800; letter-spacing: 4px; line-height: 1.1; }
+             .agency-title { font-size: 13px; font-weight: 800; text-transform: uppercase; color: #000; letter-spacing: 0.5px; }
              .agency-sub { font-size: 10.5px; font-weight: 700; color: #333; margin-top: 2px; letter-spacing: 0.5px; }
              .center-name { font-size: 12px; font-weight: 700; color: #111; margin-top: 2px; }
              .proforma-meta-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin: 8px 0 16px 0; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 4px 0; }
@@ -1849,13 +1856,51 @@ HTML;
              .closing-text { margin-top: 14px; margin-bottom: 16px; text-align: justify; line-height: 1.45; font-size: 13px; }
              .sign-section { margin-top: 28px; margin-left: auto; width: 250px; font-size: 12.5px; line-height: 1.5; }
              .authorities-section { margin-top: 36px; font-size: 13px; line-height: 1.7; }
-             .auth-line { border-bottom: 1px solid #000; width: 360px; min-height: 22px; margin-top: 5px; }'
+             .auth-line { border-bottom: 1px solid #000; width: 360px; min-height: 22px; margin-top: 5px; }',
+            false
         );
     }
 
-    private function document(string $body, string $css): string
+    private function letterheadHtml(): string
     {
-        return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' . $css . '</style></head><body>' . $body . '</body></html>';
+        $nccia = e(url('images/images.jpg'));
+        $interior = e(url('images/pak-govt-logo.png'));
+
+        return <<<HTML
+<table class="nccia-letterhead">
+  <tr>
+    <td class="lh-left"><img src="{$nccia}" alt="NCCIA" class="lh-logo" /></td>
+    <td class="lh-center">
+      <div class="lh-nccia">NCCIA</div>
+      <div class="lh-full">National Cyber Crime Investigation Agency</div>
+      <div class="lh-sub">Ministry of Interior &bull; Government of Pakistan</div>
+    </td>
+    <td class="lh-right"><img src="{$interior}" alt="Ministry of Interior" class="lh-logo" /></td>
+  </tr>
+</table>
+HTML;
+    }
+
+    private function letterheadCss(): string
+    {
+        return '
+.nccia-letterhead { width:100%; max-width:175mm; margin:0 auto 12px auto; border-collapse:collapse; border-bottom:2px solid #000; }
+.nccia-letterhead td { border:none; vertical-align:middle; padding:0 0 8px 0; }
+.lh-left { width:72px; text-align:left; }
+.lh-right { width:72px; text-align:right; }
+.lh-center { text-align:center; padding:0 8px; }
+.lh-logo { width:62px; height:62px; object-fit:contain; }
+.lh-nccia { font-size:22px; font-weight:800; letter-spacing:4px; line-height:1.05; }
+.lh-full { font-size:11px; font-weight:700; text-transform:uppercase; margin-top:2px; }
+.lh-sub { font-size:10px; font-weight:600; margin-top:1px; }';
+    }
+
+    private function document(string $body, string $css, bool $letterhead = true): string
+    {
+        $head = $letterhead ? $this->letterheadHtml() : '';
+        $lhCss = $letterhead ? $this->letterheadCss() : '';
+
+        return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' . $lhCss . $css . '</style></head><body>' . $head . $body . '</body></html>';
     }
 }
 

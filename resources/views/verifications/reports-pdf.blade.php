@@ -71,6 +71,14 @@
     .header-center {
       text-align: center;
     }
+    .header-center .agency-nccia {
+      font-size: 16pt;
+      font-weight: 800;
+      letter-spacing: 3px;
+      line-height: 1.05;
+      color: #1a3d6b;
+      margin: 0;
+    }
     .header-center .agency-title {
       font-size: 10.5pt;
       font-weight: bold;
@@ -293,8 +301,9 @@
           @endif
         </td>
         <td class="header-center">
+          <div class="agency-nccia">NCCIA</div>
           <div class="agency-title">National Cyber Crime Investigation Agency</div>
-          <div class="govt-sub">Government of Pakistan &bull; Ministry of Interior and Narcotics Control</div>
+          <div class="govt-sub">Ministry of Interior &bull; Government of Pakistan</div>
           <div class="circle-title">Reporting Center {{ $report->creator?->circle?->city ?? 'Lahore' }}</div>
         </td>
         <td class="top-right-logo">
