@@ -28,6 +28,7 @@ use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class EnquiryController extends Controller
@@ -692,7 +693,6 @@ class EnquiryController extends Controller
                 'enquiry_number'  => $data['enquiry_number'] ?? null,
                 'enquiry_officer_id' => $officerId,
                 'status'          => $data['status'] ?? 'registered',
-                'priority'        => $data['priority'] ?? ($complaint?->priority_type),
                 'reg_date'        => $data['reg_date'] ?? now()->toDateString(),
                 'assignment_date' => $data['assignment_date'] ?? null,
                 'recommendation'  => $data['recommendation'] ?? null,
@@ -703,6 +703,10 @@ class EnquiryController extends Controller
                 'technical_report'   => $data['technical_report'] ?? null,
                 'forensic_report'    => $data['forensic_report'] ?? null,
             ]);
+
+            if (Schema::hasColumn('enquiries', 'priority')) {
+                $enquiry->priority = $data['priority'] ?? ($complaint?->priority_type);
+            }
 
             $technicalAttachment = $this->moveFile($request->file('technical_report_attachment'), 'reports');
             $forensicAttachment  = $this->moveFile($request->file('forensic_report_attachment'), 'reports');
@@ -1011,7 +1015,6 @@ class EnquiryController extends Controller
 
             $updateData = array_filter([
                 'status'              => $data['status'] ?? null,
-                'priority'            => $data['priority'] ?? null,
                 'recommendation'      => $data['recommendation'] ?? null,
                 'closure_reason'      => $data['closure_reason'] ?? null,
                 'transfer_department' => $data['transfer_department'] ?? null,
@@ -1027,6 +1030,10 @@ class EnquiryController extends Controller
                 'plea'                => $data['plea'] ?? null,
                 'conclusion'          => $data['conclusion'] ?? null,
             ], fn ($v) => $v !== null);
+
+            if (Schema::hasColumn('enquiries', 'priority') && !empty($data['priority'])) {
+                $updateData['priority'] = $data['priority'];
+            }
 
             // Always persist report text when the client sent the keys (even empty clear)
             if (array_key_exists('technical_report', $data)) {

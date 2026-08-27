@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 
@@ -17,6 +18,20 @@ class Enquiry extends Model
         return LogOptions::defaults()
             ->logAll()
             ->logOnlyDirty();
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Enquiry $enquiry) {
+            if (!array_key_exists('priority', $enquiry->getAttributes())) {
+                return;
+            }
+            static $hasPriority = null;
+            $hasPriority ??= Schema::hasColumn('enquiries', 'priority');
+            if (!$hasPriority) {
+                unset($enquiry->priority);
+            }
+        });
     }
 
     protected $fillable = [

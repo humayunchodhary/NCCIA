@@ -15,6 +15,7 @@ use App\Services\SmsService;
 use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CaseFileController extends Controller
 {
@@ -423,12 +424,15 @@ class CaseFileController extends Controller
                     ? ($data['investigation_officer_id'] ?: null)
                     : null,
                 'status'                   => $data['status'] ?? null,
-                'priority'                 => $data['priority'] ?? null,
                 'recommendation'           => array_key_exists('recommendation', $data) ? ($data['recommendation'] ?: null) : null,
                 'transfer_department'      => array_key_exists('transfer_department', $data) ? ($data['transfer_department'] ?: null) : null,
                 'transfer_circle'          => array_key_exists('transfer_circle', $data) ? ($data['transfer_circle'] ?: null) : null,
                 'merge_complaint_id'       => array_key_exists('merge_complaint_id', $data) ? ($data['merge_complaint_id'] ?: null) : null,
             ], fn ($v) => $v !== null);
+
+            if (Schema::hasColumn('cases', 'priority') && !empty($data['priority'])) {
+                $updates['priority'] = $data['priority'];
+            }
 
             if (array_key_exists('direct_info', $data)) {
                 $updates['direct_info'] = $data['direct_info'];
