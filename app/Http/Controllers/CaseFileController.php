@@ -11,6 +11,7 @@ use App\Notifications\CaseAssignedNotification;
 use App\Services\FirNumberGenerator;
 use App\Services\EnquiryRecordHydrator;
 use App\Services\OfficerAssignmentService;
+use App\Services\PrintService;
 use App\Services\SmsService;
 use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
@@ -45,6 +46,135 @@ class CaseFileController extends Controller
     private function normalizeArrests(array $data): array
     {
         return $this->decodeArrayField($data['arrests'] ?? []);
+    }
+
+    private function caseActivityLabels(): array
+    {
+        return [
+            'dac_request'      => 'DAC Request',
+            'mobile_record'    => 'Mobile Record Obtained',
+            'bank_record'      => 'Bank Record Obtained',
+            'search_seize'     => 'Search Warrant',
+            'raid'             => 'Raid Permission',
+            'arrest_warrant'   => 'Arrest Warrant',
+            'notice'           => 'Summon Issued',
+            'diary'            => 'Diary Maintained',
+            'seizure'          => 'Seizure Made',
+            'forensic_report'  => 'Forensic Report',
+            'recovery'         => 'Recovery Effected',
+        ];
+    }
+
+    private function warrantMetaFromAction(array $action): ?array
+    {
+        $meta = [];
+        if (!empty($action['case_category'])) {
+            $meta['case_category'] = $action['case_category'];
+        }
+        foreach (['subject', 'kota', 'against_whom', 'scheduled_at', 'audio_script'] as $key) {
+            if (array_key_exists($key, $action) && $action[$key] !== null && $action[$key] !== '') {
+                $meta[$key] = $action[$key];
+            }
+        }
+        foreach (['checklist_tech_report', 'checklist_seizure_memo', 'checklist_fir_copy'] as $key) {
+            if (!empty($action[$key])) {
+                $meta[$key] = true;
+            }
+        }
+
+        return $meta === [] ? null : $meta;
+    }
+
+    private function syncCaseActivities(CaseFile $caseFile, array $activities, int $userId): void
+    {
+        $keep = [];
+        $labels = $this->caseActivityLabels();
+        $hasMeta = Schema::hasColumn('case_activities', 'meta');
+
+        foreach ($activities as $action) {
+            $type = is_array($action) ? ($action['type'] ?? null) : $action;
+            if (!$type) {
+                continue;
+            }
+
+            $attrs = [
+                'type'          => $type,
+                'description'   => (is_array($action) && !empty($action['description']))
+                    ? $action['description']
+                    : ($labels[$type] ?? $type),
+                'activity_date' => (is_array($action) && !empty($action['activity_date']))
+                    ? $action['activity_date']
+                    : now()->toDateString(),
+            ];
+            if ($hasMeta && is_array($action)) {
+                $attrs['meta'] = $this->warrantMetaFromAction($action);
+            }
+
+            $existing = null;
+            if (is_array($action) && !empty($action['id'])) {
+                $existing = CaseActivity::where('case_id', $caseFile->id)->whereKey($action['id'])->first();
+            }
+
+            if ($existing) {
+                $existing->update($attrs);
+                $keep[] = $existing->id;
+            } else {
+                $model = $caseFile->activities()->create(array_merge($attrs, ['created_by' => $userId]));
+                $keep[] = $model->id;
+            }
+        }
+
+        if ($keep !== []) {
+            $caseFile->activities()->whereNotIn('id', $keep)->delete();
+        }
+    }
+
+    private function warrantPrintDetails(Request $request): array
+    {
+        return [
+            'subject'      => (string) $request->input('subject', ''),
+            'kota'         => (string) $request->input('kota', ''),
+            'against_whom' => (string) $request->input('against_whom', ''),
+            'scheduled_at' => (string) $request->input('scheduled_at', ''),
+            'description'  => (string) $request->input('description', ''),
+        ];
+    }
+
+    private function enquiryForWarrantPrint(CaseFile $caseFile): Enquiry
+    {
+        $caseFile->loadMissing([
+            'enquiry.complaint.circle',
+            'enquiry.accusedPersons',
+            'enquiry.officer',
+            'enquiry.caseFile',
+            'investigationOfficer',
+            'arrests',
+        ]);
+
+        if ($caseFile->enquiry) {
+            $caseFile->enquiry->setRelation('caseFile', $caseFile);
+
+            return $caseFile->enquiry;
+        }
+
+        $enquiry = new Enquiry([
+            'enquiry_number' => $caseFile->fir_no,
+            'direct_info'    => $caseFile->direct_info,
+        ]);
+        $enquiry->setRelation('caseFile', $caseFile);
+        $enquiry->setRelation('officer', $caseFile->investigationOfficer);
+        $enquiry->setRelation('complaint', null);
+        $enquiry->setRelation('accusedPersons', collect());
+
+        return $enquiry;
+    }
+
+    private function assertCaseVisible(CaseFile $caseFile): void
+    {
+        abort_unless(
+            CaseFile::visibleTo(request()->user())->whereKey($caseFile->id)->exists(),
+            404
+        );
     }
 
     private function syncLegalOpinions(CaseFile $caseFile, array $opinions, int $userId): void
@@ -216,39 +346,8 @@ class CaseFileController extends Controller
                 );
             }
 
-            // Create activities from checked actions
             if (!empty($actions)) {
-                $actionTypes = [
-                    'dac_request'   => 'DAC Request',
-                    'mobile_record' => 'Mobile Record Obtained',
-                    'bank_record'   => 'Bank Record Obtained',
-                    'notice'        => 'Summon Issued',
-                    'diary'         => 'Diary Maintained',
-                    'seizure'       => 'Seizure Made',
-                    'forensic_report' => 'Forensic Report',
-                    'recovery'      => 'Recovery Effected',
-                    'raid'          => 'Raid Conducted',
-                ];
-
-                foreach ($actions as $action) {
-                    $type = is_array($action) ? ($action['type'] ?? null) : $action;
-                    if (!$type) {
-                        continue;
-                    }
-                    $description = $actionTypes[$type] ?? $type;
-                    if (is_array($action) && !empty($action['description'])) {
-                        $description = $action['description'];
-                    }
-                    CaseActivity::create([
-                        'case_id'       => $caseFile->id,
-                        'type'          => $type,
-                        'description'   => $description,
-                        'activity_date' => is_array($action) && !empty($action['activity_date'])
-                            ? $action['activity_date']
-                            : now(),
-                        'created_by'    => $request->user()->id,
-                    ]);
-                }
+                $this->syncCaseActivities($caseFile, $actions, $request->user()->id);
             }
 
             // Create arrests
@@ -443,46 +542,7 @@ class CaseFileController extends Controller
             }
 
             if (!empty($actions)) {
-                $actionTypes = [
-                    'dac_request'     => 'DAC Request',
-                    'mobile_record'   => 'Mobile Record Obtained',
-                    'bank_record'     => 'Bank Record Obtained',
-                    'notice'          => 'Summon Issued',
-                    'diary'           => 'Diary Maintained',
-                    'seizure'         => 'Seizure Made',
-                    'forensic_report' => 'Forensic Report',
-                    'recovery'        => 'Recovery Effected',
-                    'raid'            => 'Raid Conducted',
-                ];
-                foreach ($actions as $action) {
-                    $type = is_array($action) ? ($action['type'] ?? null) : $action;
-                    if (!$type) {
-                        continue;
-                    }
-                    $existing = $caseFile->activities()->where('type', $type)->first();
-                    $description = is_array($action) && !empty($action['description'])
-                        ? $action['description']
-                        : ($actionTypes[$type] ?? $type);
-                    $activityDate = is_array($action) && !empty($action['activity_date'])
-                        ? $action['activity_date']
-                        : now();
-
-                    if ($existing) {
-                        $existing->update([
-                            'description'   => $description,
-                            'activity_date' => $activityDate,
-                        ]);
-                        continue;
-                    }
-
-                    CaseActivity::create([
-                        'case_id'       => $caseFile->id,
-                        'type'          => $type,
-                        'description'   => $description,
-                        'activity_date' => $activityDate,
-                        'created_by'    => $request->user()->id,
-                    ]);
-                }
+                $this->syncCaseActivities($caseFile, $actions, $request->user()->id);
             }
 
             if (!empty($arrests)) {
@@ -708,5 +768,61 @@ class CaseFileController extends Controller
             'message' => 'Case ' . ($data['decision'] === 'agree' ? 'approved' : 'returned for review'),
             'data'    => $caseFile->fresh()->load('approvals'),
         ]);
+    }
+
+    public function raidPermissionPrint(Request $request, CaseFile $caseFile, PrintService $print)
+    {
+        $this->assertCaseVisible($caseFile);
+        $teamMembers = $request->input('team_members', []);
+        if (is_string($teamMembers)) {
+            $teamMembers = json_decode($teamMembers, true) ?: [];
+        }
+
+        try {
+            return response()->json([
+                'html' => $print->raidPermissionPrintDocument(
+                    $this->enquiryForWarrantPrint($caseFile),
+                    is_array($teamMembers) ? $teamMembers : [],
+                    $this->warrantPrintDetails($request)
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print raid permission: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function searchWarrantPrint(Request $request, CaseFile $caseFile, PrintService $print)
+    {
+        $this->assertCaseVisible($caseFile);
+
+        try {
+            return response()->json([
+                'html' => $print->searchWarrantPrintDocument(
+                    $this->enquiryForWarrantPrint($caseFile),
+                    $this->warrantPrintDetails($request)
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print search warrant: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function arrestWarrantPrint(Request $request, CaseFile $caseFile, PrintService $print)
+    {
+        $this->assertCaseVisible($caseFile);
+
+        try {
+            return response()->json([
+                'html' => $print->arrestWarrantPrintDocument(
+                    $this->enquiryForWarrantPrint($caseFile),
+                    $this->warrantPrintDetails($request)
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print arrest warrant: ' . $e->getMessage()], 500);
+        }
     }
 }

@@ -12,6 +12,7 @@ import {
   CASE_CATEGORIES,
 } from '../utils/directCaseOptions';
 import { SIMPLE_STATUSES, PRIORITY_OPTIONS, toSimpleStatus, fromSimpleStatus } from '../utils/simpleStatus';
+import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 
 const CASE_STATUS = [
   { value: 'registered', name: 'Registered (Moharrar)' },
@@ -32,13 +33,17 @@ const ACTIVITY_TYPES = [
   { value: 'dac_request', name: 'DAC Request' },
   { value: 'mobile_record', name: 'Mobile Record Obtained' },
   { value: 'bank_record', name: 'Bank Record Obtained' },
+  { value: 'search_seize', name: 'Search Warrant' },
+  { value: 'raid', name: 'Raid Permission / Operation' },
+  { value: 'arrest_warrant', name: 'Arrest Warrant' },
   { value: 'notice', name: 'Summon Issued' },
   { value: 'diary', name: 'Diary Maintained' },
-  { value: 'seizure', name: 'Seizure Made' },
+  { value: 'seizure', name: 'Seizure Memo' },
   { value: 'forensic_report', name: 'Forensic Report' },
   { value: 'recovery', name: 'Recovery Effected' },
-  { value: 'raid', name: 'Raid Conducted' },
 ];
+
+const WARRANT_TYPES = ['search_seize', 'raid', 'arrest_warrant'];
 
 const RECOMMENDATIONS = [
   { value: 'transfer', name: 'Transfer' },
@@ -125,6 +130,14 @@ export default function CaseForm() {
             description: a.description || '',
             activity_date: a.activity_date ? String(a.activity_date).slice(0, 10) : '',
             attachment: null,
+            subject: a.meta?.subject || a.subject || '',
+            kota: a.meta?.kota || a.kota || '',
+            against_whom: a.meta?.against_whom || a.against_whom || '',
+            scheduled_at: a.meta?.scheduled_at || a.scheduled_at || '',
+            checklist_tech_report: Boolean(a.meta?.checklist_tech_report || a.checklist_tech_report),
+            checklist_seizure_memo: Boolean(a.meta?.checklist_seizure_memo || a.checklist_seizure_memo),
+            checklist_fir_copy: Boolean(a.meta?.checklist_fir_copy || a.checklist_fir_copy),
+            audio_script: a.meta?.audio_script || a.audio_script || '',
           })),
           arrests: (d.arrests || []).map(a => ({
             id: a.id,
@@ -149,7 +162,7 @@ export default function CaseForm() {
         });
         const enq = d.enquiry || {};
         const devices = (enq.activities || [])
-          .filter(a => a.type === 'seizures' || a.type === 'search_seize')
+          .filter(a => a.type === 'seizures' || a.type === 'seizure')
           .flatMap(a => a.meta?.seize_items || a.seize_items || []);
         setInherited({
           complaint: enq.complaint || null,
@@ -170,9 +183,20 @@ export default function CaseForm() {
   const setF = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', case_category: 'Financial Fraud', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', case_category: 'Financial Fraud', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, subject: '', kota: '', against_whom: '', scheduled_at: '' }] }));
   const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
-  const updateActivity = (i, field, value) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const updateActivity = (i, field, value) => setForm(f => ({
+    ...f,
+    activities: f.activities.map((a, idx) => {
+      if (idx !== i) return a;
+      const next = { ...a, [field]: value };
+      if (field === 'type' && WARRANT_TYPES.includes(value) && !next.against_whom) {
+        const firstAcc = (inherited.accused || []).find(x => (x.name || '').trim());
+        if (firstAcc) next.against_whom = firstAcc.name;
+      }
+      return next;
+    }),
+  }));
   const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
 
   // Arrests
@@ -208,6 +232,14 @@ export default function CaseForm() {
           case_category: a.case_category || 'Financial Fraud',
           description: a.description,
           activity_date: a.activity_date,
+          subject: a.subject || '',
+          kota: a.kota || '',
+          against_whom: a.against_whom || '',
+          scheduled_at: a.scheduled_at || '',
+          checklist_tech_report: Boolean(a.checklist_tech_report),
+          checklist_seizure_memo: Boolean(a.checklist_seizure_memo),
+          checklist_fir_copy: Boolean(a.checklist_fir_copy),
+          audio_script: a.audio_script || '',
         })),
       arrests: form.arrests.filter(a => a.accused_name),
       legal_opinions: form.legal_opinions.filter(lo => lo.role),
@@ -244,6 +276,30 @@ export default function CaseForm() {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const printWarrantFromActivity = async (endpoint, act) => {
+    if (!id) {
+      alert('Pehle case save karein, phir print karein.');
+      return;
+    }
+    const win = preparePrintWindow();
+    if (!win) return;
+    try {
+      const r = await api.get(`/cases/${id}/${endpoint}`, {
+        params: {
+          subject: act.subject || '',
+          kota: act.kota || '',
+          against_whom: act.against_whom || '',
+          scheduled_at: act.scheduled_at || act.activity_date || '',
+          description: act.description || '',
+        },
+      });
+      writePrintWindow(win, r.data.html);
+    } catch (e) {
+      closePrintWindow(win);
+      alert(e.response?.data?.message || 'Could not print document.');
     }
   };
 
@@ -440,7 +496,7 @@ export default function CaseForm() {
               <div className="cf-section-icon" style={{ background: '#264078' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
               </div>
-              <div><div className="cf-section-title">Investigation Activities</div><div className="cf-section-sub">DAC, Mobile/Bank Records, Summons, Diaries, Seizures, Forensic, Recoveries, Raids</div></div>
+              <div><div className="cf-section-title">Investigation Activities</div><div className="cf-section-sub">DAC, Search Warrant, Raid, Arrest, Summons, Diaries, Seizures, Forensic, Recoveries</div></div>
               <div className="cf-section-badge">STEP 3</div>
             </div>
             <div className="cf-body">
@@ -471,12 +527,110 @@ export default function CaseForm() {
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
                   </div>
-                  <div className="cf-field"><label className="cf-label">Description</label>
-                    <textarea className="cf-input" rows={2} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity…" style={{ width: '100%' }}></textarea>
-                  </div>
+                  {!WARRANT_TYPES.includes(a.type) && (
+                    <div className="cf-field"><label className="cf-label">Description</label>
+                      <textarea className="cf-input" rows={2} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity…" style={{ width: '100%' }}></textarea>
+                    </div>
+                  )}
+
+                  {WARRANT_TYPES.includes(a.type) && (
+                    <div style={{ marginTop: 4, padding: 14, background: '#fff', border: '1.5px solid #cbd5e1', borderRadius: 8 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: '#015C94', marginBottom: 12 }}>
+                        {a.type === 'raid' ? 'Raid Permission Details' : a.type === 'arrest_warrant' ? 'Arrest Warrant Details' : 'Search Warrant Details'}
+                      </div>
+                      <div className="cf-field" style={{ marginBottom: 10 }}>
+                        <label className="cf-label required">Subject</label>
+                        <input
+                          type="text"
+                          className="cf-input"
+                          value={a.subject || ''}
+                          onChange={e => updateActivity(i, 'subject', e.target.value)}
+                          placeholder={a.type === 'raid'
+                            ? 'PERMISSION TO CONDUCT A RAID IN CASE FIR NO. …'
+                            : a.type === 'arrest_warrant'
+                              ? 'ARREST WARRANT IN FIR NO. …'
+                              : 'SEARCH WARRANT U/S 33 PECA-2016 IN FIR NO. …'}
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                        <div className="cf-field">
+                          <label className="cf-label required">Kota / Location (Premises)</label>
+                          <input
+                            type="text"
+                            className="cf-input"
+                            value={a.kota || ''}
+                            onChange={e => updateActivity(i, 'kota', e.target.value)}
+                            placeholder="Address / kota jahan raid ya search hogi"
+                          />
+                        </div>
+                        <div className="cf-field">
+                          <label className="cf-label required">Kis ke khilaf (Against whom)</label>
+                          <select
+                            className="cf-input"
+                            value={(inherited.accused || []).some(ac => ac.name === a.against_whom) ? (a.against_whom || '') : ''}
+                            onChange={e => updateActivity(i, 'against_whom', e.target.value)}
+                          >
+                            <option value="">— Select accused —</option>
+                            {(inherited.accused || []).filter(ac => (ac.name || '').trim()).map((ac, idx) => (
+                              <option key={idx} value={ac.name}>{ac.name}{ac.father_name ? ` s/o ${ac.father_name}` : ''}</option>
+                            ))}
+                            {(form.arrests || []).filter(ar => (ar.accused_name || '').trim() && !(inherited.accused || []).some(ac => ac.name === ar.accused_name)).map((ar, idx) => (
+                              <option key={`arr-${idx}`} value={ar.accused_name}>{ar.accused_name}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            className="cf-input"
+                            style={{ marginTop: 6 }}
+                            value={a.against_whom || ''}
+                            onChange={e => updateActivity(i, 'against_whom', e.target.value)}
+                            placeholder="Ya manually naam likhein"
+                          />
+                        </div>
+                      </div>
+                      <div className="cf-field" style={{ marginBottom: 10 }}>
+                        <label className="cf-label required">Kab karna hay (Date &amp; Time)</label>
+                        <input
+                          type="datetime-local"
+                          className="cf-input"
+                          value={a.scheduled_at || ''}
+                          onChange={e => updateActivity(i, 'scheduled_at', e.target.value)}
+                        />
+                      </div>
+                      <div className="cf-field" style={{ marginBottom: 12 }}>
+                        <label className="cf-label">Brief facts</label>
+                        <textarea
+                          className="cf-input"
+                          rows={3}
+                          value={a.description || ''}
+                          onChange={e => updateActivity(i, 'description', e.target.value)}
+                          placeholder="Mukhtasir facts — complainant, offence, kyun raid/search/arrest darkar hai"
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        {a.type === 'raid' && (
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('raid-permission-print', a)}>
+                            Print Raid Permission
+                          </button>
+                        )}
+                        {a.type === 'search_seize' && (
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('search-warrant-print', a)}>
+                            Print Search Warrant
+                          </button>
+                        )}
+                        {a.type === 'arrest_warrant' && (
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('arrest-warrant-print', a)}>
+                            Print Arrest Warrant
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* IO Mandatory Checklist for Forensics / Seizure */}
-                  {(a.type === 'seizures' || a.type === 'search_seize' || a.type === 'forensic_report') && (
+                  {(a.type === 'seizure' || a.type === 'forensic_report') && (
                     <div style={{ marginTop: 12, padding: '12px 14px', background: '#eff6ff', borderRadius: 8, border: '1.5px solid #bfdbfe' }}>
                       <div style={{ fontWeight: 800, fontSize: 13, color: '#1e40af', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                         📋 IO Forensic Submission Mandatory Checklist (Compulsory for FIR):

@@ -11,6 +11,7 @@ class CaseActivity extends Model
         'case_id',
         'type',
         'description',
+        'meta',
         'activity_date',
         'attachment_path',
         'created_by',
@@ -20,6 +21,7 @@ class CaseActivity extends Model
     {
         return [
             'activity_date' => 'date:Y-m-d',
+            'meta' => 'array',
         ];
     }
 
