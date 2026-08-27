@@ -1855,7 +1855,7 @@ export default function EnquiryForm() {
               </div>
 
               {form.accused.some((a, i) => !isAccusedEditing(a, i)) ? (
-                <div className="table-card" style={{ marginBottom: 16, overflow: 'auto' }}>
+                <div className="table-card table-responsive" style={{ marginBottom: 16 }}>
                   <table className="data-table">
                     <thead>
                       <tr>
@@ -2009,7 +2009,7 @@ export default function EnquiryForm() {
               </button>
 
               {form.witnesses.some((w, i) => !isWitnessEditing(w, i)) ? (
-                <div className="table-card" style={{ marginBottom: 16, overflow: 'auto' }}>
+                <div className="table-card table-responsive" style={{ marginBottom: 16 }}>
                   <table className="data-table">
                     <thead>
                       <tr>
@@ -2176,7 +2176,7 @@ export default function EnquiryForm() {
 
               {/* SAVED SUMMONS SUMMARY TABLE */}
               {form.notices.some((n, i) => (n.id || n.notice_number || n.receiver_name) && !isNoticeEditing(n, i)) ? (
-                <div className="table-card" style={{ marginBottom: 16, overflow: 'auto' }}>
+                <div className="table-card table-responsive" style={{ marginBottom: 16 }}>
                   <table className="data-table">
                     <thead>
                       <tr>
@@ -2578,7 +2578,7 @@ export default function EnquiryForm() {
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
-                            <div style={{ flex: 1, minWidth: 260 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <strong style={{ fontSize: 13.5, color: '#0f172a' }}>{fr.request_no}</strong>
                                 <span style={{
@@ -2638,14 +2638,6 @@ export default function EnquiryForm() {
                                   📥 Download Lab Report PDF
                                 </a>
                               )}
-                              <Link
-                                to={`/forensic/requests/${fr.id}`}
-                                target="_blank"
-                                className="btn btn-outline btn-sm"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}
-                              >
-                                🔍 View Forensic Details &amp; F-31 ↗
-                              </Link>
                             </div>
                           </div>
                         </div>

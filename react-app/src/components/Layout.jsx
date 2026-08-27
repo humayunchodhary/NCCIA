@@ -214,6 +214,12 @@ export default function Layout() {
   const go = (path) => { setUserMenuOpen(false); navigate(path); };
 
   useEffect(() => {
+    setMobileOpen(false);
+    setUserMenuOpen(false);
+    setNotifOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
     document.body.classList.toggle('sidebar-collapsed', collapsed);
   }, [collapsed]);
 
