@@ -505,9 +505,14 @@ public function create()
             ]);
         }
 
-        return response()->json([
-            'html' => $print->slipPrintDocument($complaint),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->slipPrintDocument($complaint),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not generate slip: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -520,9 +525,14 @@ public function create()
             404
         );
 
-        return response()->json([
-            'html' => $print->complaintReportPrintDocument($complaint),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->complaintReportPrintDocument($complaint),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not generate report: ' . $e->getMessage()], 500);
+        }
     }
 
     /**

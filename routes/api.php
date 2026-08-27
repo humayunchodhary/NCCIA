@@ -10,6 +10,7 @@ use App\Http\Controllers\ComplaintPdfImportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\EnquiryController;
+use App\Http\Controllers\DocumentVerifyController;
 use App\Http\Controllers\LookupController;
 use App\Http\Controllers\CaseFileController;
 use App\Http\Controllers\CourtCaseController;
@@ -136,6 +137,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/enquiries/{enquiry}/raid-permission-print', [EnquiryController::class, 'raidPermissionPrint'])->name('api.enquiries.raid-permission-print');
     Route::get('/enquiries/{enquiry}/search-warrant-print', [EnquiryController::class, 'searchWarrantPrint'])->name('api.enquiries.search-warrant-print');
     Route::get('/enquiries/{enquiry}/account-opening-print', [EnquiryController::class, 'accountOpeningPrint'])->name('api.enquiries.account-opening-print');
+    Route::get('/documents/{type}/{id}/qr', [DocumentVerifyController::class, 'qr']);
     Route::post('/enquiries/{enquiry}/assign', [EnquiryController::class, 'assign'])
         ->middleware('role:admin,circle_incharge');
     Route::post('/enquiries/{enquiry}/submit-cfr', [EnquiryController::class, 'submitCfr'])

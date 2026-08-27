@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\EnquiryController;
+use App\Http\Controllers\DocumentVerifyController;
 use App\Http\Controllers\VerificationController;
 
 if (! function_exists('spaHtmlResponse')) {
@@ -114,9 +115,10 @@ Route::get('/force-logout', function (Illuminate\Http\Request $r) {
         ->withCookie(cookie('XSRF-TOKEN', null, -2628000, '/', $domain, $secure, false, false, $sameSite));
 });
 
-// Public notice / complaint slip verification (scanned via QR code)
+// Public notice / complaint slip / document verification (scanned via QR code)
 Route::get('/verify/notice/{token}', [EnquiryController::class, 'verifyNotice'])->name('notice.verify');
 Route::get('/verify/complaint/{id}/{token}', [ComplaintController::class, 'verifySlip'])->name('complaint.slip.verify');
+Route::get('/verify/doc/{type}/{id}/{token}', [DocumentVerifyController::class, 'show'])->name('document.verify');
 
 // React SPA - serve React app for all frontend routes
 Route::get('/{any?}', function () {

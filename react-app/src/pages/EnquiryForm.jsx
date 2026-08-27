@@ -8,6 +8,7 @@ import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import CaseChatPanel from '../components/CaseChatPanel';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry } from '../utils/permissions';
 import { toLocalInput } from '../utils/datetime';
+import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 import {
   emptyDirectInfo,
   normalizeDirectInfo,
@@ -909,22 +910,26 @@ export default function EnquiryForm() {
   const printNotice = async (n) => {
     if (!id) { alert('Save the enquiry first, then you can print summons.'); return; }
     if (!n.id) { alert('Save the enquiry first, then you can print summons.'); return; }
+    const win = preparePrintWindow();
+    if (!win) return;
     try {
       const r = await api.get(`/enquiries/${id}/notice-print`, { params: { notice_id: n.id } });
-      const { openPrintWindow } = await import('../utils/print');
-      openPrintWindow(r.data.html);
+      writePrintWindow(win, r.data.html);
     } catch (e) {
+      closePrintWindow(win);
       alert(e.response?.data?.message || 'Could not print summon.');
     }
   };
 
   const printDocument = async (endpoint, payload = {}) => {
     if (!id) { alert('Save the enquiry first before printing documents.'); return; }
+    const win = preparePrintWindow();
+    if (!win) return;
     try {
       const r = await api.get(`/enquiries/${id}/${endpoint}`, { params: payload });
-      const { openPrintWindow } = await import('../utils/print');
-      openPrintWindow(r.data.html);
+      writePrintWindow(win, r.data.html);
     } catch (e) {
+      closePrintWindow(win);
       alert(e.response?.data?.message || `Could not print document (${endpoint}).`);
     }
   };
@@ -1024,11 +1029,13 @@ export default function EnquiryForm() {
   const printDiary = async (a) => {
     if (!id) { alert('Save the enquiry first, then you can print diaries.'); return; }
     if (!a.id) { alert('Save the enquiry first, then you can print diaries.'); return; }
+    const win = preparePrintWindow();
+    if (!win) return;
     try {
       const r = await api.get(`/enquiries/${id}/diary-print`, { params: { activity_id: a.id } });
-      const { openPrintWindow } = await import('../utils/print');
-      openPrintWindow(r.data.html);
+      writePrintWindow(win, r.data.html);
     } catch (e) {
+      closePrintWindow(win);
       alert(e.response?.data?.message || 'Could not print diary.');
     }
   };

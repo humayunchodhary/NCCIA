@@ -6,7 +6,8 @@ import { formatDisplayDateTime } from '../utils/datetime';
 import { hasAnyRole, hasRole, isForensicAdmin } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { generateBarcodeSvg } from '../utils/barcode';
-import { generateQrSvg } from '../utils/qrcode';
+import { generateOfficialDocumentQr } from '../utils/qrcode';
+import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 
 const ITEM_LABELS = {
   'cd_dvd':      { label: 'CD/DVD',           icon: '\uD83D\uDCC0' },
@@ -96,10 +97,20 @@ export default function ForensicRequestDetail() {
   const [f31QrSvg, setF31QrSvg] = useState('');
 
   useEffect(() => {
-    if (row) {
-      const code = (row.request_no || row.report_code || `FR-${row.id || '001'}`).toUpperCase();
-      generateQrSvg(code, { size: 62, margin: 1 }).then(svg => setF31QrSvg(svg));
-    }
+    if (!row?.id) return;
+    const code = (row.request_no || row.report_code || `FR-${row.id || '001'}`).toUpperCase();
+    generateOfficialDocumentQr({
+      type: 'forensic',
+      id: row.id,
+      size: 62,
+      fallback: {
+        type: 'Chain of Custody',
+        number: code,
+        complainant: row.enquiry?.complaint?.complainant_name || row.external_person_name || '',
+        officer: row.enquiry?.officer?.name || '',
+        date: row.created_at ? new Date(row.created_at).toLocaleDateString('en-GB') : '',
+      },
+    }).then(qr => setF31QrSvg(qr.svg));
   }, [row]);
 
   const submitSendBack = async () => {
@@ -238,6 +249,9 @@ export default function ForensicRequestDetail() {
 
   const handlePrintScopeLetter = async () => {
     if (!row) return;
+    const win = preparePrintWindow();
+    if (!win) return;
+    try {
     const rawNo = row.enquiry?.enquiry_number || row.enquiry?.complaint?.tracking_no || `ENQ-${row.enquiry_id}`;
     const enqRegDate = row.enquiry?.reg_date ? new Date(row.enquiry.reg_date).toLocaleDateString('en-GB') : (row.enquiry?.created_at ? new Date(row.enquiry.created_at).toLocaleDateString('en-GB') : '');
     const enqNoDisplay = enqRegDate ? `${rawNo} dated ${enqRegDate}` : rawNo;
@@ -299,8 +313,20 @@ export default function ForensicRequestDetail() {
       `;
     }).join('');
 
-    const qrText = (row.request_no || rawNo || `ENQ-${row.enquiry_id || '001'}`).toUpperCase();
-    const qrSvg = await generateQrSvg(qrText, { size: 64, margin: 1 });
+    const qr = await generateOfficialDocumentQr({
+      type: 'forensic',
+      id: row.id,
+      size: 64,
+      fallback: {
+        type: 'Forensic Scope Letter',
+        number: row.request_no || rawNo,
+        complainant: complainantName,
+        circle: circleName,
+        date: dateStr,
+      },
+    });
+    const qrSvg = qr.svg;
+    const qrCaption = qr.caption || (row.request_no || rawNo || `ENQ-${row.enquiry_id || '001'}`).toUpperCase();
 
     const html = `
       <!DOCTYPE html>
@@ -321,7 +347,7 @@ export default function ForensicRequestDetail() {
           <tr>
             <td style="width:80px; vertical-align:middle; text-align:left; border:none; padding:0 8px 8px 0;">
               ${qrSvg}
-              <div style="font-family:monospace; font-size:8.5px; font-weight:bold; margin-top:2px; text-align:center;">${qrText}</div>
+              <div style="font-family:monospace; font-size:8.5px; font-weight:bold; margin-top:2px; text-align:center;">${qrCaption}</div>
             </td>
             <td style="vertical-align:middle; text-align:center; border:none; padding:0 8px 8px 8px;">
               <div style="font-size:15px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; line-height:1.25;">NATIONAL CYBER CRIME INVESTIGATION AGENCY (NCCIA)</div>
@@ -459,12 +485,10 @@ export default function ForensicRequestDetail() {
       </body>
       </html>
     `;
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      win.focus();
-      setTimeout(() => win.print(), 500);
+    writePrintWindow(win, html);
+    } catch (err) {
+      closePrintWindow(win);
+      alert(err?.response?.data?.message || err?.message || 'Could not print scope letter.');
     }
   };
 

@@ -1175,9 +1175,14 @@ class EnquiryController extends Controller
 
         abort_if(!$notice, 404, 'No notice found to print.');
 
-        return response()->json([
-            'html' => $print->noticePrintDocument($notice),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->noticePrintDocument($notice),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print summon: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -1197,9 +1202,14 @@ class EnquiryController extends Controller
 
         abort_if(!$activity, 404, 'No diary entry found to print.');
 
-        return response()->json([
-            'html' => $print->diaryPrintDocument($enquiry, $activity),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->diaryPrintDocument($enquiry, $activity),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print diary: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -1212,9 +1222,14 @@ class EnquiryController extends Controller
             404
         );
 
-        return response()->json([
-            'html' => $print->cfrPrintDocument($enquiry),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->cfrPrintDocument($enquiry),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print CFR: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -1232,9 +1247,14 @@ class EnquiryController extends Controller
             $devices = json_decode($devices, true) ?: [];
         }
 
-        return response()->json([
-            'html' => $print->forensicRequestPrintDocument($enquiry, is_array($devices) ? $devices : [], $request->input('analysis_scope', '')),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->forensicRequestPrintDocument($enquiry, is_array($devices) ? $devices : [], $request->input('analysis_scope', '')),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print forensic request: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -1252,9 +1272,14 @@ class EnquiryController extends Controller
             $teamMembers = json_decode($teamMembers, true) ?: [];
         }
 
-        return response()->json([
-            'html' => $print->raidPermissionPrintDocument($enquiry, is_array($teamMembers) ? $teamMembers : []),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->raidPermissionPrintDocument($enquiry, is_array($teamMembers) ? $teamMembers : []),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print raid permission: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -1267,9 +1292,14 @@ class EnquiryController extends Controller
             404
         );
 
-        return response()->json([
-            'html' => $print->searchWarrantPrintDocument($enquiry),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->searchWarrantPrintDocument($enquiry),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print search warrant: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -1294,9 +1324,14 @@ class EnquiryController extends Controller
             'mode_of_recovery' => $request->input('mode_of_recovery', ''),
         ];
 
-        return response()->json([
-            'html' => $print->accountOpeningPrintDocument($enquiry, $params),
-        ]);
+        try {
+            return response()->json([
+                'html' => $print->accountOpeningPrintDocument($enquiry, $params),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print account opening request: ' . $e->getMessage()], 500);
+        }
     }
 
     public function destroy(Enquiry $enquiry)

@@ -6,7 +6,6 @@ use App\Models\Complaint;
 use App\Models\Enquiry;
 use App\Models\EnquiryActivity;
 use App\Models\EnquiryNotice;
-use Illuminate\Support\Facades\URL;
 
 class PrintService
 {
@@ -26,9 +25,12 @@ class PrintService
         }
 
         $number   = $complaint->tracking_no ?: ($complaint->slip_number ?: ('#' . $complaint->id));
-        $token    = hash_hmac('sha256', 'complaint:' . $complaint->id, (string) config('app.key'));
-        $verifyUrl = URL::to('/verify/complaint/' . $complaint->id . '/' . substr($token, 0, 32));
-        $qr       = $this->qr->svgDataUri($verifyUrl);
+        $qrHtml   = $this->documentQr('complaint', (int) $complaint->id, [
+            'Type'         => 'Complaint Receipt',
+            'Complaint No' => $number,
+            'Complainant'  => $complaint->complainant_name ?: '—',
+            'Circle'       => $complaint->circle?->name ?? '—',
+        ], 92, 'Scan to verify');
 
         $circle   = e($complaint->circle?->name ?? '—');
         $name     = e($complaint->complainant_name ?: '—');
@@ -103,9 +105,7 @@ class PrintService
           </table>
 
           <div class="qr-block">
-            <img src="{$qr}" alt="Verify QR" class="qr" />
-            <div class="small">Scan to verify this receipt</div>
-            <div class="tiny muted">{$verifyUrl}</div>
+            {$qrHtml}
           </div>
 
           <div class="foot">
@@ -278,14 +278,28 @@ class PrintService
             $accusedRows = '<tr><td colspan="6" class="c muted">No accused recorded at registration</td></tr>';
         }
 
+        $qrHtml = $this->documentQr('complaint_report', (int) $complaint->id, [
+            'Type'         => 'Complaint Report',
+            'Complaint No' => $number,
+            'Complainant'  => $complaint->complainant_name ?: '—',
+            'Circle'       => $complaint->circle?->name ?? '—',
+            'Status'       => $status,
+        ], 72, e($number));
+
         $body = <<<HTML
         <div class="report">
-          <div class="head">
-            <img src="{$logo}" alt="NCCIA" class="logo" />
-            <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
-            <div class="addr">Islamabad — Pakistan</div>
-            <div class="tag">COMPLAINT REPORT</div>
-          </div>
+          <table class="head-table">
+            <tr>
+              <td class="head-qr">{$qrHtml}</td>
+              <td class="head-center">
+                <img src="{$logo}" alt="NCCIA" class="logo" />
+                <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
+                <div class="addr">Islamabad — Pakistan</div>
+                <div class="tag">COMPLAINT REPORT</div>
+              </td>
+              <td class="head-qr"></td>
+            </tr>
+          </table>
 
           <div class="meta">
             <div class="mrow"><span class="k">Complaint No:</span><span><strong>{$number}</strong></span></div>
@@ -351,11 +365,14 @@ class PrintService
             '@page { size: A4; margin: 14mm; }
              body { margin:0; font-family: Arial, Helvetica, sans-serif; color:#000; }
              .report { max-width: 175mm; margin: 0 auto; font-size: 13px; line-height: 1.5; }
-             .head { text-align:center; border-bottom: 3px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
-             .head .logo { width:130px; height:130px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
-             .head .org { font-size:16px; font-weight:700; margin-top:2px; }
-             .head .addr { font-size:11px; color:#333; margin-top:2px; }
-             .head .tag { display:inline-block; margin-top:6px; padding:3px 14px; border:2px solid #000; font-weight:800; font-size:12px; letter-spacing:1.5px; }
+             .head-table { width:100%; border-collapse:collapse; border-bottom: 3px solid #000; margin-bottom: 10px; }
+             .head-table td { border:none; vertical-align:middle; }
+             .head-qr { width:90px; }
+             .head-center { text-align:center; padding-bottom: 8px; }
+             .head-center .logo { width:90px; height:90px; object-fit:contain; border-radius:50%; border:3px solid #264078; padding:3px; background:#fff; }
+             .head-center .org { font-size:16px; font-weight:700; margin-top:2px; }
+             .head-center .addr { font-size:11px; color:#333; margin-top:2px; }
+             .head-center .tag { display:inline-block; margin-top:6px; padding:3px 14px; border:2px solid #000; font-weight:800; font-size:12px; letter-spacing:1.5px; }
              .meta { margin:6px 0; }
              .mrow { margin:2px 0; }
              .mrow .k { display:inline-block; width:110px; font-weight:700; }
@@ -384,6 +401,27 @@ class PrintService
     }
 
     /**
+     * Signed QR block: encodes verify URL + official identifiers.
+     */
+    protected function documentQr(string $type, int $id, array $fields = [], int $px = 70, string $caption = 'Scan to verify', ?string $noticeToken = null): string
+    {
+        try {
+            $payload = $this->qr->payload($type, $id, $fields, $noticeToken);
+            $src = $this->qr->svgDataUri($payload);
+            $cap = e($caption);
+
+            return '<div class="nccia-doc-qr" style="text-align:center;line-height:1.15;">'
+                . '<img src="' . $src . '" alt="Verify QR" style="width:' . $px . 'px;height:' . $px . 'px;display:block;margin:0 auto;" />'
+                . '<div style="font-size:8px;font-weight:700;margin-top:2px;">' . $cap . '</div>'
+                . '</div>';
+        } catch (\Throwable $e) {
+            report($e);
+
+            return '';
+        }
+    }
+
+    /**
      * Resolve uploaded profile signature image HTML.
      */
     protected function getOfficerSignatureHtml(?\App\Models\User $officer, int $maxHeight = 45): string
@@ -408,9 +446,6 @@ class PrintService
             $notice->save();
         }
 
-        $verifyUrl = URL::to('/verify/notice/' . $notice->verification_token);
-        $qr        = $this->qr->svgDataUri($verifyUrl);
-
         $enquiry   = $notice->enquiry;
         $complaint = $enquiry?->complaint;
         $circle    = $complaint?->circle;
@@ -421,6 +456,12 @@ class PrintService
         $logo = url('images/images.jpg');
 
         $enquiryNo = e($enquiry?->enquiry_number ?: ($complaint?->tracking_no ?: ('ENQ-CCRC-' . $circleCode . '-' . $enquiry?->id)));
+        $qrHtml = $this->documentQr('notice', (int) $notice->id, [
+            'Type'        => 'Summon / Notice',
+            'Summon No'   => $notice->notice_number ?: ('N-' . $notice->id),
+            'Enquiry No'  => $enquiry?->enquiry_number ?: ('#' . $enquiry?->id),
+            'Receiver'    => $notice->receiver_name ?: '—',
+        ], 70, 'Scan to verify', $notice->verification_token);
         $regDate   = $enquiry?->reg_date ? $enquiry->reg_date->format('d-m-Y') : ($complaint?->report_date ? \Carbon\Carbon::parse($complaint->report_date)->format('d-m-Y') : date('d-m-Y'));
         $complainantName = e($complaint?->complainant_name ?: ($enquiry?->direct_info['complainant_name'] ?? '—'));
         
@@ -599,8 +640,7 @@ class PrintService
                 <div class="notice-main-heading">NOTICE FOR ATTENDANCE U/S 160 Cr.PC</div>
               </td>
               <td class="top-qr-cell">
-                <img src="{$qr}" alt="QR" class="notice-qr" />
-                <div class="qr-label">QR Scan</div>
+                {$qrHtml}
               </td>
             </tr>
           </table>
@@ -793,10 +833,25 @@ class PrintService
         $officerName  = e($officer?->name ?: 'Sub Inspector');
         $officerDesig = e($officer?->designation ?: 'Sub Inspector');
         $officerSigHtml = $this->getOfficerSignatureHtml($officer);
+        $qrHtml = $this->documentQr('cfr', (int) $enquiry->id, [
+            'Type'        => 'Confidential Final Report',
+            'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
+            'Complainant' => $enquiry->complaint?->complainant_name ?: '—',
+            'Officer'     => $officer?->name ?: '—',
+            'Date'        => $cfrDate,
+        ], 68, e($enquiryNo));
 
         $body = <<<HTML
         <div class="cfr-doc">
-          <div class="cfr-title">CONFIDENTIAL FINAL REPORT</div>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+            <tr>
+              <td style="width:80px;border:none;vertical-align:top;">{$qrHtml}</td>
+              <td style="border:none;text-align:center;vertical-align:middle;">
+                <div class="cfr-title">CONFIDENTIAL FINAL REPORT</div>
+              </td>
+              <td style="width:80px;border:none;"></td>
+            </tr>
+          </table>
 
           <table class="cfr-table">
             <tr>
@@ -918,6 +973,8 @@ class PrintService
         $zoneName   = "NCCIA - ZONE {$cleanCity}";
         $rcName     = "NCCIA-RC {$cleanCity}";
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
+        $enqRegDate   = $enquiry->reg_date ? \Carbon\Carbon::parse($enquiry->reg_date)->format('d/m/Y') : ($enquiry->created_at ? $enquiry->created_at->format('d/m/Y') : '');
+        $enquiryNoDisplay = $enqRegDate ? "{$enquiryNo} dated {$enqRegDate}" : $enquiryNo;
         
         $isFirCase      = !empty($enquiry->case_number) || ($enquiry->complaint?->case_type === 'fir') || str_starts_with(strtoupper($enquiryNo), 'FIR') || str_starts_with(strtoupper($enquiryNo), 'CASE');
         $caseTypeLabel  = $isFirCase ? 'CASE FIR' : 'ENQUIRY';
@@ -1004,13 +1061,28 @@ class PrintService
         $officerPhone = e($officer?->phone ?: ($officer?->contact_no ?: ''));
         $officerSigHtml = $this->getOfficerSignatureHtml($officer);
         $dateTimeStr  = now()->format('d/m/Y h:i A');
-        $enqRegDate   = $enquiry->reg_date ? \Carbon\Carbon::parse($enquiry->reg_date)->format('d/m/Y') : ($enquiry->created_at ? $enquiry->created_at->format('d/m/Y') : '');
-        $enquiryNoDisplay = $enqRegDate ? "{$enquiryNo} dated {$enqRegDate}" : $enquiryNo;
+        $qrHtml = $this->documentQr('scope', (int) $enquiry->id, [
+            'Type'        => 'Forensic Scope Letter',
+            'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
+            'Complainant' => $enquiry->complaint?->complainant_name ?: '—',
+            'Officer'     => $officer?->name ?: '—',
+            'Circle'      => $circle?->name ?? '—',
+        ], 64, $enquiryNo);
 
         $analysisScopeHtml = $analysisScope ? nl2br(e($analysisScope)) : "Conduct forensic examination and data extraction of the devices to identify the Facebook IDs, communication chats, emails, and media corresponding to the attached links and images.<br/><br/><strong>Social Media Profile URL:</strong><br/>1. Facebook: ________________________________________________<br/>2. Instagram: ________________________________________________<br/>3. Twitter: __________________________________________________";
 
         $body = <<<HTML
         <div class="forensic-req-doc">
+          <table style="width:100%;border-collapse:collapse;border-bottom:2px solid #000;margin-bottom:12px;">
+            <tr>
+              <td style="width:80px;border:none;vertical-align:middle;">{$qrHtml}</td>
+              <td style="border:none;text-align:center;vertical-align:middle;">
+                <div style="font-size:13px;font-weight:800;text-transform:uppercase;">National Cyber Crime Investigation Agency (NCCIA)</div>
+                <div style="font-size:11px;font-weight:600;margin-top:2px;">Forensic Lab Examination Request</div>
+              </td>
+              <td style="width:80px;border:none;"></td>
+            </tr>
+          </table>
           <div class="to-header">
             <strong>THE INCHARGE</strong><br/>
             <strong>NCCIA, CCRC, {$circleName}.</strong>
@@ -1201,15 +1273,28 @@ HTML;
         $officerName  = e($officer?->name ?: 'Sub-Inspector');
         $officerDesig = e($officer?->designation ?: 'Sub-Inspector');
         $officerSigHtml = $this->getOfficerSignatureHtml($officer);
+        $qrHtml = $this->documentQr('raid', (int) $enquiry->id, [
+            'Type'       => 'Raid Permission',
+            'Enquiry No' => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
+            'Circle'     => $circle?->name ?? '—',
+            'Officer'    => $officer?->name ?: '—',
+        ], 64, $enquiryNo);
 
         $body = <<<HTML
         <div class="raid-doc">
+          <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+            <tr>
+              <td style="width:80px;border:none;vertical-align:top;">{$qrHtml}</td>
+              <td style="border:none;vertical-align:top;">
           <div class="raid-to">
             To<br/>
             <strong>The Additional Director</strong><br/>
             <strong>NCCIA Cybercrime Zone</strong><br/>
             <strong>{$circleName}.</strong>
           </div>
+              </td>
+            </tr>
+          </table>
 
           <div class="raid-subj">
             <strong>Subject: - PERMISSION TO CONDUCT A RAID IN CASE FIR NO. {$enquiryNo} .</strong>
@@ -1277,13 +1362,26 @@ HTML;
         $accAddr    = e($firstAcc?->address ?: 'subject cited location');
         $accStr     = $accName . ($accFather ? ' S/O ' . $accFather : '') . ($accAddr ? ' R/O ' . $accAddr : '');
         $allegation = e($enquiry->brief_allegation ?: ($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access')));
+        $qrHtml = $this->documentQr('warrant', (int) $enquiry->id, [
+            'Type'        => 'Search Warrant',
+            'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
+            'Complainant' => $compName,
+            'Circle'      => $circle?->name ?? '—',
+        ], 64, $enquiryNo);
 
         $body = <<<HTML
         <div class="warrant-doc">
+          <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+            <tr>
+              <td style="width:80px;border:none;vertical-align:top;">{$qrHtml}</td>
+              <td style="border:none;text-align:center;vertical-align:middle;">
           <div class="court-header">
             <strong>IN THE HONORABLE COURT OF JUDICIAL MAGISTRATE,</strong><br/>
             <strong>{$circleName}.</strong>
           </div>
+              </td>
+            </tr>
+          </table>
 
           <table class="court-meta">
             <tr>
@@ -1348,14 +1446,28 @@ HTML;
         $date = $activity->activity_date ? $activity->activity_date->format('d/m/Y') : '—';
         $desc = e($activity->description ?? '');
         $issuedAt = now()->format('d/m/Y h:i A');
+        $qrHtml = $this->documentQr('diary', (int) $activity->id, [
+            'Type'       => 'Case Diary',
+            'Diary No'   => $activity->diary_no ?: ('D-' . $activity->id),
+            'Enquiry No' => $enquiry->enquiry_number ?: ('#' . $enquiry->id),
+            'Complaint No' => $enquiry->complaint?->tracking_no ?? '—',
+        ], 64, $diaryNo);
 
         $body = <<<HTML
         <div class="diary">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="width:80px;border:none;vertical-align:middle;">{$qrHtml}</td>
+              <td style="border:none;text-align:center;vertical-align:middle;">
           <div class="center">
             <img src="{$logo}" alt="NCCIA" class="logo" />
             <div class="org">National Cyber Crime Investigation Agency (NCCIA)</div>
             <div class="tag">CASE DIARY</div>
           </div>
+              </td>
+              <td style="width:80px;border:none;"></td>
+            </tr>
+          </table>
           <hr/>
           <div class="mrow"><span class="k">Diary No:</span><span>{$diaryNo}</span></div>
           <div class="mrow"><span class="k">Diary Date:</span><span>{$date}</span></div>
@@ -1440,12 +1552,19 @@ HTML;
         $reason          = !empty($params['reason']) ? e($params['reason']) : '';
         $recoveredAmount = !empty($params['recovered_amount']) ? e($params['recovered_amount']) : '';
         $modeOfRecovery  = !empty($params['mode_of_recovery']) ? e($params['mode_of_recovery']) : '';
+        $qrHtml = $this->documentQr('account', (int) $enquiry->id, [
+            'Type'       => 'Account Opening Request',
+            'Enquiry No' => $enquiry->enquiry_number ?: ('#' . $enquiry->id),
+            'Circle'     => $enquiry->complaint?->circle?->name ?: 'Lahore',
+            'Officer'    => $officer?->name ?: '—',
+        ], 62, $enquiryNo);
 
         $body = <<<HTML
         <div class="proforma-doc">
           <table class="proforma-top-table">
             <tr>
               <td class="top-logo-left">
+                {$qrHtml}
                 <img src="{$ncciaLogo}" alt="NCCIA" class="proforma-logo" />
               </td>
               <td class="top-center-cell">

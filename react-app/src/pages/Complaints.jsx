@@ -4,7 +4,7 @@ import api from '../api';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import WorkflowProgress from '../components/WorkflowProgress';
-import { openPrintWindow } from '../utils/print';
+import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 import { useAuth } from '../contexts/AuthContext';
 import { canAssignVerification, canCreateComplaint, hasRole } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
@@ -92,19 +92,25 @@ export default function Complaints() {
   };
 
   const printSlip = async (c) => {
+    const win = preparePrintWindow();
+    if (!win) return;
     try {
       const r = await api.get(`/complaints/${c.id}/slip`);
-      openPrintWindow(r.data.html);
+      writePrintWindow(win, r.data.html);
     } catch (e) {
+      closePrintWindow(win);
       alert(e.response?.data?.message || 'Could not generate slip.');
     }
   };
 
   const printReport = async (c) => {
+    const win = preparePrintWindow();
+    if (!win) return;
     try {
       const r = await api.get(`/complaints/${c.id}/report`);
-      openPrintWindow(r.data.html);
+      writePrintWindow(win, r.data.html);
     } catch (e) {
+      closePrintWindow(win);
       alert(e.response?.data?.message || 'Could not generate report.');
     }
   };

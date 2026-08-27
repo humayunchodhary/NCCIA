@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import api from '../api';
 
 /**
  * Generate SVG QR Code string
@@ -51,3 +52,43 @@ export async function generateQrDataUrl(text, options = {}) {
     return '';
   }
 }
+
+/**
+ * Official document QR: signed verify URL + identifiers so a scan shows authentic NCCIA details.
+ */
+export function officialDocumentPayload({ type, number, verifyUrl }) {
+  if (verifyUrl) return String(verifyUrl).trim();
+  const lines = ['NCCIA Official Document'];
+  if (type) lines.push('Type: ' + type);
+  if (number) lines.push('No: ' + number);
+  return lines.filter(Boolean).join('\n');
+}
+
+/**
+ * Fetch signed payload from API, then render QR. Falls back to local official payload.
+ */
+export async function generateOfficialDocumentQr({ type, id, fallback, size = 64 }) {
+  const caption = fallback?.number || fallback?.type || '';
+  const localPayload = officialDocumentPayload({
+    type: fallback?.type,
+    number: fallback?.number,
+    verifyUrl: fallback?.verifyUrl
+      || (typeof window !== 'undefined' && type && id
+        ? `${window.location.origin}/verify/doc/${type}/${id}`
+        : ''),
+  });
+
+  try {
+    const r = await Promise.race([
+      api.get(`/documents/${type}/${id}/qr`),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500)),
+    ]);
+    const payload = r.data?.url || r.data?.payload || localPayload;
+    const svg = await generateQrSvg(payload, { size, margin: 1 });
+    return { svg, caption: r.data?.caption || caption, url: r.data?.url || '' };
+  } catch (e) {
+    const svg = await generateQrSvg(localPayload || caption, { size, margin: 1 });
+    return { svg, caption, url: fallback?.verifyUrl || '' };
+  }
+}
+

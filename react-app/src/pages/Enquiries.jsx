@@ -9,9 +9,8 @@ import WorkflowProgress, { enquiryProgress } from '../components/WorkflowProgres
 import CaseChatModal from '../components/CaseChatModal';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateEnquiry, hasRole as userHasRole, hasAnyRole } from '../utils/permissions';
 import { useAutoRefresh } from '../utils/useAutoRefresh';
-import { openPrintWindow } from '../utils/print';
-import { generateBarcodeSvg } from '../utils/barcode';
-import { generateQrSvg } from '../utils/qrcode';
+import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
+import { generateOfficialDocumentQr } from '../utils/qrcode';
 
 const STATUS_COLORS = {
   registered: 'badge-pending',
@@ -280,6 +279,9 @@ export default function Enquiries() {
 
   const handlePrintScopeLetterFromModal = async () => {
     if (!scopeLetterTarget) return;
+    const win = preparePrintWindow();
+    if (!win) return;
+    try {
     const enq = scopeLetterData.enquiry || scopeLetterTarget;
     const enqNo = enq.enquiry_number || enq.complaint?.tracking_no || `ENQ-${enq.id}`;
     const enqRegDate = enq.reg_date ? new Date(enq.reg_date).toLocaleDateString('en-GB') : (enq.created_at ? new Date(enq.created_at).toLocaleDateString('en-GB') : '');
@@ -293,8 +295,9 @@ export default function Enquiries() {
     const officerPhone = enq.officer?.phone || enq.officer?.contact_no || user?.phone || user?.contact_no || '';
 
     const accusedNames = (enq.accused_persons || enq.accusedPersons || []).map(a => a.name).filter(Boolean);
+    const items = Array.isArray(scopeLetterData.items) ? scopeLetterData.items : [];
 
-    const itemRows = (scopeLetterData.items.length ? scopeLetterData.items : [{ item_type: 'Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
+    const itemRows = (items.length ? items : [{ item_type: 'Device', make_model: 'Seized Device', quantity: 1 }]).map((it, idx) => {
       let imeiStr = [];
       const hasImei1 = Boolean(it.imei && it.imei.trim());
       const hasImei2 = Boolean(it.imei2 && it.imei2.trim());
@@ -334,8 +337,24 @@ export default function Enquiries() {
     const ciRemarks = (scopeLetterData.ciRemarks || linkedReq?.note || 'Approved & Forwarded for Forensic Examination.').trim();
     const ddRemarks = (linkedReq?.examiner_assignment_notes || linkedReq?.forensic_remarks || 'Marked to AD (Forensics) / Forensic Examiner for examination and detailed forensic report.').trim();
     const ciDateStr = linkedReq?.created_at ? new Date(linkedReq.created_at).toLocaleDateString('en-GB') : dateStr;
-    const qrText = String(enqNo || `ENQ-${enq.id || '001'}`).toUpperCase();
-    const qrSvg = await generateQrSvg(qrText, { size: 60, margin: 1 });
+    const ddDateStr = linkedReq?.assigned_to_examiner_at
+      ? new Date(linkedReq.assigned_to_examiner_at).toLocaleDateString('en-GB')
+      : dateStr;
+    const qr = await generateOfficialDocumentQr({
+      type: 'scope',
+      id: enq.id,
+      size: 60,
+      fallback: {
+        type: 'Forensic Scope Letter',
+        number: enqNo,
+        complainant: compName,
+        officer: officerName,
+        circle: rawCircle,
+        date: dateStr,
+      },
+    });
+    const qrSvg = qr.svg;
+    const qrCaption = qr.caption || enqNo;
 
     const html = `
       <!DOCTYPE html>
@@ -363,7 +382,7 @@ export default function Enquiries() {
           <tr>
             <td style="width:80px; vertical-align:middle; text-align:left; border:none; padding:0 8px 6px 0;">
               ${qrSvg}
-              <div style="font-family:monospace; font-size:8px; font-weight:bold; margin-top:2px; text-align:center;">${qrText}</div>
+              <div style="font-family:monospace; font-size:8px; font-weight:bold; margin-top:2px; text-align:center;">${qrCaption}</div>
             </td>
             <td style="vertical-align:middle; text-align:center; border:none; padding:0 8px 6px 8px;">
               <div style="font-size:14.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; line-height:1.25;">National Cyber Crime Investigation Agency (NCCIA)</div>
@@ -476,7 +495,11 @@ export default function Enquiries() {
       </body>
       </html>
     `;
-    openPrintWindow(html);
+    writePrintWindow(win, html);
+    } catch (err) {
+      closePrintWindow(win);
+      alert(err?.response?.data?.message || err?.message || 'Could not print scope letter.');
+    }
   };
 
   const handleMarkToDdForensicFromModal = async () => {

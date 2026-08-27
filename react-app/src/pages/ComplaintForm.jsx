@@ -7,7 +7,7 @@ import PdfAutoFillBar from '../components/PdfAutoFillBar';
 import { mapExtractToComplaintForm, matchLookupValue } from '../utils/fillFromPdf';
 import { countryCodes } from '../data/countries';
 import { canAssignVerification, hasRole } from '../utils/permissions';
-import { openPrintWindow } from '../utils/print';
+import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 
 const SCRUTINY_OPTIONS = [
   { value: 'complete', name: 'Complete (Generate Tracking No)' },
@@ -465,10 +465,13 @@ export default function ComplaintForm() {
 
   const printReport = async () => {
     if (!id) return;
+    const win = preparePrintWindow();
+    if (!win) return;
     try {
       const r = await api.get(`/complaints/${id}/report`);
-      openPrintWindow(r.data.html);
+      writePrintWindow(win, r.data.html);
     } catch (e) {
+      closePrintWindow(win);
       alert(e.response?.data?.message || 'Could not generate report.');
     }
   };
