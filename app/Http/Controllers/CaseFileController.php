@@ -71,9 +71,41 @@ class CaseFileController extends Controller
         if (!empty($action['case_category'])) {
             $meta['case_category'] = $action['case_category'];
         }
-        foreach (['subject', 'kota', 'against_whom', 'scheduled_at', 'audio_script'] as $key) {
+        foreach (['subject', 'kota', 'against_whom', 'scheduled_at', 'audio_script', 'analysis_scope'] as $key) {
             if (array_key_exists($key, $action) && $action[$key] !== null && $action[$key] !== '') {
                 $meta[$key] = $action[$key];
+            }
+        }
+        if (!empty($action['seize_items']) && is_array($action['seize_items'])) {
+            $items = array_values(array_filter(array_map(static function ($item) {
+                if (!is_array($item)) {
+                    return null;
+                }
+                $row = [
+                    'item_type'        => $item['item_type'] ?? null,
+                    'make_model'       => $item['make_model'] ?? null,
+                    'imei'             => $item['imei'] ?? null,
+                    'imei2'            => $item['imei2'] ?? null,
+                    'serial_no'        => $item['serial_no'] ?? null,
+                    'quantity'         => isset($item['quantity']) ? (int) $item['quantity'] : 1,
+                    'storage_capacity' => $item['storage_capacity'] ?? null,
+                    'condition'        => $item['condition'] ?? null,
+                    'description'      => $item['description'] ?? null,
+                    'owner_type'       => $item['owner_type'] ?? null,
+                    'owner_ref'        => $item['owner_ref'] ?? null,
+                ];
+                if (
+                    empty($row['item_type']) && empty($row['make_model'])
+                    && empty($row['imei']) && empty($row['serial_no'])
+                    && empty($row['description'])
+                ) {
+                    return null;
+                }
+
+                return $row;
+            }, $action['seize_items'])));
+            if ($items !== []) {
+                $meta['seize_items'] = $items;
             }
         }
         foreach (['checklist_tech_report', 'checklist_seizure_memo', 'checklist_fir_copy'] as $key) {
@@ -823,6 +855,29 @@ class CaseFileController extends Controller
         } catch (\Throwable $e) {
             report($e);
             return response()->json(['message' => 'Could not print arrest warrant: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function forensicRequestPrint(Request $request, CaseFile $caseFile, PrintService $print)
+    {
+        $this->assertCaseVisible($caseFile);
+
+        $devices = $request->input('devices', []);
+        if (is_string($devices)) {
+            $devices = json_decode($devices, true) ?: [];
+        }
+
+        try {
+            return response()->json([
+                'html' => $print->forensicRequestPrintDocument(
+                    $this->enquiryForWarrantPrint($caseFile),
+                    is_array($devices) ? $devices : [],
+                    (string) $request->input('analysis_scope', '')
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print forensic request: ' . $e->getMessage()], 500);
         }
     }
 }

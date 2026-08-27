@@ -158,6 +158,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/cases/{caseFile}/raid-permission-print', [CaseFileController::class, 'raidPermissionPrint']);
     Route::get('/cases/{caseFile}/search-warrant-print', [CaseFileController::class, 'searchWarrantPrint']);
     Route::get('/cases/{caseFile}/arrest-warrant-print', [CaseFileController::class, 'arrestWarrantPrint']);
+    Route::get('/cases/{caseFile}/forensic-request-print', [CaseFileController::class, 'forensicRequestPrint']);
     Route::put('/cases/{caseFile}', [CaseFileController::class, 'update'])->name('api.cases.update');
     Route::delete('/cases/{caseFile}', [CaseFileController::class, 'destroy'])
         ->middleware('role:admin')

@@ -45,6 +45,24 @@ const ACTIVITY_TYPES = [
 
 const WARRANT_TYPES = ['search_seize', 'raid', 'arrest_warrant'];
 
+const EMPTY_SEIZE_ITEM = {
+  item_type: '', make_model: '', imei: '', imei2: '', serial_no: '', storage_capacity: '', condition: 'sealed', quantity: 1, description: '', owner_type: '', owner_ref: '',
+};
+
+const SEIZE_ITEM_TYPES = [
+  { value: 'phone', name: 'Mobile Phone' },
+  { value: 'laptop', name: 'Laptop' },
+  { value: 'computer', name: 'Computer / Desktop' },
+  { value: 'hdd', name: 'Hard Disk - HDD / SSD' },
+  { value: 'dvr', name: 'DVR' },
+  { value: 'ipad_tablet', name: 'iPad / Tablet' },
+  { value: 'memory_card', name: 'Memory Card' },
+  { value: 'sim', name: 'SIM Card' },
+  { value: 'usb', name: 'USB / Flash Drive' },
+  { value: 'cd_dvd', name: 'CD / DVD' },
+  { value: 'other', name: 'Other' },
+];
+
 const RECOMMENDATIONS = [
   { value: 'transfer', name: 'Transfer' },
   { value: 'merge', name: 'Merge' },
@@ -75,6 +93,8 @@ export default function CaseForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const roleNames = (user?.roles || []).map(r => r.name || r);
+  const isSupervisor = roleNames.some(r => ['admin', 'circle_incharge', 'director_general'].includes(r));
   const [form, setForm] = useState(initialForm);
   const [enquiries, setEnquiries] = useState([]);
   const [officers, setOfficers] = useState([]);
@@ -89,6 +109,7 @@ export default function CaseForm() {
   const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
   const [inherited, setInherited] = useState({ complaint: null, accused: [], witnesses: [], devices: [] });
+  const [sendingForensic, setSendingForensic] = useState(false);
 
   useEffect(() => {
     api.get('/enquiries?status=registered,assigned,in_progress,cfr_submitted,approved,closed').then(r => {
@@ -138,6 +159,8 @@ export default function CaseForm() {
             checklist_seizure_memo: Boolean(a.meta?.checklist_seizure_memo || a.checklist_seizure_memo),
             checklist_fir_copy: Boolean(a.meta?.checklist_fir_copy || a.checklist_fir_copy),
             audio_script: a.meta?.audio_script || a.audio_script || '',
+            analysis_scope: a.meta?.analysis_scope || a.analysis_scope || '',
+            seize_items: Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
           })),
           arrests: (d.arrests || []).map(a => ({
             id: a.id,
@@ -183,7 +206,7 @@ export default function CaseForm() {
   const setF = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', case_category: 'Financial Fraud', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, subject: '', kota: '', against_whom: '', scheduled_at: '' }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', case_category: 'Financial Fraud', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, subject: '', kota: '', against_whom: '', scheduled_at: '', seize_items: [], analysis_scope: '' }] }));
   const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
   const updateActivity = (i, field, value) => setForm(f => ({
     ...f,
@@ -194,10 +217,31 @@ export default function CaseForm() {
         const firstAcc = (inherited.accused || []).find(x => (x.name || '').trim());
         if (firstAcc) next.against_whom = firstAcc.name;
       }
+      if (field === 'type' && value === 'seizure' && !(next.seize_items || []).length) {
+        next.seize_items = [{ ...EMPTY_SEIZE_ITEM }];
+      }
       return next;
     }),
   }));
   const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
+  const addSeizeItem = (activityIndex) => setForm(f => ({
+    ...f,
+    activities: f.activities.map((a, idx) => idx === activityIndex
+      ? { ...a, seize_items: [...(a.seize_items || []), { ...EMPTY_SEIZE_ITEM }] }
+      : a),
+  }));
+  const removeSeizeItem = (activityIndex, itemIndex) => setForm(f => ({
+    ...f,
+    activities: f.activities.map((a, idx) => idx === activityIndex
+      ? { ...a, seize_items: (a.seize_items || []).filter((_, si) => si !== itemIndex) }
+      : a),
+  }));
+  const updateSeizeItem = (activityIndex, itemIndex, field, value) => setForm(f => ({
+    ...f,
+    activities: f.activities.map((a, idx) => idx === activityIndex
+      ? { ...a, seize_items: (a.seize_items || []).map((it, si) => si === itemIndex ? { ...it, [field]: value } : it) }
+      : a),
+  }));
 
   // Arrests
   const addArrest = () => setForm(f => ({ ...f, arrests: [...f.arrests, { accused_name: '', cnic: '', arrest_date: new Date().toISOString().split('T')[0], remand_details: '' }] }));
@@ -240,6 +284,8 @@ export default function CaseForm() {
           checklist_seizure_memo: Boolean(a.checklist_seizure_memo),
           checklist_fir_copy: Boolean(a.checklist_fir_copy),
           audio_script: a.audio_script || '',
+          analysis_scope: a.analysis_scope || '',
+          seize_items: a.seize_items || [],
         })),
       arrests: form.arrests.filter(a => a.accused_name),
       legal_opinions: form.legal_opinions.filter(lo => lo.role),
@@ -253,8 +299,7 @@ export default function CaseForm() {
     return payload;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const saveCase = async ({ navigateAway = true } = {}) => {
     setSaving(true);
     setErrors({});
     setServerError('');
@@ -263,9 +308,16 @@ export default function CaseForm() {
       if (id) {
         await api.put(`/cases/${id}`, payload);
       } else {
-        await api.post('/cases', payload);
+        const r = await api.post('/cases', payload);
+        const newId = r.data?.data?.id || r.data?.id;
+        if (navigateAway) {
+          navigate('/cases');
+        } else if (newId) {
+          navigate(`/cases/${newId}/edit`);
+        }
+        return;
       }
-      navigate('/cases');
+      if (navigateAway) navigate('/cases');
     } catch (err) {
       const res = err.response?.data;
       if (res?.errors) {
@@ -274,8 +326,18 @@ export default function CaseForm() {
       } else {
         setServerError(res?.message || 'Error saving case. Please try again.');
       }
+      throw err;
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await saveCase({ navigateAway: true });
+    } catch (e2) {
+      // errors already shown
     }
   };
 
@@ -300,6 +362,114 @@ export default function CaseForm() {
     } catch (e) {
       closePrintWindow(win);
       alert(e.response?.data?.message || 'Could not print document.');
+    }
+  };
+
+  const getSeizeItemOwnerText = (it) => {
+    if (it.owner_type === 'accused') {
+      const acc = inherited.accused[it.owner_ref] || inherited.accused.find(x => x.name === it.owner_ref);
+      return acc?.name || it.owner_ref || 'Accused';
+    }
+    if (it.owner_type === 'witness') {
+      const wit = inherited.witnesses[it.owner_ref] || inherited.witnesses.find(x => x.name === it.owner_ref);
+      return wit?.name || it.owner_ref || 'Witness';
+    }
+    if (it.owner_type === 'complainant') return inherited.complaint?.complainant_name || 'Complainant';
+    return it.owner_ref || '';
+  };
+
+  const printActivityForensicRequest = async (act) => {
+    if (!id) {
+      alert('Pehle case save karein, phir print karein.');
+      return;
+    }
+    const devices = (act.seize_items || [])
+      .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
+      .map(it => ({
+        type: it.item_type || 'Digital Device',
+        model: it.make_model || '—',
+        imei: it.imei || it.serial_no || 'N/A',
+        owner: getSeizeItemOwnerText(it),
+        storage_capacity: it.storage_capacity || '—',
+      }));
+    const win = preparePrintWindow();
+    if (!win) return;
+    try {
+      const r = await api.get(`/cases/${id}/forensic-request-print`, {
+        params: { devices: JSON.stringify(devices), analysis_scope: (act.analysis_scope || '').trim() },
+      });
+      writePrintWindow(win, r.data.html);
+    } catch (e) {
+      closePrintWindow(win);
+      alert(e.response?.data?.message || 'Could not print scope letter.');
+    }
+  };
+
+  const submitActivityToForensic = async (act, destination = 'forensic') => {
+    if (!id) {
+      alert('Pehle case save karein, phir submit karein.');
+      return;
+    }
+    setSendingForensic(true);
+    try {
+      await saveCase({ navigateAway: false });
+      if (destination === 'forensic') {
+        if (!act.checklist_tech_report || !act.checklist_seizure_memo) {
+          alert('Forensic submission ke liye Technical Report aur Seizure Memo dono verified/attached hona compulsory hai.');
+          return;
+        }
+        const catLower = (act.case_category || '').toLowerCase();
+        const isAudio = catLower.includes('audio') || catLower.includes('voice');
+        if (isAudio) {
+          if (!act.audio_script || !String(act.audio_script).trim()) {
+            alert('Audio Forensic ke liye written transcript / script likhna compulsory hai.');
+            return;
+          }
+          if (!act.audio_source_file || !act.audio_sample_file) {
+            alert('Audio Forensic ke liye Source File aur Sample File dono attach karna compulsory hain.');
+            return;
+          }
+        }
+      }
+      const items = (act.seize_items || [])
+        .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
+        .map(it => ({
+          item_type: it.item_type || 'other',
+          make_model: it.make_model || null,
+          imei: it.imei || null,
+          imei2: it.imei2 || null,
+          serial_no: it.serial_no || null,
+          storage_capacity: it.storage_capacity || null,
+          condition: it.condition || null,
+          seized_from: getSeizeItemOwnerText(it) || null,
+          quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+          description: it.description || null,
+        }));
+      const fd = new FormData();
+      fd.append('case_id', String(id));
+      if (form.enquiry_id) fd.append('enquiry_id', String(form.enquiry_id));
+      fd.append('destination', destination);
+      fd.append('external_category', act.case_category || 'Financial Fraud');
+      fd.append('analysis_scope', act.analysis_scope || '');
+      fd.append('external_scope', act.analysis_scope || '');
+      fd.append('note', act.description || `Seizure memo evidence submitted for ${destination} examination.`);
+      fd.append('checklist_tech_report', act.checklist_tech_report ? '1' : '0');
+      fd.append('checklist_seizure_memo', act.checklist_seizure_memo ? '1' : '0');
+      fd.append('checklist_fir_copy', act.checklist_fir_copy ? '1' : '0');
+      if (act.audio_script) fd.append('audio_script', act.audio_script);
+      if (act.audio_source_file) fd.append('audio_source', act.audio_source_file);
+      if (act.audio_sample_file) fd.append('audio_sample', act.audio_sample_file);
+      fd.append('items', JSON.stringify(items.length ? items : [{
+        item_type: 'other',
+        description: act.description || 'Seizure evidence items',
+        quantity: 1,
+      }]));
+      const r = await api.post('/forensic-requests', fd);
+      alert(r.data?.message || 'Seized evidence submitted.');
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Submission failed.');
+    } finally {
+      setSendingForensic(false);
     }
   };
 
@@ -512,11 +682,13 @@ export default function CaseForm() {
                         {ACTIVITY_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
+                    {a.type !== 'seizure' && (
                     <div className="cf-field"><label className="cf-label">Case Category</label>
                       <select className="cf-input" value={a.case_category || 'Financial Fraud'} onChange={e => updateActivity(i, 'case_category', e.target.value)}>
                         {CASE_CATEGORIES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
                     </div>
+                    )}
                     <div className="cf-field"><label className="cf-label">Date</label>
                       <input type="date" className="cf-input" value={a.activity_date} onChange={e => updateActivity(i, 'activity_date', e.target.value)} />
                     </div>
@@ -629,8 +801,162 @@ export default function CaseForm() {
                     </div>
                   )}
 
-                  {/* IO Mandatory Checklist for Forensics / Seizure */}
-                  {(a.type === 'seizure' || a.type === 'forensic_report') && (
+                  {a.type === 'seizure' && (
+                    <div style={{ marginTop: 14, padding: 14, background: '#fff', border: '1.5px solid #bfdbfe', borderRadius: 8, boxShadow: '0 2px 8px rgba(1,92,148,0.06)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                        <div>
+                          <strong style={{ fontSize: 13.5, color: '#015C94', display: 'block' }}>📦 Seized Evidence &amp; Digital Devices</strong>
+                          <span style={{ fontSize: 11, color: '#64748b' }}>Seized items darj karein, analysis scope likhein aur Circle Incharge ko mark karein ya print karein.</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {!isSupervisor && (
+                            <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>+ Add Item</button>
+                          )}
+                          <button type="button" className="btn btn-outline btn-sm" style={{ color: '#015C94', borderColor: '#015C94', fontWeight: 600 }} onClick={() => printActivityForensicRequest(a)}>
+                            Print Scope Letter
+                          </button>
+                          {!isSupervisor && (
+                            <>
+                              <button type="button" className="btn btn-outline btn-sm" style={{ color: '#0f766e', borderColor: '#0f766e', fontSize: 12, fontWeight: 700 }} disabled={sendingForensic} onClick={() => submitActivityToForensic(a, 'technical')}>
+                                {sendingForensic ? 'Submitting…' : '⚙️ Submit to Technical'}
+                              </button>
+                              <button type="button" className="btn btn-outline btn-sm" style={{ color: '#64748b', borderColor: '#94a3b8', fontSize: 12, fontWeight: 600 }} disabled={saving} onClick={() => saveCase({ navigateAway: false })}>
+                                💾 Save
+                              </button>
+                              <button type="button" className="btn btn-primary btn-sm" style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }} disabled={sendingForensic} onClick={() => submitActivityToForensic(a, 'forensic')}>
+                                {sendingForensic ? 'Submitting…' : '📋 Mark to Circle Incharge'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {(a.seize_items || []).map((it, si) => (
+                        <div key={si} style={{ padding: 12, marginBottom: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr 1.2fr 1.5fr 1fr auto', gap: 10, marginBottom: 8 }}>
+                            <div className="cf-field"><label className="cf-label required">Item Type</label>
+                              <select className="cf-input" value={it.item_type || ''} onChange={e => updateSeizeItem(i, si, 'item_type', e.target.value)}>
+                                <option value="">— Select —</option>
+                                {SEIZE_ITEM_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                              </select>
+                            </div>
+                            <div className="cf-field"><label className="cf-label required">Owner Type</label>
+                              <select className="cf-input" value={it.owner_type || ''} onChange={e => { updateSeizeItem(i, si, 'owner_type', e.target.value); updateSeizeItem(i, si, 'owner_ref', ''); }}>
+                                <option value="">— Select —</option>
+                                <option value="complainant">Complainant</option>
+                                <option value="accused">Accused</option>
+                                <option value="witness">Witness</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </div>
+                            <div className="cf-field"><label className="cf-label required">Owner / Person</label>
+                              {it.owner_type === 'accused' ? (
+                                <select className="cf-input" value={it.owner_ref || ''} onChange={e => updateSeizeItem(i, si, 'owner_ref', e.target.value)}>
+                                  <option value="">— Select Accused —</option>
+                                  {(inherited.accused || []).map((ac, idx) => <option key={idx} value={idx}>{ac.name || `Accused ${idx + 1}`}</option>)}
+                                  {(form.arrests || []).filter(ar => (ar.accused_name || '').trim()).map((ar, idx) => <option key={`arr-${idx}`} value={ar.accused_name}>{ar.accused_name}</option>)}
+                                </select>
+                              ) : it.owner_type === 'witness' ? (
+                                <select className="cf-input" value={it.owner_ref || ''} onChange={e => updateSeizeItem(i, si, 'owner_ref', e.target.value)}>
+                                  <option value="">— Select Witness —</option>
+                                  {(inherited.witnesses || []).map((w, idx) => <option key={idx} value={idx}>{w.name || `Witness ${idx + 1}`}</option>)}
+                                </select>
+                              ) : (
+                                <input type="text" className="cf-input" placeholder={it.owner_type === 'complainant' ? 'Complainant (Auto)' : 'Name'} value={it.owner_type === 'complainant' ? (inherited.complaint?.complainant_name || it.owner_ref || '') : (it.owner_ref || '')} onChange={e => updateSeizeItem(i, si, 'owner_ref', e.target.value)} disabled={it.owner_type === 'complainant'} />
+                              )}
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Make / Model</label>
+                              <input type="text" className="cf-input" placeholder="e.g. iPhone 15 Pro, Dell..." value={it.make_model || ''} onChange={e => updateSeizeItem(i, si, 'make_model', e.target.value)} />
+                            </div>
+                            <div className="cf-field"><label className="cf-label">IMEI / IMEI 2</label>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <input type="text" className="cf-input" placeholder="IMEI 1" value={it.imei || ''} onChange={e => updateSeizeItem(i, si, 'imei', e.target.value)} />
+                                <input type="text" className="cf-input" placeholder="IMEI 2" value={it.imei2 || ''} onChange={e => updateSeizeItem(i, si, 'imei2', e.target.value)} />
+                              </div>
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Serial Number</label>
+                              <input type="text" className="cf-input" placeholder="Device Serial No" value={it.serial_no || ''} onChange={e => updateSeizeItem(i, si, 'serial_no', e.target.value)} />
+                            </div>
+                            {!isSupervisor && (
+                              <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36, alignSelf: 'end' }} onClick={() => removeSeizeItem(i, si)}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2v2"/></svg>
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '90px 140px 1fr', gap: 10 }}>
+                            <div className="cf-field"><label className="cf-label">Qty</label>
+                              <input type="number" min={1} className="cf-input" value={it.quantity ?? 1} onChange={e => updateSeizeItem(i, si, 'quantity', e.target.value)} />
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Capacity / Storage</label>
+                              <input type="text" className="cf-input" placeholder="e.g. 256GB, 1TB" value={it.storage_capacity || ''} onChange={e => updateSeizeItem(i, si, 'storage_capacity', e.target.value)} />
+                            </div>
+                            <div className="cf-field"><label className="cf-label">Item Description / Seized From</label>
+                              <input type="text" className="cf-input" value={it.description || ''} onChange={e => updateSeizeItem(i, si, 'description', e.target.value)} placeholder="e.g. Seized from accused bedroom table..." />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {(a.seize_items || []).length === 0 && (
+                        <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#888' }}>No seized items entered yet. Click "+ Add Item".</p>
+                      )}
+
+                      <div style={{ marginTop: 12, borderTop: '1px solid #e2e8f0', paddingTop: 10, display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+                        <div className="cf-field">
+                          <label className="cf-label required"><strong>Case Category / Offence Type</strong></label>
+                          <select className="cf-input" value={a.case_category || 'Financial Fraud'} onChange={e => updateActivity(i, 'case_category', e.target.value)}>
+                            {CASE_CATEGORIES.map(cat => <option key={cat.value} value={cat.value}>{cat.name}</option>)}
+                          </select>
+                          <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>Forensic Lab analysis category</span>
+                        </div>
+                        <div className="cf-field">
+                          <label className="cf-label"><strong>Analysis Scope (For Forensic Lab)</strong></label>
+                          <textarea className="cf-input" rows={2} placeholder="e.g. Conduct forensic examination and data extraction to identify Facebook IDs, communication chats, emails, media..." value={a.analysis_scope || ''} onChange={e => updateActivity(i, 'analysis_scope', e.target.value)} style={{ width: '100%' }} />
+                          <span className="cf-hint" style={{ fontSize: 11, color: '#64748b' }}>Ye scope text official Forensic Request PDF letter mein print hoga.</span>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 14, padding: '12px 14px', background: '#eff6ff', borderRadius: 8, border: '1.5px solid #bfdbfe' }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: '#1e40af', marginBottom: 8 }}>📋 Forensic Submission Mandatory Checklist (Compulsory):</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={Boolean(a.checklist_tech_report)} onChange={e => updateActivity(i, 'checklist_tech_report', e.target.checked)} />
+                            <span><strong>Technical Report</strong> verified &amp; attached <span style={{ color: '#dc2626' }}>*</span></span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={Boolean(a.checklist_seizure_memo)} onChange={e => updateActivity(i, 'checklist_seizure_memo', e.target.checked)} />
+                            <span><strong>Seizure Memo</strong> verified &amp; generated <span style={{ color: '#dc2626' }}>*</span></span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={Boolean(a.checklist_fir_copy)} onChange={e => updateActivity(i, 'checklist_fir_copy', e.target.checked)} />
+                            <span><strong>FIR Copy</strong> (Certified) <span style={{ color: '#dc2626' }}>*</span></span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {(String(a.case_category || '').toLowerCase().includes('audio') || String(a.case_category || '').toLowerCase().includes('voice')) && (
+                        <div style={{ marginTop: 14, padding: 14, background: '#fffbeb', borderRadius: 8, border: '1.5px solid #fde68a' }}>
+                          <div style={{ color: '#b45309', fontWeight: 800, fontSize: 13, marginBottom: 6 }}>All Audio &amp; Voice Forensic Examinations are routed to NCCIA Forensic HQ, Islamabad.</div>
+                          <div className="cf-field" style={{ marginBottom: 10 }}>
+                            <label className="cf-label required">Audio Script / Written Transcript</label>
+                            <textarea className="cf-input" rows={2} value={a.audio_script || ''} onChange={e => updateActivity(i, 'audio_script', e.target.value)} placeholder="Enter complete written transcript..." />
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                            <div className="cf-field">
+                              <label className="cf-label required">Source Audio File</label>
+                              <input type="file" className="cf-input" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg" onChange={e => updateActivity(i, 'audio_source_file', e.target.files?.[0] || null)} />
+                            </div>
+                            <div className="cf-field">
+                              <label className="cf-label required">Sample Audio File</label>
+                              <input type="file" className="cf-input" accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg" onChange={e => updateActivity(i, 'audio_sample_file', e.target.files?.[0] || null)} />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {a.type === 'forensic_report' && (
                     <div style={{ marginTop: 12, padding: '12px 14px', background: '#eff6ff', borderRadius: 8, border: '1.5px solid #bfdbfe' }}>
                       <div style={{ fontWeight: 800, fontSize: 13, color: '#1e40af', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                         📋 IO Forensic Submission Mandatory Checklist (Compulsory for FIR):
@@ -665,7 +991,7 @@ export default function CaseForm() {
                   )}
 
                   {/* Audio Forensics Specific Requirements & Islamabad Routing */}
-                  {(String(a.case_category || '').toLowerCase().includes('audio') || String(a.case_category || '').toLowerCase().includes('voice')) && (
+                  {(a.type !== 'seizure' && (String(a.case_category || '').toLowerCase().includes('audio') || String(a.case_category || '').toLowerCase().includes('voice'))) && (
                     <div style={{ marginTop: 12, padding: '14px', background: '#fffbeb', borderRadius: 8, border: '1.5px solid #fde68a' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#b45309', fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
                         🏛️ NOTICE: All Audio &amp; Voice Forensic Examinations are exclusively routed to and examined at NCCIA Forensic HQ, Islamabad.
