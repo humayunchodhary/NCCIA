@@ -769,9 +769,12 @@ class EnquiryController extends Controller
 
     public function index()
     {
-        $this->authorize('viewAny', Enquiry::class);
+        $user = request()->user() ?? auth('api')->user() ?? auth()->user();
+        if (!$user) {
+            return response()->json(['data' => [], 'total' => 0], 401);
+        }
 
-        $query = Enquiry::visibleTo(request()->user())->with('complaint', 'officer', 'caseFile');
+        $query = Enquiry::visibleTo($user)->with('complaint', 'officer', 'caseFile');
 
         if ($search = trim((string) request('search'))) {
             $query->where(function ($sq) use ($search) {
@@ -792,9 +795,10 @@ class EnquiryController extends Controller
             $query->whereIn('status', $statuses);
         }
 
-        $enquiries = $query->latest()->paginate(15);
+        $perPage = (int) request('per_page', 15);
+        $enquiries = $query->latest('id')->paginate($perPage);
 
-        $q = Enquiry::visibleTo(request()->user());
+        $q = Enquiry::visibleTo($user);
 
         $statsRow = (clone $q)->toBase()
             ->selectRaw('COUNT(*) as total')
@@ -819,9 +823,9 @@ class EnquiryController extends Controller
 
     public function stats()
     {
-        $this->authorize('viewAny', Enquiry::class);
+        $user = request()->user() ?? auth('api')->user() ?? auth()->user();
 
-        $q = Enquiry::visibleTo(request()->user());
+        $q = Enquiry::visibleTo($user);
 
         $statsRow = (clone $q)->toBase()
             ->selectRaw('COUNT(*) as total')
