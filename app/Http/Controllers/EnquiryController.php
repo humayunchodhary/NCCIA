@@ -859,7 +859,22 @@ class EnquiryController extends Controller
         );
 
         $payload = $enquiry->toArray();
-        $accused = $enquiry->accusedPersons;
+
+        // Clean up historical duplicate accused in DB first
+        $seenAcc = [];
+        $uniqueAcc = collect();
+        foreach ($enquiry->accusedPersons as $item) {
+            $key = strtolower(trim(($item->cnic ?: '') . '|' . ($item->name ?: '')));
+            if ($key !== '|' && isset($seenAcc[$key])) {
+                $item->delete();
+            } else {
+                if ($key !== '|') {
+                    $seenAcc[$key] = true;
+                }
+                $uniqueAcc->push($item);
+            }
+        }
+        $accused = $uniqueAcc;
 
         // Auto-fallback from verification report or complaint initial_accused if enquiry has none saved yet
         if ($accused->isEmpty() && $enquiry->complaint_id) {
@@ -899,19 +914,8 @@ class EnquiryController extends Controller
                         'description'       => $a['description'] ?? '',
                     ];
                 });
-        // Clean up historical duplicate accused in DB
-        $seenAcc = [];
-        $uniqueAcc = collect();
-        foreach ($enquiry->accusedPersons as $item) {
-            $key = strtolower(trim(($item->cnic ?: '') . '|' . ($item->name ?: '')));
-            if ($key !== '|' && isset($seenAcc[$key])) {
-                $item->delete();
-            } else {
-                if ($key !== '|') $seenAcc[$key] = true;
-                $uniqueAcc->push($item);
             }
         }
-        $accused = $uniqueAcc;
 
         // Clean up historical duplicate witnesses in DB
         $seenWit = [];
@@ -921,7 +925,9 @@ class EnquiryController extends Controller
             if ($key !== '|' && isset($seenWit[$key])) {
                 $item->delete();
             } else {
-                if ($key !== '|') $seenWit[$key] = true;
+                if ($key !== '|') {
+                    $seenWit[$key] = true;
+                }
                 $uniqueWit->push($item);
             }
         }
