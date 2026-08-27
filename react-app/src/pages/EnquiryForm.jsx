@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
@@ -16,6 +16,7 @@ import {
   CASE_CATEGORIES,
 } from '../utils/directCaseOptions';
 import { SIMPLE_STATUSES, PRIORITY_OPTIONS, toSimpleStatus, fromSimpleStatus } from '../utils/simpleStatus';
+import { isSeizeItemLocked, activityHasLockedSeizeItems, applyForensicLocksToActivities, seizeItemKey, lockSeizeItemsAgainstForensic } from '../utils/seizeItemLock';
 
 const ENQUIRY_STATUS = [
   { value: 'registered', name: 'Registered (Reader Branch)' },
@@ -237,6 +238,7 @@ export default function EnquiryForm() {
   const [editingWitnessIndex, setEditingWitnessIndex] = useState(null);
   const [editingNoticeIndex, setEditingNoticeIndex] = useState(null);
   const [linkedForensicRequests, setLinkedForensicRequests] = useState([]);
+  const linkedForensicRef = useRef([]);
   const [loadingLinkedReports, setLoadingLinkedReports] = useState(false);
   const [showAccountOpeningModal, setShowAccountOpeningModal] = useState(false);
   const [accountOpeningData, setAccountOpeningData] = useState({
@@ -277,7 +279,9 @@ export default function EnquiryForm() {
     setLoadingLinkedReports(true);
     try {
       const res = await api.get(`/forensic-requests?enquiry_id=${targetId}`);
-      setLinkedForensicRequests(res.data?.data || []);
+      const list = res.data?.data || [];
+      linkedForensicRef.current = list;
+      setLinkedForensicRequests(list);
     } catch (e) {
       console.warn('Could not load linked forensic requests', e);
     } finally {
@@ -582,7 +586,10 @@ export default function EnquiryForm() {
         description: a.description || '',
         activity_date: toDate(a.activity_date),
         attachment_path: a.attachment_path || '',
-        seize_items: Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
+        seize_items: lockSeizeItemsAgainstForensic(
+          Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
+          linkedForensicRef.current
+        ),
         analysis_scope: a.meta?.analysis_scope || a.analysis_scope || '',
         case_category: a.meta?.case_category || a.case_category || 'Financial Fraud',
         subject: a.meta?.subject || a.subject || '',
@@ -658,12 +665,23 @@ export default function EnquiryForm() {
 
   useEffect(() => {
     if (id) {
+      linkedForensicRef.current = [];
+      setLinkedForensicRequests([]);
       api.get(`/enquiries/${id}`).then(r => {
         applyEnquiryPayload(r.data.data || r.data);
       }).catch(() => navigate('/enquiries'));
       loadLinkedForensicRequests(id);
     }
   }, [id, navigate]);
+
+  useEffect(() => {
+    linkedForensicRef.current = linkedForensicRequests;
+    if (!linkedForensicRequests.length) return;
+    setForm(f => {
+      const next = applyForensicLocksToActivities(f.activities, linkedForensicRequests, ['seizures']);
+      return next === f.activities ? f : { ...f, activities: next };
+    });
+  }, [linkedForensicRequests]);
 
   // No auto-refresh on edit form — it was wiping unsaved work every 30s.
 
@@ -783,11 +801,22 @@ export default function EnquiryForm() {
 
   // Activities
   const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '', case_category: 'Financial Fraud', subject: '', kota: '', against_whom: '', scheduled_at: '' }] }));
-  const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
+  const removeActivity = (i) => {
+    const act = form.activities[i];
+    if (activityHasLockedSeizeItems(act)) {
+      alert('Is seizure memo mein forensic ko bheje hue items hain — poori activity delete nahi ho sakti.');
+      return;
+    }
+    setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
+  };
   const updateActivity = (i, field, value) => setForm(f => ({
     ...f,
     activities: f.activities.map((a, idx) => {
       if (idx !== i) return a;
+      if (field === 'type' && activityHasLockedSeizeItems(a) && value !== a.type) {
+        alert('Forensic ko bheje hue items ki wajah se is activity ki type change nahi ho sakti.');
+        return a;
+      }
       const next = { ...a, [field]: value };
       if (field === 'type' && value === 'seizures' && !(next.seize_items || []).length) {
         next.seize_items = [{ ...EMPTY_SEIZE_ITEM }];
@@ -806,18 +835,29 @@ export default function EnquiryForm() {
       ? { ...a, seize_items: [...(a.seize_items || []), { ...EMPTY_SEIZE_ITEM }] }
       : a),
   }));
-  const removeSeizeItem = (activityIndex, itemIndex) => setForm(f => ({
-    ...f,
-    activities: f.activities.map((a, idx) => idx === activityIndex
-      ? { ...a, seize_items: (a.seize_items || []).filter((_, si) => si !== itemIndex) }
-      : a),
-  }));
+  const removeSeizeItem = (activityIndex, itemIndex) => setForm(f => {
+    const target = (f.activities[activityIndex]?.seize_items || [])[itemIndex];
+    if (isSeizeItemLocked(target)) {
+      alert('Yeh item forensic / technical ko bhej diya gaya hai — delete nahi ho sakta.');
+      return f;
+    }
+    return {
+      ...f,
+      activities: f.activities.map((a, idx) => idx === activityIndex
+        ? { ...a, seize_items: (a.seize_items || []).filter((_, si) => si !== itemIndex) }
+        : a),
+    };
+  });
   const updateSeizeItem = (activityIndex, itemIndex, field, value) => setForm(f => ({
     ...f,
     activities: f.activities.map((a, idx) => idx === activityIndex
       ? {
           ...a,
-          seize_items: (a.seize_items || []).map((it, si) => si === itemIndex ? { ...it, [field]: value } : it),
+          seize_items: (a.seize_items || []).map((it, si) => {
+            if (si !== itemIndex) return it;
+            if (isSeizeItemLocked(it)) return it;
+            return { ...it, [field]: value };
+          }),
         }
       : a),
   }));
@@ -1179,9 +1219,15 @@ export default function EnquiryForm() {
         return it.owner_ref || null;
       };
 
-      const items = (act.seize_items || [])
-        .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
-        .map(it => ({
+      const allItems = (act.seize_items || [])
+        .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description);
+      const unlockedItems = allItems.filter(it => !isSeizeItemLocked(it));
+      if (!unlockedItems.length && allItems.length) {
+        alert('Yeh items pehle hi forensic / technical ko bhej diye gaye hain. Naye items add karke dubara submit karein.');
+        return;
+      }
+
+      const items = unlockedItems.map(it => ({
           item_type: it.item_type || 'other',
           make_model: it.make_model || null,
           imei: it.imei || null,
@@ -1237,6 +1283,16 @@ export default function EnquiryForm() {
       alert(r.data?.message || (isSupervisor
         ? 'Scope Letter & Seized evidence submitted directly to DD Forensic Lab!'
         : 'Scope Letter & Seized evidence submitted to Circle Incharge for review.'));
+      const submittedKeys = new Set(unlockedItems.map(seizeItemKey));
+      setForm(f => ({
+        ...f,
+        activities: f.activities.map(a => ({
+          ...a,
+          seize_items: (a.seize_items || []).map(it =>
+            submittedKeys.has(seizeItemKey(it)) ? { ...it, locked: true, submitted: true } : it
+          ),
+        })),
+      }));
       await loadLinkedForensicRequests(id);
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Submission failed.');
@@ -2580,7 +2636,7 @@ export default function EnquiryForm() {
                 <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Activity Type</label>
-                      <select className="cf-input" value={a.type} onChange={e => updateActivity(i, 'type', e.target.value)}>
+                      <select className="cf-input" value={a.type} disabled={activityHasLockedSeizeItems(a)} onChange={e => updateActivity(i, 'type', e.target.value)}>
                         <option value="">— Select Type —</option>
                         {ACTIVITY_TYPES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
                       </select>
@@ -2596,7 +2652,7 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Attachment</label>
                       <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateActivityFile(i, e.target.files[0])} />
                     </div>
-                    {(!a.id || isPrivileged) && (
+                    {(!a.id || isPrivileged) && !activityHasLockedSeizeItems(a) && (
                       <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeActivity(i)}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </button>
@@ -2760,11 +2816,18 @@ export default function EnquiryForm() {
                         </div>
                       </div>
 
-                      {(a.seize_items || []).map((it, si) => (
-                        <div key={si} style={{ padding: 12, marginBottom: 12, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                      {(a.seize_items || []).map((it, si) => {
+                        const itemLocked = isSupervisor || isSeizeItemLocked(it);
+                        return (
+                        <div key={si} style={{ padding: 12, marginBottom: 12, background: '#f8fafc', borderRadius: 8, border: isSeizeItemLocked(it) ? '1px solid #94a3b8' : '1px solid #e2e8f0' }}>
+                          {isSeizeItemLocked(it) && (
+                            <div style={{ marginBottom: 8, padding: '6px 10px', background: '#e2e8f0', color: '#334155', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                              🔒 Yeh item forensic / technical ko bhej diya gaya hai — edit ya delete nahi ho sakta.
+                            </div>
+                          )}
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr 1.2fr 1.5fr 1fr auto', gap: 10, marginBottom: 8 }}>
                             <div className="cf-field"><label className="cf-label required">Item Type</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{SEIZE_ITEM_TYPES.find(o => o.value === it.item_type)?.name || it.item_type || '—'}</div>
                                 : <select className="cf-input" value={it.item_type || ''} onChange={e => updateSeizeItem(i, si, 'item_type', e.target.value)}>
                                   <option value="">— Select —</option>
@@ -2773,7 +2836,7 @@ export default function EnquiryForm() {
                               }
                             </div>
                             <div className="cf-field"><label className="cf-label required">Owner Type</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe', textTransform: 'capitalize' }}>{it.owner_type || '—'}</div>
                                 : <select className="cf-input" value={it.owner_type || ''} onChange={e => { updateSeizeItem(i, si, 'owner_type', e.target.value); updateSeizeItem(i, si, 'owner_ref', ''); }}>
                                     <option value="">— Select —</option>
@@ -2785,7 +2848,7 @@ export default function EnquiryForm() {
                               }
                             </div>
                             <div className="cf-field"><label className="cf-label required">Owner / Person</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>
                                     {it.owner_type === 'accused' ? (form.accused[it.owner_ref]?.name || `Accused ${Number(it.owner_ref) + 1}`) :
                                      it.owner_type === 'witness' ? (form.witnesses[it.owner_ref]?.name || `Witness ${Number(it.owner_ref) + 1}`) :
@@ -2810,13 +2873,13 @@ export default function EnquiryForm() {
                               }
                             </div>
                             <div className="cf-field"><label className="cf-label">Make / Model</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.make_model || '—'}</div>
                                 : <input type="text" className="cf-input" placeholder="e.g. iPhone 15 Pro, Dell..." value={it.make_model || ''} onChange={e => updateSeizeItem(i, si, 'make_model', e.target.value)} />
                               }
                             </div>
                             <div className="cf-field"><label className="cf-label">IMEI / IMEI 2</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                     <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', fontFamily: 'monospace', border: '1px solid #dbeafe' }}>{it.imei || '—'}</div>
@@ -2831,12 +2894,12 @@ export default function EnquiryForm() {
                               }
                             </div>
                             <div className="cf-field"><label className="cf-label">Serial Number</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', fontFamily: 'monospace', border: '1px solid #dbeafe' }}>{it.serial_no || '—'}</div>
                                 : <input type="text" className="cf-input" placeholder="Device Serial No" value={it.serial_no || ''} onChange={e => updateSeizeItem(i, si, 'serial_no', e.target.value)} />
                               }
                             </div>
-                            {!isSupervisor && (
+                            {!isSupervisor && !isSeizeItemLocked(it) && (
                               <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36, alignSelf: 'end' }} onClick={() => removeSeizeItem(i, si)} title="Delete Item">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                               </button>
@@ -2845,27 +2908,28 @@ export default function EnquiryForm() {
 
                           <div style={{ display: 'grid', gridTemplateColumns: '90px 140px 160px 1fr', gap: 10 }}>
                             <div className="cf-field"><label className="cf-label">Qty</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.quantity ?? 1}</div>
                                 : <input type="number" min={1} className="cf-input" value={it.quantity ?? 1} onChange={e => updateSeizeItem(i, si, 'quantity', e.target.value)} />
                               }
                             </div>
                             <div className="cf-field"><label className="cf-label">Capacity / Storage</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.storage_capacity || '—'}</div>
                                 : <input type="text" className="cf-input" placeholder="e.g. 256GB, 1TB" value={it.storage_capacity || ''} onChange={e => updateSeizeItem(i, si, 'storage_capacity', e.target.value)} />
                               }
                             </div>
                             {/* Condition is managed by AD Forensic Lab */}
                             <div className="cf-field"><label className="cf-label">Item Description / Seized From</label>
-                              {isSupervisor
+                              {itemLocked
                                 ? <div style={{ padding: '7px 10px', background: '#f0f4f8', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #dbeafe' }}>{it.description || '—'}</div>
                                 : <input type="text" className="cf-input" value={it.description || ''} onChange={e => updateSeizeItem(i, si, 'description', e.target.value)} placeholder="e.g. Seized from accused bedroom table, gold color..." />
                               }
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
 
                       {(a.seize_items || []).length === 0 && (
                         <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#888' }}>No seized items entered yet. Click "+ Add Item".</p>

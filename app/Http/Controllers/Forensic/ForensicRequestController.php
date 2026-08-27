@@ -9,6 +9,7 @@ use App\Notifications\ForensicReportHandedOverNotification;
 use App\Notifications\ForensicReportReadyNotification;
 use App\Notifications\ForensicRequestAssignedNotification;
 use App\Services\ForensicReportCodeGenerator;
+use App\Services\SeizeItemLock;
 use App\Services\SmsService;
 use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
@@ -257,6 +258,12 @@ class ForensicRequestController extends Controller
                 }
             }
 
+            SeizeItemLock::lockSubmittedItems(
+                $fr->enquiry_id ? (int) $fr->enquiry_id : null,
+                $fr->case_id ? (int) $fr->case_id : null,
+                $items
+            );
+
             return $fr;
         });
 
@@ -304,11 +311,18 @@ class ForensicRequestController extends Controller
         }
 
         $q = ForensicRequest::latest();
-        if (!empty($data['enquiry_id'])) {
-            $q->where('enquiry_id', $data['enquiry_id']);
-        }
-        if (!empty($data['case_id'])) {
-            $q->where('case_id', $data['case_id']);
+        if (!empty($data['enquiry_id']) && !empty($data['case_id'])) {
+            $q->where(function ($inner) use ($data) {
+                $inner->where('enquiry_id', $data['enquiry_id'])
+                    ->orWhere('case_id', $data['case_id']);
+            });
+        } else {
+            if (!empty($data['enquiry_id'])) {
+                $q->where('enquiry_id', $data['enquiry_id']);
+            }
+            if (!empty($data['case_id'])) {
+                $q->where('case_id', $data['case_id']);
+            }
         }
 
         $items = $q->limit(50)->get();

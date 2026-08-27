@@ -12,6 +12,7 @@ use App\Services\FirNumberGenerator;
 use App\Services\EnquiryRecordHydrator;
 use App\Services\OfficerAssignmentService;
 use App\Services\PrintService;
+use App\Services\SeizeItemLock;
 use App\Services\SmsService;
 use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
@@ -65,7 +66,7 @@ class CaseFileController extends Controller
         ];
     }
 
-    private function warrantMetaFromAction(array $action): ?array
+    private function warrantMetaFromAction(array $action, array $existingItems = [], array $forensicKeys = []): ?array
     {
         $meta = [];
         if (!empty($action['case_category'])) {
@@ -76,37 +77,16 @@ class CaseFileController extends Controller
                 $meta[$key] = $action[$key];
             }
         }
-        if (!empty($action['seize_items']) && is_array($action['seize_items'])) {
-            $items = array_values(array_filter(array_map(static function ($item) {
-                if (!is_array($item)) {
-                    return null;
-                }
-                $row = [
-                    'item_type'        => $item['item_type'] ?? null,
-                    'make_model'       => $item['make_model'] ?? null,
-                    'imei'             => $item['imei'] ?? null,
-                    'imei2'            => $item['imei2'] ?? null,
-                    'serial_no'        => $item['serial_no'] ?? null,
-                    'quantity'         => isset($item['quantity']) ? (int) $item['quantity'] : 1,
-                    'storage_capacity' => $item['storage_capacity'] ?? null,
-                    'condition'        => $item['condition'] ?? null,
-                    'description'      => $item['description'] ?? null,
-                    'owner_type'       => $item['owner_type'] ?? null,
-                    'owner_ref'        => $item['owner_ref'] ?? null,
-                ];
-                if (
-                    empty($row['item_type']) && empty($row['make_model'])
-                    && empty($row['imei']) && empty($row['serial_no'])
-                    && empty($row['description'])
-                ) {
-                    return null;
-                }
-
-                return $row;
-            }, $action['seize_items'])));
-            if ($items !== []) {
-                $meta['seize_items'] = $items;
-            }
+        $incomingItems = !empty($action['seize_items']) && is_array($action['seize_items'])
+            ? $action['seize_items']
+            : [];
+        $mergedItems = SeizeItemLock::merge(
+            SeizeItemLock::mapIncoming($incomingItems),
+            $existingItems,
+            $forensicKeys
+        );
+        if ($mergedItems !== []) {
+            $meta['seize_items'] = $mergedItems;
         }
         foreach (['checklist_tech_report', 'checklist_seizure_memo', 'checklist_fir_copy'] as $key) {
             if (!empty($action[$key])) {
@@ -122,11 +102,20 @@ class CaseFileController extends Controller
         $keep = [];
         $labels = $this->caseActivityLabels();
         $hasMeta = Schema::hasColumn('case_activities', 'meta');
+        $forensicKeys = SeizeItemLock::forensicKeysForCase(
+            (int) $caseFile->id,
+            $caseFile->enquiry_id ? (int) $caseFile->enquiry_id : null
+        );
 
         foreach ($activities as $action) {
             $type = is_array($action) ? ($action['type'] ?? null) : $action;
             if (!$type) {
                 continue;
+            }
+
+            $existing = null;
+            if (is_array($action) && !empty($action['id'])) {
+                $existing = CaseActivity::where('case_id', $caseFile->id)->whereKey($action['id'])->first();
             }
 
             $attrs = [
@@ -139,12 +128,14 @@ class CaseFileController extends Controller
                     : now()->toDateString(),
             ];
             if ($hasMeta && is_array($action)) {
-                $attrs['meta'] = $this->warrantMetaFromAction($action);
+                $existingItems = [];
+                if ($existing && is_array($existing->meta['seize_items'] ?? null)) {
+                    $existingItems = $existing->meta['seize_items'];
+                }
+                $attrs['meta'] = $this->warrantMetaFromAction($action, $existingItems, $forensicKeys);
             }
-
-            $existing = null;
-            if (is_array($action) && !empty($action['id'])) {
-                $existing = CaseActivity::where('case_id', $caseFile->id)->whereKey($action['id'])->first();
+            if ($existing && SeizeItemLock::activityHasLockedItems($existing, $forensicKeys)) {
+                $attrs['type'] = $existing->type;
             }
 
             if ($existing) {
@@ -153,6 +144,13 @@ class CaseFileController extends Controller
             } else {
                 $model = $caseFile->activities()->create(array_merge($attrs, ['created_by' => $userId]));
                 $keep[] = $model->id;
+            }
+        }
+
+        $pendingDelete = $caseFile->activities()->whereNotIn('id', $keep ?: [0])->get();
+        foreach ($pendingDelete as $act) {
+            if (SeizeItemLock::activityHasLockedItems($act, $forensicKeys)) {
+                $keep[] = $act->id;
             }
         }
 

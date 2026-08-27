@@ -23,6 +23,7 @@ use App\Services\EnquiryRecordHydrator;
 use App\Services\FirNumberGenerator;
 use App\Services\OfficerAssignmentService;
 use App\Services\PrintService;
+use App\Services\SeizeItemLock;
 use App\Services\SmsService;
 use App\Services\SmsTemplates;
 use Illuminate\Http\Request;
@@ -98,6 +99,7 @@ class EnquiryController extends Controller
         ];
 
         $files = $request->file('activity_attachments', []);
+        $forensicKeys = SeizeItemLock::forensicKeysForEnquiry((int) $enquiry->id);
         foreach ($activities as $i => $action) {
             $type = is_array($action) ? ($action['type'] ?? null) : $action;
             if (!$type) {
@@ -105,45 +107,38 @@ class EnquiryController extends Controller
             }
             $label = $actionLabels[$type] ?? $type;
 
+            $existing = null;
+            if (is_array($action) && !empty($action['id'])) {
+                $existing = EnquiryActivity::find($action['id']);
+                if ($existing && $existing->enquiry_id !== $enquiry->id) {
+                    $existing = null;
+                }
+            }
+
             $meta = null;
-            if (is_array($action) && !empty($action['seize_items']) && is_array($action['seize_items'])) {
-                $meta = ['seize_items' => array_values(array_filter(
-                    array_map(static function ($item) {
-                        if (!is_array($item)) {
-                            return null;
-                        }
-                        return [
-                            'item_type'        => $item['item_type'] ?? null,
-                            'make_model'       => $item['make_model'] ?? null,
-                            'imei'             => $item['imei'] ?? null,
-                            'imei2'            => $item['imei2'] ?? null,
-                            'serial_no'        => $item['serial_no'] ?? null,
-                            'quantity'         => isset($item['quantity']) ? (int) $item['quantity'] : 1,
-                            'storage_capacity' => $item['storage_capacity'] ?? null,
-                            'condition'        => $item['condition'] ?? null,
-                            'description'      => $item['description'] ?? null,
-                            'owner_type'       => $item['owner_type'] ?? null,
-                            'owner_ref'        => $item['owner_ref'] ?? null,
-                        ];
-                    }, $action['seize_items']),
-                    static fn ($item) => $item && (
-                        !empty($item['item_type']) || !empty($item['make_model'])
-                        || !empty($item['imei']) || !empty($item['serial_no'])
-                        || !empty($item['description'])
-                    )
-                ))];
+            if (is_array($action)) {
+                $meta = [];
+                $incomingItems = !empty($action['seize_items']) && is_array($action['seize_items'])
+                    ? $action['seize_items']
+                    : [];
+                $existingItems = [];
+                if ($existing && is_array($existing->meta['seize_items'] ?? null)) {
+                    $existingItems = $existing->meta['seize_items'];
+                }
+                $mergedItems = SeizeItemLock::merge(
+                    SeizeItemLock::mapIncoming($incomingItems),
+                    $existingItems,
+                    $forensicKeys
+                );
+                if ($mergedItems !== []) {
+                    $meta['seize_items'] = $mergedItems;
+                }
                 if (isset($action['analysis_scope'])) {
                     $meta['analysis_scope'] = $action['analysis_scope'];
                 }
                 if (isset($action['case_category'])) {
                     $meta['case_category'] = $action['case_category'];
                 }
-            } elseif (is_array($action) && array_key_exists('meta', $action) && is_array($action['meta'])) {
-                $meta = $action['meta'];
-            }
-
-            if (is_array($action)) {
-                $meta = is_array($meta) ? $meta : [];
                 foreach (['subject', 'kota', 'against_whom', 'scheduled_at'] as $key) {
                     if (array_key_exists($key, $action) && $action[$key] !== null && $action[$key] !== '') {
                         $meta[$key] = $action[$key];
@@ -164,9 +159,8 @@ class EnquiryController extends Controller
                 ) ?? now()->toDateString(),
             ];
 
-            $existing = null;
-            if (is_array($action) && !empty($action['id'])) {
-                $existing = EnquiryActivity::find($action['id']);
+            if ($existing && SeizeItemLock::activityHasLockedItems($existing, $forensicKeys)) {
+                $attrs['type'] = $existing->type;
             }
 
             $file = $files[$i] ?? null;
@@ -176,12 +170,19 @@ class EnquiryController extends Controller
                 $attrs['attachment_path'] = $action['attachment_path'];
             }
 
-            if ($existing && $existing->enquiry_id === $enquiry->id) {
+            if ($existing) {
                 $existing->update($attrs);
                 $keep[] = $existing->id;
             } else {
                 $model = $enquiry->activities()->create(array_merge($attrs, ['created_by' => $userId]));
                 $keep[] = $model->id;
+            }
+        }
+
+        $pendingDelete = $enquiry->activities()->whereNotIn('id', $keep ?: [0])->get();
+        foreach ($pendingDelete as $act) {
+            if (SeizeItemLock::activityHasLockedItems($act, $forensicKeys)) {
+                $keep[] = $act->id;
             }
         }
 
