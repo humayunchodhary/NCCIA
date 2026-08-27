@@ -36,6 +36,14 @@ class CaseFileController extends Controller
         return [];
     }
 
+    private function canFillLegalAndApprove($user): bool
+    {
+        return $user && $user->hasAnyRole([
+            'admin', 'circle_incharge', 'ad_legal', 'dd_legal',
+            'additional_director', 'director_general',
+        ]);
+    }
+
     /** Frontend sends `activities`; legacy/forms use `actions`. */
     private function normalizeActions(Request $request, array $data): array
     {
@@ -392,53 +400,53 @@ class CaseFileController extends Controller
                 }
             }
 
-            // Legal opinions
-            if (!empty($data['ad_legal_opinion'])) {
-                CaseLegalOpinion::create([
-                    'case_id'     => $caseFile->id,
-                    'role'        => 'ad_legal',
-                    'opinion_text'=> $data['ad_legal_opinion'],
-                    'decision'    => $data['ad_legal_opinion'],
-                    'created_by'  => $request->user()->id,
-                ]);
-            }
+            if ($this->canFillLegalAndApprove($request->user())) {
+                if (!empty($data['ad_legal_opinion'])) {
+                    CaseLegalOpinion::create([
+                        'case_id'      => $caseFile->id,
+                        'role'         => 'ad_legal',
+                        'opinion_text' => $data['ad_legal_opinion'],
+                        'decision'     => $data['ad_legal_opinion'],
+                        'created_by'   => $request->user()->id,
+                    ]);
+                }
 
-            if (!empty($data['add_director_decision'])) {
-                CaseLegalOpinion::create([
-                    'case_id'     => $caseFile->id,
-                    'role'        => 'additional_director',
-                    'opinion_text'=> '',
-                    'decision'    => $data['add_director_decision'],
-                    'created_by'  => $request->user()->id,
-                ]);
-            }
+                if (!empty($data['add_director_decision'])) {
+                    CaseLegalOpinion::create([
+                        'case_id'      => $caseFile->id,
+                        'role'         => 'additional_director',
+                        'opinion_text' => '',
+                        'decision'     => $data['add_director_decision'],
+                        'created_by'   => $request->user()->id,
+                    ]);
+                }
 
-            if (!empty($data['dd_legal_opinion'])) {
-                CaseLegalOpinion::create([
-                    'case_id'     => $caseFile->id,
-                    'role'        => 'dd_legal',
-                    'opinion_text'=> '',
-                    'decision'    => $data['dd_legal_opinion'],
-                    'created_by'  => $request->user()->id,
-                ]);
-            }
+                if (!empty($data['dd_legal_opinion'])) {
+                    CaseLegalOpinion::create([
+                        'case_id'      => $caseFile->id,
+                        'role'         => 'dd_legal',
+                        'opinion_text' => '',
+                        'decision'     => $data['dd_legal_opinion'],
+                        'created_by'   => $request->user()->id,
+                    ]);
+                }
 
-            // Incharge approval
-            if (!empty($data['incharge_approval'])) {
-                CaseApproval::create([
-                    'case_id'           => $caseFile->id,
-                    'circle_incharge_id' => $request->user()->id,
-                    'decision'          => $data['incharge_approval'],
-                    'remarks'           => $data['incharge_remarks'] ?? null,
-                ]);
-            }
+                if (!empty($data['incharge_approval'])) {
+                    CaseApproval::create([
+                        'case_id'            => $caseFile->id,
+                        'circle_incharge_id' => $request->user()->id,
+                        'decision'           => $data['incharge_approval'],
+                        'remarks'            => $data['incharge_remarks'] ?? null,
+                    ]);
+                }
 
-            if (!empty($legalOpinions)) {
-                $this->syncLegalOpinions($caseFile, $legalOpinions, $request->user()->id);
-            }
+                if (!empty($legalOpinions)) {
+                    $this->syncLegalOpinions($caseFile, $legalOpinions, $request->user()->id);
+                }
 
-            if (!empty($approvals)) {
-                $this->syncApprovals($caseFile, $approvals, $request->user()->id);
+                if (!empty($approvals)) {
+                    $this->syncApprovals($caseFile, $approvals, $request->user()->id);
+                }
             }
 
             return $caseFile;
@@ -529,6 +537,7 @@ class CaseFileController extends Controller
         $arrests = $this->normalizeArrests($data);
         $legalOpinions = $this->decodeArrayField($data['legal_opinions'] ?? []);
         $approvals = $this->decodeArrayField($data['approvals'] ?? []);
+        $canFillLegal = $this->canFillLegalAndApprove($request->user());
 
         $officerChanged = array_key_exists('investigation_officer_id', $data)
             && (int) ($data['investigation_officer_id'] ?: 0) !== (int) ($caseFile->investigation_officer_id ?: 0)
@@ -546,7 +555,7 @@ class CaseFileController extends Controller
             );
         }
 
-        DB::transaction(function () use ($caseFile, $data, $request, $actions, $arrests, $legalOpinions, $approvals) {
+        DB::transaction(function () use ($caseFile, $data, $request, $actions, $arrests, $legalOpinions, $approvals, $canFillLegal) {
             $updates = array_filter([
                 'enquiry_id'               => array_key_exists('enquiry_id', $data) ? $data['enquiry_id'] : null,
                 'investigation_officer_id' => array_key_exists('investigation_officer_id', $data)
@@ -589,15 +598,15 @@ class CaseFileController extends Controller
                 }
             }
 
-            if (!empty($legalOpinions)) {
+            if ($canFillLegal && array_key_exists('legal_opinions', $data)) {
                 $this->syncLegalOpinions($caseFile, $legalOpinions, $request->user()->id);
             }
 
-            if (!empty($approvals)) {
+            if ($canFillLegal && array_key_exists('approvals', $data)) {
                 $this->syncApprovals($caseFile, $approvals, $request->user()->id);
             }
 
-            if (!empty($data['ad_legal_opinion'])) {
+            if ($canFillLegal && !empty($data['ad_legal_opinion'])) {
                 CaseLegalOpinion::create([
                     'case_id'      => $caseFile->id,
                     'role'         => 'ad_legal',
@@ -606,7 +615,7 @@ class CaseFileController extends Controller
                     'created_by'   => $request->user()->id,
                 ]);
             }
-            if (!empty($data['add_director_decision'])) {
+            if ($canFillLegal && !empty($data['add_director_decision'])) {
                 CaseLegalOpinion::create([
                     'case_id'      => $caseFile->id,
                     'role'         => 'additional_director',
@@ -615,7 +624,7 @@ class CaseFileController extends Controller
                     'created_by'   => $request->user()->id,
                 ]);
             }
-            if (!empty($data['dd_legal_opinion'])) {
+            if ($canFillLegal && !empty($data['dd_legal_opinion'])) {
                 CaseLegalOpinion::create([
                     'case_id'      => $caseFile->id,
                     'role'         => 'dd_legal',
@@ -624,7 +633,7 @@ class CaseFileController extends Controller
                     'created_by'   => $request->user()->id,
                 ]);
             }
-            if (!empty($data['incharge_approval'])) {
+            if ($canFillLegal && !empty($data['incharge_approval'])) {
                 CaseApproval::create([
                     'case_id'            => $caseFile->id,
                     'circle_incharge_id' => $request->user()->id,
@@ -775,18 +784,27 @@ class CaseFileController extends Controller
 
     public function approve(Request $request, CaseFile $caseFile)
     {
+        abort_unless(
+            CaseFile::visibleTo($request->user())->whereKey($caseFile->id)->exists(),
+            404
+        );
+        $this->authorize('update', $caseFile);
+        abort_unless($this->canFillLegalAndApprove($request->user()), 403, 'Only Circle Incharge / Legal can approve this case.');
+
         $data = $request->validate([
-            'decision'          => 'required|string|in:agree,review',
-            'remarks'           => 'nullable|string|max:2000',
-            'recommendation'    => 'nullable|string|in:transfer,merge,challan_submission',
-            'closure_reason'    => 'nullable|string|max:50',
+            'decision'       => 'required|string|in:agree,review,disagree',
+            'remarks'        => 'nullable|string|max:2000',
+            'recommendation' => 'nullable|string|in:transfer,merge,challan_submission',
+            'closure_reason' => 'nullable|string|max:50',
         ]);
 
+        $storedDecision = $data['decision'] === 'disagree' ? 'review' : $data['decision'];
+
         CaseApproval::create([
-            'case_id'           => $caseFile->id,
+            'case_id'            => $caseFile->id,
             'circle_incharge_id' => $request->user()->id,
-            'decision'          => $data['decision'],
-            'remarks'           => $data['remarks'] ?? null,
+            'decision'           => $storedDecision,
+            'remarks'            => $data['remarks'] ?? null,
         ]);
 
         $caseFile->update([

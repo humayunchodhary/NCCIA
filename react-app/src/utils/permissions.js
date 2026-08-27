@@ -111,6 +111,19 @@ export function hasAnyRole(user, roleNames) {
   return roleNames.some(r => hasRole(user, r));
 }
 
+/** Circle Incharge + Legal chain: fill legal opinions and approve CFR. */
+export const LEGAL_REVIEW_ROLES = [
+  'admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+];
+
+export function canFillLegalAndApprove(user) {
+  return hasAnyRole(user, LEGAL_REVIEW_ROLES);
+}
+
+export const CASE_CFR_REVIEW_STATUSES = [
+  'cfr_submitted', 'legal_review_dd', 'legal_review_ad', 'legal_review_dg',
+];
+
 /** Forensic portal roles — isolated from the main NCCIA modules. */
 export const FORENSIC_ROLES = ['admin_forensic', 'dd_forensic', 'ad_forensic', 'desk_forensic', 'forensic_team'];
 

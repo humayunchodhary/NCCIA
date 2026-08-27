@@ -144,7 +144,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/enquiries/{enquiry}/submit-cfr', [EnquiryController::class, 'submitCfr'])
         ->middleware('role:admin,circle_incharge,enquiry_officer');
     Route::post('/enquiries/{enquiry}/approve', [EnquiryController::class, 'approve'])
-        ->middleware('role:admin,circle_incharge');
+        ->middleware('role:admin,circle_incharge,ad_legal,dd_legal,additional_director,director_general');
     Route::post('/enquiries/{enquiry}/register-case', [EnquiryController::class, 'registerCase'])
         ->middleware('role:admin,circle_incharge,moharrar,ad_legal,dd_legal,additional_director,director_general');
     Route::post('/enquiries/{enquiry}/change-officer', [EnquiryController::class, 'changeOfficer'])
@@ -167,7 +167,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
         ->middleware('role:admin,circle_incharge');
     Route::post('/cases/{caseFile}/submit-cfr', [CaseFileController::class, 'submitCfr']);
     Route::post('/cases/{caseFile}/approve', [CaseFileController::class, 'approve'])
-        ->middleware('role:admin,circle_incharge');
+        ->middleware('role:admin,circle_incharge,ad_legal,dd_legal,additional_director,director_general');
 
     // Court Cases
     Route::get('/court-cases', [CourtCaseController::class, 'index'])->name('api.court-cases.index');

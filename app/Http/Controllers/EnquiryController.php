@@ -36,6 +36,14 @@ class EnquiryController extends Controller
 {
     private const ALLOWED_STATUSES = 'registered,assigned,in_progress,pending,working,complete,cfr_submitted,legal_review_dd,legal_review_ad,legal_review_dg,approved,closed,transferred,converted_to_case,referred_court';
 
+    private function canFillLegalAndApprove($user): bool
+    {
+        return $user && $user->hasAnyRole([
+            'admin', 'circle_incharge', 'ad_legal', 'dd_legal',
+            'additional_director', 'director_general',
+        ]);
+    }
+
     /**
      * Move an uploaded file to public/uploads/<dir>.
      */
@@ -671,6 +679,7 @@ class EnquiryController extends Controller
         $this->decodeArrays($data);
 
         $privileged = $request->user()->hasAnyRole(['admin', 'circle_incharge']);
+        $canFillLegal = $this->canFillLegalAndApprove($request->user());
         $officerId = $privileged ? ($data['enquiry_officer_id'] ?? null) : null;
 
         $complaint = null;
@@ -687,7 +696,7 @@ class EnquiryController extends Controller
             ], 422);
         }
 
-        $enquiry = DB::transaction(function () use ($data, $complaint, $request, $officerId, $privileged) {
+        $enquiry = DB::transaction(function () use ($data, $complaint, $request, $officerId, $canFillLegal) {
             $enquiry = Enquiry::create([
                 'complaint_id'    => $complaint?->id,
                 'direct_info'     => $complaint ? null : ($data['direct_info'] ?? null),
@@ -720,7 +729,7 @@ class EnquiryController extends Controller
             $enquiry->save();
 
             $this->syncActivities($enquiry, $data['activities'] ?? [], $request->user()->id, $request);
-            if ($privileged) {
+            if ($canFillLegal) {
                 $this->syncLegalOpinions($enquiry, $data['legal_opinions'] ?? [], $request->user()->id);
                 $this->syncApprovals($enquiry, $data['approvals'] ?? []);
             }
@@ -1021,6 +1030,7 @@ class EnquiryController extends Controller
             $this->decodeArrays($data);
 
             $privileged = $request->user()->hasAnyRole(['admin', 'circle_incharge']);
+            $canFillLegal = $this->canFillLegalAndApprove($request->user());
             $canEditCfrRemarks = $request->user()->hasAnyRole(['admin', 'additional_director']);
 
             $updateData = array_filter([
@@ -1087,7 +1097,7 @@ class EnquiryController extends Controller
                 );
             }
 
-            DB::transaction(function () use ($enquiry, $updateData, $data, $request, $privileged) {
+            DB::transaction(function () use ($enquiry, $updateData, $data, $request, $canFillLegal) {
                 if (!empty($updateData)) {
                     $enquiry->update($updateData);
                 }
@@ -1108,10 +1118,10 @@ class EnquiryController extends Controller
                 if (array_key_exists('activities', $data)) {
                     $this->syncActivities($enquiry, $data['activities'] ?? [], $request->user()->id, $request);
                 }
-                if ($privileged && array_key_exists('legal_opinions', $data)) {
+                if ($canFillLegal && array_key_exists('legal_opinions', $data)) {
                     $this->syncLegalOpinions($enquiry, $data['legal_opinions'] ?? [], $request->user()->id);
                 }
-                if ($privileged && array_key_exists('approvals', $data)) {
+                if ($canFillLegal && array_key_exists('approvals', $data)) {
                     $this->syncApprovals($enquiry, $data['approvals'] ?? []);
                 }
                 if (array_key_exists('witnesses', $data)) {
@@ -1576,6 +1586,8 @@ class EnquiryController extends Controller
 
     public function approve(Request $request, Enquiry $enquiry)
     {
+        abort_unless($this->canFillLegalAndApprove($request->user()), 403, 'Only Circle Incharge / Legal can approve this enquiry.');
+
         $data = $request->validate([
             'decision'           => 'required|string|in:agree,review,disagree',
             'remarks'            => 'nullable|string|max:2000',

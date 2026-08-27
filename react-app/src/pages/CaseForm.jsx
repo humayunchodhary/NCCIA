@@ -14,6 +14,7 @@ import {
 import { SIMPLE_STATUSES, PRIORITY_OPTIONS, toSimpleStatus, fromSimpleStatus } from '../utils/simpleStatus';
 import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 import { isSeizeItemLocked, activityHasLockedSeizeItems, applyForensicLocksToActivities, seizeItemKey, lockSeizeItemsAgainstForensic } from '../utils/seizeItemLock';
+import { canFillLegalAndApprove, CASE_CFR_REVIEW_STATUSES } from '../utils/permissions';
 
 const CASE_STATUS = [
   { value: 'registered', name: 'Registered (Moharrar)' },
@@ -70,7 +71,7 @@ const RECOMMENDATIONS = [
   { value: 'challan_submission', name: 'Challan U/S 173 CrPC' },
 ];
 
-const LEGAL_ROLES = ['dd_legal', 'ad_legal', 'dg_legal', 'additional_director'];
+const LEGAL_ROLES = ['circle_incharge', 'dd_legal', 'ad_legal', 'dg_legal', 'additional_director'];
 const LEGAL_DECISIONS = ['agree', 'disagree', 'review'];
 
 const initialForm = {
@@ -96,6 +97,7 @@ export default function CaseForm() {
   const { user } = useAuth();
   const roleNames = (user?.roles || []).map(r => r.name || r);
   const isSupervisor = roleNames.some(r => ['admin', 'circle_incharge', 'director_general'].includes(r));
+  const canFillLegal = canFillLegalAndApprove(user);
   const [form, setForm] = useState(initialForm);
   const [enquiries, setEnquiries] = useState([]);
   const [officers, setOfficers] = useState([]);
@@ -104,6 +106,7 @@ export default function CaseForm() {
   const [circleOptions, setCircleOptions] = useState([]);
   const [circleIncharges, setCircleIncharges] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [approvingCfr, setApprovingCfr] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [activeTab, setActiveTab] = useState('details');
@@ -303,14 +306,66 @@ export default function CaseForm() {
   const updateArrest = (i, field, value) => setForm(f => ({ ...f, arrests: f.arrests.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Legal Opinions
-  const addLegalOpinion = () => setForm(f => ({ ...f, legal_opinions: [...f.legal_opinions, { role: '', opinion_text: '', decision: '', created_by: user?.id }] }));
+  const addLegalOpinion = () => {
+    const defaultRole = ['dd_legal', 'ad_legal', 'additional_director', 'circle_incharge', 'dg_legal'].find(r => roleNames.includes(r))
+      || (roleNames.includes('director_general') ? 'dg_legal' : '');
+    setForm(f => ({
+      ...f,
+      legal_opinions: [...f.legal_opinions, {
+        role: defaultRole,
+        opinion_text: '',
+        decision: '',
+        created_by: user?.id || '',
+      }],
+    }));
+  };
   const removeLegalOpinion = (i) => setForm(f => ({ ...f, legal_opinions: f.legal_opinions.filter((_, idx) => idx !== i) }));
   const updateLegalOpinion = (i, field, value) => setForm(f => ({ ...f, legal_opinions: f.legal_opinions.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Approvals
-  const addApproval = () => setForm(f => ({ ...f, approvals: [...f.approvals, { circle_incharge_id: '', decision: '', remarks: '' }] }));
+  const addApproval = () => setForm(f => ({
+    ...f,
+    approvals: [...f.approvals, { circle_incharge_id: user?.id || '', decision: '', remarks: '' }],
+  }));
   const removeApproval = (i) => setForm(f => ({ ...f, approvals: f.approvals.filter((_, idx) => idx !== i) }));
   const updateApproval = (i, field, value) => setForm(f => ({ ...f, approvals: f.approvals.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+
+  const legalReviewOfficers = (() => {
+    const map = new Map();
+    [...(Array.isArray(legalOfficers) ? legalOfficers : []), ...(Array.isArray(circleIncharges) ? circleIncharges : [])].forEach(o => {
+      if (o?.id != null) map.set(Number(o.id), o);
+    });
+    if (user?.id && !map.has(Number(user.id))) {
+      map.set(Number(user.id), { id: user.id, name: user.name, designation: user.designation });
+    }
+    return [...map.values()];
+  })();
+  const canApproveCase = canFillLegal && !!id && CASE_CFR_REVIEW_STATUSES.includes(form.status);
+
+  const handleApproveCfr = async (decision = 'agree') => {
+    if (!id) return;
+    let remarks = '';
+    if (decision === 'disagree') {
+      const input = window.prompt('Case CFR Send Back karne ki wajah / deficiency remarks darj karein:');
+      if (input === null) return;
+      remarks = input.trim();
+    }
+    setApprovingCfr(true);
+    setServerError('');
+    try {
+      await api.post(`/cases/${id}/approve`, {
+        decision,
+        recommendation: form.recommendation || undefined,
+        remarks: remarks || undefined,
+      });
+      window.alert(decision === 'agree' ? 'Case CFR approved successfully.' : 'Case CFR sent back to Investigation Officer.');
+      navigate('/cases');
+    } catch (err) {
+      window.alert(err.response?.data?.message || err.message || 'Approval action failed.');
+    } finally {
+      setApprovingCfr(false);
+    }
+  };
 
   const buildPayload = () => {
     const payload = {
@@ -1171,36 +1226,45 @@ export default function CaseForm() {
               <div className="cf-section-badge">STEP 5</div>
             </div>
             <div className="cf-body">
-              <button type="button" className="btn btn-outline btn-sm" onClick={addLegalOpinion} style={{ marginBottom: 16 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Legal Opinion
-              </button>
+              {!canFillLegal && (
+                <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
+                  This section is read-only. Only Circle Incharge, DD Legal, AD Legal and Admin can add or modify legal opinions.
+                </div>
+              )}
+              {canFillLegal && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={addLegalOpinion} style={{ marginBottom: 16 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Legal Opinion
+                </button>
+              )}
               {form.legal_opinions.map((lo, i) => (
                 <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Role</label>
-                      <select className="cf-input" value={lo.role} onChange={e => updateLegalOpinion(i, 'role', e.target.value)}>
+                      <select className="cf-input" value={lo.role} onChange={e => updateLegalOpinion(i, 'role', e.target.value)} disabled={!canFillLegal}>
                         <option value="">— Select Role —</option>
                         {LEGAL_ROLES.map(r => <option key={r} value={r}>{r.toUpperCase().replace('_', ' ')}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Decision</label>
-                      <select className="cf-input" value={lo.decision} onChange={e => updateLegalOpinion(i, 'decision', e.target.value)}>
+                      <select className="cf-input" value={lo.decision} onChange={e => updateLegalOpinion(i, 'decision', e.target.value)} disabled={!canFillLegal}>
                         <option value="">— Select —</option>
                         {LEGAL_DECISIONS.map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Officer</label>
-                      <select className="cf-input" value={lo.created_by} onChange={e => updateLegalOpinion(i, 'created_by', e.target.value)}>
+                      <select className="cf-input" value={lo.created_by} onChange={e => updateLegalOpinion(i, 'created_by', e.target.value)} disabled={!canFillLegal}>
                         <option value="">— Select Officer —</option>
-                        {legalOfficers.map(o => <option key={o.id} value={o.id}>{o.name} ({o.designation})</option>)}
+                        {legalReviewOfficers.map(o => <option key={o.id} value={o.id}>{o.name}{o.designation ? ` (${o.designation})` : ''}</option>)}
                       </select>
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeLegalOpinion(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    {canFillLegal && (
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeLegalOpinion(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    )}
                   </div>
                   <div className="cf-field"><label className="cf-label">Opinion Text</label>
-                    <textarea className="cf-input" rows={3} value={lo.opinion_text} onChange={e => updateLegalOpinion(i, 'opinion_text', e.target.value)} placeholder="Enter legal opinion…" style={{ width: '100%' }}></textarea>
+                    <textarea className="cf-input" rows={3} value={lo.opinion_text} onChange={e => updateLegalOpinion(i, 'opinion_text', e.target.value)} disabled={!canFillLegal} placeholder="Enter legal opinion…" style={{ width: '100%' }}></textarea>
                   </div>
                 </div>
               ))}
@@ -1216,35 +1280,44 @@ export default function CaseForm() {
               <div className="cf-section-icon" style={{ background: '#2B2B2B' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
               </div>
-              <div><div className="cf-section-title">Circle Incharge Approvals</div><div className="cf-section-sub">Approval chain for case finalization</div></div>
+              <div><div className="cf-section-title">Circle Incharge / Legal Approvals</div><div className="cf-section-sub">Approval chain for case finalization</div></div>
               <div className="cf-section-badge">STEP 6</div>
             </div>
             <div className="cf-body">
-              <button type="button" className="btn btn-outline btn-sm" onClick={addApproval} style={{ marginBottom: 16 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Approval
-              </button>
+              {!canFillLegal && (
+                <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
+                  This section is read-only. Only Circle Incharge, DD Legal, AD Legal and Admin can add or modify approvals.
+                </div>
+              )}
+              {canFillLegal && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={addApproval} style={{ marginBottom: 16 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Approval
+                </button>
+              )}
               {form.approvals.map((ap, i) => (
                 <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
-                    <div className="cf-field"><label className="cf-label">Circle Incharge</label>
-                      <select className="cf-input" value={ap.circle_incharge_id} onChange={e => updateApproval(i, 'circle_incharge_id', e.target.value)}>
+                    <div className="cf-field"><label className="cf-label">Reviewing Officer</label>
+                      <select className="cf-input" value={ap.circle_incharge_id} onChange={e => updateApproval(i, 'circle_incharge_id', e.target.value)} disabled={!canFillLegal}>
                         <option value="">— Select —</option>
-                        {circleIncharges.map(o => <option key={o.id} value={o.id}>{o.name}{o.designation ? ' (' + o.designation + ')' : ''}</option>)}
+                        {legalReviewOfficers.map(o => <option key={o.id} value={o.id}>{o.name}{o.designation ? ' (' + o.designation + ')' : ''}</option>)}
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Decision</label>
-                      <select className="cf-input" value={ap.decision} onChange={e => updateApproval(i, 'decision', e.target.value)}>
+                      <select className="cf-input" value={ap.decision} onChange={e => updateApproval(i, 'decision', e.target.value)} disabled={!canFillLegal}>
                         <option value="">— Select —</option>
                         <option value="agree">Agree</option>
                         <option value="review">Review</option>
                       </select>
                     </div>
                     <div className="cf-field"><label className="cf-label">Remarks</label>
-                      <input type="text" className="cf-input" value={ap.remarks} onChange={e => updateApproval(i, 'remarks', e.target.value)} placeholder="Remarks" />
+                      <input type="text" className="cf-input" value={ap.remarks} onChange={e => updateApproval(i, 'remarks', e.target.value)} disabled={!canFillLegal} placeholder="Remarks" />
                     </div>
-                    <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeApproval(i)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    {canFillLegal && (
+                      <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeApproval(i)}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1301,11 +1374,35 @@ export default function CaseForm() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20, flexWrap: 'wrap' }}>
           <Link to="/cases" className="btn btn-outline">Cancel</Link>
-          <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: '#015C94', color: '#fff', padding: '12px 24px', fontWeight: 600, fontSize: '14px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', border: 'none' }}>
+          <button type="submit" className="btn btn-primary" disabled={saving || approvingCfr} style={{ background: '#015C94', color: '#fff', padding: '12px 24px', fontWeight: 600, fontSize: '14px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px', border: 'none' }}>
             {saving ? 'Saving...' : (id ? 'Update Case' : 'Register Case/FIR')}
           </button>
+          {canApproveCase && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={saving || approvingCfr}
+                onClick={() => handleApproveCfr('agree')}
+                style={{ background: '#059669', color: '#fff', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(5,150,105,0.35)' }}
+                title="Approve case CFR"
+              >
+                {approvingCfr ? 'Processing…' : 'Approve CFR'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={saving || approvingCfr}
+                onClick={() => handleApproveCfr('disagree')}
+                style={{ color: '#d97706', borderColor: '#d97706', padding: '12px 24px', fontWeight: 700, fontSize: '14px', borderRadius: '8px' }}
+                title="Send back CFR to Investigation Officer"
+              >
+                Send Back to IO
+              </button>
+            </>
+          )}
         </div>
       </form>
     </div>
