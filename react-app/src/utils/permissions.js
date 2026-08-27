@@ -124,6 +124,15 @@ export const CASE_CFR_REVIEW_STATUSES = [
   'cfr_submitted', 'legal_review_dd', 'legal_review_ad', 'legal_review_dg',
 ];
 
+/** Saved diary / bank / arrest rows: only Circle Incharge (and admin) may edit or delete. */
+export function canUnlockSavedDiary(user) {
+  return hasAnyRole(user, ['admin', 'circle_incharge']);
+}
+
+export function isSavedDiaryLocked(record, user) {
+  return Boolean(record?.id) && !canUnlockSavedDiary(user);
+}
+
 /** Forensic portal roles — isolated from the main NCCIA modules. */
 export const FORENSIC_ROLES = ['admin_forensic', 'dd_forensic', 'ad_forensic', 'desk_forensic', 'forensic_team'];
 

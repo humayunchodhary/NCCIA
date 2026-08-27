@@ -44,6 +44,21 @@ class EnquiryController extends Controller
         ]);
     }
 
+    private function canUnlockSavedDiary($user): bool
+    {
+        return $user && $user->hasAnyRole(['admin', 'circle_incharge']);
+    }
+
+    private function keepExistingIds($relation, array &$keep, $user): void
+    {
+        if ($this->canUnlockSavedDiary($user)) {
+            return;
+        }
+        foreach ($relation->pluck('id') as $id) {
+            $keep[] = $id;
+        }
+    }
+
     /**
      * Move an uploaded file to public/uploads/<dir>.
      */
@@ -179,13 +194,17 @@ class EnquiryController extends Controller
             }
 
             if ($existing) {
-                $existing->update($attrs);
+                if ($this->canUnlockSavedDiary($request->user())) {
+                    $existing->update($attrs);
+                }
                 $keep[] = $existing->id;
             } else {
                 $model = $enquiry->activities()->create(array_merge($attrs, ['created_by' => $userId]));
                 $keep[] = $model->id;
             }
         }
+
+        $this->keepExistingIds($enquiry->activities(), $keep, $request->user());
 
         $pendingDelete = $enquiry->activities()->whereNotIn('id', $keep ?: [0])->get();
         foreach ($pendingDelete as $act) {
@@ -313,13 +332,17 @@ class EnquiryController extends Controller
             }
 
             if ($existing && $existing->enquiry_id === $enquiry->id) {
-                $existing->update($attrs);
+                if ($this->canUnlockSavedDiary($request->user())) {
+                    $existing->update($attrs);
+                }
                 $keep[] = $existing->id;
             } else {
                 $model = $enquiry->witnesses()->create($attrs);
                 $keep[] = $model->id;
             }
         }
+
+        $this->keepExistingIds($enquiry->witnesses(), $keep, $request->user());
 
         $enquiry->witnesses()->whereNotIn('id', $keep ?: [0])->delete();
     }
@@ -371,10 +394,12 @@ class EnquiryController extends Controller
 
             $existing = !empty($n['id']) ? EnquiryNotice::find($n['id']) : null;
             if ($existing && $existing->enquiry_id === $enquiry->id) {
-                $existing->update($attrs);
-                if (!$existing->verification_token) {
-                    $existing->verification_token = Str::random(32);
-                    $existing->save();
+                if ($this->canUnlockSavedDiary($request->user())) {
+                    $existing->update($attrs);
+                    if (!$existing->verification_token) {
+                        $existing->verification_token = Str::random(32);
+                        $existing->save();
+                    }
                 }
                 $keep[] = $existing->id;
             } else {
@@ -383,6 +408,8 @@ class EnquiryController extends Controller
                 $keep[] = $model->id;
             }
         }
+
+        $this->keepExistingIds($enquiry->notices(), $keep, $request->user());
 
         $enquiry->notices()->whereNotIn('id', $keep ?: [0])->delete();
         $this->recomputeNoticeFlags($enquiry, $request);
@@ -440,13 +467,17 @@ class EnquiryController extends Controller
             }
 
             if ($existing && $existing->enquiry_id === $enquiry->id) {
-                $existing->update($attrs);
+                if ($this->canUnlockSavedDiary($request->user())) {
+                    $existing->update($attrs);
+                }
                 $keep[] = $existing->id;
             } else {
                 $model = $enquiry->accusedPersons()->create($attrs);
                 $keep[] = $model->id;
             }
         }
+
+        $this->keepExistingIds($enquiry->accusedPersons(), $keep, $request->user());
 
         $enquiry->accusedPersons()->whereNotIn('id', $keep ?: [0])->delete();
     }
@@ -478,13 +509,17 @@ class EnquiryController extends Controller
 
             $existing = !empty($att['id']) ? EnquiryAttachment::find($att['id']) : null;
             if ($existing && $existing->enquiry_id === $enquiry->id) {
-                $existing->update($attrs);
+                if ($this->canUnlockSavedDiary($request->user())) {
+                    $existing->update($attrs);
+                }
                 $keep[] = $existing->id;
             } else {
                 $model = $enquiry->enquiryAttachments()->create($attrs);
                 $keep[] = $model->id;
             }
         }
+
+        $this->keepExistingIds($enquiry->enquiryAttachments(), $keep, $request->user());
 
         $enquiry->enquiryAttachments()->whereNotIn('id', $keep ?: [0])->delete();
     }
@@ -534,13 +569,17 @@ class EnquiryController extends Controller
 
             $existing = !empty($r['id']) ? EnquiryRequisition::find($r['id']) : null;
             if ($existing && $existing->enquiry_id === $enquiry->id) {
-                $existing->update($attrs);
+                if ($this->canUnlockSavedDiary($request->user()) || $canAuthorize) {
+                    $existing->update($attrs);
+                }
                 $keep[] = $existing->id;
             } else {
                 $model = $enquiry->requisitions()->create($attrs);
                 $keep[] = $model->id;
             }
         }
+
+        $this->keepExistingIds($enquiry->requisitions(), $keep, $request->user());
 
         $enquiry->requisitions()->whereNotIn('id', $keep ?: [0])->delete();
     }

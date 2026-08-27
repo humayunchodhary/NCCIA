@@ -900,3 +900,19 @@ html, body, #root {
   }
 }
 
+/* Saved diary / bank / arrest cards: IO/EO cannot edit or delete */
+.diary-saved-locked input:not([type="hidden"]):not([data-locked-ok]),
+.diary-saved-locked select:not([data-locked-ok]),
+.diary-saved-locked textarea:not([data-locked-ok]) {
+  pointer-events: none !important;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  cursor: default !important;
+}
+.diary-saved-locked button:not([data-locked-ok]) {
+  display: none !important;
+}
+.diary-saved-locked input[type="file"]:not([data-locked-ok]) {
+  pointer-events: none !important;
+}
+

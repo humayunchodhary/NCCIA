@@ -6,7 +6,7 @@ import VerificationReportPanel from '../components/VerificationReportPanel';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import CaseChatPanel from '../components/CaseChatPanel';
-import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry, canFillLegalAndApprove } from '../utils/permissions';
+import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry, canFillLegalAndApprove, isSavedDiaryLocked } from '../utils/permissions';
 import { toLocalInput } from '../utils/datetime';
 import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 import {
@@ -292,7 +292,6 @@ export default function EnquiryForm() {
   const roleNames = user?.roles?.map?.(r => r.name || r) || [user?.role].filter(Boolean);
   const isPrivileged = roleNames.some(r => ['admin', 'circle_incharge'].includes(r));
   const canFillLegal = canFillLegalAndApprove(user);
-  const canDeleteAccusedWitness = roleNames.some(r => ['admin', 'circle_incharge', 'additional_director', 'director_general', 'dd_legal', 'ad_legal'].includes(r));
   const isEO = roleNames.some(r => ['enquiry_officer', 'investigation_officer'].includes(r)) && !roleNames.some(r => ['admin', 'circle_incharge', 'director_general'].includes(r));
   const canEditCfrRemarks = roleNames.some(r => ['admin', 'additional_director'].includes(r));
   const canAuthorizeRequisitions = roleNames.some(r => ['admin', 'director_general', 'additional_director'].includes(r));
@@ -753,14 +752,22 @@ export default function EnquiryForm() {
     });
   };
   const removeAccused = (i) => {
-    if (!canDeleteAccusedWitness) {
-      alert('Accused delete karne ki authority sirf Circle Incharge / AD / DD / Admin ke paas hai.');
+    const rec = form.accused[i];
+    if (isSavedDiaryLocked(rec, user)) {
+      alert('Saved accused Circle Incharge ke ilawa edit ya delete nahi ho sakta.');
       return;
     }
     setForm(f => ({ ...f, accused: f.accused.filter((_, idx) => idx !== i) }));
     setEditingAccusedIndex(prev => (prev === i ? null : (prev != null && prev > i ? prev - 1 : prev)));
   };
-  const updateAccused = (i, field, value) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const updateAccused = (i, field, value) => setForm(f => ({
+    ...f,
+    accused: f.accused.map((a, idx) => {
+      if (idx !== i) return a;
+      if (isSavedDiaryLocked(a, user)) return a;
+      return { ...a, [field]: value };
+    }),
+  }));
 
   const updateAccusedCnic = (i, raw) => {
     let val = raw.replace(/\D/g, '');
@@ -791,8 +798,22 @@ export default function EnquiryForm() {
 
   // Attachments
   const addAttachment = () => setForm(f => ({ ...f, attachments: [...f.attachments, { ...EMPTY_ATTACHMENT, attachment_date: new Date().toISOString().split('T')[0] }] }));
-  const removeAttachment = (i) => setForm(f => ({ ...f, attachments: f.attachments.filter((_, idx) => idx !== i) }));
-  const updateAttachment = (i, field, value) => setForm(f => ({ ...f, attachments: f.attachments.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const removeAttachment = (i) => {
+    const rec = form.attachments[i];
+    if (isSavedDiaryLocked(rec, user)) {
+      alert('Saved attachment Circle Incharge ke ilawa edit ya delete nahi ho sakta.');
+      return;
+    }
+    setForm(f => ({ ...f, attachments: f.attachments.filter((_, idx) => idx !== i) }));
+  };
+  const updateAttachment = (i, field, value) => setForm(f => ({
+    ...f,
+    attachments: f.attachments.map((a, idx) => {
+      if (idx !== i) return a;
+      if (isSavedDiaryLocked(a, user)) return a;
+      return { ...a, [field]: value };
+    }),
+  }));
   const updateAttachmentFile = (i, file) => setForm(f => ({ ...f, attachments: f.attachments.map((a, idx) => idx === i ? { ...a, file } : a) }));
 
   // Requisitions
@@ -804,6 +825,10 @@ export default function EnquiryForm() {
   const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '', case_category: 'Financial Fraud', subject: '', kota: '', against_whom: '', scheduled_at: '' }] }));
   const removeActivity = (i) => {
     const act = form.activities[i];
+    if (isSavedDiaryLocked(act, user)) {
+      alert('Saved diary / bank / warrant entry Circle Incharge ke ilawa edit ya delete nahi ho sakti.');
+      return;
+    }
     if (activityHasLockedSeizeItems(act)) {
       alert('Is seizure memo mein forensic ko bheje hue items hain — poori activity delete nahi ho sakti.');
       return;
@@ -814,6 +839,7 @@ export default function EnquiryForm() {
     ...f,
     activities: f.activities.map((a, idx) => {
       if (idx !== i) return a;
+      if (isSavedDiaryLocked(a, user)) return a;
       if (field === 'type' && activityHasLockedSeizeItems(a) && value !== a.type) {
         alert('Forensic ko bheje hue items ki wajah se is activity ki type change nahi ho sakti.');
         return a;
@@ -829,14 +855,20 @@ export default function EnquiryForm() {
       return next;
     }),
   }));
-  const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
-  const addSeizeItem = (activityIndex) => setForm(f => ({
+  const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => (idx === i && !isSavedDiaryLocked(a, user) ? { ...a, attachment: file } : a)) }));
+  const addSeizeItem = (activityIndex) => setForm(f => {
+    const target = f.activities[activityIndex];
+    if (isSavedDiaryLocked(target, user)) return f;
+    return {
     ...f,
     activities: f.activities.map((a, idx) => idx === activityIndex
       ? { ...a, seize_items: [...(a.seize_items || []), { ...EMPTY_SEIZE_ITEM }] }
       : a),
-  }));
+    };
+  });
   const removeSeizeItem = (activityIndex, itemIndex) => setForm(f => {
+    const parent = f.activities[activityIndex];
+    if (isSavedDiaryLocked(parent, user)) return f;
     const target = (f.activities[activityIndex]?.seize_items || [])[itemIndex];
     if (isSeizeItemLocked(target)) {
       alert('Yeh item forensic / technical ko bhej diya gaya hai — delete nahi ho sakta.');
@@ -856,7 +888,7 @@ export default function EnquiryForm() {
           ...a,
           seize_items: (a.seize_items || []).map((it, si) => {
             if (si !== itemIndex) return it;
-            if (isSeizeItemLocked(it)) return it;
+            if (isSavedDiaryLocked(a, user) || isSeizeItemLocked(it)) return it;
             return { ...it, [field]: value };
           }),
         }
@@ -881,15 +913,23 @@ export default function EnquiryForm() {
     });
   };
   const removeWitness = (i) => {
-    if (!canDeleteAccusedWitness) {
-      alert('Witness delete karne ki authority sirf Circle Incharge / AD / DD / Admin ke paas hai.');
+    const rec = form.witnesses[i];
+    if (isSavedDiaryLocked(rec, user)) {
+      alert('Saved witness Circle Incharge ke ilawa edit ya delete nahi ho sakta.');
       return;
     }
     setForm(f => ({ ...f, witnesses: f.witnesses.filter((_, idx) => idx !== i) }));
     setEditingWitnessIndex(prev => (prev === i ? null : (prev != null && prev > i ? prev - 1 : prev)));
   };
   const isWitnessEditing = (w, i) => editingWitnessIndex === i;
-  const updateWitness = (i, field, value) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const updateWitness = (i, field, value) => setForm(f => ({
+    ...f,
+    witnesses: f.witnesses.map((a, idx) => {
+      if (idx !== i) return a;
+      if (isSavedDiaryLocked(a, user)) return a;
+      return { ...a, [field]: value };
+    }),
+  }));
   const updateWitnessFile = (i, field, file) => setForm(f => ({ ...f, witnesses: f.witnesses.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
 
   // Notices
@@ -908,10 +948,22 @@ export default function EnquiryForm() {
     });
   };
   const removeNotice = (i) => {
+    const rec = form.notices[i];
+    if (isSavedDiaryLocked(rec, user)) {
+      alert('Saved notice Circle Incharge ke ilawa edit ya delete nahi ho sakti.');
+      return;
+    }
     setForm(f => ({ ...f, notices: f.notices.filter((_, idx) => idx !== i) }));
     setEditingNoticeIndex(prev => (prev === i ? null : (prev != null && prev > i ? prev - 1 : prev)));
   };
-  const updateNotice = (i, field, value) => setForm(f => ({ ...f, notices: f.notices.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const updateNotice = (i, field, value) => setForm(f => ({
+    ...f,
+    notices: f.notices.map((a, idx) => {
+      if (idx !== i) return a;
+      if (isSavedDiaryLocked(a, user)) return a;
+      return { ...a, [field]: value };
+    }),
+  }));
   const isNoticeEditing = (n, i) => !n.id || editingNoticeIndex === i;
 
   const fillNoticeFromPerson = (noticeIndex, personType, personRef) => {
@@ -1889,13 +1941,13 @@ export default function EnquiryForm() {
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                   Edit
                                 </button>
-                                {canDeleteAccusedWitness && (
+                                {!isSavedDiaryLocked(a, user) && (
                                   <button
                                     type="button"
                                     className="btn btn-sm"
                                     style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36 }}
                                     onClick={() => removeAccused(i)}
-                                    title="Delete Accused (CI/AD/DD/Admin only)"
+                                    title="Delete Accused"
                                   >
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                   </button>
@@ -1913,12 +1965,12 @@ export default function EnquiryForm() {
               {form.accused.map((a, i) => {
                 if (!isAccusedEditing(a, i)) return null;
                 return (
-                <div key={a.id || `new-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={a.id || `new-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <strong style={{ fontSize: 13, color: '#015C94' }}>{a.id ? `Edit Accused #${i + 1}` : `Accused Person #${i + 1}`}</strong>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingAccusedIndex(null)}>Done</button>
-                      {canDeleteAccusedWitness && (
+                      <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => setEditingAccusedIndex(null)}>Done</button>
+                      {!isSavedDiaryLocked(a, user) && (
                         <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAccused(i)} title="Delete Accused (CI/AD/DD/Admin only)">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
@@ -2045,13 +2097,13 @@ export default function EnquiryForm() {
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                   Edit
                                 </button>
-                                {canDeleteAccusedWitness && (
+                                {!isSavedDiaryLocked(w, user) && (
                                   <button
                                     type="button"
                                     className="btn btn-sm"
                                     style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: 8, width: 36, height: 36 }}
                                     onClick={() => removeWitness(i)}
-                                    title="Delete Witness (CI/AD/DD/Admin only)"
+                                    title="Delete Witness"
                                   >
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                   </button>
@@ -2069,12 +2121,12 @@ export default function EnquiryForm() {
               {form.witnesses.map((w, i) => {
                 if (!isWitnessEditing(w, i)) return null;
                 return (
-                <div key={w.id || `new-wit-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={w.id || `new-wit-${i}`} className={isSavedDiaryLocked(w, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <strong style={{ fontSize: 13, color: '#264078' }}>{w.id ? `Edit Witness #${i + 1}` : `Witness Person #${i + 1}`}</strong>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingWitnessIndex(null)}>Done</button>
-                      {canDeleteAccusedWitness && (
+                      <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => setEditingWitnessIndex(null)}>Done</button>
+                      {!isSavedDiaryLocked(w, user) && (
                         <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeWitness(i)} title="Delete Witness (CI/AD/DD/Admin only)">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
@@ -2300,7 +2352,7 @@ export default function EnquiryForm() {
               {form.notices.map((n, i) => {
                 if (!isNoticeEditing(n, i)) return null;
                 return (
-                <div key={n.id || `notice-${i}`} style={{ border: '1px solid #015C94', borderRadius: 10, padding: 16, marginBottom: 14, background: '#f8fafc' }}>
+                <div key={n.id || `notice-${i}`} className={isSavedDiaryLocked(n, user) ? 'diary-saved-locked' : undefined} style={{ border: '1px solid #015C94', borderRadius: 10, padding: 16, marginBottom: 14, background: '#f8fafc' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '1px solid #e2e8f0', paddingBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span className="badge" style={{ background: '#015C94', color: '#fff', fontWeight: 700 }}>
@@ -2312,11 +2364,13 @@ export default function EnquiryForm() {
                         <button
                           type="button"
                           className="btn btn-outline btn-sm"
+                          data-locked-ok="1"
                           onClick={() => setEditingNoticeIndex(null)}
                         >
                           Done (Collapse)
                         </button>
                       )}
+                      {!isSavedDiaryLocked(n, user) && (
                       <button
                         type="button"
                         className="btn btn-sm"
@@ -2325,6 +2379,7 @@ export default function EnquiryForm() {
                       >
                         Remove
                       </button>
+                      )}
                     </div>
                   </div>
 
@@ -2508,7 +2563,7 @@ export default function EnquiryForm() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Attachment
               </button>
               {form.attachments.map((at, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={at.id || `att-${i}`} className={isSavedDiaryLocked(at, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
                     <div className="cf-field"><label className="cf-label">Title</label><input type="text" className="cf-input" value={at.title} onChange={e => updateAttachment(i, 'title', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Attachment Date</label><input type="date" className="cf-input" value={at.attachment_date} onChange={e => updateAttachment(i, 'attachment_date', e.target.value)} /></div>
@@ -2519,7 +2574,7 @@ export default function EnquiryForm() {
                         <a href={at.file_path} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Download existing Γåù</a>
                       )}
                     </div>
-                    {(!at.id || isPrivileged) && (
+                    {(!at.id || isPrivileged) && !isSavedDiaryLocked(at, user) && (
                       <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px' }} onClick={() => removeAttachment(i)}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </button>
@@ -2652,7 +2707,12 @@ export default function EnquiryForm() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Activity
               </button>
               {form.activities.map((a, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={a.id || `new-act-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  {isSavedDiaryLocked(a, user) && (
+                    <div style={{ padding: '8px 12px', marginBottom: 12, background: '#e2e8f0', color: '#334155', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                      Saved diary entry — only Circle Incharge can edit or delete. New activities abhi bhi add ki ja sakti hain.
+                    </div>
+                  )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Activity Type</label>
                       <select className="cf-input" value={a.type} disabled={activityHasLockedSeizeItems(a)} onChange={e => updateActivity(i, 'type', e.target.value)}>
@@ -2671,7 +2731,7 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Attachment</label>
                       <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateActivityFile(i, e.target.files[0])} />
                     </div>
-                    {(!a.id || isPrivileged) && !activityHasLockedSeizeItems(a) && (
+                    {(!a.id || isPrivileged) && !activityHasLockedSeizeItems(a) && !isSavedDiaryLocked(a, user) && (
                       <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeActivity(i)}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </button>
@@ -2806,6 +2866,7 @@ export default function EnquiryForm() {
                                 className="btn btn-outline btn-sm"
                                 style={{ color: '#0f766e', borderColor: '#0f766e', fontSize: 12, fontWeight: 700 }}
                                 disabled={sendingForensic}
+                                data-locked-ok="1"
                                 onClick={() => submitActivityToForensic(a, 'technical')}
                                 title="Submit this activity's seized items to Technical Department"
                               >
@@ -2826,6 +2887,7 @@ export default function EnquiryForm() {
                                 className="btn btn-primary btn-sm"
                                 style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }}
                                 disabled={sendingForensic}
+                                data-locked-ok="1"
                                 onClick={() => submitActivityToForensic(a, 'forensic')}
                                 title="Is activity ka Scope Letter aur seized items Circle Incharge ko mark karein review ke liye"
                               >

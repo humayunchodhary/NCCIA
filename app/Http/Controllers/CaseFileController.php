@@ -44,6 +44,11 @@ class CaseFileController extends Controller
         ]);
     }
 
+    private function canUnlockSavedDiary($user): bool
+    {
+        return $user && $user->hasAnyRole(['admin', 'circle_incharge']);
+    }
+
     /** Frontend sends `activities`; legacy/forms use `actions`. */
     private function normalizeActions(Request $request, array $data): array
     {
@@ -55,6 +60,44 @@ class CaseFileController extends Controller
     private function normalizeArrests(array $data): array
     {
         return $this->decodeArrayField($data['arrests'] ?? []);
+    }
+
+    private function syncArrests(CaseFile $caseFile, array $arrests, $user): void
+    {
+        $keep = [];
+        $canUnlock = $this->canUnlockSavedDiary($user);
+
+        foreach ($arrests as $row) {
+            if (!is_array($row) || empty($row['accused_name'])) {
+                continue;
+            }
+            $attrs = [
+                'accused_name'   => $row['accused_name'],
+                'cnic'           => $row['cnic'] ?? null,
+                'arrest_date'    => $row['arrest_date'] ?? now()->toDateString(),
+                'remand_details' => $row['remand_details'] ?? null,
+            ];
+            $existing = !empty($row['id'])
+                ? $caseFile->arrests()->whereKey($row['id'])->first()
+                : null;
+            if ($existing) {
+                if ($canUnlock) {
+                    $existing->update($attrs);
+                }
+                $keep[] = $existing->id;
+            } else {
+                $model = $caseFile->arrests()->create($attrs);
+                $keep[] = $model->id;
+            }
+        }
+
+        if (!$canUnlock) {
+            foreach ($caseFile->arrests()->pluck('id') as $id) {
+                $keep[] = $id;
+            }
+        }
+
+        $caseFile->arrests()->whereNotIn('id', $keep ?: [0])->delete();
     }
 
     private function caseActivityLabels(): array
@@ -147,11 +190,19 @@ class CaseFileController extends Controller
             }
 
             if ($existing) {
-                $existing->update($attrs);
+                if ($this->canUnlockSavedDiary(request()->user())) {
+                    $existing->update($attrs);
+                }
                 $keep[] = $existing->id;
             } else {
                 $model = $caseFile->activities()->create(array_merge($attrs, ['created_by' => $userId]));
                 $keep[] = $model->id;
+            }
+        }
+
+        if (!$this->canUnlockSavedDiary(request()->user())) {
+            foreach ($caseFile->activities()->pluck('id') as $id) {
+                $keep[] = $id;
             }
         }
 
@@ -388,16 +439,8 @@ class CaseFileController extends Controller
                 $this->syncCaseActivities($caseFile, $actions, $request->user()->id);
             }
 
-            // Create arrests
             if (!empty($arrests)) {
-                foreach ($arrests as $a) {
-                    $caseFile->arrests()->create([
-                        'accused_name'   => $a['accused_name'],
-                        'cnic'           => $a['cnic'],
-                        'arrest_date'    => $a['arrest_date'],
-                        'remand_details' => $a['remand_details'] ?? null,
-                    ]);
-                }
+                $this->syncArrests($caseFile, $arrests, $request->user());
             }
 
             if ($this->canFillLegalAndApprove($request->user())) {
@@ -584,18 +627,8 @@ class CaseFileController extends Controller
                 $this->syncCaseActivities($caseFile, $actions, $request->user()->id);
             }
 
-            if (!empty($arrests)) {
-                foreach ($arrests as $a) {
-                    if (empty($a['accused_name'])) {
-                        continue;
-                    }
-                    $caseFile->arrests()->create([
-                        'accused_name'   => $a['accused_name'],
-                        'cnic'           => $a['cnic'] ?? null,
-                        'arrest_date'    => $a['arrest_date'] ?? now()->toDateString(),
-                        'remand_details' => $a['remand_details'] ?? null,
-                    ]);
-                }
+            if (array_key_exists('arrests', $data)) {
+                $this->syncArrests($caseFile, $arrests, $request->user());
             }
 
             if ($canFillLegal && array_key_exists('legal_opinions', $data)) {

@@ -14,7 +14,7 @@ import {
 import { SIMPLE_STATUSES, PRIORITY_OPTIONS, toSimpleStatus, fromSimpleStatus } from '../utils/simpleStatus';
 import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 import { isSeizeItemLocked, activityHasLockedSeizeItems, applyForensicLocksToActivities, seizeItemKey, lockSeizeItemsAgainstForensic } from '../utils/seizeItemLock';
-import { canFillLegalAndApprove, CASE_CFR_REVIEW_STATUSES } from '../utils/permissions';
+import { canFillLegalAndApprove, CASE_CFR_REVIEW_STATUSES, isSavedDiaryLocked } from '../utils/permissions';
 
 const CASE_STATUS = [
   { value: 'registered', name: 'Registered (Moharrar)' },
@@ -244,6 +244,10 @@ export default function CaseForm() {
   const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', case_category: 'Financial Fraud', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, subject: '', kota: '', against_whom: '', scheduled_at: '', seize_items: [], analysis_scope: '' }] }));
   const removeActivity = (i) => {
     const act = form.activities[i];
+    if (isSavedDiaryLocked(act, user)) {
+      alert('Saved diary / bank / warrant entry Circle Incharge ke ilawa edit ya delete nahi ho sakti.');
+      return;
+    }
     if (activityHasLockedSeizeItems(act)) {
       alert('Is seizure memo mein forensic ko bheje hue items hain — poori activity delete nahi ho sakti.');
       return;
@@ -254,6 +258,7 @@ export default function CaseForm() {
     ...f,
     activities: f.activities.map((a, idx) => {
       if (idx !== i) return a;
+      if (isSavedDiaryLocked(a, user)) return a;
       if (field === 'type' && activityHasLockedSeizeItems(a) && value !== a.type) {
         alert('Forensic ko bheje hue items ki wajah se is activity ki type change nahi ho sakti.');
         return a;
@@ -269,14 +274,20 @@ export default function CaseForm() {
       return next;
     }),
   }));
-  const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => idx === i ? { ...a, attachment: file } : a) }));
-  const addSeizeItem = (activityIndex) => setForm(f => ({
+  const updateActivityFile = (i, file) => setForm(f => ({ ...f, activities: f.activities.map((a, idx) => (idx === i && !isSavedDiaryLocked(a, user) ? { ...a, attachment: file } : a)) }));
+  const addSeizeItem = (activityIndex) => setForm(f => {
+    const target = f.activities[activityIndex];
+    if (isSavedDiaryLocked(target, user)) return f;
+    return {
     ...f,
     activities: f.activities.map((a, idx) => idx === activityIndex
       ? { ...a, seize_items: [...(a.seize_items || []), { ...EMPTY_SEIZE_ITEM }] }
       : a),
-  }));
+    };
+  });
   const removeSeizeItem = (activityIndex, itemIndex) => setForm(f => {
+    const parent = f.activities[activityIndex];
+    if (isSavedDiaryLocked(parent, user)) return f;
     const target = (f.activities[activityIndex]?.seize_items || [])[itemIndex];
     if (isSeizeItemLocked(target)) {
       alert('Yeh item forensic / technical ko bhej diya gaya hai — delete nahi ho sakta.');
@@ -294,7 +305,7 @@ export default function CaseForm() {
     activities: f.activities.map((a, idx) => idx === activityIndex
       ? { ...a, seize_items: (a.seize_items || []).map((it, si) => {
           if (si !== itemIndex) return it;
-          if (isSeizeItemLocked(it)) return it;
+          if (isSavedDiaryLocked(a, user) || isSeizeItemLocked(it)) return it;
           return { ...it, [field]: value };
         }) }
       : a),
@@ -302,8 +313,22 @@ export default function CaseForm() {
 
   // Arrests
   const addArrest = () => setForm(f => ({ ...f, arrests: [...f.arrests, { accused_name: '', cnic: '', arrest_date: new Date().toISOString().split('T')[0], remand_details: '' }] }));
-  const removeArrest = (i) => setForm(f => ({ ...f, arrests: f.arrests.filter((_, idx) => idx !== i) }));
-  const updateArrest = (i, field, value) => setForm(f => ({ ...f, arrests: f.arrests.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
+  const removeArrest = (i) => {
+    const row = form.arrests[i];
+    if (isSavedDiaryLocked(row, user)) {
+      alert('Saved arrest Circle Incharge ke ilawa edit ya delete nahi ho sakti.');
+      return;
+    }
+    setForm(f => ({ ...f, arrests: f.arrests.filter((_, idx) => idx !== i) }));
+  };
+  const updateArrest = (i, field, value) => setForm(f => ({
+    ...f,
+    arrests: f.arrests.map((a, idx) => {
+      if (idx !== i) return a;
+      if (isSavedDiaryLocked(a, user)) return a;
+      return { ...a, [field]: value };
+    }),
+  }));
 
   // Legal Opinions
   const addLegalOpinion = () => {
@@ -799,7 +824,12 @@ export default function CaseForm() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Activity
               </button>
               {form.activities.map((a, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={a.id || `new-act-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  {isSavedDiaryLocked(a, user) && (
+                    <div style={{ padding: '8px 12px', marginBottom: 12, background: '#e2e8f0', color: '#334155', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                      Saved diary entry — only Circle Incharge can edit or delete. New activities abhi bhi add ki ja sakti hain.
+                    </div>
+                  )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Activity Type</label>
                       <select className="cf-input" value={a.type} disabled={activityHasLockedSeizeItems(a)} onChange={e => updateActivity(i, 'type', e.target.value)}>
@@ -820,7 +850,7 @@ export default function CaseForm() {
                     <div className="cf-field"><label className="cf-label">Attachment</label>
                       <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateActivityFile(i, e.target.files[0])} />
                     </div>
-                    {!activityHasLockedSeizeItems(a) && (
+                    {!activityHasLockedSeizeItems(a) && !isSavedDiaryLocked(a, user) && (
                     <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeActivity(i)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
@@ -910,17 +940,17 @@ export default function CaseForm() {
                       </div>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         {a.type === 'raid' && (
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('raid-permission-print', a)}>
+                          <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printWarrantFromActivity('raid-permission-print', a)}>
                             Print Raid Permission
                           </button>
                         )}
                         {a.type === 'search_seize' && (
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('search-warrant-print', a)}>
+                          <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printWarrantFromActivity('search-warrant-print', a)}>
                             Print Search Warrant
                           </button>
                         )}
                         {a.type === 'arrest_warrant' && (
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('arrest-warrant-print', a)}>
+                          <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printWarrantFromActivity('arrest-warrant-print', a)}>
                             Print Arrest Warrant
                           </button>
                         )}
@@ -939,18 +969,18 @@ export default function CaseForm() {
                           {!isSupervisor && (
                             <button type="button" className="btn btn-outline btn-sm" onClick={() => addSeizeItem(i)}>+ Add Item</button>
                           )}
-                          <button type="button" className="btn btn-outline btn-sm" style={{ color: '#015C94', borderColor: '#015C94', fontWeight: 600 }} onClick={() => printActivityForensicRequest(a)}>
+                          <button type="button" className="btn btn-outline btn-sm" style={{ color: '#015C94', borderColor: '#015C94', fontWeight: 600 }} data-locked-ok="1" onClick={() => printActivityForensicRequest(a)}>
                             Print Scope Letter
                           </button>
                           {!isSupervisor && (
                             <>
-                              <button type="button" className="btn btn-outline btn-sm" style={{ color: '#0f766e', borderColor: '#0f766e', fontSize: 12, fontWeight: 700 }} disabled={sendingForensic} onClick={() => submitActivityToForensic(a, 'technical')}>
+                              <button type="button" className="btn btn-outline btn-sm" style={{ color: '#0f766e', borderColor: '#0f766e', fontSize: 12, fontWeight: 700 }} data-locked-ok="1" disabled={sendingForensic} onClick={() => submitActivityToForensic(a, 'technical')}>
                                 {sendingForensic ? 'Submitting…' : '⚙️ Submit to Technical'}
                               </button>
                               <button type="button" className="btn btn-outline btn-sm" style={{ color: '#64748b', borderColor: '#94a3b8', fontSize: 12, fontWeight: 600 }} disabled={saving} onClick={() => saveCase({ navigateAway: false })}>
                                 💾 Save
                               </button>
-                              <button type="button" className="btn btn-primary btn-sm" style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }} disabled={sendingForensic} onClick={() => submitActivityToForensic(a, 'forensic')}>
+                              <button type="button" className="btn btn-primary btn-sm" style={{ background: '#015C94', color: '#fff', fontSize: 12, fontWeight: 700 }} data-locked-ok="1" disabled={sendingForensic} onClick={() => submitActivityToForensic(a, 'forensic')}>
                                 {sendingForensic ? 'Submitting…' : '📋 Mark to Circle Incharge'}
                               </button>
                             </>
@@ -1190,7 +1220,12 @@ export default function CaseForm() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Arrest
               </button>
               {form.arrests.map((a, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={a.id || `new-arr-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  {isSavedDiaryLocked(a, user) && (
+                    <div style={{ padding: '8px 12px', marginBottom: 12, background: '#e2e8f0', color: '#334155', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                      Saved arrest — only Circle Incharge can edit or delete.
+                    </div>
+                  )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label required">Accused Name</label>
                       <input type="text" className="cf-input" value={a.accused_name} onChange={e => updateArrest(i, 'accused_name', e.target.value)} placeholder="Accused name" required />
@@ -1201,9 +1236,11 @@ export default function CaseForm() {
                     <div className="cf-field"><label className="cf-label required">Arrest Date</label>
                       <input type="date" className="cf-input" value={a.arrest_date} onChange={e => updateArrest(i, 'arrest_date', e.target.value)} required />
                     </div>
+                    {!isSavedDiaryLocked(a, user) && (
                     <button type="button" className="btn btn-sm" style={{ background: 'rgba(229,62,62,0.15)', color: '#e53e3e', border: 'none', borderRadius: '8px', width: '36px', height: '36px', alignSelf: 'end', justifySelf: 'end' }} onClick={() => removeArrest(i)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
+                    )}
                   </div>
                   <div className="cf-field"><label className="cf-label">Remand Details</label>
                     <textarea className="cf-input" rows={2} value={a.remand_details} onChange={e => updateArrest(i, 'remand_details', e.target.value)} placeholder="Remand details, court orders, etc." style={{ width: '100%' }}></textarea>
