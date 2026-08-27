@@ -86,7 +86,9 @@ class EnquiryController extends Controller
         $actionLabels = [
             'dac_request'  => 'DAC Request',
             'bank_record'  => 'Bank Record Obtained',
-            'search_seize' => 'Search & Seize',
+            'search_seize'  => 'Search Warrant',
+            'raid'          => 'Raid Permission',
+            'arrest_warrant'=> 'Arrest Warrant',
             'notices'      => 'Summons Issued',
             'diaries'      => 'Diaries Maintained',
             'seizures'     => 'Seizures Made',
@@ -137,6 +139,18 @@ class EnquiryController extends Controller
                 }
             } elseif (is_array($action) && array_key_exists('meta', $action) && is_array($action['meta'])) {
                 $meta = $action['meta'];
+            }
+
+            if (is_array($action)) {
+                $meta = is_array($meta) ? $meta : [];
+                foreach (['subject', 'kota', 'against_whom', 'scheduled_at'] as $key) {
+                    if (array_key_exists($key, $action) && $action[$key] !== null && $action[$key] !== '') {
+                        $meta[$key] = $action[$key];
+                    }
+                }
+                if ($meta === []) {
+                    $meta = null;
+                }
             }
 
             $attrs = [
@@ -1268,6 +1282,20 @@ class EnquiryController extends Controller
     }
 
     /**
+     * Fields the EO fills on raid / search / arrest activities.
+     */
+    private function warrantPrintDetails(Request $request): array
+    {
+        return [
+            'subject'      => (string) $request->input('subject', ''),
+            'kota'         => (string) $request->input('kota', ''),
+            'against_whom' => (string) $request->input('against_whom', ''),
+            'scheduled_at' => (string) $request->input('scheduled_at', ''),
+            'description'  => (string) $request->input('description', ''),
+        ];
+    }
+
+    /**
      * Printable Permission to Conduct a Raid HTML.
      */
     public function raidPermissionPrint(Request $request, Enquiry $enquiry, PrintService $print)
@@ -1284,7 +1312,7 @@ class EnquiryController extends Controller
 
         try {
             return response()->json([
-                'html' => $print->raidPermissionPrintDocument($enquiry, is_array($teamMembers) ? $teamMembers : []),
+                'html' => $print->raidPermissionPrintDocument($enquiry, is_array($teamMembers) ? $teamMembers : [], $this->warrantPrintDetails($request)),
             ]);
         } catch (\Throwable $e) {
             report($e);
@@ -1304,7 +1332,7 @@ class EnquiryController extends Controller
 
         try {
             return response()->json([
-                'html' => $print->searchWarrantPrintDocument($enquiry),
+                'html' => $print->searchWarrantPrintDocument($enquiry, $this->warrantPrintDetails($request)),
             ]);
         } catch (\Throwable $e) {
             report($e);
@@ -1324,7 +1352,7 @@ class EnquiryController extends Controller
 
         try {
             return response()->json([
-                'html' => $print->arrestWarrantPrintDocument($enquiry),
+                'html' => $print->arrestWarrantPrintDocument($enquiry, $this->warrantPrintDetails($request)),
             ]);
         } catch (\Throwable $e) {
             report($e);

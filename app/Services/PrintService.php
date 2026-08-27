@@ -1234,7 +1234,7 @@ HTML;
     /**
      * Printable Permission to Conduct a Raid in Case FIR No. matching PDF Page 4.
      */
-    public function raidPermissionPrintDocument(Enquiry $enquiry, array $teamMembers = []): string
+    public function raidPermissionPrintDocument(Enquiry $enquiry, array $teamMembers = [], array $details = []): string
     {
         $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
 
@@ -1242,6 +1242,11 @@ HTML;
         $circleName = e($circle?->name ?? 'Lahore');
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
         $firNo      = e($enquiry->caseFile?->fir_no ?: $enquiryNo);
+        $kota       = e(trim((string) ($details['kota'] ?? '')) ?: 'subject cited premises');
+        $against    = trim((string) ($details['against_whom'] ?? ''));
+        $whenRaw    = trim((string) ($details['scheduled_at'] ?? ''));
+        $whenText   = $whenRaw !== '' ? e(date('d/m/Y h:i A', strtotime($whenRaw))) : '________________';
+        $subject    = e(trim((string) ($details['subject'] ?? '')) ?: ('PERMISSION TO CONDUCT A RAID IN CASE FIR NO. ' . html_entity_decode($firNo)));
         $compName   = e($enquiry->complaint?->complainant_name ?: 'the complainant');
         $offence    = e($enquiry->complaint?->offence_type ?: ($enquiry->charge_against ?: 'scam / harassment'));
         $facts      = trim((string) ($enquiry->complaint?->description ?: ''));
@@ -1259,6 +1264,12 @@ HTML;
         } else {
             $accRows = '<div><strong>1: Name of Accused s/o r/o .</strong></div><div><strong>2: ABC s/o r/o .</strong></div>';
         }
+        if ($against !== '' && (!$accList || $accList->count() === 0)) {
+            $accRows = '<div><strong>1: ' . e($against) . '.</strong></div>';
+        }
+        $againstHtml = e($against !== '' ? $against : 'the alleged person(s)');
+        $brief = trim((string) ($details['description'] ?? ''));
+        $briefHtml = $brief !== '' ? nl2br(e($brief)) : "the complainant <strong>{$compName}</strong> alleged that he has been scammed / harassed by which results <strong>{$results}</strong> under <strong>{$offence}</strong>. The complainant requested to trace the culprit and take legal action against him.";
 
         // Raiding team
         $teamRows = '';
@@ -1303,12 +1314,15 @@ HTML;
           </table>
 
           <div class="raid-subj">
-            <strong>Subject: - PERMISSION TO CONDUCT A RAID IN CASE FIR NO. {$firNo} .</strong>
+            <strong>Subject: - {$subject}</strong>
           </div>
 
           <div class="raid-body">
             <p>
-              Brief facts of the subject investigation are that the complainant <strong>{$compName}</strong> alleged that he has been scammed / harassed by which results <strong>{$results}</strong> under <strong>{$offence}</strong>. The complainant requested to trace the culprit and take legal action against him.
+              Brief facts of the subject investigation are that {$briefHtml}
+            </p>
+            <p>
+              Raid / search is to be conducted at <strong>{$kota}</strong> against <strong>{$againstHtml}</strong> on <strong>{$whenText}</strong>.
             </p>
 
             <div class="raid-accused" style="margin: 12px 0;">
@@ -1316,7 +1330,7 @@ HTML;
             </div>
 
             <p>
-              However, it is strongly believed that the sufficient evidence / digital media is present at subject cited premises. It is therefore, requested that the Search Warrant of the subject cited places / locations may kindly be granted to proceed further into the matter.
+              However, it is strongly believed that the sufficient evidence / digital media is present at <strong>{$kota}</strong>. It is therefore, requested that the Search Warrant of the subject cited places / locations may kindly be granted to proceed further into the matter.
             </p>
 
             <p>
@@ -1352,7 +1366,7 @@ HTML;
     /**
      * Printable Search Warrant U/S 33 of PECA-2016 matching PDF Page 5.
      */
-    public function searchWarrantPrintDocument(Enquiry $enquiry): string
+    public function searchWarrantPrintDocument(Enquiry $enquiry, array $details = []): string
     {
         $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
 
@@ -1361,6 +1375,12 @@ HTML;
         $circleCode = e($circle?->code ?? 'LHR');
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
         $firNo      = e($enquiry->caseFile?->fir_no ?: $enquiryNo);
+        $kota       = e(trim((string) ($details['kota'] ?? '')) ?: 'mentioned locations');
+        $against    = trim((string) ($details['against_whom'] ?? ''));
+        $whenRaw    = trim((string) ($details['scheduled_at'] ?? ''));
+        $whenText   = $whenRaw !== '' ? e(date('d/m/Y h:i A', strtotime($whenRaw))) : '';
+        $subject    = e(trim((string) ($details['subject'] ?? '')) ?: 'SEARCH WARRANT U/S 33 OF PECA-2016');
+        $brief      = trim((string) ($details['description'] ?? ''));
 
         $compName   = e($enquiry->complaint?->complainant_name ?: 'the complainant');
         $accList    = $enquiry->accusedPersons;
@@ -1376,9 +1396,14 @@ HTML;
             $accRows = '<div><strong>1: ACCUSED ANEM S/O R/O .</strong></div>';
             $firstAcc = null;
         }
-        $accName    = e($firstAcc?->name ?: 'Accused Person');
-        $accAddr    = e($firstAcc?->permanent_address ?: ($firstAcc?->postal_address ?: 'subject cited location'));
+        if ($against !== '' && (!$accList || $accList->count() === 0)) {
+            $accRows = '<div><strong>1: ACCUSED ' . e($against) . '.</strong></div>';
+        }
+        $accName    = e($against !== '' ? $against : ($firstAcc?->name ?: 'Accused Person'));
+        $accAddr    = e($firstAcc?->permanent_address ?: ($firstAcc?->postal_address ?: $kota));
         $allegation = e($enquiry->brief_allegation ?: ($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access')));
+        $briefHtml  = $brief !== '' ? nl2br(e($brief)) : "An enquiry no <strong>{$enquiryNo}</strong> was registered on the complaint of <strong>{$compName}</strong> that a person namely <strong>{$accName}</strong> r/o <strong>{$accAddr}</strong>, found involved in <strong>{$allegation}</strong>. The complainant requested for strict legal action against the culprits.";
+        $whenLine   = $whenText !== '' ? "<p>The search is to be conducted on <strong>{$whenText}</strong> at <strong>{$kota}</strong>.</p>" : "<p>The search is to be conducted at <strong>{$kota}</strong>.</p>";
         $qrHtml = $this->documentQr('warrant', (int) $enquiry->id, [
             'Type'        => 'Search Warrant',
             'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
@@ -1409,22 +1434,24 @@ HTML;
           </table>
 
           <div class="warrant-banner">
-            SEARCH WARRANT U/S 33 OF PECA-2016
+            {$subject}
           </div>
 
           <div class="warrant-salutation"><strong>Respected Sir</strong></div>
 
           <div class="warrant-body">
             <p>
-              An enquiry no <strong>{$enquiryNo}</strong> was registered on the complaint of <strong>{$compName}</strong> that a person namely <strong>{$accName}</strong> r/o <strong>{$accAddr}</strong>, found involved in <strong>{$allegation}</strong>. The complainant requested for strict legal action against the culprits.
+              {$briefHtml}
             </p>
 
             <div class="warrant-accused-box" style="margin: 14px 0;">
               {$accRows}
             </div>
 
+            {$whenLine}
+
             <p>
-              However, it is strongly believed that the sufficient evidence / digital media is present at mentioned locations.
+              However, it is strongly believed that the sufficient evidence / digital media is present at <strong>{$kota}</strong> against <strong>{$accName}</strong>.
             </p>
 
             <p>
@@ -1456,7 +1483,7 @@ HTML;
     /**
      * Printable Arrest Warrant matching the Search Warrant court format.
      */
-    public function arrestWarrantPrintDocument(Enquiry $enquiry): string
+    public function arrestWarrantPrintDocument(Enquiry $enquiry, array $details = []): string
     {
         $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
 
@@ -1465,6 +1492,12 @@ HTML;
         $circleCode = e($circle?->code ?? 'LHR');
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
         $firNo      = e($enquiry->caseFile?->fir_no ?: $enquiryNo);
+        $kota       = e(trim((string) ($details['kota'] ?? '')) ?: 'subject cited location');
+        $against    = trim((string) ($details['against_whom'] ?? ''));
+        $whenRaw    = trim((string) ($details['scheduled_at'] ?? ''));
+        $whenText   = $whenRaw !== '' ? e(date('d/m/Y h:i A', strtotime($whenRaw))) : '';
+        $subject    = e(trim((string) ($details['subject'] ?? '')) ?: 'ARREST WARRANT');
+        $brief      = trim((string) ($details['description'] ?? ''));
 
         $compName   = e($enquiry->complaint?->complainant_name ?: 'the complainant');
         $accList    = $enquiry->accusedPersons;
@@ -1476,9 +1509,18 @@ HTML;
                 $accRows .= '<div><strong>' . $n . ': ' . e($acc->name) . ' s/o ' . e($acc->father_name ?: '—') . ' r/o ' . e($addr) . '.</strong></div>';
             }
         } else {
-            $accRows = '<div><strong>1: Name of Accused s/o r/o .</strong></div>';
+            $accRows = $against !== ''
+                ? '<div><strong>1: ' . e($against) . '.</strong></div>'
+                : '<div><strong>1: Name of Accused s/o r/o .</strong></div>';
         }
         $allegation = e($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access'));
+        $againstHtml = e($against !== '' ? $against : 'the accused person(s)');
+        $briefHtml = $brief !== ''
+            ? nl2br(e($brief))
+            : "An enquiry / FIR no <strong>{$firNo}</strong> was registered on the complaint of <strong>{$compName}</strong> that the following person(s) found involved in <strong>{$allegation}</strong>. The complainant requested for strict legal action against the culprits.";
+        $whenLine = $whenText !== ''
+            ? "<p>The arrest is to be effected on <strong>{$whenText}</strong> against <strong>{$againstHtml}</strong> at <strong>{$kota}</strong>.</p>"
+            : "<p>The arrest is to be effected against <strong>{$againstHtml}</strong> at <strong>{$kota}</strong>.</p>";
         $qrHtml = $this->documentQr('arrest', (int) $enquiry->id, [
             'Type'        => 'Arrest Warrant',
             'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
@@ -1514,19 +1556,21 @@ HTML;
           </table>
 
           <div class="warrant-banner">
-            ARREST WARRANT
+            {$subject}
           </div>
 
           <div class="warrant-salutation"><strong>Respected Sir</strong></div>
 
           <div class="warrant-body">
             <p>
-              An enquiry / FIR no <strong>{$firNo}</strong> was registered on the complaint of <strong>{$compName}</strong> that the following person(s) found involved in <strong>{$allegation}</strong>. The complainant requested for strict legal action against the culprits.
+              {$briefHtml}
             </p>
 
             <div class="warrant-accused-box" style="margin: 14px 0;">
               {$accRows}
             </div>
+
+            {$whenLine}
 
             <p>
               However, it is strongly believed that the accused person(s) are involved in the subject cited offence and are evading lawful process.

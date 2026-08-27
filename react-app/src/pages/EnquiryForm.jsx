@@ -38,7 +38,7 @@ const LEGAL_DECISIONS = ['agree', 'disagree', 'review'];
 const ACTIVITY_TYPES = [
   { value: 'dac_request', name: 'DAC (Departmental Accounts Committee)' },
   { value: 'bank_record', name: 'Bank Enquiry' },
-  { value: 'search_seize', name: 'Search Operation / Warrant' },
+  { value: 'search_seize', name: 'Search Warrant' },
   { value: 'raid', name: 'Raid Permission / Operation' },
   { value: 'arrest_warrant', name: 'Arrest Warrant' },
   { value: 'notices', name: 'Summon Issued' },
@@ -585,6 +585,10 @@ export default function EnquiryForm() {
         seize_items: Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
         analysis_scope: a.meta?.analysis_scope || a.analysis_scope || '',
         case_category: a.meta?.case_category || a.case_category || 'Financial Fraud',
+        subject: a.meta?.subject || a.subject || '',
+        kota: a.meta?.kota || a.kota || '',
+        against_whom: a.meta?.against_whom || a.against_whom || '',
+        scheduled_at: a.meta?.scheduled_at || a.scheduled_at || '',
       })),
       notices: (d.notices || []).map(n => ({
         id: n.id,
@@ -778,15 +782,19 @@ export default function EnquiryForm() {
   const updateRequisition = (i, field, value) => setForm(f => ({ ...f, requisitions: f.requisitions.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '', case_category: 'Financial Fraud' }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '', case_category: 'Financial Fraud', subject: '', kota: '', against_whom: '', scheduled_at: '' }] }));
   const removeActivity = (i) => setForm(f => ({ ...f, activities: f.activities.filter((_, idx) => idx !== i) }));
   const updateActivity = (i, field, value) => setForm(f => ({
     ...f,
     activities: f.activities.map((a, idx) => {
       if (idx !== i) return a;
       const next = { ...a, [field]: value };
-      if (field === 'type' && (value === 'seizures' || value === 'search_seize') && !(next.seize_items || []).length) {
+      if (field === 'type' && value === 'seizures' && !(next.seize_items || []).length) {
         next.seize_items = [{ ...EMPTY_SEIZE_ITEM }];
+      }
+      if (field === 'type' && ['search_seize', 'raid', 'arrest_warrant'].includes(value) && !next.against_whom) {
+        const firstAcc = (form.accused || []).find(x => (x.name || '').trim());
+        if (firstAcc) next.against_whom = firstAcc.name;
       }
       return next;
     }),
@@ -990,10 +998,14 @@ export default function EnquiryForm() {
     printDocument('forensic-request-print', { devices: JSON.stringify(devices), analysis_scope: scope.trim() });
   };
 
-  const printRaidPermission = () => {
-    // A placeholder - normally you'd extract raiding team from the form if it was tracked.
-    const teamMembers = [];
-    printDocument('raid-permission-print', { team_members: JSON.stringify(teamMembers) });
+  const printWarrantFromActivity = (endpoint, act) => {
+    printDocument(endpoint, {
+      subject: act.subject || '',
+      kota: act.kota || '',
+      against_whom: act.against_whom || '',
+      scheduled_at: act.scheduled_at || act.activity_date || '',
+      description: act.description || '',
+    });
   };
 
   const sendSummonWhatsApp = (n) => {
@@ -1103,7 +1115,7 @@ export default function EnquiryForm() {
       };
 
       const seizeItems = (form.activities || [])
-        .filter(a => a.type === 'seizures' || a.type === 'search_seize')
+        .filter(a => a.type === 'seizures')
         .flatMap(a => a.seize_items || [])
         .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
         .map(it => ({
@@ -1257,7 +1269,7 @@ export default function EnquiryForm() {
   const referredToCourt = nonAppearanceCount >= 3;
   const seizedItemsPreview = useMemo(() => (
     (form.activities || [])
-      .filter(a => a.type === 'seizures' || a.type === 'search_seize')
+      .filter(a => a.type === 'seizures')
       .flatMap(a => (a.seize_items || []).map(it => ({ ...it, activity_type: a.type })))
       .filter(it => it.item_type || it.make_model || it.imei || it.serial_no || it.description)
   ), [form.activities]);
@@ -2590,10 +2602,106 @@ export default function EnquiryForm() {
                       </button>
                     )}
                   </div>
-                  <div className="cf-field"><label className="cf-label">Description</label>
-                    <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity..." style={{ width: '100%' }}></textarea>
-                  </div>
-                  {(a.type === 'seizures' || a.type === 'search_seize') && (
+                  {!['search_seize', 'raid', 'arrest_warrant'].includes(a.type) && (
+                    <div className="cf-field"><label className="cf-label">Description</label>
+                      <textarea className="cf-input" rows={3} value={a.description} onChange={e => updateActivity(i, 'description', e.target.value)} placeholder="Describe the activity..." style={{ width: '100%' }}></textarea>
+                    </div>
+                  )}
+
+                  {['search_seize', 'raid', 'arrest_warrant'].includes(a.type) && (
+                    <div style={{ marginTop: 4, padding: 14, background: '#fff', border: '1.5px solid #cbd5e1', borderRadius: 8 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: '#015C94', marginBottom: 12 }}>
+                        {a.type === 'raid' ? 'Raid Permission Details' : a.type === 'arrest_warrant' ? 'Arrest Warrant Details' : 'Search Warrant Details'}
+                      </div>
+                      <div className="cf-field" style={{ marginBottom: 10 }}>
+                        <label className="cf-label required">Subject</label>
+                        <input
+                          type="text"
+                          className="cf-input"
+                          value={a.subject || ''}
+                          onChange={e => updateActivity(i, 'subject', e.target.value)}
+                          placeholder={a.type === 'raid'
+                            ? 'PERMISSION TO CONDUCT A RAID IN CASE FIR / ENQUIRY NO. …'
+                            : a.type === 'arrest_warrant'
+                              ? 'ARREST WARRANT IN ENQUIRY / FIR NO. …'
+                              : 'SEARCH WARRANT U/S 33 PECA-2016 IN ENQUIRY NO. …'}
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                        <div className="cf-field">
+                          <label className="cf-label required">Kota / Location (Premises)</label>
+                          <input
+                            type="text"
+                            className="cf-input"
+                            value={a.kota || ''}
+                            onChange={e => updateActivity(i, 'kota', e.target.value)}
+                            placeholder="Address / kota jahan raid ya search hogi"
+                          />
+                        </div>
+                        <div className="cf-field">
+                          <label className="cf-label required">Kis ke khilaf (Against whom)</label>
+                          <select
+                            className="cf-input"
+                            value={(form.accused || []).some(ac => ac.name === a.against_whom) ? (a.against_whom || '') : ''}
+                            onChange={e => updateActivity(i, 'against_whom', e.target.value)}
+                          >
+                            <option value="">— Select accused —</option>
+                            {(form.accused || []).filter(ac => (ac.name || '').trim()).map((ac, idx) => (
+                              <option key={idx} value={ac.name}>{ac.name}{ac.father_name ? ` s/o ${ac.father_name}` : ''}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            className="cf-input"
+                            style={{ marginTop: 6 }}
+                            value={a.against_whom || ''}
+                            onChange={e => updateActivity(i, 'against_whom', e.target.value)}
+                            placeholder="Ya manually naam likhein"
+                          />
+                        </div>
+                      </div>
+                      <div className="cf-field" style={{ marginBottom: 10 }}>
+                        <label className="cf-label required">Kab karna hay (Date &amp; Time)</label>
+                        <input
+                          type="datetime-local"
+                          className="cf-input"
+                          value={a.scheduled_at || ''}
+                          onChange={e => updateActivity(i, 'scheduled_at', e.target.value)}
+                        />
+                      </div>
+                      <div className="cf-field" style={{ marginBottom: 12 }}>
+                        <label className="cf-label">Brief facts</label>
+                        <textarea
+                          className="cf-input"
+                          rows={3}
+                          value={a.description || ''}
+                          onChange={e => updateActivity(i, 'description', e.target.value)}
+                          placeholder="Mukhtasir facts — complainant, offence, kyun raid/search/arrest darkar hai"
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        {a.type === 'raid' && (
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('raid-permission-print', a)}>
+                            Print Raid Permission
+                          </button>
+                        )}
+                        {a.type === 'search_seize' && (
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('search-warrant-print', a)}>
+                            Print Search Warrant
+                          </button>
+                        )}
+                        {a.type === 'arrest_warrant' && (
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('arrest-warrant-print', a)}>
+                            Print Arrest Warrant
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {a.type === 'seizures' && (
                     <div style={{ marginTop: 14, padding: 14, background: '#fff', border: '1.5px solid #bfdbfe', borderRadius: 8, boxShadow: '0 2px 8px rgba(1,92,148,0.06)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                         <div>
@@ -2615,28 +2723,6 @@ export default function EnquiryForm() {
                           >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Scope Letter
                           </button>
-                          {a.type === 'search_seize' && (
-                            <>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              style={{ color: '#475569', borderColor: '#94a3b8', fontWeight: 600 }}
-                              onClick={() => printDocument('search-warrant-print')}
-                              title="Print Search Warrant U/S 33 PECA"
-                            >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Search Warrant
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              style={{ color: '#7c2d12', borderColor: '#fdba74', fontWeight: 600 }}
-                              onClick={() => printDocument('arrest-warrant-print')}
-                              title="Print Arrest Warrant"
-                            >
-                              Print Arrest Warrant
-                            </button>
-                            </>
-                          )}
                           {!isSupervisor && (
                             <>
                               <button
@@ -2910,22 +2996,6 @@ export default function EnquiryForm() {
                           </div>
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {a.type === 'raid' && (
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={printRaidPermission}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Raid Permission
-                      </button>
-                    </div>
-                  )}
-
-                  {a.type === 'arrest_warrant' && (
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => printDocument('arrest-warrant-print')}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Arrest Warrant
-                      </button>
                     </div>
                   )}
 
