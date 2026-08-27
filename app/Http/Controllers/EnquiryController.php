@@ -814,11 +814,7 @@ class EnquiryController extends Controller
             'approved' => (int) ($statsRow->approved ?? 0),
         ];
 
-        if (request()->expectsJson() || request()->is('api/*') || request()->ajax() || request()->wantsJson()) {
-            return response()->json($enquiries);
-        }
-
-        return view('enquiries.index', compact('enquiries', 'stats'));
+        return response()->json($enquiries);
     }
 
     public function stats()
