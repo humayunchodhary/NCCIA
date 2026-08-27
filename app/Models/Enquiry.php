@@ -216,7 +216,7 @@ class Enquiry extends Model
      */
     public function scopeVisibleTo($query, ?User $user)
     {
-        $user = $user ?? auth()->user();
+        $user = $user ?? auth('api')->user() ?? auth()->user() ?? request()->user();
 
         if (!$user) {
             return $query->whereRaw('1 = 0');
