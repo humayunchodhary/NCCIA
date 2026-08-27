@@ -5,7 +5,6 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import { formatDisplayDateTime } from '../utils/datetime';
 import { hasAnyRole, hasRole, isForensicAdmin } from '../utils/permissions';
 import { useAuth } from '../contexts/AuthContext';
-import { generateBarcodeSvg } from '../utils/barcode';
 import { generateOfficialDocumentQr } from '../utils/qrcode';
 import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 
@@ -100,7 +99,7 @@ export default function ForensicRequestDetail() {
     if (!row?.id) return;
     const code = (row.request_no || row.report_code || `FR-${row.id || '001'}`).toUpperCase();
     generateOfficialDocumentQr({
-      type: 'forensic',
+      type: 'custody',
       id: row.id,
       size: 62,
       fallback: {
@@ -1103,11 +1102,10 @@ export default function ForensicRequestDetail() {
           <tbody>
             <tr>
               <td style={{width:80,verticalAlign:'middle',textAlign:'left',border:'none',padding:0}}>
-                <div style={{marginBottom:3}}><img src="/images/images.jpg" alt="NCCIA Logo" style={{width:38,height:38,objectFit:'contain'}} /></div>
                 {f31QrSvg ? (
                   <div dangerouslySetInnerHTML={{ __html: f31QrSvg }} />
                 ) : (
-                  <div dangerouslySetInnerHTML={{ __html: generateBarcodeSvg(row.request_no || row.report_code || 'NCCIA-FL', { height: 26, barWidth: 1.05, fontSize: 8 }) }} />
+                  <div style={{fontSize:9,fontWeight:700,textAlign:'center'}}>QR</div>
                 )}
                 <div style={{fontFamily:'monospace',fontSize:8,fontWeight:'bold',marginTop:1,textAlign:'center'}}>
                   {row.request_no || row.report_code || 'NCCIA-FL'}
@@ -1237,8 +1235,7 @@ export default function ForensicRequestDetail() {
                       })()}
                     </td>
                     <td style={{border:'1px solid #000',padding:'5px 7px',verticalAlign:'middle',textAlign:'center'}}>
-                      <div style={{fontWeight:'bold',fontSize:10.5,marginBottom:3}}>[Lab No: {itemLabNo || '36671'}]</div>
-                      <div dangerouslySetInnerHTML={{ __html: generateBarcodeSvg(itemLabNo || '36671', { height: 26, barWidth: 1.15, fontSize: 8, showText: false }) }} />
+                      <div style={{fontWeight:'bold',fontSize:10.5}}>[Lab No: {itemLabNo || '—'}]</div>
                     </td>
                   </tr>
                 );

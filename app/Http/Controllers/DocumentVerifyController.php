@@ -20,6 +20,7 @@ class DocumentVerifyController extends Controller
         'notice'            => 'Summon / Notice',
         'cfr'               => 'Confidential Final Report',
         'forensic'          => 'Forensic Request',
+        'custody'           => 'Chain of Custody',
         'raid'              => 'Raid Permission',
         'warrant'           => 'Search Warrant',
         'diary'             => 'Case Diary',
@@ -39,12 +40,9 @@ class DocumentVerifyController extends Controller
         abort_unless($this->qr->checkToken($type, $id, $token), 404);
         abort_unless(isset(self::LABELS[$type]), 404);
 
-        [$title, $rows] = $this->details($type, $id);
+        $payload = $this->payload($type, $id);
 
-        return view('verify.document', [
-            'title' => $title,
-            'rows'  => $rows,
-        ]);
+        return view('verify.document', $payload);
     }
 
     /**
@@ -55,9 +53,9 @@ class DocumentVerifyController extends Controller
         abort_unless(isset(self::LABELS[$type]), 404);
 
         try {
-            [$title, $rows] = $this->details($type, $id);
-            $fields = ['Type' => $title];
-            foreach ($rows as $row) {
+            $payload = $this->payload($type, $id);
+            $fields = ['Type' => $payload['title']];
+            foreach ($payload['rows'] as $row) {
                 $fields[$row['k']] = $row['v'];
             }
 
@@ -66,8 +64,8 @@ class DocumentVerifyController extends Controller
             return response()->json([
                 'url'     => $url,
                 'payload' => $url,
-                'caption' => $fields['No'] ?? ($fields['Enquiry No'] ?? ($fields['Complaint No'] ?? $title)),
-                'title'   => $title,
+                'caption' => $fields['Lab File No'] ?? ($fields['Request No'] ?? ($fields['Enquiry No'] ?? ($fields['Complaint No'] ?? $payload['title']))),
+                'title'   => $payload['title'],
             ]);
         } catch (\Throwable $e) {
             report($e);
@@ -81,20 +79,46 @@ class DocumentVerifyController extends Controller
     }
 
     /**
-     * @return array{0:string,1:list<array{k:string,v:string}>}
+     * @return array{title:string,rows:list<array{k:string,v:string}>,devices:list<array>,custody:list<array>,notes:list<array{k:string,v:string}>}
      */
-    private function details(string $type, string $id): array
+    private function payload(string $type, string $id): array
     {
         $title = self::LABELS[$type];
+        $rows = [];
+        $devices = [];
+        $custody = [];
+        $notes = [];
 
-        return match ($type) {
-            'complaint', 'complaint_report' => [$title, $this->complaintRows((int) $id)],
-            'enquiry', 'cfr', 'raid', 'warrant', 'account', 'scope' => [$title, $this->enquiryRows((int) $id)],
-            'diary' => [$title, $this->diaryRows((int) $id)],
-            'notice' => [$title, $this->noticeRows((int) $id)],
-            'forensic' => [$title, $this->forensicRows((int) $id)],
-            default => abort(404),
-        };
+        switch ($type) {
+            case 'complaint':
+            case 'complaint_report':
+                $rows = $this->complaintRows((int) $id);
+                break;
+            case 'enquiry':
+            case 'cfr':
+            case 'raid':
+            case 'warrant':
+            case 'account':
+                $rows = $this->enquiryRows((int) $id);
+                break;
+            case 'scope':
+                [$rows, $devices, $notes] = $this->scopeDetails((int) $id);
+                break;
+            case 'diary':
+                $rows = $this->diaryRows((int) $id);
+                break;
+            case 'notice':
+                $rows = $this->noticeRows((int) $id);
+                break;
+            case 'forensic':
+            case 'custody':
+                [$rows, $devices, $custody, $notes] = $this->forensicDetails((int) $id);
+                break;
+            default:
+                abort(404);
+        }
+
+        return compact('title', 'rows', 'devices', 'custody', 'notes');
     }
 
     private function complaintRows(int $id): array
@@ -128,6 +152,209 @@ class DocumentVerifyController extends Controller
         ];
     }
 
+    /**
+     * @return array{0:list<array{k:string,v:string}>,1:list<array>,2:list<array{k:string,v:string}>}
+     */
+    private function scopeDetails(int $id): array
+    {
+        $e = Enquiry::with(['complaint.circle', 'officer', 'activities', 'accusedPersons'])->findOrFail($id);
+        $rows = $this->enquiryRows($id);
+        $devices = $this->enquiryDevices($e);
+        $notes = [];
+
+        $scopeText = '';
+        foreach ($e->activities as $act) {
+            if (in_array($act->type, ['seizures', 'search_seize'], true)) {
+                $meta = is_array($act->meta) ? $act->meta : [];
+                $chunk = trim((string) ($meta['analysis_scope'] ?? $act->description ?? ''));
+                if ($chunk !== '') {
+                    $scopeText .= ($scopeText ? "\n\n" : '') . $chunk;
+                }
+            }
+        }
+
+        $fr = ForensicRequest::where('enquiry_id', $e->id)->latest('id')->first();
+        if ($fr && !empty($fr->note)) {
+            $notes[] = ['k' => 'Forwarding Note', 'v' => (string) $fr->note];
+        }
+        if ($scopeText !== '') {
+            $notes[] = ['k' => 'Scope of Analysis', 'v' => $scopeText];
+        }
+
+        return [$rows, $devices, $notes];
+    }
+
+    /**
+     * @return array{0:list<array{k:string,v:string}>,1:list<array>,2:list<array>,3:list<array{k:string,v:string}>}
+     */
+    private function forensicDetails(int $id): array
+    {
+        $f = ForensicRequest::with([
+            'items',
+            'enquiry.complaint.circle',
+            'enquiry.officer',
+            'enquiry.accusedPersons',
+            'submitter',
+            'assignee',
+            'adReviewer',
+            'handedTo',
+        ])->findOrFail($id);
+
+        $e = $f->enquiry;
+        $direct = is_array($e?->direct_info) ? $e->direct_info : [];
+
+        $rows = [
+            ['k' => 'Lab File No', 'v' => $f->request_no ?: ('FR-' . $f->id)],
+            ['k' => 'Report Code', 'v' => $f->report_code ?: '—'],
+            ['k' => 'Enquiry No', 'v' => $e?->enquiry_number ?: ($e ? ('ENQ-' . $e->id) : '—')],
+            ['k' => 'Complainant', 'v' => $e?->complaint?->complainant_name ?: ($direct['complainant_name'] ?? ($f->external_person_name ?: '—'))],
+            ['k' => 'Organization', 'v' => $f->external_organization ?: ($e?->complaint?->circle?->name ?: '—')],
+            ['k' => 'Submitted By', 'v' => $f->submitter?->name ?: '—'],
+            ['k' => 'Assigned Examiner', 'v' => $f->assignee?->name ?: ($f->adReviewer?->name ?: '—')],
+            ['k' => 'Status', 'v' => $this->statusLabel($f->status)],
+            ['k' => 'Priority', 'v' => $this->statusLabel($f->priority)],
+            ['k' => 'Received', 'v' => $f->created_at?->format('d/m/Y h:i A') ?: '—'],
+            ['k' => 'Opened', 'v' => $f->opened_at ? \Carbon\Carbon::parse($f->opened_at)->format('d/m/Y h:i A') : '—'],
+            ['k' => 'Report Ready', 'v' => $f->report_ready_at ? \Carbon\Carbon::parse($f->report_ready_at)->format('d/m/Y h:i A') : '—'],
+            ['k' => 'Handed Over', 'v' => $f->handed_over_at ? \Carbon\Carbon::parse($f->handed_over_at)->format('d/m/Y h:i A') : '—'],
+        ];
+
+        $devices = [];
+        foreach ($f->items as $it) {
+            $devices[] = $this->normalizeDevice([
+                'item_type'         => $it->item_type,
+                'make_model'        => $it->make_model,
+                'imei'              => $it->imei,
+                'imei2'             => $it->imei2,
+                'serial_no'         => $it->serial_no,
+                'storage_capacity'  => $it->storage_capacity,
+                'condition'         => $it->condition,
+                'seized_from'       => $it->seized_from,
+                'quantity'          => $it->quantity,
+                'description'       => $it->description,
+            ]);
+        }
+
+        if (!$devices && $e) {
+            $e->loadMissing(['activities']);
+            $devices = $this->enquiryDevices($e);
+        }
+
+        $custody = [
+            [
+                'from'   => $f->submitter?->name ?: 'Enquiry Officer',
+                'to'     => $f->adReviewer?->name ?: ($f->assignee?->name ?: 'AD Forensic'),
+                'at'     => $f->created_at?->format('d/m/Y h:i A') ?: '—',
+                'remark' => 'Received at Forensic Lab',
+            ],
+        ];
+        if ($f->assigned_at) {
+            $custody[] = [
+                'from'   => $f->adReviewer?->name ?: 'AD Forensic',
+                'to'     => $f->assignee?->name ?: 'Forensic Examiner',
+                'at'     => \Carbon\Carbon::parse($f->assigned_at)->format('d/m/Y h:i A'),
+                'remark' => 'Assigned for examination',
+            ];
+        }
+        if ($f->report_ready_at) {
+            $custody[] = [
+                'from'   => $f->assignee?->name ?: 'Examiner',
+                'to'     => $f->adReviewer?->name ?: 'AD Forensic',
+                'at'     => \Carbon\Carbon::parse($f->report_ready_at)->format('d/m/Y h:i A'),
+                'remark' => 'Report ready',
+            ];
+        }
+        if ($f->handed_over_at) {
+            $custody[] = [
+                'from'   => $f->adReviewer?->name ?: 'AD Forensic',
+                'to'     => $f->handedTo?->name ?: ($f->submitter?->name ?: 'Enquiry Officer'),
+                'at'     => \Carbon\Carbon::parse($f->handed_over_at)->format('d/m/Y h:i A'),
+                'remark' => trim((string) ($f->handover_remarks ?: 'Custody handed over')),
+            ];
+        }
+
+        $notes = [];
+        if (!empty($f->note)) {
+            $notes[] = ['k' => 'Lab Remarks', 'v' => (string) $f->note];
+        }
+        if (!empty($f->findings)) {
+            $notes[] = ['k' => 'Findings', 'v' => (string) $f->findings];
+        }
+        if (!empty($f->handover_remarks)) {
+            $notes[] = ['k' => 'Handover Remarks', 'v' => (string) $f->handover_remarks];
+        }
+
+        return [$rows, $devices, $custody, $notes];
+    }
+
+    private function enquiryDevices(Enquiry $enquiry): array
+    {
+        $devices = [];
+        $seen = [];
+
+        foreach ($enquiry->activities ?? [] as $act) {
+            $meta = is_array($act->meta) ? $act->meta : [];
+            $items = $meta['seize_items'] ?? [];
+            if (!is_array($items)) {
+                continue;
+            }
+            foreach ($items as $it) {
+                if (!is_array($it)) {
+                    continue;
+                }
+                $norm = $this->normalizeDevice($it);
+                $key = strtolower(trim(($norm['imei'] ?: '') . '|' . ($norm['serial_no'] ?: '') . '|' . ($norm['make_model'] ?: '') . '|' . ($norm['item_type'] ?: '')));
+                if ($key === '|||' || isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $devices[] = $norm;
+            }
+        }
+
+        $requests = ForensicRequest::with('items')->where('enquiry_id', $enquiry->id)->get();
+        foreach ($requests as $fr) {
+            foreach ($fr->items as $it) {
+                $norm = $this->normalizeDevice([
+                    'item_type'         => $it->item_type,
+                    'make_model'        => $it->make_model,
+                    'imei'              => $it->imei,
+                    'imei2'             => $it->imei2,
+                    'serial_no'         => $it->serial_no,
+                    'storage_capacity'  => $it->storage_capacity,
+                    'condition'         => $it->condition,
+                    'seized_from'       => $it->seized_from,
+                    'quantity'          => $it->quantity,
+                    'description'       => $it->description,
+                ]);
+                $key = strtolower(trim(($norm['imei'] ?: '') . '|' . ($norm['serial_no'] ?: '') . '|' . ($norm['make_model'] ?: '') . '|' . ($norm['item_type'] ?: '')));
+                if ($key === '|||' || isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $devices[] = $norm;
+            }
+        }
+
+        return $devices;
+    }
+
+    private function normalizeDevice(array $it): array
+    {
+        return [
+            'item_type'        => (string) ($it['item_type'] ?? $it['type'] ?? 'Device'),
+            'make_model'       => (string) ($it['make_model'] ?? $it['model'] ?? ''),
+            'imei'             => (string) ($it['imei'] ?? ''),
+            'imei2'            => (string) ($it['imei2'] ?? ''),
+            'serial_no'        => (string) ($it['serial_no'] ?? ''),
+            'storage_capacity' => (string) ($it['storage_capacity'] ?? ''),
+            'condition'        => (string) ($it['condition'] ?? ''),
+            'seized_from'      => (string) ($it['seized_from'] ?? $it['owner'] ?? ''),
+            'quantity'         => (string) ($it['quantity'] ?? '1'),
+            'description'      => (string) ($it['description'] ?? ''),
+        ];
+    }
+
     private function diaryRows(int $id): array
     {
         $activity = EnquiryActivity::with('enquiry.complaint.circle')->find($id);
@@ -153,23 +380,6 @@ class DocumentVerifyController extends Controller
             ['k' => 'Complaint No', 'v' => $n->enquiry?->complaint?->tracking_no ?: '—'],
             ['k' => 'Circle', 'v' => $n->enquiry?->complaint?->circle?->name ?: '—'],
             ['k' => 'Status', 'v' => $this->statusLabel($n->status)],
-        ];
-    }
-
-    private function forensicRows(int $id): array
-    {
-        $f = ForensicRequest::with(['enquiry.complaint.circle', 'enquiry.officer'])->findOrFail($id);
-        $e = $f->enquiry;
-        $direct = is_array($e?->direct_info) ? $e->direct_info : [];
-
-        return [
-            ['k' => 'Request No', 'v' => $f->request_no ?: ('FR-' . $f->id)],
-            ['k' => 'Report Code', 'v' => $f->report_code ?: '—'],
-            ['k' => 'Enquiry No', 'v' => $e?->enquiry_number ?: ($e ? ('ENQ-' . $e->id) : '—')],
-            ['k' => 'Complainant', 'v' => $e?->complaint?->complainant_name ?: ($direct['complainant_name'] ?? ($f->external_person_name ?: '—'))],
-            ['k' => 'Circle', 'v' => $e?->complaint?->circle?->name ?: '—'],
-            ['k' => 'Status', 'v' => $this->statusLabel($f->status)],
-            ['k' => 'Priority', 'v' => $this->statusLabel($f->priority)],
         ];
     }
 
