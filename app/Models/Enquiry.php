@@ -249,12 +249,27 @@ class Enquiry extends Model
                         $sub->where('circle_id', $user->circle_id);
                     })->orWhere(function ($dq) use ($user) {
                         $dq->whereNull('complaint_id')
-                           ->where('direct_info->circle_id', $user->circle_id);
+                           ->where(function ($jsonQ) use ($user) {
+                               $jsonQ->where('direct_info->circle_id', $user->circle_id)
+                                     ->orWhere('direct_info->circle_id', (string) $user->circle_id);
+                           });
                     });
                 });
             }
 
-            // 3. Enquiries belonging to complaints visible to user
+            // 3. For any Enquiry Officer, Inspector or Circle Incharge, allow all circle enquiries or all enquiries
+            $isEo = $user->hasAnyRole(['enquiry_officer', 'investigation_officer', 'circle_incharge', 'inspector', 'sub_inspector', 'officer']);
+            if ($isEo) {
+                if ($user->circle_id) {
+                    $q->orWhereHas('complaint', function ($sub) use ($user) {
+                        $sub->where('circle_id', $user->circle_id);
+                    })->orWhereNull('complaint_id');
+                } else {
+                    $q->orWhereRaw('1 = 1');
+                }
+            }
+
+            // 4. Enquiries belonging to complaints visible to user
             $q->orWhereIn('complaint_id', Complaint::visibleTo($user)->select('id'));
         });
     }

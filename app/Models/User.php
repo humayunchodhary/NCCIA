@@ -13,7 +13,11 @@ use Spatie\Permission\Traits\HasRoles;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable;
+    use HasRoles {
+        hasRole as traitHasRole;
+        hasAnyRole as traitHasAnyRole;
+    }
 
     protected $fillable = ['name', 'email', 'password', 'role', 'designation', 'circle_id', 'zone_id', 'signature', 'phone', 'country_code'];
 
@@ -23,6 +27,46 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function hasRole($roles, string $guard = null): bool
+    {
+        $userRole = strtolower(trim((string) ($this->role ?? '')));
+        $userDesig = strtolower(trim((string) ($this->designation ?? '')));
+
+        $checkSingle = function ($role) use ($userRole, $userDesig) {
+            $r = strtolower(trim((string) $role));
+            if ($userRole === $r) return true;
+            if ($r === 'enquiry_officer' && (str_contains($userRole, 'enquiry') || str_contains($userRole, 'inspector') || str_contains($userDesig, 'enquiry') || str_contains($userDesig, 'inspector'))) return true;
+            if ($r === 'investigation_officer' && (str_contains($userRole, 'investigation') || str_contains($userDesig, 'investigation'))) return true;
+            if ($r === 'verification_officer' && (str_contains($userRole, 'verification') || str_contains($userDesig, 'verification'))) return true;
+            if ($r === 'circle_incharge' && (str_contains($userRole, 'circle_incharge') || str_contains($userRole, 'incharge') || str_contains($userDesig, 'incharge'))) return true;
+            if ($r === 'admin' && ($userRole === 'admin' || $userRole === 'superadmin')) return true;
+            return false;
+        };
+
+        if (is_string($roles)) {
+            if ($checkSingle($roles)) return true;
+        } elseif (is_array($roles)) {
+            foreach ($roles as $r) {
+                if ($checkSingle($r)) return true;
+            }
+        }
+
+        try {
+            return $this->traitHasRole($roles, $guard);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    public function hasAnyRole(...$roles): bool
+    {
+        $flattened = is_array($roles[0] ?? null) ? $roles[0] : $roles;
+        foreach ($flattened as $r) {
+            if ($this->hasRole($r)) return true;
+        }
+        return false;
     }
 
     public function setEmailAttribute($value)
@@ -55,7 +99,7 @@ class User extends Authenticatable
      */
     public function seesAllData(): bool
     {
-        return $this->hasAnyRole([
+        $allRoles = [
             'admin',
             'director_general',
             'additional_director',
@@ -63,7 +107,9 @@ class User extends Authenticatable
             'reader_branch',
             'ad_legal',
             'dd_legal',
-        ]);
+        ];
+
+        return $this->hasAnyRole($allRoles) || in_array(strtolower($this->role ?? ''), $allRoles, true);
     }
 
     /**
