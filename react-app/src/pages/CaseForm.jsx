@@ -11,6 +11,7 @@ import {
   buildDirectInfoPayload,
   CASE_CATEGORIES,
 } from '../utils/directCaseOptions';
+import { SIMPLE_STATUSES, PRIORITY_OPTIONS, toSimpleStatus, fromSimpleStatus } from '../utils/simpleStatus';
 
 const CASE_STATUS = [
   { value: 'registered', name: 'Registered (Moharrar)' },
@@ -53,6 +54,7 @@ const initialForm = {
   fir_no: '',
   investigation_officer_id: '',
   status: 'registered',
+  priority: 'normal',
   recommendation: '',
   transfer_department: '',
   transfer_circle: '',
@@ -81,6 +83,7 @@ export default function CaseForm() {
   const [activeTab, setActiveTab] = useState('details');
   const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
+  const [inherited, setInherited] = useState({ complaint: null, accused: [], witnesses: [], devices: [] });
 
   useEffect(() => {
     api.get('/enquiries?status=registered,assigned,in_progress,cfr_submitted,approved,closed').then(r => {
@@ -110,6 +113,7 @@ export default function CaseForm() {
           fir_no: d.fir_no || '',
           investigation_officer_id: d.investigation_officer_id || '',
           status: d.status || 'registered',
+          priority: d.priority || d.enquiry?.priority || d.enquiry?.complaint?.priority_type || 'normal',
           recommendation: d.recommendation || '',
           transfer_department: d.transfer_department || '',
           transfer_circle: d.transfer_circle || '',
@@ -142,6 +146,16 @@ export default function CaseForm() {
             decision: ap.decision || '',
             remarks: ap.remarks || '',
           })),
+        });
+        const enq = d.enquiry || {};
+        const devices = (enq.activities || [])
+          .filter(a => a.type === 'seizures' || a.type === 'search_seize')
+          .flatMap(a => a.meta?.seize_items || a.seize_items || []);
+        setInherited({
+          complaint: enq.complaint || null,
+          accused: enq.accused_persons || enq.accusedPersons || [],
+          witnesses: enq.witnesses || [],
+          devices,
         });
         if (!d.enquiry_id && d.direct_info) {
           setDirectMode(true);
@@ -179,9 +193,9 @@ export default function CaseForm() {
   const buildPayload = () => {
     const payload = {
       enquiry_id: directMode ? null : (form.enquiry_id || undefined),
-      fir_no: form.fir_no || undefined,
       investigation_officer_id: form.investigation_officer_id || undefined,
       status: form.status,
+      priority: form.priority || 'normal',
       recommendation: form.recommendation || undefined,
       transfer_department: form.transfer_department || undefined,
       transfer_circle: form.transfer_circle || undefined,
@@ -327,8 +341,26 @@ export default function CaseForm() {
                     )}
                     {errors.enquiry_id && <div className="cf-error">{errors.enquiry_id}</div>}
                   </div>
-                  {renderField('FIR Number', 'fir_no', { placeholder: 'Auto-generated or manual' })}
-                  {renderField('Status', 'status', { options: CASE_STATUS, required: true })}
+                  <div className="cf-field">
+                    <label className="cf-label">FIR Number</label>
+                    <div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)', fontWeight: 700, fontFamily: 'monospace' }}>{form.fir_no || 'Auto-generated on save'}</div>
+                  </div>
+                  <div className="cf-field">
+                    <label className="cf-label required">Status</label>
+                    <select
+                      className="cf-input"
+                      value={toSimpleStatus(form.status)}
+                      onChange={e => setForm(f => ({ ...f, status: fromSimpleStatus(e.target.value, f.status) }))}
+                    >
+                      {SIMPLE_STATUSES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="cf-field">
+                    <label className="cf-label">Priority</label>
+                    <select className="cf-input" value={form.priority || 'normal'} onChange={setF('priority')}>
+                      {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                    </select>
+                  </div>
                 </div>
 
                 {directMode && (
@@ -344,26 +376,59 @@ export default function CaseForm() {
               </div>
             </div>
 
-            <div className="cf-section">
-              <div className="cf-section-header">
-                <div className="cf-section-icon" style={{ background: '#2B2B2B' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            {inherited.complaint && (
+              <div className="cf-section" style={{ marginBottom: 16 }}>
+                <div className="cf-section-header">
+                  <div className="cf-section-icon" style={{ background: '#2d6a4f' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  </div>
+                  <div><div className="cf-section-title">Previous Record</div><div className="cf-section-sub">Auto-fetched from complaint / enquiry</div></div>
                 </div>
-                <div><div className="cf-section-title">Assignment</div><div className="cf-section-sub">Moharrar assigns Investigation Officer</div></div>
-                <div className="cf-section-badge">STEP 2</div>
+                <div className="cf-body">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, fontSize: 13, marginBottom: 14 }}>
+                    {[
+                      ['Complainant', inherited.complaint.complainant_name],
+                      ['CNIC', inherited.complaint.cnic],
+                      ['Contact', inherited.complaint.contact_no],
+                      ['Offence', inherited.complaint.offence_type],
+                      ['Tracking No', inherited.complaint.tracking_no],
+                    ].map(([label, val]) => (
+                      <div key={label}><strong style={{ color: '#666', fontSize: 11, textTransform: 'uppercase' }}>{label}</strong><div style={{ marginTop: 2 }}>{val || '—'}</div></div>
+                    ))}
+                  </div>
+                  {inherited.accused.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <strong style={{ fontSize: 12, color: '#015C94' }}>Accused</strong>
+                      <ul style={{ margin: '6px 0 0 18px', fontSize: 13 }}>
+                        {inherited.accused.map((a, i) => (
+                          <li key={i}>{a.name || '—'} {a.cnic ? `(${a.cnic})` : ''} {a.father_name ? `s/o ${a.father_name}` : ''}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {inherited.witnesses.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <strong style={{ fontSize: 12, color: '#015C94' }}>Witnesses</strong>
+                      <ul style={{ margin: '6px 0 0 18px', fontSize: 13 }}>
+                        {inherited.witnesses.map((w, i) => (
+                          <li key={i}>{w.name || '—'} {w.cnic ? `(${w.cnic})` : ''}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {inherited.devices.length > 0 && (
+                    <div>
+                      <strong style={{ fontSize: 12, color: '#015C94' }}>Seized devices</strong>
+                      <ul style={{ margin: '6px 0 0 18px', fontSize: 13 }}>
+                        {inherited.devices.map((d, i) => (
+                          <li key={i}>{(d.item_type || d.type || 'Device')} {d.make_model || ''} {d.imei ? `IMEI ${d.imei}` : (d.serial_no ? `SN ${d.serial_no}` : '')}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="cf-body">
-                <div className="cf-row-3">
-                  {renderField('Investigation Officer', 'investigation_officer_id', { required: true, options: officers })}
-                  {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS })}
-                </div>
-                <div className="cf-row-2">
-                  {renderField('Transfer Department', 'transfer_department')}
-                  {renderField('Transfer Circle', 'transfer_circle', { options: circleOptions })}
-                </div>
-                {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
-              </div>
-            </div>
+            )}
             {id && <OfficerHistoryPanel endpoint={`/cases/${id}/officer-history`} />}
           </>
         )}

@@ -200,7 +200,7 @@ export function canViewVerificationReportInEnquiry(user) {
 }
 
 export const ENQUIRY_CASE_REGISTER_STATUSES = [
-  'cfr_submitted', 'approved', 'referred_court', 'in_progress',
+  'cfr_submitted', 'approved', 'referred_court', 'in_progress', 'working', 'complete',
   'legal_review_dd', 'legal_review_ad', 'legal_review_dg',
 ];
 

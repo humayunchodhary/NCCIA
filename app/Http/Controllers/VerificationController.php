@@ -1422,7 +1422,7 @@ class VerificationController extends Controller
                             $circleCode = Circle::find($circleId)?->code;
                             $gen = app(EnquiryNumberGenerator::class);
                             $officerId = (int) $data['enquiry_officer_id'];
-                            $enquiry = Enquiry::create([
+                            $enquiryAttrs = [
                                 'complaint_id'       => $complaint?->id,
                                 'direct_info'        => $complaint ? null : ($verification->direct_info ?? null),
                                 'enquiry_number'     => $gen->generate($circleCode),
@@ -1430,7 +1430,12 @@ class VerificationController extends Controller
                                 'reg_date'           => now(),
                                 'assignment_date'    => now(),
                                 'enquiry_officer_id' => $officerId,
-                            ]);
+                            ];
+                            if (\Illuminate\Support\Facades\Schema::hasColumn('enquiries', 'priority')) {
+                                $enquiryAttrs['priority'] = $complaint?->priority_type ?: 'normal';
+                            }
+                            $enquiry = Enquiry::create($enquiryAttrs);
+                            app(\App\Services\EnquiryRecordHydrator::class)->hydrate($enquiry);
                             if ($complaint) {
                                 $complaint->update([
                                     'status'       => 'enquiry_registered',

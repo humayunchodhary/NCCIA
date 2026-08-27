@@ -15,6 +15,7 @@ import {
   buildDirectInfoPayload,
   CASE_CATEGORIES,
 } from '../utils/directCaseOptions';
+import { SIMPLE_STATUSES, PRIORITY_OPTIONS, toSimpleStatus, fromSimpleStatus } from '../utils/simpleStatus';
 
 const ENQUIRY_STATUS = [
   { value: 'registered', name: 'Registered (Reader Branch)' },
@@ -39,6 +40,7 @@ const ACTIVITY_TYPES = [
   { value: 'bank_record', name: 'Bank Enquiry' },
   { value: 'search_seize', name: 'Search Operation / Warrant' },
   { value: 'raid', name: 'Raid Permission / Operation' },
+  { value: 'arrest_warrant', name: 'Arrest Warrant' },
   { value: 'notices', name: 'Summon Issued' },
   { value: 'diaries', name: 'Diary Entry' },
   { value: 'seizures', name: 'Seizure Memo' },
@@ -168,7 +170,8 @@ const initialForm = {
   tracking_no: '',
   enquiry_number: '',
   reg_date: new Date().toISOString().split('T')[0],
-  status: 'registered',
+  status: 'assigned',
+  priority: 'normal',
   enquiry_officer_id: '',
   recommendation: '',
   closure_reason: '',
@@ -289,9 +292,9 @@ export default function EnquiryForm() {
   const canEditCfrRemarks = roleNames.some(r => ['admin', 'additional_director'].includes(r));
   const canAuthorizeRequisitions = roleNames.some(r => ['admin', 'director_general', 'additional_director'].includes(r));
   const canRegisterCase = canRegisterCaseFromEnquiry(user);
-  const isEoLocked = !isSupervisor && !!id && ['cfr_submitted', 'approved', 'case_registered', 'closed', 'transferred'].includes(form.status);
+  const isEoLocked = !isSupervisor && !!id && ['cfr_submitted', 'approved', 'case_registered', 'closed', 'transferred', 'complete', 'converted_to_case'].includes(form.status);
   const canSubmitCfr = !isSupervisor && !isEoLocked && !!id
-    && ['registered', 'assigned', 'in_progress'].includes(form.status)
+    && ['registered', 'assigned', 'in_progress', 'pending', 'working'].includes(form.status)
     && roleNames.some(r => ['enquiry_officer', 'investigation_officer'].includes(r));
   const showRegisterCase = !!id && canRegisterCase && enquiryReadyForCaseRegistration({ status: form.status, case_file_id: caseFileId });
   const showVerificationReport = !!id && canViewVerificationReportInEnquiry(user);
@@ -493,13 +496,49 @@ export default function EnquiryForm() {
       return true;
     });
 
+    if (initialWitnesses.length === 0 && d.complaint) {
+      const vWit = vRep?.witnesses || vRep?.initial_witnesses || d.complaint.witnesses || d.complaint.initial_witnesses || [];
+      (Array.isArray(vWit) ? vWit : []).forEach(w => {
+        const key = ((w.cnic || '').replace(/\D/g, '') || (w.name || '').trim().toLowerCase());
+        if (key && seenWit[key]) return;
+        if (key) seenWit[key] = true;
+        initialWitnesses.push({
+          name: w.name || '',
+          father_name: w.father_name || '',
+          relation: w.relation || '',
+          gender: w.gender || '',
+          cnic: w.cnic || '',
+          domicile_district: w.domicile_district || '',
+          nationality: w.nationality || '',
+          passport: w.passport || '',
+          occupation: w.occupation || '',
+          is_government: !!w.is_government,
+          department_name: w.department_name || '',
+          designation: w.designation || '',
+          scale: w.scale || '',
+          contact_no: w.contact_no || w.phone || '',
+          whatsapp_no: w.whatsapp_no || '',
+          mailing_address: w.mailing_address || w.address || '',
+          permanent_address: w.permanent_address || w.address || '',
+          address: w.address || w.mailing_address || '',
+          attachment: null,
+          picture: null,
+          statement_attachment: null,
+          attachment_path: '',
+          picture_path: '',
+          statement_path: '',
+        });
+      });
+    }
+
     setForm(f => ({
       ...f,
       complaint_id: d.complaint_id || d.complaint?.id || '',
       tracking_no: d.complaint?.tracking_no || d.tracking_no || '',
       enquiry_number: d.enquiry_number || '',
       reg_date: toDate(d.reg_date) || toDate(d.created_at),
-      status: d.status || 'registered',
+      status: d.status || 'assigned',
+      priority: d.priority || d.complaint?.priority_type || 'normal',
       enquiry_officer_id: d.enquiry_officer_id || '',
       recommendation: d.recommendation || '',
       closure_reason: d.closure_reason || '',
@@ -546,30 +585,6 @@ export default function EnquiryForm() {
         seize_items: Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
         analysis_scope: a.meta?.analysis_scope || a.analysis_scope || '',
         case_category: a.meta?.case_category || a.case_category || 'Financial Fraud',
-      })),
-      witnesses: (d.witnesses || []).map(w => ({
-        id: w.id,
-        name: w.name || '',
-        father_name: w.father_name || '',
-        relation: w.relation || '',
-        gender: w.gender || '',
-        cnic: w.cnic || '',
-        domicile_district: w.domicile_district || '',
-        nationality: w.nationality || '',
-        passport: w.passport || '',
-        occupation: w.occupation || '',
-        is_government: !!w.is_government,
-        department_name: w.department_name || '',
-        designation: w.designation || '',
-        scale: w.scale || '',
-        contact_no: w.contact_no || '',
-        whatsapp_no: w.whatsapp_no || '',
-        mailing_address: w.mailing_address || '',
-        permanent_address: w.permanent_address || '',
-        address: w.address || '',
-        attachment: w.attachment || null,
-        picture: w.picture || null,
-        statement_attachment: w.statement_attachment || null,
       })),
       notices: (d.notices || []).map(n => ({
         id: n.id,
@@ -1322,7 +1337,7 @@ export default function EnquiryForm() {
     };
 
     const scalarKeys = [
-      'complaint_id', 'tracking_no', 'enquiry_number', 'reg_date', 'status', 'enquiry_officer_id',
+      'complaint_id', 'tracking_no', 'enquiry_number', 'reg_date', 'status', 'priority', 'enquiry_officer_id',
       'recommendation', 'closure_reason', 'transfer_department', 'transfer_circle',
       'merge_complaint_id', 'cfr_summary', 'cfr_type', 'cfr_date', 'charge_against',
       'oral_evidence', 'documentary_evidence', 'plea', 'conclusion', 'cfr_remarks',
@@ -1648,7 +1663,6 @@ export default function EnquiryForm() {
                       )}
                     </div>
                     {renderField('Enquiry Number', 'enquiry_number', { placeholder: 'Manual entry (optional)' })}
-                    {renderField('Status', 'status', { options: ENQUIRY_STATUS, required: true })}
                   </div>
 
                   {directMode && (
@@ -1667,59 +1681,40 @@ export default function EnquiryForm() {
 
             <div className="cf-section">
               <div className="cf-section-header">
-                <div className="cf-section-icon" style={{ background: '#2B2B2B' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div className="cf-section-icon" style={{ background: '#015C94' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
                 </div>
-                <div><div className="cf-section-title">Assignment</div><div className="cf-section-sub">Circle Incharge assigns Enquiry Officer</div></div>
-                <div className="cf-section-badge">STEP 2</div>
+                <div><div className="cf-section-title">Case Details</div><div className="cf-section-sub">Status and priority for this enquiry</div></div>
               </div>
               <div className="cf-body">
-                {!isPrivileged && (
-                  <div style={{ padding: '10px 14px', marginBottom: 16, background: '#eef4f8', border: '1px solid #c5d9e8', borderRadius: 8, fontSize: 13, color: '#2b5d7f' }}>
-                    This section is read-only. Only Circle Incharge / Admin can assign or change the Enquiry Officer.
+                <div className="cf-row-3">
+                  <div className="cf-field">
+                    <label className="cf-label">Enquiry No</label>
+                    <div style={{ padding: '9px 14px', background: '#f5f5f5', borderRadius: 8, fontSize: 13, border: '1.5px solid var(--border)', fontWeight: 700 }}>{form.enquiry_number || '—'}</div>
                   </div>
-                )}
-                {isPrivileged ? (
-                  <>
-                    <div className="cf-row-3">
-                      {renderField('Enquiry Officer', 'enquiry_officer_id', { required: true, options: officers })}
-                      {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS })}
-                      {renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
-                    </div>
-                    <div className="cf-row-2">
-                      {renderField('Transfer Department', 'transfer_department')}
-                      {renderField('Transfer Circle', 'transfer_circle', { options: circles.map(c => ({ value: c.name, name: c.name })) })}
-                    </div>
-                    {renderField('Merge Complaint ID', 'merge_complaint_id', { placeholder: 'Complaint ID to merge with' })}
-                  </>
-                ) : (
-                  <div className="cf-row-3">
-                    <div className="cf-field">
-                      <label className="cf-label">Enquiry Officer</label>
-                      <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{officerName || 'Not assigned'}</div>
-                    </div>
-                    {isSupervisor && (
-                      <>
-                        <div className="cf-field">
-                          <label className="cf-label">Recommendation</label>
-                          <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{recName || '-'}</div>
-                        </div>
-                        <div className="cf-field">
-                          <label className="cf-label">Closure Reason</label>
-                          <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{closureName || '-'}</div>
-                        </div>
-                        <div className="cf-field">
-                          <label className="cf-label">Transfer Dept / Circle</label>
-                          <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{form.transfer_department || form.transfer_circle || '-'}</div>
-                        </div>
-                        <div className="cf-field">
-                          <label className="cf-label">Merge ID</label>
-                          <div style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: '1.5px solid var(--border)' }}>{form.merge_complaint_id || '-'}</div>
-                        </div>
-                      </>
-                    )}
+                  <div className="cf-field">
+                    <label className="cf-label required">Status</label>
+                    <select
+                      className="cf-input cf-select"
+                      value={toSimpleStatus(form.status)}
+                      disabled={isEoLocked}
+                      onChange={e => setForm(f => ({ ...f, status: fromSimpleStatus(e.target.value, f.status) }))}
+                    >
+                      {SIMPLE_STATUSES.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                    </select>
                   </div>
-                )}
+                  <div className="cf-field">
+                    <label className="cf-label">Priority</label>
+                    <select
+                      className="cf-input cf-select"
+                      value={form.priority || 'normal'}
+                      disabled={isEoLocked}
+                      onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
+                    >
+                      {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.name}</option>)}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
             {id && <OfficerHistoryPanel endpoint={`/enquiries/${id}/officer-history`} />}
@@ -2621,6 +2616,7 @@ export default function EnquiryForm() {
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Scope Letter
                           </button>
                           {a.type === 'search_seize' && (
+                            <>
                             <button
                               type="button"
                               className="btn btn-outline btn-sm"
@@ -2630,6 +2626,16 @@ export default function EnquiryForm() {
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Search Warrant
                             </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              style={{ color: '#7c2d12', borderColor: '#fdba74', fontWeight: 600 }}
+                              onClick={() => printDocument('arrest-warrant-print')}
+                              title="Print Arrest Warrant"
+                            >
+                              Print Arrest Warrant
+                            </button>
+                            </>
                           )}
                           {!isSupervisor && (
                             <>
@@ -2911,6 +2917,14 @@ export default function EnquiryForm() {
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
                       <button type="button" className="btn btn-outline btn-sm" onClick={printRaidPermission}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Raid Permission
+                      </button>
+                    </div>
+                  )}
+
+                  {a.type === 'arrest_warrant' && (
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => printDocument('arrest-warrant-print')}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Arrest Warrant
                       </button>
                     </div>
                   )}

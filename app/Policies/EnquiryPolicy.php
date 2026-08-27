@@ -103,7 +103,7 @@ class EnquiryPolicy
         }
 
         return in_array($enquiry->status, [
-            'cfr_submitted', 'approved', 'referred_court', 'in_progress',
+            'cfr_submitted', 'approved', 'referred_court', 'in_progress', 'working', 'complete',
             'legal_review_dd', 'legal_review_ad', 'legal_review_dg',
         ], true);
     }

@@ -27,6 +27,7 @@ class CaseFile extends Model
         'fir_no',
         'investigation_officer_id',
         'status',
+        'priority',
         'recommendation',
         'transfer_department',
         'transfer_circle',

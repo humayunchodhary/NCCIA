@@ -1236,11 +1236,16 @@ HTML;
      */
     public function raidPermissionPrintDocument(Enquiry $enquiry, array $teamMembers = []): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons']);
+        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'Lahore');
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
+        $firNo      = e($enquiry->caseFile?->fir_no ?: $enquiryNo);
+        $compName   = e($enquiry->complaint?->complainant_name ?: 'the complainant');
+        $offence    = e($enquiry->complaint?->offence_type ?: ($enquiry->charge_against ?: 'scam / harassment'));
+        $facts      = trim((string) ($enquiry->complaint?->description ?: ''));
+        $results    = $facts !== '' ? e(\Illuminate\Support\Str::limit(strip_tags($facts), 280)) : 'loss / harassment';
 
         // Accused List
         $accList = $enquiry->accusedPersons;
@@ -1248,7 +1253,8 @@ HTML;
         if ($accList && $accList->count() > 0) {
             foreach ($accList as $i => $acc) {
                 $n = $i + 1;
-                $accRows .= "<div><strong>{$n}: " . e($acc->name) . ' s/o ' . e($acc->father_name ?: '—') . ' r/o ' . e($acc->address ?: '—') . ' .</strong></div>';
+                $addr = $acc->permanent_address ?: ($acc->postal_address ?: '—');
+                $accRows .= "<div><strong>{$n}: " . e($acc->name) . ' s/o ' . e($acc->father_name ?: '—') . ' r/o ' . e($addr) . ' .</strong></div>';
             }
         } else {
             $accRows = '<div><strong>1: Name of Accused s/o r/o .</strong></div><div><strong>2: ABC s/o r/o .</strong></div>';
@@ -1297,12 +1303,12 @@ HTML;
           </table>
 
           <div class="raid-subj">
-            <strong>Subject: - PERMISSION TO CONDUCT A RAID IN CASE FIR NO. {$enquiryNo} .</strong>
+            <strong>Subject: - PERMISSION TO CONDUCT A RAID IN CASE FIR NO. {$firNo} .</strong>
           </div>
 
           <div class="raid-body">
             <p>
-              Brief facts of the subject investigation are that the complainant alleged that he has been scammed / Harassed by which results. The complainant requested to trace the culprit and take legal action against him.
+              Brief facts of the subject investigation are that the complainant <strong>{$compName}</strong> alleged that he has been scammed / harassed by which results <strong>{$results}</strong> under <strong>{$offence}</strong>. The complainant requested to trace the culprit and take legal action against him.
             </p>
 
             <div class="raid-accused" style="margin: 12px 0;">
@@ -1348,26 +1354,38 @@ HTML;
      */
     public function searchWarrantPrintDocument(Enquiry $enquiry): string
     {
-        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons']);
+        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
 
         $circle     = $enquiry->complaint?->circle;
         $circleName = e($circle?->name ?? 'LAHORE');
         $circleCode = e($circle?->code ?? 'LHR');
         $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
+        $firNo      = e($enquiry->caseFile?->fir_no ?: $enquiryNo);
 
         $compName   = e($enquiry->complaint?->complainant_name ?: 'the complainant');
-        $firstAcc   = $enquiry->accusedPersons?->first();
+        $accList    = $enquiry->accusedPersons;
+        $accRows    = '';
+        if ($accList && $accList->count() > 0) {
+            foreach ($accList as $i => $acc) {
+                $n = $i + 1;
+                $addr = $acc->permanent_address ?: ($acc->postal_address ?: '—');
+                $accRows .= '<div><strong>' . $n . ': ACCUSED ' . e($acc->name) . ' S/O ' . e($acc->father_name ?: '—') . ' R/O ' . e($addr) . '.</strong></div>';
+            }
+            $firstAcc = $accList->first();
+        } else {
+            $accRows = '<div><strong>1: ACCUSED ANEM S/O R/O .</strong></div>';
+            $firstAcc = null;
+        }
         $accName    = e($firstAcc?->name ?: 'Accused Person');
-        $accFather  = e($firstAcc?->father_name ?: '');
-        $accAddr    = e($firstAcc?->address ?: 'subject cited location');
-        $accStr     = $accName . ($accFather ? ' S/O ' . $accFather : '') . ($accAddr ? ' R/O ' . $accAddr : '');
+        $accAddr    = e($firstAcc?->permanent_address ?: ($firstAcc?->postal_address ?: 'subject cited location'));
         $allegation = e($enquiry->brief_allegation ?: ($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access')));
         $qrHtml = $this->documentQr('warrant', (int) $enquiry->id, [
             'Type'        => 'Search Warrant',
             'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
+            'FIR No'      => $enquiry->caseFile?->fir_no ?: '—',
             'Complainant' => $compName,
             'Circle'      => $circle?->name ?? '—',
-        ], 64, $enquiryNo);
+        ], 64, $firNo);
 
         $body = <<<HTML
         <div class="warrant-doc">
@@ -1402,7 +1420,7 @@ HTML;
             </p>
 
             <div class="warrant-accused-box" style="margin: 14px 0;">
-              <strong>1: ACCUSED {$accStr} .</strong>
+              {$accRows}
             </div>
 
             <p>
@@ -1416,6 +1434,113 @@ HTML;
 
           <div class="warrant-sign-block">
             <strong>SI</strong><br/>
+            <strong>NCCIA/CCRC/{$circleCode}</strong>
+          </div>
+        </div>
+        HTML;
+
+        return $this->document(
+            $body,
+            '@page { size: A4 portrait; margin: 16mm 18mm; }
+             body { margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; color:#000; background:#fff; }
+             .warrant-doc { width: 100%; max-width: 170mm; margin: 0 auto; font-size: 13.5px; line-height: 1.55; }
+             .court-header { text-align: center; font-size: 14px; font-weight: 800; text-transform: uppercase; margin-bottom: 12px; }
+             .court-meta { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; }
+             .warrant-banner { text-align: center; font-size: 14px; font-weight: 800; text-transform: uppercase; text-decoration: underline; margin-bottom: 16px; letter-spacing: 0.5px; }
+             .warrant-salutation { font-size: 13.5px; margin-bottom: 10px; }
+             .warrant-body p { margin: 12px 0; text-align: justify; }
+             .warrant-sign-block { margin-top: 50px; margin-left: auto; width: 200px; text-align: center; font-size: 13.5px; line-height: 1.4; }'
+        );
+    }
+
+    /**
+     * Printable Arrest Warrant matching the Search Warrant court format.
+     */
+    public function arrestWarrantPrintDocument(Enquiry $enquiry): string
+    {
+        $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
+
+        $circle     = $enquiry->complaint?->circle;
+        $circleName = e($circle?->name ?? 'LAHORE');
+        $circleCode = e($circle?->code ?? 'LHR');
+        $enquiryNo  = e($enquiry->enquiry_number ?: ($enquiry->complaint?->tracking_no ?: ('ENQ-' . $enquiry->id)));
+        $firNo      = e($enquiry->caseFile?->fir_no ?: $enquiryNo);
+
+        $compName   = e($enquiry->complaint?->complainant_name ?: 'the complainant');
+        $accList    = $enquiry->accusedPersons;
+        $accRows    = '';
+        if ($accList && $accList->count() > 0) {
+            foreach ($accList as $i => $acc) {
+                $n = $i + 1;
+                $addr = $acc->permanent_address ?: ($acc->postal_address ?: '—');
+                $accRows .= '<div><strong>' . $n . ': ' . e($acc->name) . ' s/o ' . e($acc->father_name ?: '—') . ' r/o ' . e($addr) . '.</strong></div>';
+            }
+        } else {
+            $accRows = '<div><strong>1: Name of Accused s/o r/o .</strong></div>';
+        }
+        $allegation = e($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access'));
+        $qrHtml = $this->documentQr('arrest', (int) $enquiry->id, [
+            'Type'        => 'Arrest Warrant',
+            'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
+            'FIR No'      => $enquiry->caseFile?->fir_no ?: '—',
+            'Complainant' => $compName,
+            'Circle'      => $circle?->name ?? '—',
+        ], 64, $firNo);
+
+        $officer      = $enquiry->officer ?: request()->user();
+        $officerName  = e($officer?->name ?: 'SI');
+        $officerDesig = e($officer?->designation ?: 'SI');
+        $officerSigHtml = $this->getOfficerSignatureHtml($officer);
+
+        $body = <<<HTML
+        <div class="warrant-doc">
+          <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+            <tr>
+              <td style="width:80px;border:none;vertical-align:top;">{$qrHtml}</td>
+              <td style="border:none;text-align:center;vertical-align:middle;">
+          <div class="court-header">
+            <strong>IN THE HONORABLE COURT OF JUDICIAL MAGISTRATE,</strong><br/>
+            <strong>{$circleName}.</strong>
+          </div>
+              </td>
+            </tr>
+          </table>
+
+          <table class="court-meta">
+            <tr>
+              <td style="text-align: left;"><strong>P.S: Cyber Crime Circle</strong></td>
+              <td style="text-align: right;"><strong>Distt: {$circleName}</strong></td>
+            </tr>
+          </table>
+
+          <div class="warrant-banner">
+            ARREST WARRANT
+          </div>
+
+          <div class="warrant-salutation"><strong>Respected Sir</strong></div>
+
+          <div class="warrant-body">
+            <p>
+              An enquiry / FIR no <strong>{$firNo}</strong> was registered on the complaint of <strong>{$compName}</strong> that the following person(s) found involved in <strong>{$allegation}</strong>. The complainant requested for strict legal action against the culprits.
+            </p>
+
+            <div class="warrant-accused-box" style="margin: 14px 0;">
+              {$accRows}
+            </div>
+
+            <p>
+              However, it is strongly believed that the accused person(s) are involved in the subject cited offence and are evading lawful process.
+            </p>
+
+            <p>
+              It is therefore requested that the Arrest Warrant of the above said accused person(s) may kindly be granted in order to effect the arrest and to proceed further into the matter.
+            </p>
+          </div>
+
+          <div class="warrant-sign-block">
+            {$officerSigHtml}
+            <strong>{$officerName}</strong><br/>
+            {$officerDesig}<br/>
             <strong>NCCIA/CCRC/{$circleCode}</strong>
           </div>
         </div>

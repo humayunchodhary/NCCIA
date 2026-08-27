@@ -136,6 +136,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/enquiries/{enquiry}/forensic-request-print', [EnquiryController::class, 'forensicRequestPrint'])->name('api.enquiries.forensic-request-print');
     Route::get('/enquiries/{enquiry}/raid-permission-print', [EnquiryController::class, 'raidPermissionPrint'])->name('api.enquiries.raid-permission-print');
     Route::get('/enquiries/{enquiry}/search-warrant-print', [EnquiryController::class, 'searchWarrantPrint'])->name('api.enquiries.search-warrant-print');
+    Route::get('/enquiries/{enquiry}/arrest-warrant-print', [EnquiryController::class, 'arrestWarrantPrint'])->name('api.enquiries.arrest-warrant-print');
     Route::get('/enquiries/{enquiry}/account-opening-print', [EnquiryController::class, 'accountOpeningPrint'])->name('api.enquiries.account-opening-print');
     Route::get('/documents/{type}/{id}/qr', [DocumentVerifyController::class, 'qr']);
     Route::post('/enquiries/{enquiry}/assign', [EnquiryController::class, 'assign'])

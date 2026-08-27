@@ -9,6 +9,7 @@ use App\Models\CaseApproval;
 use App\Models\Enquiry;
 use App\Notifications\CaseAssignedNotification;
 use App\Services\FirNumberGenerator;
+use App\Services\EnquiryRecordHydrator;
 use App\Services\OfficerAssignmentService;
 use App\Services\SmsService;
 use App\Services\SmsTemplates;
@@ -377,6 +378,7 @@ class CaseFileController extends Controller
             'fir_no'                   => 'nullable|string|unique:cases,fir_no,' . $caseFile->id,
             'investigation_officer_id' => 'nullable|integer|exists:users,id',
             'status'                   => 'nullable|string|max:50',
+            'priority'                 => 'nullable|string|in:normal,high,critical',
             'recommendation'           => 'nullable|string|max:30',
             'transfer_department'      => 'nullable|string|max:255',
             'transfer_circle'          => 'nullable|string|max:255',
@@ -417,11 +419,11 @@ class CaseFileController extends Controller
         DB::transaction(function () use ($caseFile, $data, $request, $actions, $arrests, $legalOpinions, $approvals) {
             $updates = array_filter([
                 'enquiry_id'               => array_key_exists('enquiry_id', $data) ? $data['enquiry_id'] : null,
-                'fir_no'                   => array_key_exists('fir_no', $data) ? $data['fir_no'] : null,
                 'investigation_officer_id' => array_key_exists('investigation_officer_id', $data)
                     ? ($data['investigation_officer_id'] ?: null)
                     : null,
                 'status'                   => $data['status'] ?? null,
+                'priority'                 => $data['priority'] ?? null,
                 'recommendation'           => array_key_exists('recommendation', $data) ? ($data['recommendation'] ?: null) : null,
                 'transfer_department'      => array_key_exists('transfer_department', $data) ? ($data['transfer_department'] ?: null) : null,
                 'transfer_circle'          => array_key_exists('transfer_circle', $data) ? ($data['transfer_circle'] ?: null) : null,
@@ -578,12 +580,21 @@ class CaseFileController extends Controller
 
         $caseFile->load(
             'enquiry.complaint',
+            'enquiry.accusedPersons',
+            'enquiry.witnesses',
+            'enquiry.activities',
+            'enquiry.officer',
             'investigationOfficer',
             'activities.creator',
             'arrests',
             'legalOpinions.creator',
             'approvals.circleIncharge'
         );
+
+        if ($caseFile->enquiry) {
+            app(EnquiryRecordHydrator::class)->hydrate($caseFile->enquiry);
+            $caseFile->enquiry->refresh()->load(['complaint', 'accusedPersons', 'witnesses', 'activities', 'officer']);
+        }
 
         return response()->json($caseFile);
     }

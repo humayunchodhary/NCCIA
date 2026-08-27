@@ -23,6 +23,7 @@ class DocumentVerifyController extends Controller
         'custody'           => 'Chain of Custody',
         'raid'              => 'Raid Permission',
         'warrant'           => 'Search Warrant',
+        'arrest'            => 'Arrest Warrant',
         'diary'             => 'Case Diary',
         'account'           => 'Account Opening Request',
         'scope'             => 'Forensic Scope Letter',
@@ -96,12 +97,13 @@ class DocumentVerifyController extends Controller
                 break;
             case 'enquiry':
             case 'cfr':
-            case 'raid':
-            case 'warrant':
             case 'account':
                 $rows = $this->enquiryRows((int) $id);
                 break;
             case 'scope':
+            case 'raid':
+            case 'warrant':
+            case 'arrest':
                 [$rows, $devices, $notes] = $this->scopeDetails((int) $id);
                 break;
             case 'diary':

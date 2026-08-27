@@ -95,7 +95,7 @@ class SidebarCountsController extends Controller
         if ($user->hasRole('enquiry_officer') && !$user->hasAnyRole(['admin', 'circle_incharge', 'director_general'])) {
             return (clone $q)
                 ->where('enquiry_officer_id', $user->id)
-                ->whereIn('status', ['assigned', 'in_progress', 'registered'])
+                ->whereIn('status', ['assigned', 'in_progress', 'registered', 'pending', 'working'])
                 ->count();
         }
 

@@ -19,6 +19,7 @@ use App\Notifications\EnquiryAssignedNotification;
 use App\Notifications\NoticeNonAppearanceNotification;
 use App\Notifications\CaseAssignedNotification;
 use App\Services\EnquiryNumberGenerator;
+use App\Services\EnquiryRecordHydrator;
 use App\Services\FirNumberGenerator;
 use App\Services\OfficerAssignmentService;
 use App\Services\PrintService;
@@ -31,7 +32,7 @@ use Illuminate\Support\Str;
 
 class EnquiryController extends Controller
 {
-    private const ALLOWED_STATUSES = 'registered,assigned,in_progress,cfr_submitted,legal_review_dd,legal_review_ad,legal_review_dg,approved,closed,transferred,converted_to_case,referred_court';
+    private const ALLOWED_STATUSES = 'registered,assigned,in_progress,pending,working,complete,cfr_submitted,legal_review_dd,legal_review_ad,legal_review_dg,approved,closed,transferred,converted_to_case,referred_court';
 
     /**
      * Move an uploaded file to public/uploads/<dir>.
@@ -621,6 +622,7 @@ class EnquiryController extends Controller
             'reg_date'                => 'nullable|date',
             'assignment_date'         => 'nullable|date',
             'status'                  => 'required|string|in:' . self::ALLOWED_STATUSES,
+            'priority'                => 'nullable|string|in:normal,high,critical',
 
             'enquiry_officer_id'      => 'nullable|integer|exists:users,id',
             'recommendation'          => 'nullable|string|max:50',
@@ -676,6 +678,7 @@ class EnquiryController extends Controller
                 'enquiry_number'  => $data['enquiry_number'] ?? null,
                 'enquiry_officer_id' => $officerId,
                 'status'          => $data['status'] ?? 'registered',
+                'priority'        => $data['priority'] ?? ($complaint?->priority_type),
                 'reg_date'        => $data['reg_date'] ?? now()->toDateString(),
                 'assignment_date' => $data['assignment_date'] ?? null,
                 'recommendation'  => $data['recommendation'] ?? null,
@@ -710,6 +713,8 @@ class EnquiryController extends Controller
 
             return $enquiry;
         });
+
+        app(EnquiryRecordHydrator::class)->hydrate($enquiry);
 
         if ($enquiry->enquiry_officer_id) {
             app(OfficerAssignmentService::class)->recordInitial(
@@ -821,9 +826,9 @@ class EnquiryController extends Controller
 
             $statsRow = (clone $q)->toBase()
                 ->selectRaw('COUNT(*) as total')
-                ->selectRaw("SUM(CASE WHEN status = 'registered' THEN 1 ELSE 0 END) as pending")
-                ->selectRaw("SUM(CASE WHEN status IN ('assigned', 'in_progress', 'cfr_submitted', 'referred_court', 'legal_review_dd', 'legal_review_ad', 'legal_review_dg') THEN 1 ELSE 0 END) as progress")
-                ->selectRaw("SUM(CASE WHEN status IN ('approved', 'case_registered', 'closed', 'transferred') THEN 1 ELSE 0 END) as approved")
+                ->selectRaw("SUM(CASE WHEN status IN ('registered', 'assigned', 'pending') THEN 1 ELSE 0 END) as pending")
+                ->selectRaw("SUM(CASE WHEN status IN ('in_progress', 'working', 'cfr_submitted', 'referred_court', 'legal_review_dd', 'legal_review_ad', 'legal_review_dg') THEN 1 ELSE 0 END) as progress")
+                ->selectRaw("SUM(CASE WHEN status IN ('approved', 'case_registered', 'closed', 'complete', 'transferred', 'converted_to_case') THEN 1 ELSE 0 END) as approved")
                 ->first();
 
             return response()->json([
@@ -841,6 +846,9 @@ class EnquiryController extends Controller
     public function show(Enquiry $enquiry)
     {
         $this->authorize('view', $enquiry);
+
+        app(EnquiryRecordHydrator::class)->hydrate($enquiry);
+        $enquiry->refresh();
 
         $enquiry->load(
             'complaint.verification.officer',
@@ -950,6 +958,7 @@ class EnquiryController extends Controller
                 'enquiry_number'          => 'nullable|string|max:255',
                 'enquiry_officer_id'      => 'nullable|integer|exists:users,id',
                 'status'                  => 'nullable|in:' . self::ALLOWED_STATUSES,
+                'priority'                => 'nullable|string|in:normal,high,critical',
                 'recommendation'          => 'nullable|string|max:30',
                 'closure_reason'          => 'nullable|string|max:30',
                 'transfer_department'     => 'nullable|string|max:255',
@@ -988,6 +997,7 @@ class EnquiryController extends Controller
 
             $updateData = array_filter([
                 'status'              => $data['status'] ?? null,
+                'priority'            => $data['priority'] ?? null,
                 'recommendation'      => $data['recommendation'] ?? null,
                 'closure_reason'      => $data['closure_reason'] ?? null,
                 'transfer_department' => $data['transfer_department'] ?? null,
@@ -1299,6 +1309,26 @@ class EnquiryController extends Controller
         } catch (\Throwable $e) {
             report($e);
             return response()->json(['message' => 'Could not print search warrant: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Printable Arrest Warrant HTML.
+     */
+    public function arrestWarrantPrint(Request $request, Enquiry $enquiry, PrintService $print)
+    {
+        abort_unless(
+            Enquiry::visibleTo(request()->user())->whereKey($enquiry->id)->exists(),
+            404
+        );
+
+        try {
+            return response()->json([
+                'html' => $print->arrestWarrantPrintDocument($enquiry),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not print arrest warrant: ' . $e->getMessage()], 500);
         }
     }
 
@@ -1626,13 +1656,17 @@ class EnquiryController extends Controller
                     ?: ($directInfo['circle_id'] ? Circle::find($directInfo['circle_id'])?->code : null);
                 $gen        = app(FirNumberGenerator::class);
 
-                $caseFile = CaseFile::create([
+                $caseAttrs = [
                     'enquiry_id'               => $enquiry->id,
                     'direct_info'              => $complaint ? null : $directInfo,
                     'fir_no'                   => $gen->generate($circleCode),
                     'investigation_officer_id' => $data['investigation_officer_id'] ?? null,
                     'status'                   => 'registered',
-                ]);
+                ];
+                if (\Illuminate\Support\Facades\Schema::hasColumn('cases', 'priority')) {
+                    $caseAttrs['priority'] = $enquiry->priority ?: ($complaint?->priority_type ?: 'normal');
+                }
+                $caseFile = CaseFile::create($caseAttrs);
 
                 $enquiry->update([
                     'status'         => 'converted_to_case',

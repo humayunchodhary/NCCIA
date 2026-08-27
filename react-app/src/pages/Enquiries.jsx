@@ -11,29 +11,27 @@ import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateE
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 import { generateOfficialDocumentQr } from '../utils/qrcode';
+import { SIMPLE_STATUSES, simpleStatusLabel, toSimpleStatus } from '../utils/simpleStatus';
 
 const STATUS_COLORS = {
+  pending: 'badge-pending',
   registered: 'badge-pending',
-  assigned: 'badge-active',
+  assigned: 'badge-pending',
+  working: 'badge-info',
   in_progress: 'badge-info',
-  cfr_submitted: 'badge-pending',
+  cfr_submitted: 'badge-info',
+  complete: 'badge-finalized',
   approved: 'badge-finalized',
-  closed: 'badge-urgent',
+  closed: 'badge-finalized',
   transferred: 'badge-warning',
   converted_to_case: 'badge-finalized',
   referred_court: 'badge-urgent',
 };
 
-const STATUS_LABELS = {
-  registered: 'Registered',
-  assigned: 'Assigned',
-  in_progress: 'In Progress',
-  cfr_submitted: 'CFR Submitted',
-  approved: 'Approved',
-  closed: 'Closed',
-  transferred: 'Transferred',
-  converted_to_case: 'Converted to Case',
-  referred_court: 'Referred to Court',
+const STATUS_FILTERS = {
+  pending: 'registered,assigned,pending',
+  working: 'in_progress,working,cfr_submitted,legal_review_dd,legal_review_ad,legal_review_dg,referred_court',
+  complete: 'complete,approved,closed,transferred,converted_to_case',
 };
 
 export default function Enquiries() {
@@ -86,7 +84,7 @@ export default function Enquiries() {
     setLoading(true);
     const params = { page: p };
     if (search) params.search = search;
-    if (statusFilter) params.status = statusFilter;
+    if (statusFilter) params.status = STATUS_FILTERS[statusFilter] || statusFilter;
     api.get('/enquiries', { params }).then(r => {
       const d = r.data;
       if (Array.isArray(d)) {
@@ -606,9 +604,9 @@ export default function Enquiries() {
 
       <div className="mini-stats-row" style={{marginBottom:20}}>
         <div className="mini-stat"><div className="mini-stat-value">{stats.total}</div><div className="mini-stat-label">Total Enquiries</div></div>
-        <div className="mini-stat"><div className="mini-stat-value">{stats.pending}</div><div className="mini-stat-label">Registered</div></div>
-        <div className="mini-stat"><div className="mini-stat-value">{stats.progress}</div><div className="mini-stat-label">In Progress</div></div>
-        <div className="mini-stat"><div className="mini-stat-value">{stats.approved}</div><div className="mini-stat-label">Approved</div></div>
+        <div className="mini-stat"><div className="mini-stat-value">{stats.pending}</div><div className="mini-stat-label">Pending</div></div>
+        <div className="mini-stat"><div className="mini-stat-value">{stats.progress}</div><div className="mini-stat-label">Working</div></div>
+        <div className="mini-stat"><div className="mini-stat-value">{stats.approved}</div><div className="mini-stat-label">Complete</div></div>
       </div>
 
       <div className="filters-bar" style={{display:'flex',gap:12,alignItems:'center',padding:'12px 16px',background:'#fff',borderRadius:8,marginBottom:16,flexWrap:'wrap',boxShadow:'0 2px 12px rgba(0,0,0,0.06)',border:'1px solid rgba(1,92,148,0.15)'}}>
@@ -616,7 +614,7 @@ export default function Enquiries() {
         <input type="text" className="filter-select" placeholder="Search by complaint name or ID..." style={{height:34,padding:'0 12px',width:260,border:'1.5px solid #264078',borderRadius:8,fontSize:13}} value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         <select className="filter-select" style={{height:34,padding:'0 12px',border:'1.5px solid #264078',borderRadius:8,fontSize:13,background:'#fff',minWidth:160}} value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
           <option value="">All Statuses</option>
-          {Object.keys(STATUS_LABELS).map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+          {SIMPLE_STATUSES.map(s => <option key={s.value} value={s.value}>{s.name}</option>)}
         </select>
       </div>
 
@@ -635,7 +633,7 @@ export default function Enquiries() {
                       <td><span style={{fontSize:13,fontWeight:500}}>{e.complaint?.complainant_name || e.direct_info?.complainant_name || e.complaint_id}</span><br /><span style={{fontSize:11,color:'#6c757d'}}>{e.complaint?.tracking_no || e.direct_info?.reference_no || ''}</span></td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span className={`badge ${STATUS_COLORS[e.status] || 'badge-pending'}`}>{STATUS_LABELS[e.status] || e.status?.replace('_', ' ')}</span>
+                          <span className={`badge ${STATUS_COLORS[toSimpleStatus(e.status)] || 'badge-pending'}`}>{simpleStatusLabel(e.status)}</span>
                           {(e.has_unserved_notice || e.status === 'referred_court') && (
                             <span title="Summon non-appearance / unserved" style={{ fontSize: 16, lineHeight: 1 }}>⭐</span>
                           )}
@@ -718,7 +716,7 @@ export default function Enquiries() {
                             </button>
                           )}
 
-                          {(['assigned','in_progress'].includes(e.status)) && user?.id === e.enquiry_officer_id && (
+                          {(['assigned','in_progress','pending','working'].includes(e.status)) && user?.id === e.enquiry_officer_id && (
                             <button onClick={() => openCfr(e)} className="btn btn-sm" style={{background:'rgba(56,161,105,0.12)',color:'#38a169',border:'none',borderRadius:8,height:36,display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',cursor:'pointer',fontSize:12,fontWeight:600}} title="Submit CFR">
                               Submit CFR
                             </button>

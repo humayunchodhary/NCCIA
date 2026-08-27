@@ -97,8 +97,12 @@ export default function WorkflowProgress({ workflow, percent, stage, compact = f
 export function enquiryProgress(status) {
   const map = {
     registered: { percent: 70, stage: 'Enquiry Registered' },
-    assigned: { percent: 75, stage: 'Enquiry Assigned' },
-    in_progress: { percent: 80, stage: 'Enquiry In Progress' },
+    pending: { percent: 72, stage: 'Pending' },
+    registered: { percent: 70, stage: 'Enquiry Registered' },
+    assigned: { percent: 75, stage: 'Pending' },
+    working: { percent: 80, stage: 'Working' },
+    in_progress: { percent: 80, stage: 'Working' },
+    complete: { percent: 100, stage: 'Complete' },
     cfr_submitted: { percent: 82, stage: 'CFR Submitted' },
     legal_review: { percent: 84, stage: 'Legal Review' },
     approved: { percent: 85, stage: 'Enquiry Approved' },
