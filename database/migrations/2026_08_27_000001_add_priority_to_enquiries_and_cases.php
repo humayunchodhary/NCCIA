@@ -8,31 +8,42 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('enquiries') && !Schema::hasColumn('enquiries', 'priority')) {
-            Schema::table('enquiries', function (Blueprint $table) {
-                $table->string('priority', 20)->nullable()->after('status');
-            });
-        }
-
-        if (Schema::hasTable('cases') && !Schema::hasColumn('cases', 'priority')) {
-            Schema::table('cases', function (Blueprint $table) {
-                $table->string('priority', 20)->nullable()->after('status');
-            });
-        }
+        $this->addPriorityColumn('enquiries');
+        $this->addPriorityColumn('cases');
     }
 
     public function down(): void
     {
-        if (Schema::hasTable('enquiries') && Schema::hasColumn('enquiries', 'priority')) {
-            Schema::table('enquiries', function (Blueprint $table) {
-                $table->dropColumn('priority');
-            });
+        $this->dropPriorityColumn('enquiries');
+        $this->dropPriorityColumn('cases');
+    }
+
+    private function addPriorityColumn(string $tableName): void
+    {
+        if (!Schema::hasTable($tableName) || Schema::hasColumn($tableName, 'priority')) {
+            return;
         }
 
-        if (Schema::hasTable('cases') && Schema::hasColumn('cases', 'priority')) {
-            Schema::table('cases', function (Blueprint $table) {
-                $table->dropColumn('priority');
-            });
+        Schema::table($tableName, function (Blueprint $blueprint) {
+            try {
+                $blueprint->string('priority', 20)->nullable()->after('status');
+            } catch (\Throwable $error) {
+                // Column already exists.
+            }
+        });
+    }
+
+    private function dropPriorityColumn(string $tableName): void
+    {
+        if (!Schema::hasTable($tableName) || !Schema::hasColumn($tableName, 'priority')) {
+            return;
         }
+
+        Schema::table($tableName, function (Blueprint $blueprint) {
+            try {
+                $blueprint->dropColumn('priority');
+            } catch (\Throwable $error) {
+            }
+        });
     }
 };
