@@ -8,77 +8,73 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Enquiries Table Indexes
-        if (Schema::hasTable('enquiries')) {
-            Schema::table('enquiries', function (Blueprint ) {
-                try {
-                    ->index(['circle_id', 'status'], 'idx_enquiries_circle_status');
-                } catch (\Throwable ) {}
-                try {
-                    ->index(['officer_id', 'status'], 'idx_enquiries_officer_status');
-                } catch (\Throwable ) {}
-                try {
-                    ->index(['created_at'], 'idx_enquiries_created_at');
-                } catch (\Throwable ) {}
-            });
+        if (Schema::hasColumn('enquiries', 'circle_id')) {
+            $this->addIndexIfMissing('enquiries', ['circle_id', 'status'], 'idx_enquiries_circle_status');
         }
+        $this->addIndexIfMissing('enquiries', ['enquiry_officer_id', 'status'], 'idx_enquiries_officer_status');
+        $this->addIndexIfMissing('enquiries', ['created_at'], 'idx_enquiries_created_at');
 
-        // 2. Complaints Table Indexes
-        if (Schema::hasTable('complaints')) {
-            Schema::table('complaints', function (Blueprint ) {
-                try {
-                    ->index(['circle_id', 'status'], 'idx_complaints_circle_status');
-                } catch (\Throwable ) {}
-                try {
-                    ->index(['created_at'], 'idx_complaints_created_at');
-                } catch (\Throwable ) {}
-            });
-        }
+        $this->addIndexIfMissing('complaints', ['circle_id', 'status'], 'idx_complaints_circle_status');
+        $this->addIndexIfMissing('complaints', ['created_at'], 'idx_complaints_created_at');
 
-        // 3. Forensic Requests Table Indexes
-        if (Schema::hasTable('forensic_requests')) {
-            Schema::table('forensic_requests', function (Blueprint ) {
-                try {
-                    ->index(['status', 'destination'], 'idx_forensic_status_dest');
-                } catch (\Throwable ) {}
-                try {
-                    ->index(['assigned_to', 'status'], 'idx_forensic_assigned_status');
-                } catch (\Throwable ) {}
-                try {
-                    ->index(['created_at'], 'idx_forensic_created_at');
-                } catch (\Throwable ) {}
-            });
-        }
+        $this->addIndexIfMissing('forensic_requests', ['status', 'destination'], 'idx_forensic_status_dest');
+        $this->addIndexIfMissing('forensic_requests', ['assigned_to', 'status'], 'idx_forensic_assigned_status');
+        $this->addIndexIfMissing('forensic_requests', ['created_at'], 'idx_forensic_created_at');
 
-        // 4. Forensic Request Items Table Indexes
-        if (Schema::hasTable('forensic_request_items')) {
-            Schema::table('forensic_request_items', function (Blueprint ) {
-                try {
-                    ->index(['forensic_request_id'], 'idx_items_req_id');
-                } catch (\Throwable ) {}
-            });
-        }
+        $this->addIndexIfMissing('forensic_request_items', ['forensic_request_id'], 'idx_items_req_id');
 
-        // 5. Enquiry Notices Table Indexes
-        if (Schema::hasTable('enquiry_notices')) {
-            Schema::table('enquiry_notices', function (Blueprint ) {
-                try {
-                    ->index(['enquiry_id', 'notice_number'], 'idx_notices_enq_num');
-                } catch (\Throwable ) {}
-            });
-        }
+        $this->addIndexIfMissing('enquiry_notices', ['enquiry_id', 'notice_number'], 'idx_notices_enq_num');
 
-        // 6. Users Table Indexes
-        if (Schema::hasTable('users')) {
-            Schema::table('users', function (Blueprint ) {
-                try {
-                    ->index(['role', 'circle_id'], 'idx_users_role_circle');
-                } catch (\Throwable ) {}
-            });
-        }
+        $this->addIndexIfMissing('users', ['role', 'circle_id'], 'idx_users_role_circle');
     }
 
     public function down(): void
     {
+        $this->dropIndexIfExists('enquiries', 'idx_enquiries_circle_status');
+        $this->dropIndexIfExists('enquiries', 'idx_enquiries_officer_status');
+        $this->dropIndexIfExists('enquiries', 'idx_enquiries_created_at');
+        $this->dropIndexIfExists('complaints', 'idx_complaints_circle_status');
+        $this->dropIndexIfExists('complaints', 'idx_complaints_created_at');
+        $this->dropIndexIfExists('forensic_requests', 'idx_forensic_status_dest');
+        $this->dropIndexIfExists('forensic_requests', 'idx_forensic_assigned_status');
+        $this->dropIndexIfExists('forensic_requests', 'idx_forensic_created_at');
+        $this->dropIndexIfExists('forensic_request_items', 'idx_items_req_id');
+        $this->dropIndexIfExists('enquiry_notices', 'idx_notices_enq_num');
+        $this->dropIndexIfExists('users', 'idx_users_role_circle');
+    }
+
+    private function addIndexIfMissing(string $tableName, array $columns, string $indexName): void
+    {
+        if (!Schema::hasTable($tableName)) {
+            return;
+        }
+
+        foreach ($columns as $column) {
+            if (!Schema::hasColumn($tableName, $column)) {
+                return;
+            }
+        }
+
+        Schema::table($tableName, function (Blueprint $blueprint) use ($columns, $indexName) {
+            try {
+                $blueprint->index($columns, $indexName);
+            } catch (\Throwable $e) {
+                // Index already exists or engine rejected a duplicate.
+            }
+        });
+    }
+
+    private function dropIndexIfExists(string $tableName, string $indexName): void
+    {
+        if (!Schema::hasTable($tableName)) {
+            return;
+        }
+
+        Schema::table($tableName, function (Blueprint $blueprint) use ($indexName) {
+            try {
+                $blueprint->dropIndex($indexName);
+            } catch (\Throwable $e) {
+            }
+        });
     }
 };
