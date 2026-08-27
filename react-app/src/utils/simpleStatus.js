@@ -30,11 +30,17 @@ const TO_SIMPLE = {
   challan_submitted: 'complete',
 };
 
-const WORKFLOW_LOCK = [
+export const SUBMITTED_TO_CIRCLE_STATUSES = [
   'cfr_submitted', 'legal_review_dd', 'legal_review_ad', 'legal_review_dg',
   'approved', 'closed', 'converted_to_case', 'transferred', 'referred_court',
-  'merged', 'challan_submitted',
+  'merged', 'challan_submitted', 'complete', 'case_registered',
 ];
+
+const WORKFLOW_LOCK = SUBMITTED_TO_CIRCLE_STATUSES;
+
+export function isSubmittedToCircle(status) {
+  return SUBMITTED_TO_CIRCLE_STATUSES.includes(status);
+}
 
 export function toSimpleStatus(status) {
   return TO_SIMPLE[status] || 'pending';

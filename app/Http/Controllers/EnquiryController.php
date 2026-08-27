@@ -969,6 +969,15 @@ class EnquiryController extends Controller
     public function update(Request $request, Enquiry $enquiry)
     {
         try {
+            if ($enquiry->isLockedForOfficer() && !$request->user()->hasAnyRole([
+                'admin', 'circle_incharge', 'ad_legal', 'dd_legal',
+                'additional_director', 'director_general',
+            ])) {
+                return response()->json([
+                    'message' => 'Yeh Enquiry Circle Incharge ko submit ho chuki hai. Edit nahi ho sakti.',
+                ], 403);
+            }
+
             $this->authorize('update', $enquiry);
 
             $data = $request->validate([
@@ -1568,7 +1577,7 @@ class EnquiryController extends Controller
     public function approve(Request $request, Enquiry $enquiry)
     {
         $data = $request->validate([
-            'decision'           => 'required|string|in:agree,review',
+            'decision'           => 'required|string|in:agree,review,disagree',
             'remarks'            => 'nullable|string|max:2000',
             'recommendation'     => 'nullable|string|in:closure,transfer,merge,convert_to_case',
             'closure_reason'     => 'nullable|string|in:non_pursuance,irrelevant,invalid,lack_of_evidence,compromise',

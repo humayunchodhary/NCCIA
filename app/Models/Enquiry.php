@@ -226,6 +226,25 @@ class Enquiry extends Model
         return $this->nonAppearanceCount() >= 3;
     }
 
+    public function isLockedForOfficer(): bool
+    {
+        return in_array($this->status, [
+            'cfr_submitted',
+            'legal_review_dd',
+            'legal_review_ad',
+            'legal_review_dg',
+            'approved',
+            'closed',
+            'converted_to_case',
+            'transferred',
+            'referred_court',
+            'merged',
+            'challan_submitted',
+            'complete',
+            'case_registered',
+        ], true);
+    }
+
     /**
      * Data isolation:
      * - Supervisors see all

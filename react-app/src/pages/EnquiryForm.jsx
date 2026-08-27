@@ -15,7 +15,7 @@ import {
   buildDirectInfoPayload,
   CASE_CATEGORIES,
 } from '../utils/directCaseOptions';
-import { SIMPLE_STATUSES, PRIORITY_OPTIONS, toSimpleStatus, fromSimpleStatus } from '../utils/simpleStatus';
+import { SIMPLE_STATUSES, PRIORITY_OPTIONS, toSimpleStatus, fromSimpleStatus, isSubmittedToCircle } from '../utils/simpleStatus';
 import { isSeizeItemLocked, activityHasLockedSeizeItems, applyForensicLocksToActivities, seizeItemKey, lockSeizeItemsAgainstForensic } from '../utils/seizeItemLock';
 
 const ENQUIRY_STATUS = [
@@ -296,7 +296,7 @@ export default function EnquiryForm() {
   const canEditCfrRemarks = roleNames.some(r => ['admin', 'additional_director'].includes(r));
   const canAuthorizeRequisitions = roleNames.some(r => ['admin', 'director_general', 'additional_director'].includes(r));
   const canRegisterCase = canRegisterCaseFromEnquiry(user);
-  const isEoLocked = !isSupervisor && !!id && ['cfr_submitted', 'approved', 'case_registered', 'closed', 'transferred', 'complete', 'converted_to_case'].includes(form.status);
+  const isEoLocked = !isSupervisor && !!id && isSubmittedToCircle(form.status);
   const canSubmitCfr = !isSupervisor && !isEoLocked && !!id
     && ['registered', 'assigned', 'in_progress', 'pending', 'working'].includes(form.status)
     && roleNames.some(r => ['enquiry_officer', 'investigation_officer'].includes(r));
@@ -1459,6 +1459,10 @@ export default function EnquiryForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isEoLocked) {
+      alert('Yeh Enquiry Circle Incharge ko submit ho chuki hai. Edit nahi ho sakti.');
+      return;
+    }
     setSaving(true);
     setErrors({});
     setServerError('');
@@ -1542,11 +1546,12 @@ export default function EnquiryForm() {
 
   const renderField = (label, field, opts = {}) => {
     const { type = 'text', placeholder = '', required = false, options = null, rows = null, readOnly = false, icon = null } = opts;
+    const locked = readOnly || isEoLocked;
     const fieldErr = errors[field];
     return (
       <div className="cf-field">
         <label className={`cf-label${required ? ' required' : ''}`}>{label}</label>
-        {readOnly ? (
+        {locked ? (
           <div className="cf-input" style={{ padding: '9px 14px', background: '#f5f5f5', color: '#555', borderRadius: 'var(--border-radius-sm)', fontSize: 13, border: fieldErr ? '1.5px solid #e53e3e' : '1.5px solid var(--border)' }}>
             {form[field] || '-'}
           </div>
@@ -1571,8 +1576,8 @@ export default function EnquiryForm() {
       <form onSubmit={handleSubmit}>
         <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div className="page-title-group">
-            <h1 className="page-title">{id ? 'Edit Enquiry' : 'New Enquiry'}</h1>
-            <p className="page-subtitle">{id ? 'Update enquiry details' : 'Register a new enquiry'}</p>
+            <h1 className="page-title">{id ? (isEoLocked ? 'View Enquiry' : 'Edit Enquiry') : 'New Enquiry'}</h1>
+            <p className="page-subtitle">{id ? (isEoLocked ? 'Circle Incharge ko submit ho chuki hai — read only' : 'Update enquiry details') : 'Register a new enquiry'}</p>
             <div className="title-underline"></div>
           </div>
           {id && (
@@ -1582,11 +1587,12 @@ export default function EnquiryForm() {
                 className="btn btn-outline btn-sm"
                 onClick={openAccountOpeningModal}
                 title="Print Account Opening / Unfreeze Request Proforma"
+                data-locked-ok="1"
                 style={{ color: '#0f766e', borderColor: '#0f766e', fontWeight: 600 }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Account Opening Proforma
               </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => printDocument('cfr-print')} title="Print Confidential Final Report">
+              <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printDocument('cfr-print')} title="Print Confidential Final Report">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print CFR
               </button>
             </div>
@@ -1624,6 +1630,24 @@ export default function EnquiryForm() {
             {Object.keys(errors).length > 0 && <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>{Object.entries(errors).map(([k, v]) => <li key={k}><strong>{k}:</strong> {Array.isArray(v) ? v.join(', ') : v}</li>)}</ul>}
           </div>
         )}
+
+        {isEoLocked && (
+          <style>{`
+            .enquiry-eo-locked input:not([type="hidden"]),
+            .enquiry-eo-locked select,
+            .enquiry-eo-locked textarea {
+              pointer-events: none !important;
+              background: #f1f5f9 !important;
+              color: #334155 !important;
+              cursor: default !important;
+            }
+            .enquiry-eo-locked button:not([data-locked-ok]) {
+              display: none !important;
+            }
+          `}</style>
+        )}
+
+        <div className={isEoLocked && activeTab !== 'chat' ? 'enquiry-eo-locked' : undefined}>
 
         {/* DETAILS TAB */}
         {activeTab === 'details' && (
@@ -2225,6 +2249,7 @@ export default function EnquiryForm() {
                                   className="btn btn-outline btn-sm"
                                   onClick={() => printNotice(n)}
                                   title="Print Summon"
+                                  data-locked-ok="1"
                                 >
                                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                                   Print
@@ -2422,7 +2447,7 @@ export default function EnquiryForm() {
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.42a8.204 8.204 0 0 1 2.41 5.82c0 4.54-3.7 8.24-8.24 8.24-1.45 0-2.87-.38-4.12-1.1l-.3-.17-3.12.82.83-3.04-.19-.31a8.216 8.216 0 0 1-1.26-4.44c0-4.54 3.7-8.24 8.24-8.24zm4.52 11.64c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.4-.42-.56-.43h-.47c-.17 0-.43.06-.66.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.54c.12.17 1.74 2.65 4.21 3.72.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
                       Send via WhatsApp
                     </button>
-                    <button type="button" className="btn btn-outline btn-sm" onClick={() => printNotice(n)}>
+                    <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printNotice(n)}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Summon
                     </button>
                     {(n.id || n.notice_number || n.receiver_name) && (
@@ -2531,6 +2556,7 @@ export default function EnquiryForm() {
                       type="button"
                       className="btn btn-outline btn-sm"
                       onClick={() => loadLinkedForensicRequests(id)}
+                      data-locked-ok="1"
                       disabled={loadingLinkedReports}
                       style={{ fontSize: 11.5 }}
                     >
@@ -2739,17 +2765,17 @@ export default function EnquiryForm() {
                       </div>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         {a.type === 'raid' && (
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('raid-permission-print', a)}>
+                          <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printWarrantFromActivity('raid-permission-print', a)}>
                             Print Raid Permission
                           </button>
                         )}
                         {a.type === 'search_seize' && (
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('search-warrant-print', a)}>
+                          <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printWarrantFromActivity('search-warrant-print', a)}>
                             Print Search Warrant
                           </button>
                         )}
                         {a.type === 'arrest_warrant' && (
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => printWarrantFromActivity('arrest-warrant-print', a)}>
+                          <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printWarrantFromActivity('arrest-warrant-print', a)}>
                             Print Arrest Warrant
                           </button>
                         )}
@@ -2774,6 +2800,7 @@ export default function EnquiryForm() {
                             type="button"
                             className="btn btn-outline btn-sm"
                             style={{ color: '#015C94', borderColor: '#015C94', fontWeight: 600 }}
+                            data-locked-ok="1"
                             onClick={() => printActivityForensicRequest(a)}
                             title="Print official Forensic Analysis Scope letter for these seized items"
                           >
@@ -3065,7 +3092,7 @@ export default function EnquiryForm() {
 
                   {a.type === 'diaries' && (
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => printDiary(a)}>
+                      <button type="button" className="btn btn-outline btn-sm" data-locked-ok="1" onClick={() => printDiary(a)}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print Diary
                       </button>
                     </div>
@@ -3315,6 +3342,8 @@ export default function EnquiryForm() {
           </div>
         )}
 
+        </div>
+
         {canSubmitCfr && (
           <div style={{ marginTop: 16, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e3a5f' }}>
             {isSupervisor 
@@ -3325,7 +3354,7 @@ export default function EnquiryForm() {
 
         {isEoLocked && (
           <div style={{ marginTop: 16, padding: '12px 16px', background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b', fontWeight: 600 }}>
-            🔒 Yeh Enquiry Circle Incharge ko submit ho chuki hai / Approved hai. Enquiry Officer ke liye edit permissions locked hain (Read-Only Mode).
+            🔒 Yeh Enquiry Circle Incharge ko submit ho chuki hai. Enquiry Officer isay edit nahi kar sakta (Read-Only). Circle Incharge Send Back kare to phir edit khul jayegi.
           </div>
         )}
 

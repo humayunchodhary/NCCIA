@@ -11,7 +11,7 @@ import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canCreateE
 import { useAutoRefresh } from '../utils/useAutoRefresh';
 import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
 import { generateOfficialDocumentQr } from '../utils/qrcode';
-import { SIMPLE_STATUSES, simpleStatusLabel, toSimpleStatus } from '../utils/simpleStatus';
+import { SIMPLE_STATUSES, simpleStatusLabel, toSimpleStatus, isSubmittedToCircle } from '../utils/simpleStatus';
 
 const STATUS_COLORS = {
   pending: 'badge-pending',
@@ -685,7 +685,9 @@ export default function Enquiries() {
                             title="View / Review complete Enquiry details"
                           >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            {hasRole('circle_incharge') || hasRole('admin') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general') ? 'View / Review' : 'Edit Enquiry'}
+                            {hasRole('circle_incharge') || hasRole('admin') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general')
+                              ? 'View / Review'
+                              : (isSubmittedToCircle(e.status) ? 'View Enquiry' : 'Edit Enquiry')}
                           </Link>
 
                           {(hasRole('circle_incharge') || hasRole('admin') || hasRole('ad_legal') || hasRole('dd_legal') || hasRole('additional_director') || hasRole('director_general')) && (

@@ -73,8 +73,21 @@ class EnquiryPolicy
 
     public function update(User $user, Enquiry $enquiry): bool
     {
-        // Same visibility as view: if you can open it, you can save workflow fields.
-        return $this->view($user, $enquiry);
+        if (!$this->view($user, $enquiry)) {
+            return false;
+        }
+
+        $isOfficer = $user->hasAnyRole(['enquiry_officer', 'investigation_officer', 'inspector', 'sub_inspector', 'officer'])
+            && !$user->hasAnyRole([
+                'admin', 'circle_incharge', 'ad_legal', 'dd_legal',
+                'additional_director', 'director_general',
+            ]);
+
+        if ($isOfficer && $enquiry->isLockedForOfficer()) {
+            return false;
+        }
+
+        return true;
     }
 
     public function delete(User $user, Enquiry $enquiry): bool
