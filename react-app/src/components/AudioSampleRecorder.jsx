@@ -208,8 +208,37 @@ export default function AudioSampleRecorder({
       </div>
 
       {errorMsg && (
-        <div style={{ padding: '6px 10px', background: '#fee2e2', color: '#991b1b', borderRadius: 6, fontSize: 12, marginBottom: 8 }}>
-          {errorMsg}
+        <div style={{ padding: '10px 12px', background: '#fee2e2', color: '#991b1b', borderRadius: 8, fontSize: 12, marginBottom: 10, border: '1px solid #fca5a5' }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>⚠️ Microphone Access Blocked:</span>
+          </div>
+          <div>{errorMsg}</div>
+          <div style={{ marginTop: 8, padding: 8, background: '#ffffff', borderRadius: 6, color: '#1e293b', border: '1px solid #fecaca' }}>
+            <strong style={{ display: 'block', marginBottom: 4, color: '#0f172a' }}>Chrome / Edge mein Mic Unblock karne ka tareeqa:</strong>
+            <ol style={{ margin: 0, paddingLeft: 18, fontSize: 11.5, lineHeight: 1.6 }}>
+              <li>Browser ke address bar ke left side par <strong>🔒 Lock / 🎛️ Site Settings icon</strong> par click karein.</li>
+              <li><strong>Microphone</strong> option ko <strong>"Allow"</strong> karein.</li>
+              <li>Page reload karein ya neeche <strong>"🔄 Retry Permission"</strong> dabayein.</li>
+            </ol>
+          </div>
+          <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={startRecording}
+              className="btn btn-sm"
+              style={{ background: '#015C94', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}
+            >
+              🔄 Retry Permission
+            </button>
+            <button
+              type="button"
+              onClick={() => { setErrorMsg(''); setMode('upload'); }}
+              className="btn btn-sm"
+              style={{ background: '#475569', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}
+            >
+              📁 Switch to File / USB Upload
+            </button>
+          </div>
         </div>
       )}
 
