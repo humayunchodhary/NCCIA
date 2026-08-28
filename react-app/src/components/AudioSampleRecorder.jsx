@@ -74,7 +74,7 @@ export default function AudioSampleRecorder({
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       const isHttp = window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
       if (isHttp) {
-        setErrorMsg('⚠️ Browser mic access requires HTTPS. Please upload your audio file directly below or access the site via HTTPS.');
+        setErrorMsg('⚠️ Browser mic recording requires HTTPS. Please attach the audio file directly below.');
       } else {
         setErrorMsg('Microphone access is not supported by your browser. Please attach your audio file below.');
       }
@@ -83,31 +83,38 @@ export default function AudioSampleRecorder({
     }
 
     try {
+      // 1. Direct, robust microphone stream acquisition
       let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-      } catch (errConstraint) {
-        // Fallback to basic unconstrained audio
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (errBasic) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+          });
+        } catch (errConstraint) {
+          throw errBasic;
+        }
       }
       streamRef.current = stream;
 
-      // ── Set up Web Audio API for Real-Time Sound Visualizer (VU meter) ──
+      // 2. Web Audio API for Real-Time Sound Visualizer (VU meter)
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) {
           const audioCtx = new AudioCtx();
           audioCtxRef.current = audioCtx;
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+          }
           const source = audioCtx.createMediaStreamSource(stream);
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 128;
-          analyser.smoothingTimeConstant = 0.5;
+          analyser.smoothingTimeConstant = 0.4;
           source.connect(analyser);
           analyserRef.current = analyser;
 
@@ -127,10 +134,10 @@ export default function AudioSampleRecorder({
           updateLevel();
         }
       } catch (eVis) {
-        console.warn('VU visualizer not supported', eVis);
+        console.warn('VU visualizer not available', eVis);
       }
 
-      // ── Configure MediaRecorder with Supported MimeTypes ──
+      // 3. Configure MediaRecorder with Supported MimeTypes
       let mimeType = '';
       const candidateMimes = [
         'audio/webm;codecs=opus',
@@ -139,7 +146,6 @@ export default function AudioSampleRecorder({
         'audio/ogg',
         'audio/mp4',
         'audio/aac',
-        'audio/wav',
       ];
 
       if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
@@ -191,7 +197,11 @@ export default function AudioSampleRecorder({
       try {
         recorder.start(250);
       } catch (eStart) {
-        recorder.start();
+        try {
+          recorder.start();
+        } catch (eStart2) {
+          console.warn('recorder.start fallback', eStart2);
+        }
       }
 
       setIsRecording(true);
@@ -213,13 +223,13 @@ export default function AudioSampleRecorder({
       cleanupAudio();
 
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setErrorMsg('Microphone access is blocked by your browser. Please click the 🔒 icon in the browser address bar to Allow Microphone, or attach the audio file directly below.');
+        setErrorMsg('Microphone access is blocked by your browser or Windows Privacy Settings. Please allow mic or select your audio file directly below.');
         setShowPermGuide(true);
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setErrorMsg('No physical microphone device found on this system. Please attach your recorded audio file directly below.');
+        setErrorMsg('No physical microphone device detected. Please attach your recorded audio file directly below.');
         setMode('upload');
       } else {
-        setErrorMsg(`Microphone error (${err.message || err.name}). You can attach the recorded audio file directly below.`);
+        setErrorMsg(`Microphone error: ${err.message || err.name}. You can attach the audio file directly below.`);
         setMode('upload');
       }
     }
