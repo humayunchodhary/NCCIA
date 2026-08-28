@@ -6,6 +6,7 @@ import VerificationReportPanel from '../components/VerificationReportPanel';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import CaseChatPanel from '../components/CaseChatPanel';
+import AudioSampleRecorder from '../components/AudioSampleRecorder';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry, canFillLegalAndApprove, isSavedDiaryLocked } from '../utils/permissions';
 import { toLocalInput } from '../utils/datetime';
 import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
@@ -1318,11 +1319,21 @@ export default function EnquiryForm() {
         const isAudio = catLower.includes('audio') || catLower.includes('voice');
         if (isAudio) {
           if (!act.audio_script || !act.audio_script.trim()) {
-            alert('⚠️ Audio Forensic ke liye Written Transcript / Script likhna compulsory hai!');
+            alert('⚠️ Audio Forensic ke liye Written Transcript / Context likhna compulsory (lazmi) hai!');
             return;
           }
-          if (!act.audio_source_file || !act.audio_sample_file) {
-            alert('⚠️ Audio Forensic ke liye Source File (Questioned recording) aur Sample File (Known voice sample) dono attach karna compulsory hain!\n(All Audio Forensics are routed to Islamabad HQ).');
+          if (!act.audio_source_file) {
+            alert('⚠️ Audio Forensic ke liye Disputed / Questioned Audio File attach karna compulsory (lazmi) hai!');
+            return;
+          }
+          const sample1 = act.audio_sample_file_1 || act.audio_sample_file;
+          const sample2 = act.audio_sample_file_2;
+          if (!sample1 || !sample2) {
+            alert('⚠️ Audio Forensic ke liye Subject ki 2 Reference Sample Audios (30 sec each) live record ya attach karna compulsory (lazmi) hain!');
+            return;
+          }
+          if (!act.checklist_audio_samples || !act.checklist_summons || !act.checklist_usb || !act.checklist_transcript) {
+            alert('⚠️ Audio Forensic ke liye tamam compulsory checklist items (2 Audio Samples, Transcript, Summons Copy, USB Media) check karna lazmi hain!');
             return;
           }
         }
@@ -1337,9 +1348,15 @@ export default function EnquiryForm() {
       fd.append('note', act.description || `Seizure memo evidence submitted for ${destination === 'forensic' ? 'forensic' : 'technical'} examination.`);
       fd.append('checklist_tech_report', act.checklist_tech_report ? '1' : '0');
       fd.append('checklist_seizure_memo', act.checklist_seizure_memo ? '1' : '0');
+      fd.append('checklist_fir_copy', act.checklist_fir_copy ? '1' : '0');
+      fd.append('checklist_audio_samples', act.checklist_audio_samples ? '1' : '0');
+      fd.append('checklist_summons', act.checklist_summons ? '1' : '0');
+      fd.append('checklist_usb', act.checklist_usb ? '1' : '0');
+      fd.append('checklist_transcript', act.checklist_transcript ? '1' : '0');
       if (act.audio_script) fd.append('audio_script', act.audio_script);
       if (act.audio_source_file) fd.append('audio_source', act.audio_source_file);
-      if (act.audio_sample_file) fd.append('audio_sample', act.audio_sample_file);
+      if (act.audio_sample_file_1 || act.audio_sample_file) fd.append('audio_sample', act.audio_sample_file_1 || act.audio_sample_file);
+      if (act.audio_sample_file_2) fd.append('audio_sample_2', act.audio_sample_file_2);
       fd.append('items', JSON.stringify(items.length ? items : [{
         item_type: 'other',
         description: act.description || 'Seizure evidence items',
@@ -3105,55 +3122,141 @@ export default function EnquiryForm() {
 
                       {/* Audio Forensics Specific Requirements & Islamabad Routing */}
                       {(String(a.case_category || '').toLowerCase().includes('audio') || String(a.case_category || '').toLowerCase().includes('voice')) && (
-                        <div style={{ marginTop: 14, padding: '14px', background: '#fffbeb', borderRadius: 8, border: '1.5px solid #fde68a' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#b45309', fontWeight: 800, fontSize: 13.5, marginBottom: 8 }}>
-                            🏛️ NOTICE: All Audio &amp; Voice Forensic Examinations are exclusively routed to and examined at NCCIA Forensic HQ, Islamabad.
+                        <div style={{ marginTop: 14, padding: '16px', background: '#fffbeb', borderRadius: 10, border: '2px solid #fcd34d', boxShadow: '0 2px 10px rgba(217,119,6,0.08)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#b45309', fontWeight: 800, fontSize: 13.5, marginBottom: 8 }}>
+                            <span style={{ fontSize: 18 }}>🏛️</span>
+                            <span>OFFICIAL ROUTING: Circle Incharge Approval ➔ DD Forensic HQ (All Pakistan, Islamabad)</span>
                           </div>
-                          <p style={{ fontSize: 12, color: '#92400e', marginBottom: 12 }}>
-                            For Audio/Voice examination, a written script and both audio files (Source &amp; Sample) are <strong>compulsory</strong> before submitting to forensics.
+                          <p style={{ fontSize: 12.5, color: '#92400e', marginBottom: 14, lineHeight: 1.5 }}>
+                            All Audio &amp; Voice Biometric Forensic Examinations are exclusively conducted at <strong>NCCIA Forensic HQ, Islamabad</strong>. The questioned audio, 2 subject voice reference samples (30s each), written transcript and checklist are <strong>compulsory (lazmi)</strong>.
                           </p>
 
-                          <div className="cf-field" style={{ marginBottom: 12 }}>
-                            <label className="cf-label required"><strong>1. Audio Script / Written Transcript (Compulsory):</strong></label>
+                          {/* 1. Questioned Audio File */}
+                          <div className="cf-field" style={{ marginBottom: 14, background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #fde68a' }}>
+                            <label className="cf-label required"><strong>1. Questioned / Disputed Audio File (Jis ki forensic karwani hai):</strong></label>
+                            {!isSupervisor && (
+                              <input
+                                type="file"
+                                className="cf-input"
+                                accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.webm"
+                                onChange={e => updateActivity(i, 'audio_source_file', e.target.files?.[0] || null)}
+                              />
+                            )}
+                            <span style={{ fontSize: 11, color: '#64748b', display: 'block', marginTop: 4 }}>
+                              Original disputed audio recording file, call recording or USB extraction file.
+                            </span>
+                          </div>
+
+                          {/* 2. Two Reference Sample Audios (30 seconds each) */}
+                          <div style={{ marginBottom: 14 }}>
+                            <label className="cf-label required" style={{ fontSize: 13.5, fontWeight: 800, color: '#92400e', marginBottom: 8, display: 'block' }}>
+                              2. Subject Voice Reference Samples (2 Samples · 30 Seconds Each · Live Mic Record / USB Upload):
+                            </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                              <AudioSampleRecorder
+                                label="Subject Sample Audio 1 (30s)"
+                                file={a.audio_sample_file_1 || a.audio_sample_file}
+                                onChange={f => updateActivity(i, 'audio_sample_file_1', f)}
+                                disabled={isSupervisor}
+                                targetDuration={30}
+                              />
+                              <AudioSampleRecorder
+                                label="Subject Sample Audio 2 (30s)"
+                                file={a.audio_sample_file_2}
+                                onChange={f => updateActivity(i, 'audio_sample_file_2', f)}
+                                disabled={isSupervisor}
+                                targetDuration={30}
+                              />
+                            </div>
+                          </div>
+
+                          {/* 3. Written Transcript / Context */}
+                          <div className="cf-field" style={{ marginBottom: 14, background: '#fff', padding: 12, borderRadius: 8, border: '1px solid #fde68a' }}>
+                            <label className="cf-label required"><strong>3. Audio Script / Written Transcript (Written Context of Audio):</strong></label>
                             {isSupervisor ? (
-                              <div style={{ padding: '8px 12px', background: '#fff', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #fde68a', whiteSpace: 'pre-wrap' }}>
+                              <div style={{ padding: '10px 12px', background: '#f8fafc', borderRadius: 6, fontSize: 13, color: '#0f172a', border: '1px solid #e2e8f0', whiteSpace: 'pre-wrap', minHeight: 60 }}>
                                 {a.audio_script || '—'}
                               </div>
                             ) : (
                               <textarea
                                 className="cf-input"
                                 rows={3}
-                                placeholder="Enter complete written transcript/dialogue of the disputed audio in Urdu or English..."
+                                placeholder="Enter complete written transcript/dialogue of the audio context in Urdu or English..."
                                 value={a.audio_script || ''}
                                 onChange={e => updateActivity(i, 'audio_script', e.target.value)}
+                                style={{ width: '100%', fontSize: 13 }}
                               />
                             )}
+                            <span style={{ fontSize: 11, color: '#64748b', display: 'block', marginTop: 4 }}>
+                              Word-by-word transcription/dialogue of what is said in the disputed audio.
+                            </span>
                           </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                            <div className="cf-field">
-                              <label className="cf-label required"><strong>2. Source Audio File (Questioned/Disputed):</strong></label>
-                              {!isSupervisor && (
-                                <input
-                                  type="file"
-                                  className="cf-input"
-                                  accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg"
-                                  onChange={e => updateActivity(i, 'audio_source_file', e.target.files?.[0] || null)}
-                                />
-                              )}
-                              <span style={{ fontSize: 11, color: '#64748b' }}>Original disputed voice recording file</span>
+                          {/* 4. Audio Forensics Mandatory Checkboxes (All Compulsory) */}
+                          <div style={{ padding: '12px 14px', background: '#ffffff', borderRadius: 8, border: '1.5px solid #fcd34d' }}>
+                            <div style={{ fontWeight: 800, fontSize: 13, color: '#92400e', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              ☑️ Audio Forensic Compulsory Verification Checkboxes:
                             </div>
-                            <div className="cf-field">
-                              <label className="cf-label required"><strong>3. Sample Audio File (Known Voice):</strong></label>
-                              {!isSupervisor && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: isSupervisor ? 'default' : 'pointer' }}>
                                 <input
-                                  type="file"
-                                  className="cf-input"
-                                  accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg"
-                                  onChange={e => updateActivity(i, 'audio_sample_file', e.target.files?.[0] || null)}
+                                  type="checkbox"
+                                  checked={Boolean(a.checklist_questioned_audio)}
+                                  onChange={e => updateActivity(i, 'checklist_questioned_audio', e.target.checked)}
+                                  disabled={isSupervisor}
                                 />
-                              )}
-                              <span style={{ fontSize: 11, color: '#64748b' }}>Standard voice sample recorded from subject/accused</span>
+                                <span>Questioned Audio Identified <span style={{ color: '#dc2626' }}>*</span></span>
+                              </label>
+
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: isSupervisor ? 'default' : 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(a.checklist_audio_samples)}
+                                  onChange={e => updateActivity(i, 'checklist_audio_samples', e.target.checked)}
+                                  disabled={isSupervisor}
+                                />
+                                <span>2 Sample Audios (30s) Recorded <span style={{ color: '#dc2626' }}>*</span></span>
+                              </label>
+
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: isSupervisor ? 'default' : 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(a.checklist_transcript)}
+                                  onChange={e => updateActivity(i, 'checklist_transcript', e.target.checked)}
+                                  disabled={isSupervisor}
+                                />
+                                <span>Written Transcript Included <span style={{ color: '#dc2626' }}>*</span></span>
+                              </label>
+
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: isSupervisor ? 'default' : 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(a.checklist_summons)}
+                                  onChange={e => updateActivity(i, 'checklist_summons', e.target.checked)}
+                                  disabled={isSupervisor}
+                                />
+                                <span>Summons Copy Attached <span style={{ color: '#dc2626' }}>*</span></span>
+                              </label>
+
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: isSupervisor ? 'default' : 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(a.checklist_fir_copy)}
+                                  onChange={e => updateActivity(i, 'checklist_fir_copy', e.target.checked)}
+                                  disabled={isSupervisor}
+                                />
+                                <span>FIR Copy Attached (if registered)</span>
+                              </label>
+
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: isSupervisor ? 'default' : 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(a.checklist_usb)}
+                                  onChange={e => updateActivity(i, 'checklist_usb', e.target.checked)}
+                                  disabled={isSupervisor}
+                                />
+                                <span>USB / Storage Media Handed Over <span style={{ color: '#dc2626' }}>*</span></span>
+                              </label>
                             </div>
                           </div>
                         </div>

@@ -117,9 +117,14 @@ class ForensicRequestController extends Controller
             'checklist_seizure_memo'   => 'nullable',
             'checklist_fir_copy'       => 'nullable',
             'checklist_scope_letter'   => 'nullable',
+            'checklist_audio_samples'  => 'nullable',
+            'checklist_summons'        => 'nullable',
+            'checklist_usb'            => 'nullable',
+            'checklist_transcript'     => 'nullable',
             'audio_script'             => 'nullable|string|max:50000',
             'audio_source'             => 'nullable|file|max:51200',
             'audio_sample'             => 'nullable|file|max:51200',
+            'audio_sample_2'           => 'nullable|file|max:51200',
             'routed_to'                => 'nullable|string|max:255',
         ]);
 
@@ -128,6 +133,10 @@ class ForensicRequestController extends Controller
         $checkSeize = filter_var($data['checklist_seizure_memo'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $checkFir = filter_var($data['checklist_fir_copy'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $checkScope = filter_var($data['checklist_scope_letter'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $checkAudioSamples = filter_var($data['checklist_audio_samples'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $checkSummons = filter_var($data['checklist_summons'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $checkUsb = filter_var($data['checklist_usb'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $checkTranscript = filter_var($data['checklist_transcript'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         if (!$isExternal && empty($data['enquiry_id']) && empty($data['case_id'])) {
             return response()->json(['message' => 'Link enquiry or case is required for internal requests.'], 422);
@@ -157,13 +166,19 @@ class ForensicRequestController extends Controller
             $audioSamplePath = $request->file('audio_sample')->store('forensic-audio', 'public');
         }
 
+        $audioSample2Path = null;
+        if ($request->hasFile('audio_sample_2')) {
+            $audioSample2Path = $request->file('audio_sample_2')->store('forensic-audio', 'public');
+        }
+
         $category = strtolower($data['external_category'] ?? '');
         $isAudio = str_contains($category, 'audio') || str_contains($category, 'voice');
         $routedTo = $isAudio ? 'NCCIA Forensic HQ, Islamabad' : ($data['routed_to'] ?? null);
 
         $fr = DB::transaction(function () use (
-            $data, $user, $gen, $path, $audioSourcePath, $audioSamplePath,
-            $items, $isExternal, $checkTech, $checkSeize, $checkFir, $checkScope, $routedTo
+            $data, $user, $gen, $path, $audioSourcePath, $audioSamplePath, $audioSample2Path,
+            $items, $isExternal, $checkTech, $checkSeize, $checkFir, $checkScope,
+            $checkAudioSamples, $checkSummons, $checkUsb, $checkTranscript, $routedTo
         ) {
             $fr = null;
             if (!$isExternal) {
@@ -200,14 +215,19 @@ class ForensicRequestController extends Controller
                     'checklist_seizure_memo'  => $checkSeize,
                     'checklist_fir_copy'      => $checkFir,
                     'checklist_scope_letter'  => $checkScope,
+                    'checklist_audio_samples' => $checkAudioSamples,
+                    'checklist_summons'       => $checkSummons,
+                    'checklist_usb'           => $checkUsb,
+                    'checklist_transcript'    => $checkTranscript,
                     'audio_script'            => $data['audio_script'] ?? null,
                     'audio_source_path'       => $audioSourcePath,
                     'audio_sample_path'       => $audioSamplePath,
+                    'audio_sample_2_path'     => $audioSample2Path,
                     'routed_to'               => $routedTo,
                     'attachment_path'         => $path,
                 ]);
             } else {
-                // If appending to existing, maybe update the note or attachment if provided
+                // If appending to existing, update fields
                 if ($path) {
                     $fr->attachment_path = $path;
                 }
@@ -217,7 +237,16 @@ class ForensicRequestController extends Controller
                 if ($audioSamplePath) {
                     $fr->audio_sample_path = $audioSamplePath;
                 }
+                if ($audioSample2Path) {
+                    $fr->audio_sample_2_path = $audioSample2Path;
+                }
                 if (!empty($data['audio_script'])) {
+                    $fr->audio_script = $data['audio_script'];
+                }
+                if ($checkAudioSamples) $fr->checklist_audio_samples = true;
+                if ($checkSummons) $fr->checklist_summons = true;
+                if ($checkUsb) $fr->checklist_usb = true;
+                if ($checkTranscript) $fr->checklist_transcript = true;
                     $fr->audio_script = $data['audio_script'];
                 }
                 if (!empty($data['note'])) {

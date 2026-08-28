@@ -11,7 +11,8 @@ class ForensicRequest extends Model
     protected $fillable = [
         'request_no', 'enquiry_id', 'case_id', 'submitted_by', 'destination', 'priority', 'note',
         'checklist_tech_report', 'checklist_seizure_memo', 'checklist_fir_copy', 'checklist_scope_letter',
-        'audio_script', 'audio_source_path', 'audio_sample_path', 'routed_to',
+        'checklist_audio_samples', 'checklist_summons', 'checklist_usb', 'checklist_transcript',
+        'audio_script', 'audio_source_path', 'audio_sample_path', 'audio_sample_2_path', 'routed_to',
         'findings', 'lab_notes', 'status', 'is_external', 'external_ref', 'external_letter_no',
         'external_courier_no', 'external_organization', 'external_person_name', 'external_person_address',
         'external_person_contact', 'external_category', 'external_scope',
@@ -24,12 +25,16 @@ class ForensicRequest extends Model
     protected function casts(): array
     {
         return [
-            'is_external'            => 'boolean',
-            'checklist_tech_report'  => 'boolean',
-            'checklist_seizure_memo' => 'boolean',
-            'checklist_fir_copy'     => 'boolean',
-            'checklist_scope_letter' => 'boolean',
-            'ad_reviewed_at'         => 'datetime',
+            'is_external'             => 'boolean',
+            'checklist_tech_report'   => 'boolean',
+            'checklist_seizure_memo'  => 'boolean',
+            'checklist_fir_copy'      => 'boolean',
+            'checklist_scope_letter'  => 'boolean',
+            'checklist_audio_samples' => 'boolean',
+            'checklist_summons'       => 'boolean',
+            'checklist_usb'           => 'boolean',
+            'checklist_transcript'    => 'boolean',
+            'ad_reviewed_at'          => 'datetime',
             'assigned_at'      => 'datetime',
             'opened_at'        => 'datetime',
             'report_ready_at'  => 'datetime',
