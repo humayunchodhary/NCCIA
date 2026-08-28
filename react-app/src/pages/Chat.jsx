@@ -95,11 +95,18 @@ export default function Chat() {
   }, [meId]);
 
   useEffect(() => {
-    api.get('/messages/contacts').then(r => setContacts(r.data || [])).catch(() => {});
+    api.get('/messages/contacts').then(r => {
+      const cList = r.data || [];
+      setContacts(cList);
+      if (cList.length > 0 && !activeId) {
+        setActiveId(cList[0].id);
+        loadThread(cList[0].id);
+      }
+    }).catch(() => {});
     refreshConversations();
     refreshCases();
     setLoading(false);
-  }, [refreshConversations, refreshCases]);
+  }, [refreshConversations, refreshCases, loadThread]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -203,28 +210,29 @@ export default function Chat() {
   }
 
   return (
-    <div>
-      <div className="page-header">
+    <div style={{ width: '100%' }}>
+      <div className="page-header" style={{ marginBottom: 16 }}>
         <div>
-          <h1 className="page-title">Collaboration & Case Discussions</h1>
-          <p className="page-subtitle" style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+          <h1 className="page-title" style={{ fontSize: 22, fontWeight: 700, color: '#0f172a' }}>Collaboration & Case Discussions</h1>
+          <p className="page-subtitle" style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>
             Chat with team members working on specific enquiries/cases or send direct messages
           </p>
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.04)', background: '#fff' }}>
         {/* Navigation Tabs Header */}
         <div style={{
           display: 'flex',
           borderBottom: '1px solid #e2e8f0',
           background: '#f8fafc',
-          padding: '8px 12px',
-          gap: 10,
+          padding: '10px 16px',
+          gap: 12,
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexWrap: 'wrap',
         }}>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
             <button
               type="button"
               onClick={() => setTabMode('cases')}
@@ -233,13 +241,13 @@ export default function Chat() {
                 color: tabMode === 'cases' ? '#ffffff' : '#334155',
                 border: tabMode === 'cases' ? 'none' : '1px solid #cbd5e1',
                 borderRadius: 8,
-                padding: '8px 16px',
+                padding: '8px 18px',
                 fontSize: 13,
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 8,
                 boxShadow: tabMode === 'cases' ? '0 2px 6px rgba(1,92,148,0.25)' : 'none',
                 transition: 'all 0.15s',
               }}
@@ -247,9 +255,10 @@ export default function Chat() {
               <span>📁 Case & Enquiry Discussions</span>
               <span style={{
                 background: tabMode === 'cases' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
-                padding: '1px 6px',
+                padding: '2px 8px',
                 borderRadius: 10,
                 fontSize: 11,
+                fontWeight: 700,
               }}>
                 {caseList.length}
               </span>
@@ -263,13 +272,13 @@ export default function Chat() {
                 color: tabMode === 'direct' ? '#ffffff' : '#334155',
                 border: tabMode === 'direct' ? 'none' : '1px solid #cbd5e1',
                 borderRadius: 8,
-                padding: '8px 16px',
+                padding: '8px 18px',
                 fontSize: 13,
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 8,
                 boxShadow: tabMode === 'direct' ? '0 2px 6px rgba(1,92,148,0.25)' : 'none',
                 transition: 'all 0.15s',
               }}
@@ -279,7 +288,7 @@ export default function Chat() {
                 <span style={{
                   background: '#ef4444',
                   color: '#fff',
-                  padding: '1px 6px',
+                  padding: '2px 8px',
                   borderRadius: 10,
                   fontSize: 11,
                   fontWeight: 700,
@@ -293,11 +302,11 @@ export default function Chat() {
 
         {/* CASE DISCUSSIONS MODE */}
         {tabMode === 'cases' && (
-          <div style={{ display: 'flex', height: 'calc(100vh - 240px)', minHeight: 520 }}>
+          <div style={{ display: 'flex', height: 'calc(100vh - 210px)', minHeight: 560 }}>
             {/* Left Case List Sidebar */}
             <div style={{
-              width: 340,
-              minWidth: 280,
+              width: 360,
+              minWidth: 300,
               borderRight: '1px solid #e5e7eb',
               display: 'flex',
               flexDirection: 'column',
@@ -310,13 +319,13 @@ export default function Chat() {
                   value={caseSearch}
                   onChange={e => setCaseSearch(e.target.value)}
                   className="cf-input"
-                  style={{ width: '100%', fontSize: 13 }}
+                  style={{ width: '100%', fontSize: 13, padding: '8px 12px' }}
                 />
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {filteredCases.length === 0 && (
-                  <div style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
+                  <div style={{ padding: 30, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
                     No matching cases or enquiries found.
                   </div>
                 )}
@@ -392,7 +401,7 @@ export default function Chat() {
                   <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.4 }}>
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                   </svg>
-                  <p style={{ marginTop: 12 }}>Select a case or enquiry to view discussion</p>
+                  <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500 }}>Select a case or enquiry to view discussion</p>
                 </div>
               )}
             </div>
@@ -401,10 +410,10 @@ export default function Chat() {
 
         {/* DIRECT MESSAGES (1-ON-1) MODE */}
         {tabMode === 'direct' && (
-          <div style={{ display: 'flex', height: 'calc(100vh - 240px)', minHeight: 520 }}>
+          <div style={{ display: 'flex', height: 'calc(100vh - 210px)', minHeight: 560 }}>
             {/* Contact sidebar */}
-            <div style={{ width: 320, minWidth: 260, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#f9fafb' }}>
-              <div style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ width: 340, minWidth: 280, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', background: '#f9fafb' }}>
+              <div style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: '#374151' }}>
                   Officers
                   {totalUnread > 0 && <span style={{ marginLeft: 8, background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11, minWidth: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{totalUnread}</span>}
@@ -425,19 +434,19 @@ export default function Chat() {
                   Mark all read
                 </button>
               </div>
-              <div style={{ padding: 12, borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e7eb' }}>
                 <input
                   type="search"
                   placeholder="Search officers…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="cf-input"
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', fontSize: 13, padding: '8px 12px' }}
                 />
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {filtered.length === 0 && (
-                  <div style={{ padding: 20, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No contacts found</div>
+                  <div style={{ padding: 30, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No contacts found</div>
                 )}
                 {sortedContacts.map(c => {
                   const conv = convFor(c.id);
@@ -448,39 +457,40 @@ export default function Chat() {
                       key={c.id}
                       onClick={() => selectConversation(c.id)}
                       style={{
-                        padding: '10px 12px',
+                        padding: '12px 14px',
                         cursor: 'pointer',
                         borderBottom: '1px solid #f0f1f3',
                         background: isActive ? '#eaf2f8' : 'transparent',
+                        borderLeft: isActive ? `4px solid ${PRIMARY}` : '4px solid transparent',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 10,
+                        gap: 12,
                         transition: 'background 0.15s',
                       }}
                       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f3f4f6'; }}
                       onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                     >
                       <div style={{
-                        width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
                         background: PRIMARY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: 600, fontSize: 14,
+                        fontWeight: 700, fontSize: 14, boxShadow: '0 2px 5px rgba(1,92,148,0.25)',
                       }}>
                         {initialsOf(c.name)}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
-                          <span style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
-                          {conv?.last_time && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{timeAgo(conv.last_time)}</span>}
+                          <span style={{ fontWeight: 600, fontSize: 13.5, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                          {conv?.last_time && <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{timeAgo(conv.last_time)}</span>}
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 12, color: unread ? PRIMARY : '#9ca3af', fontWeight: unread ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {conv?.last_message || (c.designation || c.role)}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          <span style={{ fontSize: 12, color: unread ? PRIMARY : '#64748b', fontWeight: unread ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {conv?.last_message || (c.designation || c.role || '').replace(/_/g, ' ')}
                           </span>
                           {unread > 0 && (
                             <span style={{
                               background: '#ef4444', color: '#fff', borderRadius: 10, fontSize: 11,
                               minWidth: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              padding: '0 5px', flexShrink: 0,
+                              padding: '0 5px', flexShrink: 0, fontWeight: 700,
                             }}>{unread}</span>
                           )}
                         </div>
@@ -498,29 +508,29 @@ export default function Chat() {
                   <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.4 }}>
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                   </svg>
-                  <p style={{ marginTop: 12 }}>Select a contact to start messaging</p>
+                  <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500 }}>Select a contact to start messaging</p>
                 </div>
               ) : (
                 <>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10, background: '#f9fafb' }}>
+                  <div style={{ padding: '12px 18px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 12, background: '#f8fafc' }}>
                     <div style={{
-                      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                      width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
                       background: PRIMARY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 600, fontSize: 13,
+                      fontWeight: 700, fontSize: 14, boxShadow: '0 2px 5px rgba(1,92,148,0.25)',
                     }}>
                       {initialsOf(activeContact.name)}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{activeContact.name}</div>
-                      <div style={{ fontSize: 12, color: '#6b7280' }}>{(activeContact.designation || activeContact.role || 'Officer').replace(/_/g, ' ')}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14.5, color: '#0f172a' }}>{activeContact.name}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{(activeContact.designation || activeContact.role || 'Officer').replace(/_/g, ' ')}</div>
                     </div>
                   </div>
 
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: '#f3f4f6' }}>
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', background: '#f1f5f9' }}>
                     <div ref={threadTopRef} />
-                    {threadLoading && <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 20 }}>Loading conversation…</div>}
+                    {threadLoading && <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, padding: 20 }}>Loading conversation…</div>}
                     {!threadLoading && messages.length === 0 && (
-                      <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: 30 }}>No messages yet. Say hello!</div>
+                      <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, padding: 40 }}>No messages yet. Send a message to start conversation!</div>
                     )}
                     {!threadLoading && messages.map((m, i) => {
                       const mine = Number(m.sender_id) === Number(meId);
@@ -528,30 +538,30 @@ export default function Chat() {
                       return (
                         <div key={m.id}>
                           {showDay && (
-                            <div style={{ textAlign: 'center', margin: '12px 0' }}>
-                              <span style={{ background: '#e5e7eb', color: '#6b7280', fontSize: 11, padding: '3px 10px', borderRadius: 10 }}>{formatDay(m.created_at)}</span>
+                            <div style={{ textAlign: 'center', margin: '14px 0' }}>
+                              <span style={{ background: '#e2e8f0', color: '#475569', fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 12 }}>{formatDay(m.created_at)}</span>
                             </div>
                           )}
                           <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
                             <div style={{
-                              maxWidth: '72%',
-                              background: mine ? PRIMARY : '#fff',
-                              color: mine ? '#fff' : '#111827',
-                              padding: '9px 13px',
-                              borderRadius: 14,
-                              borderBottomRightRadius: mine ? 4 : 14,
-                              borderBottomLeftRadius: mine ? 14 : 4,
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                              maxWidth: '70%',
+                              background: mine ? PRIMARY : '#ffffff',
+                              color: mine ? '#ffffff' : '#0f172a',
+                              padding: '10px 15px',
+                              borderRadius: 16,
+                              borderBottomRightRadius: mine ? 4 : 16,
+                              borderBottomLeftRadius: mine ? 16 : 4,
+                              boxShadow: mine ? '0 2px 6px rgba(1,92,148,0.25)' : '0 2px 6px rgba(0,0,0,0.06)',
                               whiteSpace: 'pre-wrap',
                               wordBreak: 'break-word',
-                              fontSize: 14,
-                              lineHeight: 1.45,
+                              fontSize: 13.5,
+                              lineHeight: 1.5,
                             }}>
                               {m.message}
                             </div>
                           </div>
                           <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
-                            <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                            <span style={{ fontSize: 11, color: '#94a3b8', padding: '0 4px' }}>
                               {formatTime(m.created_at)}
                               {mine && (m.is_read ? ' · Read' : ' · Sent')}
                             </span>
@@ -561,14 +571,14 @@ export default function Chat() {
                     })}
                   </div>
 
-                  <form onSubmit={sendMessage} style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, background: '#fff' }}>
+                  <form onSubmit={sendMessage} style={{ padding: '12px 18px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, background: '#fff', alignItems: 'center' }}>
                     <textarea
                       value={text}
                       onChange={e => setText(e.target.value)}
-                      placeholder="Type a message…"
+                      placeholder="Type your message here (Press Enter to send)…"
                       rows={1}
                       className="cf-input"
-                      style={{ flex: 1, resize: 'none', minHeight: 40, maxHeight: 120, padding: '10px 12px' }}
+                      style={{ flex: 1, resize: 'none', minHeight: 42, maxHeight: 120, padding: '10px 14px', fontSize: 13.5, borderRadius: 8 }}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -576,9 +586,18 @@ export default function Chat() {
                         }
                       }}
                     />
-                    <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end', display: 'flex', alignItems: 'center', gap: 6 }} disabled={sending || !text.trim()}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                      Send
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      style={{
+                        background: PRIMARY, color: '#fff', padding: '10px 20px', fontWeight: 700, fontSize: 13,
+                        borderRadius: 8, border: 'none', display: 'flex', alignItems: 'center', gap: 6,
+                        boxShadow: '0 2px 8px rgba(1,92,148,0.3)', height: 42, cursor: text.trim() ? 'pointer' : 'default',
+                      }}
+                      disabled={sending || !text.trim()}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                      {sending ? 'Sending…' : 'Send'}
                     </button>
                   </form>
                 </>

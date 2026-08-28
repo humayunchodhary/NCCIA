@@ -530,11 +530,11 @@ input:focus, select:focus, textarea:focus {
   transition: all 0.18s ease !important;
 }
 
-/* ── Ultrawide & 4K Desktops (min-width: 1440px) ── */
+/* ── Ultrawide & Large Desktops (min-width: 1440px) ── */
 @media (min-width: 1440px) {
   .page-content {
-    max-width: 1600px;
-    margin: 0 auto;
+    max-width: 100%;
+    margin: 0;
     padding: 24px 32px;
   }
 }
