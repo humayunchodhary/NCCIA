@@ -1570,7 +1570,7 @@ class EnquiryController extends Controller
     {
         $data = $request->validate([
             'cfr_summary'    => 'required|string',
-            'recommendation' => 'required|string|in:closure,transfer,convert_to_case,fir,irrelevant,lack_of_documents',
+            'recommendation' => 'nullable|string|in:closure,transfer,convert_to_case,fir,irrelevant,lack_of_documents',
             'cfr_type'       => 'nullable|string|in:CFR,SCFR',
             'cfr_date'       => 'nullable|date',
             'charge_against' => 'nullable|string',
@@ -1581,7 +1581,7 @@ class EnquiryController extends Controller
             'cfr_remarks'    => 'nullable|string',
         ]);
 
-        $rec = $data['recommendation'];
+        $rec = $data['recommendation'] ?? $enquiry->recommendation ?: 'convert_to_case';
         if ($rec === 'fir') {
             $rec = 'convert_to_case';
         }
