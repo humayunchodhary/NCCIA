@@ -120,11 +120,12 @@ export const DESIGNATION_OPTIONS = [
 ];
 
 export const CASE_CATEGORIES = [
+  'Audio / Voice Forensics',
+  'Audio Sampling/Collection',
   'Financial Fraud',
   'AHTC',
   'Anti-State',
   'ATM/Credit Card Skimming',
-  'Audio Sampling/Collection',
   'Blackmailing',
   'Blasphemy',
   'Child Pornography',
