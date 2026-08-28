@@ -46,21 +46,48 @@ export default function AudioSampleRecorder({
     audioChunksRef.current = [];
     setRecordingSeconds(0);
 
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setErrorMsg('Microphone access is not supported on this browser. Please use file upload.');
-        setMode('upload');
-        return;
-      }
+    const isSecureOrigin = window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+    if (!navigator.mediaDevices?.getUserMedia) {
+      if (!isSecureOrigin) {
+        setErrorMsg('⚠️ Browser mic access requires HTTPS. Please switch to "File / USB" tab to attach the audio sample file directly.');
+      } else {
+        setErrorMsg('Microphone access is not supported by your browser. Please use "File / USB" option.');
+      }
+      setMode('upload');
+      return;
+    }
+
+    try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg');
+      let mimeType = '';
+      const candidateMimes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/mp4',
+        'audio/aac',
+      ];
 
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+        for (const candidate of candidateMimes) {
+          if (MediaRecorder.isTypeSupported(candidate)) {
+            mimeType = candidate;
+            break;
+          }
+        }
+      }
+
+      let recorder;
+      try {
+        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      } catch (err) {
+        recorder = new MediaRecorder(stream);
+      }
+
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (e) => {
@@ -71,7 +98,7 @@ export default function AudioSampleRecorder({
 
       recorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-        const ext = recorder.mimeType?.includes('ogg') ? 'ogg' : 'webm';
+        const ext = recorder.mimeType?.includes('ogg') ? 'ogg' : (recorder.mimeType?.includes('mp4') ? 'mp4' : 'webm');
         const sampleFileName = `${label.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}.${ext}`;
         const audioFile = new File([audioBlob], sampleFileName, { type: audioBlob.type });
 
@@ -85,7 +112,7 @@ export default function AudioSampleRecorder({
         }
       };
 
-      recorder.start(250); // slice every 250ms
+      recorder.start(250);
       setIsRecording(true);
 
       let currentSec = 0;
@@ -99,7 +126,13 @@ export default function AudioSampleRecorder({
       }, 1000);
     } catch (err) {
       console.error('Microphone error:', err);
-      setErrorMsg('Microphone access denied or not found. Please allow mic permissions or upload a file.');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setErrorMsg('Microphone permission was denied by browser. Please allow microphone access in browser settings, or use "File / USB" upload.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setErrorMsg('No microphone device found on this computer. Please attach a mic or use "File / USB" upload.');
+      } else {
+        setErrorMsg(`Mic error (${err.message || err.name}). Please use "File / USB" to upload the recording.`);
+      }
       setIsRecording(false);
     }
   };
