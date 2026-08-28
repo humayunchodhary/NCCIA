@@ -7,7 +7,7 @@ export default function AudioSampleRecorder({
   disabled = false,
   targetDuration = 30, // seconds
 }) {
-  const [mode, setMode] = useState('record'); // 'record' | 'upload'
+  const [mode, setMode] = useState('upload'); // default to 'upload' for 100% instant reliability
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -50,9 +50,9 @@ export default function AudioSampleRecorder({
 
     if (!navigator.mediaDevices?.getUserMedia) {
       if (!isSecureOrigin) {
-        setErrorMsg('⚠️ Browser mic access requires HTTPS. Please switch to "File / USB" tab to attach the audio sample file directly.');
+        setErrorMsg('⚠️ Browser mic access requires HTTPS. Please attach the audio sample file directly via File/USB.');
       } else {
-        setErrorMsg('Microphone access is not supported by your browser. Please use "File / USB" option.');
+        setErrorMsg('Microphone access is not supported by your browser. Please attach file via File/USB.');
       }
       setMode('upload');
       return;
@@ -138,13 +138,14 @@ export default function AudioSampleRecorder({
     } catch (err) {
       console.error('Microphone error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setErrorMsg('Microphone access is blocked by Windows Privacy Settings or Browser. Agar Chrome mein allow hai toh Windows Settings mein Microphone ON karein, ya File/USB se attach karein.');
+        setErrorMsg('Microphone access is blocked in Windows Privacy Settings or Browser. Please attach your 30s voice sample file directly using the file picker below.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setErrorMsg('No active microphone found on laptop. Please check audio drivers or use "File / USB" upload.');
+        setErrorMsg('No active microphone found. Please attach your voice sample file below.');
       } else {
-        setErrorMsg(`Microphone error (${err.message || err.name}). Please use "File / USB" to attach recording.`);
+        setErrorMsg(`Microphone error (${err.message || err.name}). Please attach sample file below.`);
       }
       setIsRecording(false);
+      setMode('upload');
     }
   };
 
@@ -176,7 +177,7 @@ export default function AudioSampleRecorder({
       transition: 'all 0.2s',
       boxShadow: isRecording ? '0 0 0 3px rgba(239,68,68,0.2)' : 'none',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
         <label className="cf-label required" style={{ margin: 0, fontWeight: 700, fontSize: 13, color: '#1e293b' }}>
           🎙️ {label}
         </label>
@@ -184,89 +185,59 @@ export default function AudioSampleRecorder({
           <div style={{ display: 'flex', gap: 4, background: '#f1f5f9', padding: 2, borderRadius: 6 }}>
             <button
               type="button"
-              onClick={() => setMode('record')}
-              style={{
-                background: mode === 'record' ? '#015C94' : 'transparent',
-                color: mode === 'record' ? '#fff' : '#64748b',
-                border: 'none',
-                padding: '3px 8px',
-                borderRadius: 4,
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              🎙️ Live Record (30s)
-            </button>
-            <button
-              type="button"
               onClick={() => setMode('upload')}
               style={{
                 background: mode === 'upload' ? '#015C94' : 'transparent',
                 color: mode === 'upload' ? '#fff' : '#64748b',
                 border: 'none',
-                padding: '3px 8px',
+                padding: '4px 10px',
                 borderRadius: 4,
-                fontSize: 11,
-                fontWeight: 600,
+                fontSize: 11.5,
+                fontWeight: 700,
                 cursor: 'pointer',
               }}
             >
-              📁 File / USB
+              📁 Attach File / USB
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('record')}
+              style={{
+                background: mode === 'record' ? '#015C94' : 'transparent',
+                color: mode === 'record' ? '#fff' : '#64748b',
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: 4,
+                fontSize: 11.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              🎙️ Live Mic
             </button>
           </div>
         )}
       </div>
 
       {errorMsg && (
-        <div style={{ padding: '10px 12px', background: '#fee2e2', color: '#991b1b', borderRadius: 8, fontSize: 12, marginBottom: 10, border: '1px solid #fca5a5' }}>
-          <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>⚠️ Microphone Access Blocked:</span>
-          </div>
-          <div>{errorMsg}</div>
-          <div style={{ marginTop: 8, padding: 8, background: '#ffffff', borderRadius: 6, color: '#1e293b', border: '1px solid #fecaca' }}>
-            <strong style={{ display: 'block', marginBottom: 4, color: '#0f172a' }}>Chrome / Edge mein Mic Unblock karne ka tareeqa:</strong>
-            <ol style={{ margin: 0, paddingLeft: 18, fontSize: 11.5, lineHeight: 1.6 }}>
-              <li>Browser ke address bar ke left side par <strong>🔒 Lock / 🎛️ Site Settings icon</strong> par click karein.</li>
-              <li><strong>Microphone</strong> option ko <strong>"Allow"</strong> karein.</li>
-              <li>Page reload karein ya neeche <strong>"🔄 Retry Permission"</strong> dabayein.</li>
-            </ol>
-          </div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-            <button
-              type="button"
-              onClick={startRecording}
-              className="btn btn-sm"
-              style={{ background: '#015C94', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}
-            >
-              🔄 Retry Permission
-            </button>
-            <button
-              type="button"
-              onClick={() => { setErrorMsg(''); setMode('upload'); }}
-              className="btn btn-sm"
-              style={{ background: '#475569', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}
-            >
-              📁 Switch to File / USB Upload
-            </button>
-          </div>
+        <div style={{ padding: '8px 10px', background: '#fee2e2', color: '#991b1b', borderRadius: 6, fontSize: 12, marginBottom: 10, border: '1px solid #fca5a5' }}>
+          {errorMsg}
         </div>
       )}
 
       {/* RECORDING IN PROGRESS VIEW */}
       {isRecording && (
-        <div style={{ padding: 12, background: '#ffffff', borderRadius: 8, border: '1px solid #fca5a5', textAlign: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
+        <div style={{ padding: 14, background: '#ffffff', borderRadius: 8, border: '1px solid #fca5a5', textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 }}>
             <span style={{
               width: 12, height: 12, borderRadius: '50%', background: '#ef4444',
               display: 'inline-block', animation: 'pulse 1s infinite'
             }} />
             <span style={{ fontWeight: 800, fontSize: 16, color: '#b91c1c' }}>
-              Recording: {formatSeconds(recordingSeconds)} / {formatSeconds(targetDuration)}
+              Recording Voice: {formatSeconds(recordingSeconds)} / {formatSeconds(targetDuration)}
             </span>
           </div>
 
-          {/* Progress bar */}
           <div style={{ width: '100%', height: 6, background: '#fecaca', borderRadius: 3, overflow: 'hidden', marginBottom: 10 }}>
             <div style={{ width: `${progressPercent}%`, height: '100%', background: '#ef4444', transition: 'width 0.3s' }} />
           </div>
@@ -275,30 +246,30 @@ export default function AudioSampleRecorder({
             type="button"
             className="btn btn-sm"
             onClick={stopRecording}
-            style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontWeight: 700, fontSize: 12 }}
+            style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 18px', fontWeight: 700, fontSize: 12.5 }}
           >
-            ⏹️ Stop Recording
+            ⏹️ Stop &amp; Save Sample
           </button>
         </div>
       )}
 
-      {/* NOT RECORDING - PREVIEW OR CONTROLS */}
+      {/* NOT RECORDING - PREVIEW OR ATTACH CONTROLS */}
       {!isRecording && (
         <>
           {previewUrl ? (
-            <div style={{ padding: 8, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  Audio Attached: {file?.name || 'sample_recording.webm'}
+            <div style={{ padding: 10, background: '#f8fafc', borderRadius: 8, border: '1.5px solid #cbd5e1' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  Attached: {file?.name || 'sample_voice.webm'}
                 </span>
                 {!disabled && (
                   <button
                     type="button"
                     onClick={() => { onChange?.(null); setPreviewUrl(null); }}
-                    style={{ marginLeft: 'auto', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    style={{ marginLeft: 'auto', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
                   >
-                    ✕ Remove / Re-record
+                    ✕ Remove / Change
                   </button>
                 )}
               </div>
@@ -306,27 +277,8 @@ export default function AudioSampleRecorder({
             </div>
           ) : (
             <div>
-              {mode === 'record' && !disabled && (
-                <div style={{ textAlign: 'center', padding: '10px', background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1' }}>
-                  <button
-                    type="button"
-                    onClick={startRecording}
-                    className="btn btn-sm"
-                    style={{
-                      background: '#015C94', color: '#fff', border: 'none', borderRadius: 6,
-                      padding: '7px 16px', fontWeight: 700, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6,
-                    }}
-                  >
-                    🎙️ Start 30s Live Recording
-                  </button>
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                    Subject will speak for ~30 seconds to capture reference vocal biometric characteristics.
-                  </div>
-                </div>
-              )}
-
-              {(mode === 'upload' || disabled) && (
-                <div>
+              {mode === 'upload' && (
+                <div style={{ padding: 10, background: '#f8fafc', borderRadius: 8, border: '1.5px dashed #94a3b8' }}>
                   {!disabled && (
                     <input
                       type="file"
@@ -336,13 +288,32 @@ export default function AudioSampleRecorder({
                         const picked = e.target.files?.[0] || null;
                         if (picked) onChange?.(picked);
                       }}
-                      style={{ fontSize: 12, padding: '6px 10px' }}
+                      style={{ fontSize: 12, padding: '7px 10px', background: '#fff' }}
                     />
                   )}
                   {disabled && <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No audio sample attached</div>}
-                  <span style={{ fontSize: 11, color: '#64748b', display: 'block', marginTop: 3 }}>
-                    Attach 30s sample voice recording from USB or computer.
+                  <span style={{ fontSize: 11, color: '#64748b', display: 'block', marginTop: 4 }}>
+                    📌 Select 30-sec voice recording file from USB, phone or Windows Voice Recorder.
                   </span>
+                </div>
+              )}
+
+              {mode === 'record' && !disabled && (
+                <div style={{ textAlign: 'center', padding: '12px', background: '#f8fafc', borderRadius: 8, border: '1.5px dashed #cbd5e1' }}>
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    className="btn btn-sm"
+                    style={{
+                      background: '#015C94', color: '#fff', border: 'none', borderRadius: 6,
+                      padding: '8px 18px', fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    🎙️ Start 30s Live Recording
+                  </button>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
+                    Click start and have the person speak for 30 seconds into the microphone.
+                  </div>
                 </div>
               )}
             </div>
