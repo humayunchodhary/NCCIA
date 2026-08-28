@@ -59,13 +59,18 @@ export default function AudioSampleRecorder({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (errConstraint) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       streamRef.current = stream;
 
       let mimeType = '';
@@ -133,11 +138,11 @@ export default function AudioSampleRecorder({
     } catch (err) {
       console.error('Microphone error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setErrorMsg('Microphone permission was denied by browser. Please allow microphone access in browser settings, or use "File / USB" upload.');
+        setErrorMsg('Microphone access is blocked by Windows Privacy Settings or Browser. Agar Chrome mein allow hai toh Windows Settings mein Microphone ON karein, ya File/USB se attach karein.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setErrorMsg('No microphone device found on this computer. Please attach a mic or use "File / USB" upload.');
+        setErrorMsg('No active microphone found on laptop. Please check audio drivers or use "File / USB" upload.');
       } else {
-        setErrorMsg(`Mic error (${err.message || err.name}). Please use "File / USB" to upload the recording.`);
+        setErrorMsg(`Microphone error (${err.message || err.name}). Please use "File / USB" to attach recording.`);
       }
       setIsRecording(false);
     }
