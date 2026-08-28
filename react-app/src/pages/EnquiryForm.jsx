@@ -579,42 +579,58 @@ export default function EnquiryForm() {
         authorized_by: rq.authorized_by || null,
         authorized_by_name: rq.authorizer?.name || rq.authorized_by_name || '',
       })),
-      activities: (d.activities || []).map(a => ({
-        id: a.id,
-        type: a.type || '',
-        diary_no: a.diary_no || '',
-        description: a.description || '',
-        activity_date: toDate(a.activity_date),
-        attachment_path: a.attachment_path || '',
-        seize_items: lockSeizeItemsAgainstForensic(
-          Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
-          linkedForensicRef.current
-        ),
-        analysis_scope: a.meta?.analysis_scope || a.analysis_scope || '',
-        case_category: a.meta?.case_category || a.case_category || 'Financial Fraud',
-        subject: a.meta?.subject || a.subject || '',
-        kota: a.meta?.kota || a.kota || '',
-        against_whom: a.meta?.against_whom || a.against_whom || '',
-        scheduled_at: a.meta?.scheduled_at || a.scheduled_at || '',
-      })),
-      notices: (d.notices || []).map(n => ({
-        id: n.id,
-        notice_number: n.notice_number || '',
-        notice_type: n.notice_type || '',
-        receiver_name: n.receiver_name || '',
-        father_name: n.father_name || '',
-        cnic: n.cnic || '',
-        person_type: n.person_type || '',
-        person_ref: n.person_ref ?? '',
-        notice_via: n.notice_via || '',
-        notice_date: toDate(n.notice_date),
-        appearance_date: toLocalInput(n.appearance_date),
-        appearance_remarks: n.appearance_remarks || '',
-        address: n.address || '',
-        phone: n.phone || '',
-        description: n.description || '',
-        status: n.status || 'issued',
-      })),
+      activities: (() => {
+        const seen = new Set();
+        return (d.activities || []).filter(a => {
+          const key = a.id ? `id_${a.id}` : `${a.type}_${a.diary_no || ''}_${a.activity_date || ''}_${(a.description || '').slice(0, 40)}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).map(a => ({
+          id: a.id,
+          type: a.type || '',
+          diary_no: a.diary_no || '',
+          description: a.description || '',
+          activity_date: toDate(a.activity_date),
+          attachment_path: a.attachment_path || '',
+          seize_items: lockSeizeItemsAgainstForensic(
+            Array.isArray(a.meta?.seize_items) ? a.meta.seize_items : (Array.isArray(a.seize_items) ? a.seize_items : []),
+            linkedForensicRef.current
+          ),
+          analysis_scope: a.meta?.analysis_scope || a.analysis_scope || '',
+          case_category: a.meta?.case_category || a.case_category || 'Financial Fraud',
+          subject: a.meta?.subject || a.subject || '',
+          kota: a.meta?.kota || a.kota || '',
+          against_whom: a.meta?.against_whom || a.against_whom || '',
+          scheduled_at: a.meta?.scheduled_at || a.scheduled_at || '',
+        }));
+      })(),
+      notices: (() => {
+        const seenN = new Set();
+        return (d.notices || []).filter(n => {
+          const key = n.id ? `id_${n.id}` : `${n.notice_number || ''}_${n.receiver_name || ''}_${n.sequence_no || ''}`;
+          if (seenN.has(key)) return false;
+          seenN.add(key);
+          return true;
+        }).map(n => ({
+          id: n.id,
+          notice_number: n.notice_number || '',
+          notice_type: n.notice_type || '',
+          receiver_name: n.receiver_name || '',
+          father_name: n.father_name || '',
+          cnic: n.cnic || '',
+          person_type: n.person_type || '',
+          person_ref: n.person_ref ?? '',
+          notice_via: n.notice_via || '',
+          notice_date: toDate(n.notice_date),
+          appearance_date: toLocalInput(n.appearance_date),
+          appearance_remarks: n.appearance_remarks || '',
+          address: n.address || '',
+          phone: n.phone || '',
+          description: n.description || '',
+          status: n.status || 'issued',
+        }));
+      })(),
       legal_opinions: (d.legal_opinions || []).map(lo => ({
         id: lo.id,
         role: lo.role || '',

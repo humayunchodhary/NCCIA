@@ -137,6 +137,12 @@ class EnquiryController extends Controller
                     $existing = null;
                 }
             }
+            if (!$existing && is_array($action) && !empty($action['diary_no'])) {
+                $existing = $enquiry->activities()->where('diary_no', $action['diary_no'])->first();
+            }
+            if (!$existing && is_array($action) && !empty($action['type']) && !empty($action['description'])) {
+                $existing = $enquiry->activities()->where('type', $action['type'])->where('description', $action['description'])->first();
+            }
 
             $meta = null;
             if (is_array($action)) {
@@ -1007,8 +1013,41 @@ class EnquiryController extends Controller
             }
         }
 
+        // Clean up historical duplicate activities (Diaries) in DB
+        $seenAct = [];
+        $uniqueAct = collect();
+        foreach ($enquiry->activities()->orderBy('id')->get() as $item) {
+            $diaryNo = trim((string) ($item->diary_no ?? ''));
+            $desc = trim((string) ($item->description ?? ''));
+            $date = trim((string) ($item->activity_date ?? ''));
+            $key = strtolower($diaryNo ? $diaryNo : ($item->type . '|' . $date . '|' . substr($desc, 0, 40)));
+            if (isset($seenAct[$key])) {
+                $item->delete();
+            } else {
+                $seenAct[$key] = true;
+                $uniqueAct->push($item);
+            }
+        }
+
+        // Clean up historical duplicate notices in DB
+        $seenNotice = [];
+        $uniqueNotice = collect();
+        foreach ($enquiry->notices()->orderBy('id')->get() as $item) {
+            $key = strtolower(trim(($item->notice_number ?: '') . '|' . ($item->receiver_name ?: '') . '|' . ($item->sequence_no ?: '')));
+            if ($key !== '||' && isset($seenNotice[$key])) {
+                $item->delete();
+            } else {
+                if ($key !== '||') {
+                    $seenNotice[$key] = true;
+                }
+                $uniqueNotice->push($item);
+            }
+        }
+
         $payload['accused'] = $accused;
         $payload['witnesses'] = $uniqueWit;
+        $payload['activities'] = $uniqueAct;
+        $payload['notices'] = $uniqueNotice;
         $payload['attachments'] = $enquiry->enquiryAttachments;
 
         return response()->json($payload);
