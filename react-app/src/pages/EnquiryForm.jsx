@@ -1538,14 +1538,14 @@ export default function EnquiryForm() {
   const handleSubmitCfr = async () => {
     if (!id) return;
     const cfrRecommendations = ['closure', 'transfer', 'convert_to_case', 'irrelevant', 'lack_of_documents'];
-    if (isSupervisor && (!form.recommendation || !cfrRecommendations.includes(form.recommendation))) {
+    if (!form.recommendation || !cfrRecommendations.includes(form.recommendation)) {
       setActiveTab('outcome');
-      setServerError('Submit se pehle Outcome tab mein Recommendation select karein.');
+      setServerError('Submit se pehle CFR tab mein Recommendation select karein.');
       return;
     }
     if (!form.cfr_summary?.trim()) {
       setActiveTab('outcome');
-      setServerError('Submit se pehle Outcome tab mein CFR Summary likhein.');
+      setServerError('Submit se pehle CFR tab mein CFR Summary likhein.');
       return;
     }
 
@@ -3332,9 +3332,9 @@ export default function EnquiryForm() {
               <div className="cf-row-3">
                 {renderField('CFR Type', 'cfr_type', { options: CFR_TYPES })}
                 {renderField('CFR Date', 'cfr_date', { type: 'date' })}
-                {isSupervisor && renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS, required: true })}
+                {renderField('Recommendation', 'recommendation', { options: RECOMMENDATIONS, required: true })}
               </div>
-              {isSupervisor && renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
+              {(form.recommendation === 'closure' || isSupervisor) && renderField('Closure Reason', 'closure_reason', { options: CLOSURE_REASONS })}
               {renderField('Brief Allegation', 'brief_allegation', { rows: 3, placeholder: 'Brief details of the allegation...' })}
               {renderField('Charge Against', 'charge_against', { rows: 3, placeholder: 'Charges framed against accused...' })}
               {renderField('Oral Evidence', 'oral_evidence', { rows: 3, placeholder: 'Summary of oral evidence...' })}
