@@ -69,18 +69,7 @@ export default function AudioSampleRecorder({
       return;
     }
 
-    // ── Step 2: Check permission state (diagnostic) ──
-    let permState = 'unknown';
-    try {
-      if (navigator.permissions) {
-        const result = await navigator.permissions.query({ name: 'microphone' });
-        permState = result.state; // 'granted' | 'denied' | 'prompt'
-      }
-    } catch (e) {
-      permState = 'api-unavailable';
-    }
-
-    // ── Step 3: Request microphone ──
+    // ── Step 2: Request microphone ──
     let stream = null;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -88,20 +77,18 @@ export default function AudioSampleRecorder({
       setIsStarting(false);
       cleanupAudio();
 
-      const errDetail = `[${err.name}] ${err.message} | Permission: ${permState}`;
+      const errDetail = `[${err.name}] ${err.message}`;
       setDiagInfo(errDetail);
 
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        if (permState === 'denied') {
-          setErrorMsg('❌ Microphone is BLOCKED. Go to Chrome address bar → 🔒 → Microphone → Allow, then refresh page.');
-        } else {
-          setErrorMsg('❌ Microphone access denied by Windows. Open: Start → Settings → Privacy → Microphone → Allow desktop apps.');
-        }
+        setErrorMsg('❌ Microphone is blocked. Go to browser address bar → 🔒 → Microphone → Allow, then refresh page.');
+        setMode('upload');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setErrorMsg('❌ No microphone found on this device. Please use "Attach File" below to upload audio.');
         setMode('upload');
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
         setErrorMsg('❌ Microphone is busy / used by another app (Teams, Zoom, etc.). Close other apps then try again.');
+        setMode('upload');
       } else {
         setErrorMsg(`❌ Error: ${err.name} — ${err.message}. Use "Attach File" below.`);
         setMode('upload');
@@ -109,7 +96,7 @@ export default function AudioSampleRecorder({
       return;
     }
 
-    // ── Step 4: Got stream — Start recording ──
+    // ── Step 3: Got stream — Start recording ──
     streamRef.current = stream;
 
     // VU Meter (optional — failure here does NOT block recording)
@@ -233,17 +220,20 @@ export default function AudioSampleRecorder({
         <label className="cf-label required" style={{ margin: 0, fontWeight: 700, fontSize: 13, color: '#1e293b' }}>
           🎙️ {label}
         </label>
-        {!disabled && !isRecording && !isStarting && (
+{!disabled && !isRecording && !isStarting && (
           <div style={{ display: 'flex', gap: 4, background: '#f1f5f9', padding: 2, borderRadius: 6 }}>
-            <button type="button" onClick={() => { setMode('record'); setErrorMsg(''); setDiagInfo(''); }}
-              style={{ background: mode === 'record' ? '#015C94' : 'transparent', color: mode === 'record' ? '#fff' : '#64748b', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+            <button type="button" onClick={() => { startRecording(); setErrorMsg(''); setDiagInfo(''); }}
+              style={{ background: isRecording ? '#dc2626' : '#015C94', color: isRecording ? '#fff' : '#64748b', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 11.5, fontWeight: 700, cursor: isRecording ? 'default' : 'pointer' }}>
               🎙️ Live Mic
             </button>
-            <button type="button" onClick={() => setMode('upload')}
-              style={{ background: mode === 'upload' ? '#015C94' : 'transparent', color: mode === 'upload' ? '#fff' : '#64748b', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-              📁 Attach File / USB
-            </button>
+            {!isRecording && (
+              <button type="button" onClick={() => setMode('upload')}
+                style={{ background: mode === 'upload' ? '#015C94' : 'transparent', color: mode === 'upload' ? '#fff' : '#64748b', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                📁 Attach File / USB
+              </button>
+            )}
           </div>
+        </div>
         )}
       </div>
 
@@ -329,36 +319,7 @@ export default function AudioSampleRecorder({
               </div>
               <audio controls src={previewUrl} style={{ width: '100%', height: 36 }} />
             </div>
-          ) : (
-            <div>
-              {mode === 'record' && !disabled && (
-                <div style={{ textAlign: 'center', padding: '14px 10px', background: '#f8fafc', borderRadius: 8, border: '1.5px dashed #cbd5e1' }}>
-                  <button
-                    type="button"
-                    onClick={startRecording}
-                    style={{
-                      background: '#015C94', color: '#fff', border: 'none', borderRadius: 6,
-                      padding: '10px 24px', fontWeight: 700, fontSize: 14, display: 'inline-flex',
-                      alignItems: 'center', gap: 8, cursor: 'pointer',
-                      boxShadow: '0 2px 8px rgba(1,92,148,0.3)',
-                    }}
-                  >
-                    🎙️ Start 30s Live Recording
-                  </button>
-                  <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 8 }}>
-                    Click and speak naturally into the mic for 30 seconds.
-                  </div>
-                  {errorMsg && (
-                    <div style={{ marginTop: 10 }}>
-                      <button type="button" onClick={() => setMode('upload')}
-                        style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 5, padding: '6px 16px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-                        📁 Upload Audio File Instead
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
+) : (
               {mode === 'upload' && (
                 <div style={{ padding: 10, background: '#f8fafc', borderRadius: 8, border: '1.5px dashed #94a3b8' }}>
                   {!disabled && (
