@@ -61,7 +61,14 @@ export default function AudioSampleRecorder({
     setRecordingSeconds(0);
     setAudioLevel(0);
 
-    // ── Step 1: Check API availability ──
+    // ── Step 1: Check secure context + API availability ──
+    if (!window.isSecureContext) {
+      setIsStarting(false);
+      setErrorMsg('❌ Microphone requires HTTPS. Open this site with https:// (not http://), then try again.');
+      setMode('upload');
+      return;
+    }
+
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setIsStarting(false);
       setErrorMsg('Browser does not support microphone recording. Use "Attach File" below.');
@@ -233,7 +240,6 @@ export default function AudioSampleRecorder({
               </button>
             )}
           </div>
-        </div>
         )}
       </div>
 
@@ -319,24 +325,25 @@ export default function AudioSampleRecorder({
               </div>
               <audio controls src={previewUrl} style={{ width: '100%', height: 36 }} />
             </div>
-) : (
-              {mode === 'upload' && (
-                <div style={{ padding: 10, background: '#f8fafc', borderRadius: 8, border: '1.5px dashed #94a3b8' }}>
-                  {!disabled && (
-                    <input
-                      type="file"
-                      className="cf-input"
-                      accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.webm,.flac,.amr,.wma"
-                      onChange={e => { const f = e.target.files?.[0] || null; if (f) onChange?.(f); }}
-                      style={{ fontSize: 12, padding: '7px 10px', background: '#fff' }}
-                    />
-                  )}
-                  {disabled && <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No audio sample attached</div>}
-                  <span style={{ fontSize: 11, color: '#64748b', display: 'block', marginTop: 4 }}>
-                    📌 Select 30-second audio file from USB, phone extraction, or Windows Voice Recorder.
-                  </span>
-                </div>
+          ) : mode === 'upload' ? (
+            <div style={{ padding: 10, background: '#f8fafc', borderRadius: 8, border: '1.5px dashed #94a3b8' }}>
+              {!disabled && (
+                <input
+                  type="file"
+                  className="cf-input"
+                  accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.webm,.flac,.amr,.wma"
+                  onChange={e => { const f = e.target.files?.[0] || null; if (f) onChange?.(f); }}
+                  style={{ fontSize: 12, padding: '7px 10px', background: '#fff' }}
+                />
               )}
+              {disabled && <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No audio sample attached</div>}
+              <span style={{ fontSize: 11, color: '#64748b', display: 'block', marginTop: 4 }}>
+                📌 Select 30-second audio file from USB, phone extraction, or Windows Voice Recorder.
+              </span>
+            </div>
+          ) : (
+            <div style={{ padding: 12, background: '#f0f9ff', borderRadius: 8, border: '1px dashed #7dd3fc', textAlign: 'center', fontSize: 12.5, color: '#0369a1' }}>
+              Click <strong>🎙️ Live Mic</strong> above to record a {targetDuration}-second voice sample.
             </div>
           )}
         </>
