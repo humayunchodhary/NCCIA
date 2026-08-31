@@ -212,15 +212,15 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/investigation-officers/{investigation_officer}/verify-otp', [InvestigationOfficerController::class, 'verifyOtp'])
         ->middleware('role:admin');
 
-    // User management — admin only
+    // User management — admin + director general
     Route::get('/users', [UserController::class, 'index'])->name('api.users.index')
-        ->middleware('role:admin');
+        ->middleware('role:admin,director_general');
     Route::post('/users', [UserController::class, 'store'])->name('api.users.store')
-        ->middleware('role:admin');
+        ->middleware('role:admin,director_general');
     Route::get('/users/{user}', [UserController::class, 'show'])->name('api.users.show')
-        ->middleware('role:admin');
+        ->middleware('role:admin,director_general');
     Route::put('/users/{user}', [UserController::class, 'update'])->name('api.users.update')
-        ->middleware('role:admin');
+        ->middleware('role:admin,director_general');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('api.users.destroy')
         ->middleware('role:admin');
     Route::post('/users/{user}/grant-permission', [UserController::class, 'grantPermission'])
@@ -228,29 +228,29 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/users/{user}/revoke-permission', [UserController::class, 'revokePermission'])
         ->middleware('role:admin');
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])
-        ->middleware('role:admin');
+        ->middleware('role:admin,director_general');
 
-    // Login History — admin only
+    // Login History — admin + director general
     Route::get('/login-history', [LoginHistoryController::class, 'index'])
-        ->middleware('role:admin');
+        ->middleware('role:admin,director_general');
     Route::get('/login-history/{user}', [LoginHistoryController::class, 'userHistory'])
-        ->middleware('role:admin');
+        ->middleware('role:admin,director_general');
     Route::get('/login-history/stats', [LoginHistoryController::class, 'stats'])
-        ->middleware('role:admin');
+        ->middleware('role:admin,director_general');
 
-    // Circle management — admin only
+    // Circle management — admin + director general
     Route::get('/circles', function () {
         return response()->json(\App\Models\Circle::with('zone')->orderBy('name')->paginate(20));
-    })->middleware('role:admin');
+    })->middleware('role:admin,director_general');
     Route::post('/circles', function (\Illuminate\Http\Request $req) {
         $data = $req->validate(['name' => 'required|string|max:255', 'code' => 'required|string|max:10|unique:circles,code', 'zone_id' => 'nullable|exists:zones,id']);
         return response()->json(\App\Models\Circle::create($data), 201);
-    })->middleware('role:admin');
+    })->middleware('role:admin,director_general');
     Route::put('/circles/{circle}', function (\Illuminate\Http\Request $req, \App\Models\Circle $circle) {
         $data = $req->validate(['name' => 'required|string|max:255', 'code' => 'required|string|max:10|unique:circles,code,'.$circle->id, 'zone_id' => 'nullable|exists:zones,id']);
         $circle->update($data);
         return response()->json($circle->fresh()->load('zone'));
-    })->middleware('role:admin');
+    })->middleware('role:admin,director_general');
     Route::delete('/circles/{circle}', function (\App\Models\Circle $circle) {
         $circle->delete();
         return response()->json(['message' => 'Circle deleted']);

@@ -121,7 +121,7 @@ export default function UserForm() {
             <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label required">Password {isEdit && <span style={{fontSize:11,color:'#6c757d',fontWeight:400}}>(leave empty to keep current)</span>}</label>
-                <input className="cf-input" type="text" value={form.password} onChange={setF('password')} placeholder={isEdit ? 'Leave empty to keep' : 'Min 8 chars: upper, lower, number, special'} required={!isEdit} minLength={8} />
+                <input className="cf-input" type="password" autoComplete={isEdit ? 'new-password' : 'new-password'} value={form.password} onChange={setF('password')} placeholder={isEdit ? 'Leave empty to keep' : 'Min 8 chars: upper, lower, number, special'} required={!isEdit} minLength={8} />
                 <span style={{fontSize:11,color:'#6c757d',display:'block',marginTop:2}}>Must include uppercase, lowercase, number &amp; special character (@$!%*#?&amp;)</span>
                 {errors.password && <span className="cf-error">{errors.password[0]}</span>}
               </div>

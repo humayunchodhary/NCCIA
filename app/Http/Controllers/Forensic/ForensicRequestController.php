@@ -247,8 +247,6 @@ class ForensicRequestController extends Controller
                 if ($checkSummons) $fr->checklist_summons = true;
                 if ($checkUsb) $fr->checklist_usb = true;
                 if ($checkTranscript) $fr->checklist_transcript = true;
-                    $fr->audio_script = $data['audio_script'];
-                }
                 if (!empty($data['note'])) {
                     $fr->note = $fr->note ? ($fr->note . "\n\n" . $data['note']) : $data['note'];
                 }

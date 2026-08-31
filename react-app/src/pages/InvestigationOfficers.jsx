@@ -407,7 +407,7 @@ export default function InvestigationOfficers() {
             )}
             <div className="cf-field" style={{ marginBottom: 16 }}>
               <label className="cf-label">New Password (optional, min 8)</label>
-              <input className="cf-input" type="text" value={resetPassword} onChange={e => setResetPassword(e.target.value)} placeholder="Leave blank to auto-generate" />
+              <input className="cf-input" type="password" autoComplete="new-password" value={resetPassword} onChange={e => setResetPassword(e.target.value)} placeholder="Leave blank to auto-generate" />
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button className="btn btn-outline btn-sm" onClick={() => { setResetTarget(null); setResetResult(null); }}>Cancel</button>

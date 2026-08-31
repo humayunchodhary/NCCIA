@@ -19,7 +19,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'dashboard', 'analytics', 'complaints', 'verifications',
             'reports', 'enquiries', 'io_records', 'dac_cases',
             'court_cases', 'users', 'circles', 'offence_types',
-            'reference', 'sms_logs', 'profile',
+            'reference', 'sms_logs', 'profile', 'login_history',
             'forensic', 'forensic_users',
         ];
 
@@ -31,7 +31,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $roleFeatures = [
             'admin' => [
                 'dashboard','analytics','complaints','verifications','reports','enquiries',
-                'io_records','dac_cases','court_cases','users','circles','offence_types','reference','sms_logs','profile',
+                'io_records','dac_cases','court_cases','users','circles','offence_types','reference','sms_logs','profile','login_history',
             ],
             // Assign VO/EO/IO, approve reports/CFR/cases
             'circle_incharge' => [
@@ -67,7 +67,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'additional_director' => ['dashboard','enquiries','dac_cases','profile'],
             'director_general' => [
                 'dashboard','analytics','complaints','verifications','reports','enquiries',
-                'io_records','dac_cases','court_cases','users','circles','offence_types','reference','sms_logs','profile',
+                'io_records','dac_cases','court_cases','users','circles','offence_types','reference','sms_logs','profile','login_history',
             ],
             // Forensic portal roles — isolated from the main NCCIA modules
             'admin_forensic' => ['forensic', 'forensic_users', 'profile'],

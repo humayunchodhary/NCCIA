@@ -150,7 +150,7 @@ function AppRoutes() {
         <Route path="users" element={<FeatureRoute feature="users"><Users /></FeatureRoute>} />
         <Route path="users/create" element={<FeatureRoute feature="users"><UserForm /></FeatureRoute>} />
         <Route path="users/:id/edit" element={<FeatureRoute feature="users"><UserForm /></FeatureRoute>} />
-        <Route path="login-history" element={<FeatureRoute feature="users"><LoginHistory /></FeatureRoute>} />
+        <Route path="login-history" element={<FeatureRoute feature="login_history"><LoginHistory /></FeatureRoute>} />
         <Route path="circles" element={<FeatureRoute feature="circles"><Circles /></FeatureRoute>} />
         <Route path="court-cases" element={<FeatureRoute feature="court_cases"><CourtCases /></FeatureRoute>} />
         <Route path="laws" element={<FeatureRoute feature="reference"><Laws /></FeatureRoute>} />
