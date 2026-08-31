@@ -14,8 +14,6 @@ class ProcessComplaintPdfImport implements ShouldQueue
 {
     use Dispatchable, Queueable;
 
-    public string $queue = 'pdf-imports';
-
     public int $timeout = 300;
 
     public int $tries = 3;
@@ -25,7 +23,9 @@ class ProcessComplaintPdfImport implements ShouldQueue
         public ?int $userId = null,
         public bool $autoApply = true,
         public bool $copyAttachment = true,
-    ) {}
+    ) {
+        $this->onQueue('pdf-imports');
+    }
 
     public function handle(ComplaintPdfImportService $service): void
     {
