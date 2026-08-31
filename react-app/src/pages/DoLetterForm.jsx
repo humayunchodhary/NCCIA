@@ -9,6 +9,26 @@ import {
   canAckHqReports,
 } from '../utils/adminReports';
 
+function StatRow({ title, cells }) {
+  return (
+    <div className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+        <h3 style={{ margin: 0, fontSize: 15 }}>{title}</h3>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="data-table" style={{ width: '100%', margin: 0 }}>
+          <thead>
+            <tr>{cells.map(c => <th key={c.label}>{c.label}</th>)}</tr>
+          </thead>
+          <tbody>
+            <tr>{cells.map(c => <td key={c.label}><strong>{c.value ?? 0}</strong></td>)}</tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function DoLetterForm() {
   const { id } = useParams();
   const isCreate = !id || id === 'create';
@@ -81,14 +101,22 @@ export default function DoLetterForm() {
 
   const status = letter?.status;
   const payload = letter?.payload || {};
+  const arrested = payload.accused_arrested || [];
 
   return (
     <div className="page-content">
       <div className="page-header">
         <div className="page-title-group">
           <div className="page-label"><Link to="/do-letters">D.O. Letter</Link></div>
-          <h1 className="page-title">{isCreate ? 'New Monthly D.O. Letter' : `D.O. Letter — ${letter?.month_label}`}</h1>
-          {!isCreate && <p className="page-subtitle">Status: {REPORT_STATUS_LABELS[status] || status}</p>}
+          <h1 className="page-title">
+            {isCreate ? 'New Monthly D.O. Letter' : `D.O. Letter — ${letter?.month_label || ''}`}
+          </h1>
+          {!isCreate && (
+            <p className="page-subtitle">
+              {letter?.circle?.name || 'Circle'} · Status: {REPORT_STATUS_LABELS[status] || status}
+            </p>
+          )}
+          <div className="title-underline"></div>
         </div>
         <div className="page-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {!isCreate && <button type="button" className="btn btn-sm" onClick={exportLetter}>Export / Print</button>}
@@ -115,7 +143,7 @@ export default function DoLetterForm() {
 
       {(canReviewAdminReports(user) || canAckHqReports(user)) && !isCreate && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <label>Remarks</label>
+          <label>Remarks (CI / HQ)</label>
           <textarea value={remarks} onChange={e => setRemarks(e.target.value)} rows={2} style={{ width: '100%' }} />
         </div>
       )}
@@ -148,13 +176,64 @@ export default function DoLetterForm() {
       </div>
 
       {!isCreate && (
-        <div className="card">
-          <h3>Monthly Summary</h3>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, maxHeight: 400, overflow: 'auto' }}>
-            {JSON.stringify(payload, null, 2)}
-          </pre>
-          <p style={{ marginTop: 8, color: '#666' }}>Accused arrested this month: {(payload.accused_arrested || []).length}</p>
-        </div>
+        <>
+          <StatRow title="1. Cases" cells={[
+            { label: 'At beginning', value: payload.cases?.at_beginning },
+            { label: 'Added', value: payload.cases?.added },
+            { label: 'Total', value: payload.cases?.total },
+            { label: 'Final Challan', value: payload.cases?.final_challan },
+            { label: 'Pending', value: payload.cases?.pending },
+          ]} />
+
+          <StatRow title="2. Cases (CFRs) and Pendency" cells={[
+            { label: 'Total CFRs', value: payload.cfr_pendency?.total_cfrs },
+            { label: 'Pending Legal', value: payload.cfr_pendency?.pending_legal },
+            { label: 'Pending Forensic', value: payload.cfr_pendency?.pending_forensic },
+            { label: 'Under Investigation', value: payload.cfr_pendency?.pending_investigation },
+            { label: 'Total Pending', value: payload.cfr_pendency?.total_pending },
+          ]} />
+
+          <StatRow title="3. Enquiries" cells={[
+            { label: 'At beginning', value: payload.enquiries?.at_beginning },
+            { label: 'Added', value: payload.enquiries?.added },
+            { label: 'Closed', value: payload.enquiries?.closed },
+            { label: 'Pending', value: payload.enquiries?.pending },
+          ]} />
+
+          <div className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <h3 style={{ margin: 0, fontSize: 15 }}>Accused Arrested ({arrested.length})</h3>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              {arrested.length === 0 ? (
+                <p style={{ padding: 16, margin: 0, color: '#64748b', fontWeight: 600 }}>NIL</p>
+              ) : (
+                <table className="data-table" style={{ width: '100%', margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Sr.#</th>
+                      <th>FIR #</th>
+                      <th>Accused Name</th>
+                      <th>Date of Arrest</th>
+                      <th>Address</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {arrested.map((row, i) => (
+                      <tr key={i}>
+                        <td>{row.sr || i + 1}</td>
+                        <td>{row.fir_no || '—'}</td>
+                        <td>{row.accused_name || '—'}</td>
+                        <td>{row.arrest_date || '—'}</td>
+                        <td>{row.address || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
