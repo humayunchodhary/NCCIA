@@ -31,9 +31,14 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Enquiry::class, EnquiryPolicy::class);
         Gate::policy(InvestigationOfficer::class, InvestigationOfficerPolicy::class);
 
-        // Standard API Rate Limiter
+        // Standard API Rate Limiter (SPA + mobile)
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(180)->by($request->user()?->id ?: $request->ip());
+            return Limit::perMinute(240)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // Polling endpoints (dashboard, sidebar badges, analytics)
+        RateLimiter::for('dashboard', function (Request $request) {
+            return Limit::perMinute(360)->by($request->user()?->id ?: $request->ip());
         });
 
         // Anti-Brute-Force Login Rate Limiter (Max 5 attempts / min per IP)

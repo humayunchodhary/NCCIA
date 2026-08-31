@@ -27,9 +27,13 @@ use App\Http\Controllers\Forensic\ForensicRequestController;
 use App\Http\Controllers\OfficerAssignmentHistoryController;
 use App\Http\Controllers\SmsController;
 
-Route::middleware(['web', 'auth:sanctum', 'throttle:120,1'])->group(function () {
+Route::middleware(['web', 'auth:sanctum', 'throttle:dashboard'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
     Route::get('/analytics', [AnalyticsController::class, 'index']);
+    Route::get('/sidebar-counts', SidebarCountsController::class);
+});
+
+Route::middleware(['web', 'auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/search', SearchController::class)->name('api.search');
     
     Route::get('/security-alerts', function (Request $request) {
@@ -308,8 +312,6 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/user-manuals/{manual}', [ReferenceController::class, 'manualsShow']);
     Route::put('/user-manuals/{manual}', [ReferenceController::class, 'manualsUpdate']);
     Route::delete('/user-manuals/{manual}', [ReferenceController::class, 'manualsDestroy']);
-
-    Route::get('/sidebar-counts', SidebarCountsController::class);
 
     // Forensic portal — isolated from the main NCCIA modules
     Route::get('/forensic/stats', [ForensicUserController::class, 'stats'])

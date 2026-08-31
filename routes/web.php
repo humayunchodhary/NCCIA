@@ -14,7 +14,7 @@ Route::get('/', [SpaController::class, 'index'])->name('dashboard');
 
 Route::get('/login', [SpaController::class, 'index'])->name('login');
 
-Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:6,1');
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:auth_login');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::get('/forensic', [SpaController::class, 'index']);
@@ -22,10 +22,10 @@ Route::get('/forensic', [SpaController::class, 'index']);
 Route::get('/forensic/login', [SpaController::class, 'index']);
 
 // Sanctum SPA auth routes (need session middleware from web group)
-Route::post('/api/login', [LoginController::class, 'apiLogin'])->middleware('throttle:6,1');
-Route::post('/api/forensic/login', [LoginController::class, 'apiForensicLogin'])->middleware('throttle:6,1');
-Route::post('/api/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:3,1');
-Route::post('/api/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:3,1');
+Route::post('/api/login', [LoginController::class, 'apiLogin'])->middleware('throttle:auth_login');
+Route::post('/api/forensic/login', [LoginController::class, 'apiForensicLogin'])->middleware('throttle:auth_login');
+Route::post('/api/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:sensitive');
+Route::post('/api/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:sensitive');
 Route::post('/api/logout', [LoginController::class, 'apiLogout'])->middleware('auth:sanctum');
 Route::get('/api/user', function (Request $r) {
     return $r->user()->load('roles', 'zone', 'circle', 'permissions');

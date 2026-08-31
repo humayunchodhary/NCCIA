@@ -27,13 +27,18 @@ class ComplaintPdfImportController extends Controller
 
     public function stats()
     {
+        $rows = ComplaintPdfImport::query()
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
         return response()->json([
-            'total'      => ComplaintPdfImport::count(),
-            'pending'    => ComplaintPdfImport::where('status', ComplaintPdfImport::STATUS_PENDING)->count(),
-            'processing' => ComplaintPdfImport::where('status', ComplaintPdfImport::STATUS_PROCESSING)->count(),
-            'extracted'  => ComplaintPdfImport::where('status', ComplaintPdfImport::STATUS_EXTRACTED)->count(),
-            'imported'   => ComplaintPdfImport::where('status', ComplaintPdfImport::STATUS_IMPORTED)->count(),
-            'failed'     => ComplaintPdfImport::where('status', ComplaintPdfImport::STATUS_FAILED)->count(),
+            'total'      => $rows->sum(),
+            'pending'    => (int) ($rows[ComplaintPdfImport::STATUS_PENDING] ?? 0),
+            'processing' => (int) ($rows[ComplaintPdfImport::STATUS_PROCESSING] ?? 0),
+            'extracted'  => (int) ($rows[ComplaintPdfImport::STATUS_EXTRACTED] ?? 0),
+            'imported'   => (int) ($rows[ComplaintPdfImport::STATUS_IMPORTED] ?? 0),
+            'failed'     => (int) ($rows[ComplaintPdfImport::STATUS_FAILED] ?? 0),
         ]);
     }
 
@@ -79,6 +84,7 @@ class ComplaintPdfImportController extends Controller
             } elseif ($runServerExtract) {
                 $processed[] = $this->runImportJob($import->id, $request->user()->id, $autoApply, true);
             } else {
+                ProcessComplaintPdfImport::dispatch($import->id, $request->user()->id, $autoApply);
                 $processed[] = $import->load(['complaint', 'verificationReport']);
             }
         }
@@ -132,8 +138,7 @@ class ComplaintPdfImportController extends Controller
             return filter_var(env('PDF_IMPORT_SYNC'), FILTER_VALIDATE_BOOL);
         }
 
-        // Default: sync on web uploads (shared hosting usually has no queue worker)
-        return true;
+        return false;
     }
 
     private function runImportJob(int $importId, int $userId, bool $autoApply, bool $sync): ComplaintPdfImport

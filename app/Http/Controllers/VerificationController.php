@@ -763,7 +763,10 @@ class VerificationController extends Controller
     {
         $officers = User::role('verification_officer')->get();
         $circles = Circle::all();
-        $complaints = Complaint::where('status', 'complete')->get();
+        $complaints = Complaint::where('status', 'complete')
+            ->latest('id')
+            ->limit(50)
+            ->get(['id', 'tracking_no', 'diary_no', 'complainant_name']);
 
         return view('verifications.edit', compact('verification', 'officers', 'circles', 'complaints'));
     }

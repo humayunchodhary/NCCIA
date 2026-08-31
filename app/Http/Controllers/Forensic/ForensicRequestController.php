@@ -1098,23 +1098,26 @@ class ForensicRequestController extends Controller
         // Track that the user is online right now
         \Illuminate\Support\Facades\Cache::put('user_online_' . $user->id, true, now()->addMinutes(2));
 
-        $base = ForensicRequest::query()->where('destination', 'forensic');
+        $cached = \Illuminate\Support\Facades\Cache::remember('forensic:stats:v1:' . $user->id, 60, function () use ($user) {
+            $base = ForensicRequest::query()->where('destination', 'forensic');
 
-        // Pipeline stage counts
-        $submitted   = (clone $base)->where('status', 'submitted')->count();
-        $assigned    = (clone $base)->where('status', 'assigned')->count();
-        $inProgress  = (clone $base)->where('status', 'in_progress')->count();
-        $reportReady = (clone $base)->where('status', 'report_ready')->count();
-        $handedOver  = (clone $base)->where('status', 'handed_over')->count();
-        $total       = $submitted + $assigned + $inProgress + $reportReady + $handedOver;
+            $statusCounts = (clone $base)
+                ->selectRaw('status, COUNT(*) as c')
+                ->groupBy('status')
+                ->pluck('c', 'status');
 
-        // Priority breakdown
-        $urgentCount = (clone $base)->whereIn('priority', ['urgent', 'high'])->whereNotIn('status', ['handed_over'])->count();
+            $submitted = (int) ($statusCounts['submitted'] ?? 0);
+            $assigned = (int) ($statusCounts['assigned'] ?? 0);
+            $inProgress = (int) ($statusCounts['in_progress'] ?? 0);
+            $reportReady = (int) ($statusCounts['report_ready'] ?? 0);
+            $handedOver = (int) ($statusCounts['handed_over'] ?? 0);
+            $total = $submitted + $assigned + $inProgress + $reportReady + $handedOver;
 
-        // My assigned queue (for FO)
-        $myAssigned = $user->hasRole('forensic_team')
-            ? ForensicRequest::where('assigned_to', $user->id)->whereIn('status', ['assigned', 'in_progress'])->count()
-            : 0;
+            $urgentCount = (clone $base)->whereIn('priority', ['urgent', 'high'])->whereNotIn('status', ['handed_over'])->count();
+
+            $myAssigned = $user->hasRole('forensic_team')
+                ? ForensicRequest::where('assigned_to', $user->id)->whereIn('status', ['assigned', 'in_progress'])->count()
+                : 0;
 
         // Seized Devices breakdown
         $rawItemCounts = DB::table('forensic_request_items')
@@ -1188,45 +1191,56 @@ class ForensicRequestController extends Controller
         }
 
         // Forensic Experts Workload
-        $feUsers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic', 'forensic_team', 'dd_forensic']))
+        $feUsers = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic', 'forensic_team', 'dd_forensic']))
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name']);
+
+        $feIds = $feUsers->pluck('id');
+        $feStatusCounts = ForensicRequest::query()
+            ->whereIn('assigned_to', $feIds)
+            ->selectRaw('assigned_to, status, COUNT(*) as c')
+            ->groupBy('assigned_to', 'status')
+            ->get()
+            ->groupBy('assigned_to');
 
         $feWorkload = [];
         foreach ($feUsers as $fe) {
-            $wNew       = ForensicRequest::where('assigned_to', $fe->id)->whereIn('status', ['submitted', 'assigned'])->count();
-            $wWorking   = ForensicRequest::where('assigned_to', $fe->id)->where('status', 'in_progress')->count();
-            $wCompleted = ForensicRequest::where('assigned_to', $fe->id)->where('status', 'report_ready')->count();
-            $wReturned  = ForensicRequest::where('assigned_to', $fe->id)->where('status', 'handed_over')->count();
-            $wTotal     = $wNew + $wWorking + $wCompleted + $wReturned;
+            $byStatus = ($feStatusCounts[$fe->id] ?? collect())->pluck('c', 'status');
+            $wNew = (int) (($byStatus['submitted'] ?? 0) + ($byStatus['assigned'] ?? 0));
+            $wWorking = (int) ($byStatus['in_progress'] ?? 0);
+            $wCompleted = (int) ($byStatus['report_ready'] ?? 0);
+            $wReturned = (int) ($byStatus['handed_over'] ?? 0);
 
             $feWorkload[] = [
-                'id'        => $fe->id,
-                'name'      => $fe->name,
-                'new'       => $wNew,
-                'working'   => $wWorking,
+                'id' => $fe->id,
+                'name' => $fe->name,
+                'new' => $wNew,
+                'working' => $wWorking,
                 'completed' => $wCompleted,
-                'returned'  => $wReturned,
-                'total'     => $wTotal,
+                'returned' => $wReturned,
+                'total' => $wNew + $wWorking + $wCompleted + $wReturned,
             ];
         }
 
-        $response = [
-            'submitted'             => $submitted,
-            'assigned'              => $assigned,
-            'in_progress'           => $inProgress,
-            'report_ready'          => $reportReady,
-            'handed_over'           => $handedOver,
-            'total'                 => $total,
-            'urgent_count'          => $urgentCount,
-            'my_assigned'           => $myAssigned,
-            'total_devices'         => $totalDevices,
-            'by_region'             => $regionsData,
-            'evidentiary_categories'=> $catMap,
-            'organizations'         => $orgsData,
-            'fe_workload'           => $feWorkload,
-            'by_circle'             => $dbCircleCounts,
+        return [
+            'submitted' => $submitted,
+            'assigned' => $assigned,
+            'in_progress' => $inProgress,
+            'report_ready' => $reportReady,
+            'handed_over' => $handedOver,
+            'total' => $total,
+            'urgent_count' => $urgentCount,
+            'my_assigned' => $myAssigned,
+            'total_devices' => $totalDevices,
+            'by_region' => $regionsData,
+            'evidentiary_categories' => $catMap,
+            'organizations' => $orgsData,
+            'fe_workload' => $feWorkload,
+            'by_circle' => $dbCircleCounts,
         ];
+        });
+
+        $response = $cached;
 
         if (\Illuminate\Support\Facades\Cache::has('login_alert_' . $user->id)) {
             $response['security_alert'] = 'Security Alert: Someone just tried to login to your account using correct credentials from IP: ' . \Illuminate\Support\Facades\Cache::pull('login_alert_' . $user->id);

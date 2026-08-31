@@ -861,13 +861,13 @@ class EnquiryController extends Controller
             if ($search = trim((string) request('search'))) {
                 $query->where(function ($sq) use ($search) {
                     $sq->whereHas('complaint', function ($q) use ($search) {
-                        $q->where('complainant_name', 'like', "%{$search}%")
-                          ->orWhere('tracking_no', 'like', "%{$search}%")
-                          ->orWhere('cnic', 'like', "%{$search}%");
+                        $q->where('complainant_name', 'like', "{$search}%")
+                          ->orWhere('tracking_no', 'like', "{$search}%")
+                          ->orWhere('cnic', 'like', "{$search}%");
                     })
-                    ->orWhere('enquiry_number', 'like', "%{$search}%")
-                    ->orWhere('direct_info->reference_no', 'like', "%{$search}%")
-                    ->orWhere('direct_info->complainant_name', 'like', "%{$search}%")
+                    ->orWhere('enquiry_number', 'like', "{$search}%")
+                    ->orWhere('direct_info->reference_no', 'like', "{$search}%")
+                    ->orWhere('direct_info->complainant_name', 'like', "{$search}%")
                     ->orWhere('id', $search);
                 });
             }

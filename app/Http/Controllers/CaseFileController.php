@@ -366,7 +366,10 @@ class CaseFileController extends Controller
 
     public function create()
     {
-        $enquiries = Enquiry::whereIn('status', ['approved', 'closed'])->get();
+        $enquiries = Enquiry::whereIn('status', ['approved', 'closed'])
+            ->latest('id')
+            ->limit(50)
+            ->get(['id', 'enquiry_number', 'complaint_id', 'status']);
         return view('pages.dac-new', compact('enquiries'));
     }
 

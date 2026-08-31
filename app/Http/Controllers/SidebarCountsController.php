@@ -31,7 +31,7 @@ class SidebarCountsController extends Controller
 
         $key = 'sidebar:v2:' . $user->id;
 
-        $data = Cache::remember($key, 5, function () use ($user) {
+        $data = Cache::remember($key, 30, function () use ($user) {
             return [
                 'verifications' => $this->verificationsCount($user),
                 'reports' => $this->reportsCount($user),

@@ -14,9 +14,11 @@ class ProcessComplaintPdfImport implements ShouldQueue
 {
     use Dispatchable, Queueable;
 
+    public string $queue = 'pdf-imports';
+
     public int $timeout = 300;
 
-    public int $tries = 1;
+    public int $tries = 3;
 
     public function __construct(
         public int $importId,
