@@ -38,6 +38,7 @@ import Rules from './pages/Rules';
 import SOP from './pages/SOP';
 import UserManual from './pages/UserManual';
 import Chat from './pages/Chat';
+import SmsLog from './pages/SmsLog';
 import DsrReports from './pages/DsrReports';
 import DsrReportForm from './pages/DsrReportForm';
 import DoLetters from './pages/DoLetters';
