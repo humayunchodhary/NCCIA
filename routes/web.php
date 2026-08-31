@@ -8,73 +8,18 @@ use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\DocumentVerifyController;
 use App\Http\Controllers\VerificationController;
+use App\Http\Controllers\SpaController;
 
-if (! function_exists('spaHtmlResponse')) {
-    /**
-     * Serve React SPA HTML without browser/proxy caching so deploys show up
-     * without requiring Ctrl+F5.
-     */
-    function spaHtmlResponse()
-    {
-        $candidates = array_values(array_unique(array_filter([
-            public_path('react/index.html'),
-            base_path('public/react/index.html'),
-            isset($_SERVER['DOCUMENT_ROOT'])
-                ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/\\') . '/react/index.html'
-                : null,
-        ])));
+Route::get('/', [SpaController::class, 'index'])->name('dashboard');
 
-        foreach ($candidates as $path) {
-            if (! is_readable($path)) {
-                continue;
-            }
-
-            $html = @file_get_contents($path);
-            if ($html === false || $html === '') {
-                continue;
-            }
-
-            $mtime = @filemtime($path);
-            if ($mtime) {
-                $bust = (string) $mtime;
-                $html = preg_replace(
-                    '#(href=")(/css/[^"?]+)(")#',
-                    '$1$2?v=' . $bust . '$3',
-                    $html
-                ) ?? $html;
-            }
-
-            return response($html, 200, [
-                'Content-Type'  => 'text/html; charset=UTF-8',
-                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-                'Pragma'        => 'no-cache',
-                'Expires'       => '0',
-            ]);
-        }
-
-        // Last resort: static shell is deployed but PHP cannot resolve the path (shared hosting).
-        return redirect('/react/index.html');
-    }
-}
-
-Route::get('/', function () {
-    return spaHtmlResponse();
-})->name('dashboard');
-
-Route::get('/login', function () {
-    return spaHtmlResponse();
-})->name('login');
+Route::get('/login', [SpaController::class, 'index'])->name('login');
 
 Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:6,1');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-Route::get('/forensic', function () {
-    return spaHtmlResponse();
-});
+Route::get('/forensic', [SpaController::class, 'index']);
 
-Route::get('/forensic/login', function () {
-    return spaHtmlResponse();
-});
+Route::get('/forensic/login', [SpaController::class, 'index']);
 
 // Sanctum SPA auth routes (need session middleware from web group)
 Route::post('/api/login', [LoginController::class, 'apiLogin'])->middleware('throttle:6,1');
@@ -140,6 +85,4 @@ Route::get('/verify/complaint/{id}/{token}', [ComplaintController::class, 'verif
 Route::get('/verify/doc/{type}/{id}/{token}', [DocumentVerifyController::class, 'show'])->name('document.verify');
 
 // React SPA - serve React app for all frontend routes
-Route::get('/{any?}', function () {
-    return spaHtmlResponse();
-})->where('any', '^(?!api/|sanctum/).*');
+Route::get('/{any?}', [SpaController::class, 'index'])->where('any', '^(?!api/|sanctum/).*');
