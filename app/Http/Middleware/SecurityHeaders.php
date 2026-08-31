@@ -24,8 +24,8 @@ class SecurityHeaders
         // Strict Referrer Policy
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-        // Restrict device hardware permissions
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+        // Restrict device hardware permissions (microphone allowed for live voice sample recording)
+        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=(), usb=()');
 
         // Disallow cross-domain Flash/PDF policy files
         $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
