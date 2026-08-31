@@ -9,12 +9,21 @@ export default function DoLetters() {
   const { user } = useAuth();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({ month_from: '', month_to: '' });
 
-  useEffect(() => {
-    api.get('/do-letters').then(r => {
+  const load = () => {
+    setLoading(true);
+    const params = {};
+    if (filters.month_from) params.month_from = filters.month_from + '-01';
+    if (filters.month_to) params.month_to = filters.month_to + '-01';
+    api.get('/do-letters', { params }).then(r => {
       setList(r.data.data || r.data);
       setLoading(false);
     }).catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
   }, []);
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
@@ -33,6 +42,30 @@ export default function DoLetters() {
             <Link to="/do-letters/create" className="btn btn-primary">+ New D.O. Letter</Link>
           </div>
         )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, alignItems: 'end' }}>
+          <div>
+            <label>From Month</label>
+            <input type="month" value={filters.month_from} onChange={e => setFilters(f => ({ ...f, month_from: e.target.value }))} />
+          </div>
+          <div>
+            <label>To Month</label>
+            <input type="month" value={filters.month_to} onChange={e => setFilters(f => ({ ...f, month_to: e.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={load}>Filter</button>
+            <button type="button" className="btn btn-sm" onClick={() => {
+              setFilters({ month_from: '', month_to: '' });
+              setLoading(true);
+              api.get('/do-letters').then(r => {
+                setList(r.data.data || r.data);
+                setLoading(false);
+              }).catch(() => setLoading(false));
+            }}>Clear</button>
+          </div>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

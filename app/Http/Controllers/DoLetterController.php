@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DoLetter;
 use App\Models\User;
 use App\Services\DoLetterBuilderService;
+use App\Services\DoLetterExcelExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -23,6 +24,14 @@ class DoLetterController extends Controller
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);
+        }
+
+        if ($from = $request->query('month_from')) {
+            $query->whereDate('report_month', '>=', Carbon::parse($from)->startOfMonth()->toDateString());
+        }
+
+        if ($to = $request->query('month_to')) {
+            $query->whereDate('report_month', '<=', Carbon::parse($to)->startOfMonth()->toDateString());
         }
 
         if ($user->hasRole('director_general')) {
@@ -65,6 +74,12 @@ class DoLetterController extends Controller
         $this->authorizeCircle($user, (int) $data['circle_id']);
 
         $month = Carbon::parse($data['report_month'])->startOfMonth();
+        $exists = DoLetter::query()
+            ->where('circle_id', $data['circle_id'])
+            ->whereDate('report_month', $month->toDateString())
+            ->exists();
+        abort_if($exists, 422, 'A D.O. Letter for this circle and month already exists.');
+
         $built = $request->boolean('auto_compile', true)
             ? $this->builder->build((int) $data['circle_id'], $month)
             : ['month_label' => $month->format('F-Y'), 'payload' => $data['payload'] ?? []];
@@ -97,12 +112,41 @@ class DoLetterController extends Controller
         abort_unless($this->canCompile($user), 403);
 
         $data = $request->validate([
+            'circle_id' => 'nullable|exists:circles,id',
+            'report_month' => 'nullable|date',
             'notes' => 'nullable|string|max:5000',
             'payload' => 'nullable|array',
             'recompile' => 'nullable|boolean',
         ]);
 
-        if ($request->boolean('recompile')) {
+        if (!empty($data['circle_id']) && (int) $data['circle_id'] !== (int) $doLetter->circle_id) {
+            $this->authorizeCircle($user, (int) $data['circle_id']);
+            $doLetter->circle_id = (int) $data['circle_id'];
+        }
+
+        $newMonth = !empty($data['report_month'])
+            ? Carbon::parse($data['report_month'])->startOfMonth()
+            : null;
+
+        if ($newMonth) {
+            $exists = DoLetter::query()
+                ->where('circle_id', $doLetter->circle_id)
+                ->whereDate('report_month', $newMonth->toDateString())
+                ->whereKeyNot($doLetter->id)
+                ->exists();
+            abort_if($exists, 422, 'A D.O. Letter for this circle and month already exists.');
+        }
+
+        $monthChanged = $newMonth
+            && $newMonth->toDateString() !== Carbon::parse($doLetter->report_month)->startOfMonth()->toDateString();
+
+        if ($monthChanged) {
+            $doLetter->report_month = $newMonth->toDateString();
+        }
+
+        $shouldRecompile = $request->boolean('recompile') || $monthChanged;
+
+        if ($shouldRecompile) {
             $built = $this->builder->build((int) $doLetter->circle_id, Carbon::parse($doLetter->report_month));
             $doLetter->payload = $built['payload'];
             $doLetter->month_label = $built['month_label'];
@@ -191,16 +235,20 @@ class DoLetterController extends Controller
         return response()->json(['message' => 'D.O. Letter acknowledged by HQ', 'letter' => $doLetter->fresh()]);
     }
 
-    public function export(DoLetter $doLetter, Request $request)
+    public function export(DoLetter $doLetter, Request $request, DoLetterExcelExportService $excel)
     {
         abort_unless(DoLetter::visibleTo($request->user())->whereKey($doLetter->id)->exists(), 403);
 
-        $html = view('exports.do-letter', ['letter' => $doLetter->load('circle')])->render();
+        if ($request->query('format') === 'html') {
+            $html = view('exports.do-letter', ['letter' => $doLetter->load('circle')])->render();
 
-        return response($html, 200, [
-            'Content-Type' => 'text/html; charset=UTF-8',
-            'Content-Disposition' => 'inline; filename="DO-Letter-' . $doLetter->month_label . '.html"',
-        ]);
+            return response($html, 200, [
+                'Content-Type' => 'text/html; charset=UTF-8',
+                'Content-Disposition' => 'inline; filename="DO-Letter-' . $doLetter->month_label . '.html"',
+            ]);
+        }
+
+        return $excel->download($doLetter->load('circle'));
     }
 
     private function canCompile(?User $user): bool

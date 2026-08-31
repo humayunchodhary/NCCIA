@@ -29,9 +29,17 @@ api.interceptors.response.use(
   async (error) => {
     const { config, response } = error;
     
-    // Globally replace the generic "Server Error" message from Laravel
-    if (response && response.data && response.data.message === 'Server Error') {
-      response.data.message = 'An unexpected error occurred. Please try again or contact admin.';
+    // Replace generic Laravel 500 text so users see actionable messages when we provide them.
+    if (response && response.data) {
+      const msg = response.data.message;
+      if (msg === 'Server Error' || msg === 'Internal Server Error') {
+        response.data.message = 'An unexpected error occurred. Please try again or contact admin.';
+      } else if (!msg && response.data.errors) {
+        const first = Object.values(response.data.errors).flat()[0];
+        if (first) {
+          response.data.message = first;
+        }
+      }
     }
 
     if (response && response.status === 419 && !config._retried) {

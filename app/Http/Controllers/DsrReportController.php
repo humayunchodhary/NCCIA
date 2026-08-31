@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\DsrReportBuilderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class DsrReportController extends Controller
 {
@@ -24,6 +26,14 @@ class DsrReportController extends Controller
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);
+        }
+
+        if ($from = $request->query('date_from')) {
+            $query->whereDate('report_date', '>=', $from);
+        }
+
+        if ($to = $request->query('date_to')) {
+            $query->whereDate('report_date', '<=', $to);
         }
 
         if ($user->hasRole('director_general')) {
@@ -46,11 +56,27 @@ class DsrReportController extends Controller
 
         $this->authorizeCircle($request->user(), (int) $data['circle_id']);
 
-        $built = $this->builder->build(
-            (int) $data['circle_id'],
-            Carbon::parse($data['report_date']),
-            $data['unit_name'] ?? null
-        );
+        if (!Schema::hasTable('dsr_reports')) {
+            return response()->json([
+                'message' => 'DSR tables are missing. Run: php artisan migrate --force',
+            ], 503);
+        }
+
+        try {
+            $built = $this->builder->build(
+                (int) $data['circle_id'],
+                Carbon::parse($data['report_date']),
+                $data['unit_name'] ?? null
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => config('app.debug')
+                    ? ('DSR compile failed: ' . $e->getMessage())
+                    : 'DSR compile failed. Ensure migrations are up to date, then retry or contact admin.',
+            ], 500);
+        }
 
         return response()->json($built);
     }
@@ -60,9 +86,19 @@ class DsrReportController extends Controller
         $user = $request->user();
         abort_unless($this->canCompile($user), 403);
 
+        if (!Schema::hasTable('dsr_reports')) {
+            return response()->json([
+                'message' => 'DSR tables are missing. Run: php artisan migrate --force',
+            ], 503);
+        }
+
         $data = $request->validate([
             'circle_id' => 'required|exists:circles,id',
-            'report_date' => 'required|date',
+            'report_date' => [
+                'required',
+                'date',
+                Rule::unique('dsr_reports')->where(fn ($q) => $q->where('circle_id', $request->input('circle_id'))),
+            ],
             'unit_name' => 'nullable|string|max:120',
             'auto_compile' => 'nullable|boolean',
             'notes' => 'nullable|string|max:5000',
@@ -72,11 +108,22 @@ class DsrReportController extends Controller
 
         $this->authorizeCircle($user, (int) $data['circle_id']);
 
-        $built = $request->boolean('auto_compile', true)
-            ? $this->builder->build((int) $data['circle_id'], Carbon::parse($data['report_date']), $data['unit_name'] ?? null)
-            : ['highlights' => $data['highlights'] ?? [], 'payload' => $data['payload'] ?? [], 'unit_name' => $data['unit_name'] ?? 'CCRC-Lahore'];
+        try {
+            $built = $request->boolean('auto_compile', true)
+                ? $this->builder->build((int) $data['circle_id'], Carbon::parse($data['report_date']), $data['unit_name'] ?? null)
+                : ['highlights' => $data['highlights'] ?? [], 'payload' => $data['payload'] ?? [], 'unit_name' => $data['unit_name'] ?? 'CCRC-Lahore'];
+        } catch (\Throwable $e) {
+            report($e);
 
-        $report = DsrReport::create([
+            return response()->json([
+                'message' => config('app.debug')
+                    ? ('DSR compile failed: ' . $e->getMessage())
+                    : 'DSR compile failed. Ensure migrations are up to date, then retry or contact admin.',
+            ], 500);
+        }
+
+        try {
+            $report = DsrReport::create([
             'circle_id' => $data['circle_id'],
             'report_date' => $data['report_date'],
             'unit_name' => $built['unit_name'] ?? ($data['unit_name'] ?? 'CCRC-Lahore'),
@@ -86,6 +133,15 @@ class DsrReportController extends Controller
             'notes' => $data['notes'] ?? null,
             'compiled_by' => $user->id,
         ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => config('app.debug')
+                    ? ('Could not save DSR: ' . $e->getMessage())
+                    : 'Could not save DSR. If this date already exists for the circle, open that report instead.',
+            ], 500);
+        }
 
         return response()->json(['message' => 'DSR draft created', 'report' => $report->load(['circle', 'compiler'])], 201);
     }
@@ -104,7 +160,17 @@ class DsrReportController extends Controller
         abort_unless(in_array($dsrReport->status, [DsrReport::STATUS_DRAFT, DsrReport::STATUS_SENT_BACK], true), 422);
         abort_unless($this->canCompile($user), 403);
 
+        $circleId = (int) ($request->input('circle_id') ?: $dsrReport->circle_id);
+
         $data = $request->validate([
+            'circle_id' => 'nullable|exists:circles,id',
+            'report_date' => [
+                'nullable',
+                'date',
+                Rule::unique('dsr_reports')
+                    ->where(fn ($q) => $q->where('circle_id', $circleId))
+                    ->ignore($dsrReport->id),
+            ],
             'unit_name' => 'nullable|string|max:120',
             'notes' => 'nullable|string|max:5000',
             'highlights' => 'nullable|array',
@@ -112,8 +178,36 @@ class DsrReportController extends Controller
             'recompile' => 'nullable|boolean',
         ]);
 
-        if ($request->boolean('recompile')) {
-            $built = $this->builder->build((int) $dsrReport->circle_id, Carbon::parse($dsrReport->report_date), $data['unit_name'] ?? $dsrReport->unit_name);
+        if (!empty($data['circle_id']) && (int) $data['circle_id'] !== (int) $dsrReport->circle_id) {
+            $this->authorizeCircle($user, (int) $data['circle_id']);
+            $dsrReport->circle_id = (int) $data['circle_id'];
+        }
+
+        $dateChanged = !empty($data['report_date'])
+            && $data['report_date'] !== $dsrReport->report_date->toDateString();
+
+        if ($dateChanged) {
+            $dsrReport->report_date = $data['report_date'];
+        }
+
+        $shouldRecompile = $request->boolean('recompile') || $dateChanged;
+
+        if ($shouldRecompile) {
+            try {
+                $built = $this->builder->build(
+                    (int) $dsrReport->circle_id,
+                    Carbon::parse($dsrReport->report_date),
+                    $data['unit_name'] ?? $dsrReport->unit_name
+                );
+            } catch (\Throwable $e) {
+                report($e);
+
+                return response()->json([
+                    'message' => config('app.debug')
+                        ? ('DSR compile failed: ' . $e->getMessage())
+                        : 'DSR compile failed. Ensure migrations are up to date, then retry or contact admin.',
+                ], 500);
+            }
             $dsrReport->highlights = $built['highlights'];
             $dsrReport->payload = $built['payload'];
             if (!empty($data['unit_name'])) {

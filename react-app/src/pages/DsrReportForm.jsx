@@ -18,6 +18,7 @@ const HIGHLIGHT_ORDER = [
   ['bail', 'Bail (Pre/Post)'],
   ['old_accused_arrested', 'Old Accused Arrested'],
   ['conviction', 'Conviction'],
+  ['raids', 'Raids (today)'],
 ];
 
 function SectionTable({ title, rows, columns }) {
@@ -108,6 +109,9 @@ export default function DsrReportForm() {
   const [loading, setLoading] = useState(!isCreate);
   const [busy, setBusy] = useState(false);
   const [remarks, setRemarks] = useState('');
+  const [previewData, setPreviewData] = useState(null);
+
+  const canEditMeta = isCreate || (canCompileAdminReports(user) && ['draft', 'sent_back'].includes(report?.status));
 
   useEffect(() => {
     api.get('/lookup/circles').then(r => setCircles(r.data || [])).catch(() => {});
@@ -134,12 +138,50 @@ export default function DsrReportForm() {
         const r = await api.post('/dsr-reports', { ...form, auto_compile: true });
         navigate(`/dsr-reports/${r.data.report.id}`);
       } else {
-        const r = await api.put(`/dsr-reports/${id}`, { ...form, recompile });
+        const originalDate = report?.report_date?.slice?.(0, 10) || report?.report_date;
+        const dateChanged = form.report_date && originalDate && form.report_date !== originalDate;
+        const r = await api.put(`/dsr-reports/${id}`, { ...form, recompile: recompile || dateChanged });
         setReport(r.data.report);
-        alert('DSR saved');
+        setPreviewData(null);
+        alert(dateChanged ? 'DSR date updated and recompiled' : 'DSR saved');
+      }
+        } catch (e) {
+      const data = e.response?.data;
+      const msg = data?.message
+        || (data?.errors && Object.values(data.errors).flat()[0])
+        || e.message
+        || 'Save failed';
+      alert(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const previewCompile = async () => {
+    if (!form.circle_id || !form.report_date) {
+      alert('Pehle circle aur report date select karein.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await api.post('/dsr-reports/preview', {
+        circle_id: form.circle_id,
+        report_date: form.report_date,
+        unit_name: form.unit_name,
+      });
+      if (isCreate) {
+        setPreviewData(r.data);
+      } else {
+        setReport(prev => ({
+          ...prev,
+          highlights: r.data.highlights,
+          payload: r.data.payload,
+          unit_name: r.data.unit_name || form.unit_name,
+        }));
+        alert('Preview loaded — Save dabayein ya Recompile from System use karein.');
       }
     } catch (e) {
-      alert(e.response?.data?.message || 'Save failed');
+      alert(e.response?.data?.message || 'Preview failed');
     } finally {
       setBusy(false);
     }
@@ -165,8 +207,8 @@ export default function DsrReportForm() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
 
   const status = report?.status;
-  const highlights = report?.highlights || {};
-  const payload = report?.payload || {};
+  const highlights = (isCreate ? previewData?.highlights : report?.highlights) || {};
+  const payload = (isCreate ? previewData?.payload : report?.payload) || {};
   const dated = form.report_date
     ? form.report_date.split('-').reverse().join('.')
     : '';
@@ -187,7 +229,7 @@ export default function DsrReportForm() {
           <div className="title-underline"></div>
         </div>
         <div className="page-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {!isCreate && <button type="button" className="btn btn-sm" onClick={exportReport}>Export / Print</button>}
+          {!isCreate && <button type="button" className="btn btn-sm" onClick={exportReport}>Print Official DSR</button>}
           {canCompileAdminReports(user) && ['draft', 'sent_back'].includes(status) && !isCreate && (
             <>
               <button type="button" className="btn btn-sm" disabled={busy} onClick={() => save(true)}>Recompile from System</button>
@@ -226,14 +268,26 @@ export default function DsrReportForm() {
         <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
           <div>
             <label>Circle</label>
-            <select value={form.circle_id} disabled={!isCreate && !canCompileAdminReports(user)} onChange={e => setForm(f => ({ ...f, circle_id: e.target.value }))}>
+            <select value={form.circle_id} disabled={!canEditMeta} onChange={e => {
+              setForm(f => ({ ...f, circle_id: e.target.value }));
+              setPreviewData(null);
+            }}>
               <option value="">Select circle</option>
               {circles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label>Report Date</label>
-            <input type="date" value={form.report_date} disabled={!isCreate} onChange={e => setForm(f => ({ ...f, report_date: e.target.value }))} />
+            <input
+              type="date"
+              value={form.report_date}
+              disabled={!canEditMeta}
+              onChange={e => {
+                setForm(f => ({ ...f, report_date: e.target.value }));
+                setPreviewData(null);
+              }}
+            />
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Koi bhi purani ya aaj ki date select kar sakte hain.</div>
           </div>
           <div>
             <label>Unit Name</label>
@@ -245,7 +299,12 @@ export default function DsrReportForm() {
           <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ width: '100%' }} placeholder="e.g. NIL / important remarks for HQ" />
         </div>
         {canCompileAdminReports(user) && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {canEditMeta && (
+              <button type="button" className="btn btn-outline" disabled={busy} onClick={previewCompile}>
+                Preview for Date
+              </button>
+            )}
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => save(false)}>
               {isCreate ? 'Create & Auto-Compile' : 'Save'}
             </button>
@@ -253,7 +312,7 @@ export default function DsrReportForm() {
         )}
       </div>
 
-      {!isCreate && (
+      {(isCreate ? previewData : !isCreate) && (
         <>
           <div className="card" style={{ marginBottom: 16 }}>
             <h3 style={{ marginTop: 0 }}>Highlights</h3>
@@ -279,6 +338,7 @@ export default function DsrReportForm() {
               { key: 'gist', label: 'Gist of allegations' },
               { key: 'accused', label: 'Name of Accused' },
               { key: 'amount_involved', label: 'Amount involved' },
+              { key: 'amount_recovered', label: 'Amount recovered' },
               { key: 'cms_entered', label: 'Entered in CMS' },
             ]}
           />
@@ -347,6 +407,8 @@ export default function DsrReportForm() {
                 <tr><td>Total Cases Registered (today)</td><td><strong>{payload.summary?.total_cases_registered ?? 0}</strong></td></tr>
                 <tr><td>Total Enquiries Registered (today)</td><td><strong>{payload.summary?.total_enquiries_registered ?? 0}</strong></td></tr>
                 <tr><td>Total Arrests (today)</td><td><strong>{payload.summary?.total_arrests ?? 0}</strong></td></tr>
+                <tr><td>Total Amount Recovered (today enquiries)</td><td><strong>{payload.summary?.total_amount_recovered || 'NIL'}</strong></td></tr>
+                <tr><td>Raids (today)</td><td><strong>{payload.raid?.total_raid ?? 0}</strong></td></tr>
                 <tr><td>Highlights / Remarks</td><td><strong>{form.notes?.trim() || 'NIL'}</strong></td></tr>
               </tbody>
             </table>

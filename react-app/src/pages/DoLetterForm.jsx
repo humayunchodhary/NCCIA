@@ -44,6 +44,9 @@ export default function DoLetterForm() {
   const [loading, setLoading] = useState(!isCreate);
   const [busy, setBusy] = useState(false);
   const [remarks, setRemarks] = useState('');
+  const [previewData, setPreviewData] = useState(null);
+
+  const canEditMeta = isCreate || (canCompileAdminReports(user) && ['draft', 'sent_back'].includes(letter?.status));
 
   useEffect(() => {
     api.get('/lookup/circles').then(r => setCircles(r.data || [])).catch(() => {});
@@ -69,12 +72,44 @@ export default function DoLetterForm() {
         const r = await api.post('/do-letters', { ...form, auto_compile: true });
         navigate(`/do-letters/${r.data.letter.id}`);
       } else {
-        const r = await api.put(`/do-letters/${id}`, { notes: form.notes, recompile });
+        const originalMonth = letter?.report_month?.slice?.(0, 7);
+        const selectedMonth = form.report_month?.slice?.(0, 7);
+        const monthChanged = selectedMonth && originalMonth && selectedMonth !== originalMonth;
+        const r = await api.put(`/do-letters/${id}`, { ...form, recompile: recompile || monthChanged });
         setLetter(r.data.letter);
-        alert('D.O. Letter saved');
+        setPreviewData(null);
+        alert(monthChanged ? 'Month updated and recompiled' : 'D.O. Letter saved');
       }
     } catch (e) {
       alert(e.response?.data?.message || 'Save failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const previewCompile = async () => {
+    if (!form.circle_id || !form.report_month) {
+      alert('Pehle circle aur month select karein.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await api.post('/do-letters/preview', {
+        circle_id: form.circle_id,
+        report_month: form.report_month,
+      });
+      if (isCreate) {
+        setPreviewData(r.data);
+      } else {
+        setLetter(prev => ({
+          ...prev,
+          payload: r.data.payload,
+          month_label: r.data.month_label,
+        }));
+        alert('Preview loaded — Save dabayein ya Recompile from System use karein.');
+      }
+    } catch (e) {
+      alert(e.response?.data?.message || 'Preview failed');
     } finally {
       setBusy(false);
     }
@@ -97,11 +132,16 @@ export default function DoLetterForm() {
     window.open(`/api/do-letters/${id}/export`, '_blank');
   };
 
+  const exportLetterHtml = () => {
+    window.open(`/api/do-letters/${id}/export?format=html`, '_blank');
+  };
+
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
 
   const status = letter?.status;
-  const payload = letter?.payload || {};
+  const payload = (isCreate ? previewData?.payload : letter?.payload) || {};
   const arrested = payload.accused_arrested || [];
+  const showStats = isCreate ? Boolean(previewData) : !isCreate;
 
   return (
     <div className="page-content">
@@ -119,7 +159,8 @@ export default function DoLetterForm() {
           <div className="title-underline"></div>
         </div>
         <div className="page-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {!isCreate && <button type="button" className="btn btn-sm" onClick={exportLetter}>Export / Print</button>}
+          {!isCreate && <button type="button" className="btn btn-sm" onClick={exportLetter}>Download Excel (.xlsx)</button>}
+          {!isCreate && <button type="button" className="btn btn-sm" onClick={exportLetterHtml}>Print HTML</button>}
           {canCompileAdminReports(user) && ['draft', 'sent_back'].includes(status) && !isCreate && (
             <>
               <button type="button" className="btn btn-sm" disabled={busy} onClick={() => save(true)}>Recompile from System</button>
@@ -152,14 +193,26 @@ export default function DoLetterForm() {
         <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
           <div>
             <label>Circle</label>
-            <select value={form.circle_id} disabled={!isCreate} onChange={e => setForm(f => ({ ...f, circle_id: e.target.value }))}>
+            <select value={form.circle_id} disabled={!canEditMeta} onChange={e => {
+              setForm(f => ({ ...f, circle_id: e.target.value }));
+              setPreviewData(null);
+            }}>
               <option value="">Select circle</option>
               {circles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label>Month</label>
-            <input type="month" value={form.report_month?.slice(0, 7)} disabled={!isCreate} onChange={e => setForm(f => ({ ...f, report_month: e.target.value + '-01' }))} />
+            <input
+              type="month"
+              value={form.report_month?.slice(0, 7)}
+              disabled={!canEditMeta}
+              onChange={e => {
+                setForm(f => ({ ...f, report_month: e.target.value + '-01' }));
+                setPreviewData(null);
+              }}
+            />
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Koi bhi purana month select kar sakte hain.</div>
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
@@ -167,7 +220,12 @@ export default function DoLetterForm() {
           <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ width: '100%' }} />
         </div>
         {canCompileAdminReports(user) && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {canEditMeta && (
+              <button type="button" className="btn btn-outline" disabled={busy} onClick={previewCompile}>
+                Preview for Month
+              </button>
+            )}
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => save(false)}>
               {isCreate ? 'Create & Auto-Compile' : 'Save'}
             </button>
@@ -175,13 +233,16 @@ export default function DoLetterForm() {
         )}
       </div>
 
-      {!isCreate && (
+      {showStats && (
         <>
           <StatRow title="1. Cases" cells={[
             { label: 'At beginning', value: payload.cases?.at_beginning },
             { label: 'Added', value: payload.cases?.added },
             { label: 'Total', value: payload.cases?.total },
+            { label: 'Interim Challan', value: payload.cases?.interim_challan },
             { label: 'Final Challan', value: payload.cases?.final_challan },
+            { label: 'Discharge', value: payload.cases?.discharge },
+            { label: 'Transferred', value: payload.cases?.transferred },
             { label: 'Pending', value: payload.cases?.pending },
           ]} />
 
@@ -198,6 +259,26 @@ export default function DoLetterForm() {
             { label: 'Added', value: payload.enquiries?.added },
             { label: 'Closed', value: payload.enquiries?.closed },
             { label: 'Pending', value: payload.enquiries?.pending },
+          ]} />
+
+          <StatRow title="4. Raids" cells={[
+            { label: 'Total raids', value: payload.raid?.total_raid },
+            { label: 'Cases after raid', value: payload.raid?.cases_after_raid },
+            { label: 'Enquiries after raid', value: payload.raid?.enquiries_after_raid },
+          ]} />
+
+          <StatRow title="5. Proclaimed Offenders (PO)" cells={[
+            { label: 'Previous', value: payload.pos?.previous },
+            { label: 'Added', value: payload.pos?.added },
+            { label: 'Arrested', value: payload.pos?.arrested },
+            { label: 'Pending', value: payload.pos?.pending },
+          ]} />
+
+          <StatRow title="6. Court Absconders (CA)" cells={[
+            { label: 'Previous', value: payload.cas?.previous },
+            { label: 'Added', value: payload.cas?.added },
+            { label: 'Arrested', value: payload.cas?.arrested },
+            { label: 'Pending', value: payload.cas?.pending },
           ]} />
 
           <div className="card" style={{ marginBottom: 16, padding: 0, overflow: 'hidden' }}>

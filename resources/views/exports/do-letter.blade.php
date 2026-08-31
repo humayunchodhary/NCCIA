@@ -20,12 +20,15 @@
 
     <h3>1. Cases</h3>
     <table>
-        <tr><th>At beginning</th><th>Added</th><th>Total</th><th>Final Challan</th><th>Pending</th></tr>
+        <tr><th>At beginning</th><th>Added</th><th>Total</th><th>Interim Challan</th><th>Final Challan</th><th>Discharge</th><th>Transferred</th><th>Pending</th></tr>
         <tr>
             <td>{{ $p['cases']['at_beginning'] ?? 0 }}</td>
             <td>{{ $p['cases']['added'] ?? 0 }}</td>
             <td>{{ $p['cases']['total'] ?? 0 }}</td>
+            <td>{{ $p['cases']['interim_challan'] ?? 0 }}</td>
             <td>{{ $p['cases']['final_challan'] ?? 0 }}</td>
+            <td>{{ $p['cases']['discharge'] ?? 0 }}</td>
+            <td>{{ $p['cases']['transferred'] ?? 0 }}</td>
             <td>{{ $p['cases']['pending'] ?? 0 }}</td>
         </tr>
     </table>
@@ -50,6 +53,38 @@
             <td>{{ $p['enquiries']['added'] ?? 0 }}</td>
             <td>{{ $p['enquiries']['closed'] ?? 0 }}</td>
             <td>{{ $p['enquiries']['pending'] ?? 0 }}</td>
+        </tr>
+    </table>
+
+    <h3>4. Raids</h3>
+    <table>
+        <tr><th>Total raids</th><th>Cases after raid</th><th>Enquiries after raid</th></tr>
+        <tr>
+            <td>{{ $p['raid']['total_raid'] ?? 0 }}</td>
+            <td>{{ $p['raid']['cases_after_raid'] ?? 0 }}</td>
+            <td>{{ $p['raid']['enquiries_after_raid'] ?? 0 }}</td>
+        </tr>
+    </table>
+
+    <h3>5. Proclaimed Offenders (PO)</h3>
+    <table>
+        <tr><th>Previous</th><th>Added</th><th>Arrested</th><th>Pending</th></tr>
+        <tr>
+            <td>{{ $p['pos']['previous'] ?? 0 }}</td>
+            <td>{{ $p['pos']['added'] ?? 0 }}</td>
+            <td>{{ $p['pos']['arrested'] ?? 0 }}</td>
+            <td>{{ $p['pos']['pending'] ?? 0 }}</td>
+        </tr>
+    </table>
+
+    <h3>6. Court Absconders (CA)</h3>
+    <table>
+        <tr><th>Previous</th><th>Added</th><th>Arrested</th><th>Pending</th></tr>
+        <tr>
+            <td>{{ $p['cas']['previous'] ?? 0 }}</td>
+            <td>{{ $p['cas']['added'] ?? 0 }}</td>
+            <td>{{ $p['cas']['arrested'] ?? 0 }}</td>
+            <td>{{ $p['cas']['pending'] ?? 0 }}</td>
         </tr>
     </table>
 

@@ -9,12 +9,21 @@ export default function DsrReports() {
   const { user } = useAuth();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({ date_from: '', date_to: '' });
 
-  useEffect(() => {
-    api.get('/dsr-reports').then(r => {
+  const load = () => {
+    setLoading(true);
+    const params = {};
+    if (filters.date_from) params.date_from = filters.date_from;
+    if (filters.date_to) params.date_to = filters.date_to;
+    api.get('/dsr-reports', { params }).then(r => {
       setList(r.data.data || r.data);
       setLoading(false);
     }).catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
   }, []);
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Loading...</div>;
@@ -33,6 +42,30 @@ export default function DsrReports() {
             <Link to="/dsr-reports/create" className="btn btn-primary">+ New DSR</Link>
           </div>
         )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, alignItems: 'end' }}>
+          <div>
+            <label>From Date</label>
+            <input type="date" value={filters.date_from} onChange={e => setFilters(f => ({ ...f, date_from: e.target.value }))} />
+          </div>
+          <div>
+            <label>To Date</label>
+            <input type="date" value={filters.date_to} onChange={e => setFilters(f => ({ ...f, date_to: e.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={load}>Filter</button>
+            <button type="button" className="btn btn-sm" onClick={() => {
+              setFilters({ date_from: '', date_to: '' });
+              setLoading(true);
+              api.get('/dsr-reports').then(r => {
+                setList(r.data.data || r.data);
+                setLoading(false);
+              }).catch(() => setLoading(false));
+            }}>Clear</button>
+          </div>
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

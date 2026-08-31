@@ -5,12 +5,15 @@ namespace App\Services;
 use App\Models\Arrest;
 use App\Models\CaseFile;
 use App\Models\Circle;
-use App\Models\Complaint;
 use App\Models\Enquiry;
 use Carbon\Carbon;
 
 class DsrReportBuilderService
 {
+    public function __construct(
+        private AdminReportStatsService $stats,
+    ) {}
+
     public function build(int $circleId, Carbon $date, ?string $unitName = null): array
     {
         $circle = Circle::find($circleId);
@@ -22,17 +25,29 @@ class DsrReportBuilderService
         $casesRegistered = $this->casesRegistered($circleId, $day);
         $casesDisposed = $this->casesDisposed($circleId, $day);
         $arrests = $this->arrestsToday($circleId, $day);
+        $raid = $this->stats->raidStatsForRange($circleId, $date->copy()->startOfDay(), $date->copy()->endOfDay());
+
+        $poStats = $this->stats->poStatsForRange($circleId, $date->copy()->startOfDay(), $date->copy()->endOfDay());
+        $caStats = $this->stats->caStatsForRange($circleId, $date->copy()->startOfDay(), $date->copy()->endOfDay());
 
         $highlights = [
             'cases' => count($casesRegistered),
             'enquiries_registered' => count($enquiriesRegistered),
             'enquiries_closed' => count($enquiriesClosed),
-            'accused_in_lockup' => 0,
+            'accused_in_lockup' => $this->stats->accusedInLockup($circleId, $date),
             'fresh_arrests' => count($arrests),
-            'bail' => 0,
-            'old_accused_arrested' => 0,
+            'bail' => $this->stats->bailCountOnDate($circleId, $day),
+            'old_accused_arrested' => $this->stats->oldAccusedArrestedOnDate($circleId, $day),
             'conviction' => count(array_filter($casesDisposed, fn ($r) => ($r['reason'] ?? '') === 'conviction')),
+            'raids' => $raid['total_raid'],
         ];
+
+        $totalRecovered = collect($enquiriesRegistered)
+            ->pluck('amount_recovered')
+            ->filter()
+            ->map(fn ($v) => $this->stats->parseAmount($v))
+            ->filter()
+            ->sum();
 
         return [
             'unit_name' => $unit,
@@ -44,12 +59,22 @@ class DsrReportBuilderService
                 'cases_registered' => $casesRegistered,
                 'cases_disposed' => $casesDisposed,
                 'arrests' => $arrests,
+                'lockup_list' => $this->lockupList($circleId, $date),
+                'bail_records' => $this->bailRecords($circleId, $day),
+                'po_ca_summary' => ['pos' => $poStats, 'cas' => $caStats],
+                'raid' => $raid,
                 'progress_cases' => $this->progressCases($circleId, $date),
                 'progress_enquiries' => $this->progressEnquiries($circleId, $date),
+                'progress_cases_official' => $this->progressCasesOfficial($circleId, $date),
+                'progress_enquiries_official' => $this->progressEnquiriesOfficial($circleId, $date),
                 'summary' => [
                     'total_cases_registered' => count($casesRegistered),
                     'total_enquiries_registered' => count($enquiriesRegistered),
                     'total_arrests' => count($arrests),
+                    'accused_in_lockup' => $highlights['accused_in_lockup'],
+                    'arrested_pos' => $poStats['arrested'] ?? 0,
+                    'arrested_cas' => $caStats['arrested'] ?? 0,
+                    'total_amount_recovered' => $totalRecovered > 0 ? $this->stats->formatAmount($totalRecovered) : null,
                 ],
             ],
         ];
@@ -64,7 +89,7 @@ class DsrReportBuilderService
 
     private function enquiriesRegistered(int $circleId, string $day): array
     {
-        return $this->enquiryBase($circleId)
+        $rows = $this->enquiryBase($circleId)
             ->where(function ($q) use ($day) {
                 $q->whereDate('reg_date', $day)
                     ->orWhere(function ($qq) use ($day) {
@@ -73,8 +98,19 @@ class DsrReportBuilderService
             })
             ->latest('id')
             ->limit(200)
-            ->get()
-            ->map(fn (Enquiry $e) => $this->mapEnquiryRow($e))
+            ->get();
+
+        $recoveryMap = $this->stats->recoveryAmountsForEnquiries($rows->pluck('id'));
+
+        return $rows
+            ->map(function (Enquiry $e) use ($recoveryMap) {
+                $row = $this->mapEnquiryRow($e);
+                if (isset($recoveryMap[$e->id])) {
+                    $row['amount_recovered'] = $this->stats->formatAmount($recoveryMap[$e->id]);
+                }
+
+                return $row;
+            })
             ->values()
             ->all();
     }
@@ -116,15 +152,16 @@ class DsrReportBuilderService
     private function casesRegistered(int $circleId, string $day): array
     {
         return CaseFile::query()
-            ->with(['enquiry.complaint.circle', 'investigationOfficer:id,name'])
+            ->with(['enquiry.complaint.circle', 'investigationOfficer:id,name', 'arrests'])
             ->whereHas('enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
             ->whereDate('created_at', $day)
             ->latest('id')
             ->limit(200)
             ->get()
-            ->map(fn (CaseFile $c) => [
+            ->map(fn (CaseFile $c) => array_merge($this->caseAccusedCounts($c), [
                 'enquiry_no' => $c->enquiry?->enquiry_number,
                 'fir_no' => $c->fir_no,
+                'fir_no_dated_sections' => trim(($c->fir_no ?? '') . ' / ' . optional($c->created_at)->format('d.m.Y') . ' / ' . ($c->enquiry?->complaint?->laws ?? '')),
                 'dated' => optional($c->created_at)->format('d.m.Y'),
                 'sections' => $c->enquiry?->complaint?->laws,
                 'circle' => $c->enquiry?->complaint?->circle?->name,
@@ -132,8 +169,9 @@ class DsrReportBuilderService
                 'gist' => $c->enquiry?->cfr_summary ?: $c->enquiry?->complaint?->description,
                 'accused' => $c->enquiry?->charge_against,
                 'amount_involved' => $c->enquiry?->complaint?->amount_involved,
+                'amount_recovered' => null,
                 'cms_entered' => $c->fir_no ? 'Yes' : 'No',
-            ])
+            ]))
             ->values()
             ->all();
     }
@@ -141,26 +179,62 @@ class DsrReportBuilderService
     private function casesDisposed(int $circleId, string $day): array
     {
         return CaseFile::query()
-            ->with(['enquiry.complaint.circle', 'investigationOfficer:id,name'])
+            ->with(['enquiry.complaint.circle', 'investigationOfficer:id,name', 'arrests'])
             ->whereHas('enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
-            ->where('status', 'closed')
+            ->where(function ($q) {
+                $q->where('status', 'closed')
+                    ->orWhere('status', 'like', 'closed_%')
+                    ->orWhereIn('status', ['challan_submitted', 'transferred']);
+            })
             ->whereDate('updated_at', $day)
             ->latest('id')
             ->limit(200)
             ->get()
-            ->map(fn (CaseFile $c) => [
+            ->map(fn (CaseFile $c) => array_merge($this->caseAccusedCounts($c), [
                 'fir_no' => $c->fir_no,
+                'fir_no_dated_sections' => trim(($c->fir_no ?? '') . ' / ' . optional($c->updated_at)->format('d.m.Y') . ' / ' . ($c->enquiry?->complaint?->laws ?? '')),
                 'dated' => optional($c->updated_at)->format('d.m.Y'),
+                'sections' => $c->enquiry?->complaint?->laws,
                 'circle' => $c->enquiry?->complaint?->circle?->name,
                 'io_name' => $c->investigationOfficer?->name,
-                'reason' => $c->recommendation ?: 'closed',
-            ])
+                'gist' => $c->enquiry?->cfr_summary ?: $c->enquiry?->complaint?->description,
+                'accused' => $c->enquiry?->charge_against,
+                'amount_involved' => $c->enquiry?->complaint?->amount_involved,
+                'reason' => $this->disposalReason($c),
+                'disposal_detail' => ucfirst($this->disposalReason($c)),
+            ]))
             ->values()
             ->all();
     }
 
+    private function disposalReason(CaseFile $case): string
+    {
+        if ($case->recommendation === 'challan_submission') {
+            return 'challan';
+        }
+        if ($case->recommendation === 'transfer' || $case->status === 'transferred') {
+            return 'transferred';
+        }
+        if ($case->recommendation === 'merge') {
+            return 'merged';
+        }
+        if (str_contains((string) $case->status, 'discharge')) {
+            return 'discharge';
+        }
+        if (str_contains((string) $case->status, 'conviction')) {
+            return 'conviction';
+        }
+        if (str_contains((string) $case->status, 'acquittal')) {
+            return 'acquittal';
+        }
+
+        return $case->recommendation ?: 'closed';
+    }
+
     private function arrestsToday(int $circleId, string $day): array
     {
+        $flagged = $this->stats->poCaAccusedQuery($circleId)->get(['cnic', 'name', 'description']);
+
         return Arrest::query()
             ->with(['caseFile.enquiry.complaint'])
             ->whereDate('arrest_date', $day)
@@ -168,14 +242,23 @@ class DsrReportBuilderService
             ->latest('id')
             ->limit(200)
             ->get()
-            ->map(fn (Arrest $a) => [
-                'circle' => $a->caseFile?->enquiry?->complaint?->circle?->name ?? 'NCCIA',
-                'accused_name' => $a->accused_name,
-                'cnic' => $a->cnic,
-                'fir_no' => $a->caseFile?->fir_no,
-                'fir_date' => optional($a->caseFile?->created_at)->format('d.m.Y'),
-                'arrest_date' => optional($a->arrest_date)->format('d.m.Y'),
-            ])
+            ->map(function (Arrest $a) use ($flagged) {
+                $isPoCa = $this->stats->isPoCaArrest($a, $flagged);
+
+                return [
+                    'circle' => $a->caseFile?->enquiry?->complaint?->circle?->name ?? 'NCCIA',
+                    'accused_name' => $a->accused_name . ($isPoCa ? ' (PO/CA)' : ''),
+                    'accused_so' => $a->accused_name,
+                    'cnic' => $a->cnic,
+                    'phone' => $a->caseFile?->enquiry?->complaint?->contact_no,
+                    'fir_no' => $a->caseFile?->fir_no,
+                    'fir_no_date' => trim(($a->caseFile?->fir_no ?? '') . ' & ' . optional($a->caseFile?->created_at)->format('d.m.Y')),
+                    'fir_date' => optional($a->caseFile?->created_at)->format('d.m.Y'),
+                    'sections' => $a->caseFile?->enquiry?->complaint?->laws,
+                    'in_lockup' => $a->remand_details && !preg_match('/bail/i', (string) $a->remand_details) ? 'Yes' : 'No',
+                    'arrest_date' => optional($a->arrest_date)->format('d.m.Y'),
+                ];
+            })
             ->values()
             ->all();
     }
@@ -223,6 +306,177 @@ class DsrReportBuilderService
                 ->count(),
             'pending' => $pending,
             'as_on' => $date->format('d.m.Y'),
+        ]];
+    }
+
+    private function caseAccusedCounts(CaseFile $case): array
+    {
+        $case->loadMissing('arrests');
+        $total = max(1, $case->arrests->count() ?: 1);
+        $arrested = $case->arrests->count();
+        $onBail = $case->arrests->filter(fn (Arrest $a) => $a->remand_details && preg_match('/bail/i', (string) $a->remand_details))->count();
+
+        return [
+            'total_accused' => $total,
+            'accused_arrested' => $arrested,
+            'accused_not_arrested' => max(0, $total - $arrested),
+            'accused_on_bail' => $onBail,
+        ];
+    }
+
+    private function lockupList(int $circleId, Carbon $date): array
+    {
+        $day = $date->toDateString();
+
+        return Arrest::query()
+            ->with(['caseFile.enquiry.complaint'])
+            ->whereDate('arrest_date', '<=', $day)
+            ->whereHas('caseFile.enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereHas('caseFile', fn ($q) => $q->where('status', '!=', 'closed'))
+            ->latest('arrest_date')
+            ->limit(100)
+            ->get()
+            ->filter(fn (Arrest $a) => !$a->remand_details || !preg_match('/bail/i', (string) $a->remand_details))
+            ->map(fn (Arrest $a) => [
+                'circle' => $a->caseFile?->enquiry?->complaint?->circle?->name ?? 'NCCIA',
+                'accused_so' => $a->accused_name,
+                'cnic' => $a->cnic,
+                'phone' => $a->caseFile?->enquiry?->complaint?->contact_no,
+                'fir_no_date' => trim(($a->caseFile?->fir_no ?? '') . ' & ' . optional($a->caseFile?->created_at)->format('d.m.Y')),
+                'sections' => $a->caseFile?->enquiry?->complaint?->laws,
+                'in_lockup' => 'Yes',
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function bailRecords(int $circleId, string $day): array
+    {
+        return Arrest::query()
+            ->with(['caseFile.enquiry.complaint'])
+            ->whereHas('caseFile.enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->where(function ($q) use ($day) {
+                $q->whereDate('arrest_date', $day)->orWhereDate('updated_at', $day);
+            })
+            ->get()
+            ->filter(fn (Arrest $a) => $a->remand_details && preg_match('/bail/i', (string) $a->remand_details))
+            ->map(fn (Arrest $a, $i) => [
+                'sr' => $i + 1,
+                'police_station' => 'NCCIA CCRC ' . ($a->caseFile?->enquiry?->complaint?->circle?->name ?? 'Lahore'),
+                'accused_name' => $a->accused_name,
+                'fir_no' => $a->caseFile?->fir_no,
+                'court' => $a->remand_details,
+                'bail_status' => $a->remand_details,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function progressCasesOfficial(int $circleId, Carbon $date): array
+    {
+        $year = (int) $date->year;
+        $prevYear = $year - 1;
+
+        $pending = CaseFile::query()
+            ->whereHas('enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereNotIn('status', ['closed'])
+            ->count();
+
+        $disposed = CaseFile::query()
+            ->whereHas('enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->where(function ($q) {
+                $q->where('status', 'closed')->orWhere('status', 'like', 'closed_%');
+            })
+            ->whereYear('updated_at', $year)
+            ->count();
+
+        $addedYear = CaseFile::query()
+            ->whereHas('enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereYear('created_at', $year)
+            ->count();
+
+        $addedPrev = CaseFile::query()
+            ->whereHas('enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereYear('created_at', $prevYear)
+            ->count();
+
+        $previous = CaseFile::query()
+            ->whereHas('enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereYear('created_at', '<', $prevYear)
+            ->count();
+
+        $lessThan6 = CaseFile::query()
+            ->whereHas('enquiry.complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereNotIn('status', ['closed'])
+            ->whereDate('created_at', '>=', $date->copy()->subMonths(6)->toDateString())
+            ->count();
+
+        $moreThan6 = max(0, $pending - $lessThan6);
+
+        return [[
+            'unit' => 'CCRC-Lahore',
+            'previous' => $previous,
+            'added_prev' => $addedPrev,
+            'added_curr' => $addedYear,
+            'total' => $previous + $addedPrev + $addedYear,
+            'disposed' => $disposed,
+            'pending' => $pending,
+            'less_than_6' => $lessThan6,
+            'more_than_6' => $moreThan6,
+            'balance' => $pending,
+        ]];
+    }
+
+    private function progressEnquiriesOfficial(int $circleId, Carbon $date): array
+    {
+        $year = (int) $date->year;
+        $prevYear = $year - 1;
+
+        $pending = Enquiry::query()
+            ->whereHas('complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereNotIn('status', ['closed', 'approved', 'converted_to_case'])
+            ->count();
+
+        $disposed = Enquiry::query()
+            ->whereHas('complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereIn('status', ['closed', 'approved', 'converted_to_case'])
+            ->whereYear('updated_at', $year)
+            ->count();
+
+        $addedYear = Enquiry::query()
+            ->whereHas('complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereYear('created_at', $year)
+            ->count();
+
+        $addedPrev = Enquiry::query()
+            ->whereHas('complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereYear('created_at', $prevYear)
+            ->count();
+
+        $previous = Enquiry::query()
+            ->whereHas('complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereYear('created_at', '<', $prevYear)
+            ->count();
+
+        $lessThan3 = Enquiry::query()
+            ->whereHas('complaint', fn ($q) => $q->where('circle_id', $circleId))
+            ->whereNotIn('status', ['closed', 'approved', 'converted_to_case'])
+            ->whereDate('created_at', '>=', $date->copy()->subMonths(3)->toDateString())
+            ->count();
+
+        $moreThan3 = max(0, $pending - $lessThan3);
+
+        return [[
+            'unit' => 'CCRC-Lahore',
+            'previous' => $previous,
+            'added_prev' => $addedPrev,
+            'added_curr' => $addedYear,
+            'total' => $previous + $addedPrev + $addedYear,
+            'disposed' => $disposed,
+            'pending' => $pending,
+            'less_than_3' => $lessThan3,
+            'more_than_3' => $moreThan3,
+            'balance' => $pending,
         ]];
     }
 }
