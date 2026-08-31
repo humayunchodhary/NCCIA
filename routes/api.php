@@ -10,7 +10,8 @@ use App\Http\Controllers\ComplaintPdfImportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\EnquiryController;
-use App\Http\Controllers\DocumentVerifyController;
+use App\Http\Controllers\DsrReportController;
+use App\Http\Controllers\DoLetterController;
 use App\Http\Controllers\LookupController;
 use App\Http\Controllers\CaseFileController;
 use App\Http\Controllers\CourtCaseController;
@@ -44,6 +45,32 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:api'])->group(function () {
             ]);
         }
         return response()->json(null);
+    });
+
+    Route::middleware('role:admin,ad_administration,circle_incharge,director_general')->group(function () {
+        Route::get('/dsr-reports', [DsrReportController::class, 'index']);
+        Route::post('/dsr-reports/preview', [DsrReportController::class, 'preview']);
+        Route::post('/dsr-reports', [DsrReportController::class, 'store'])->middleware('role:admin,ad_administration');
+        Route::get('/dsr-reports/{dsrReport}', [DsrReportController::class, 'show']);
+        Route::put('/dsr-reports/{dsrReport}', [DsrReportController::class, 'update'])->middleware('role:admin,ad_administration');
+        Route::post('/dsr-reports/{dsrReport}/submit-ci', [DsrReportController::class, 'submitToCi'])->middleware('role:admin,ad_administration');
+        Route::post('/dsr-reports/{dsrReport}/approve-ci', [DsrReportController::class, 'approveCi'])->middleware('role:admin,circle_incharge');
+        Route::post('/dsr-reports/{dsrReport}/send-back', [DsrReportController::class, 'sendBack'])->middleware('role:admin,circle_incharge');
+        Route::post('/dsr-reports/{dsrReport}/forward-hq', [DsrReportController::class, 'forwardToHq'])->middleware('role:admin,circle_incharge');
+        Route::post('/dsr-reports/{dsrReport}/ack-hq', [DsrReportController::class, 'acknowledgeHq'])->middleware('role:admin,director_general');
+        Route::get('/dsr-reports/{dsrReport}/export', [DsrReportController::class, 'export']);
+
+        Route::get('/do-letters', [DoLetterController::class, 'index']);
+        Route::post('/do-letters/preview', [DoLetterController::class, 'preview']);
+        Route::post('/do-letters', [DoLetterController::class, 'store'])->middleware('role:admin,ad_administration');
+        Route::get('/do-letters/{doLetter}', [DoLetterController::class, 'show']);
+        Route::put('/do-letters/{doLetter}', [DoLetterController::class, 'update'])->middleware('role:admin,ad_administration');
+        Route::post('/do-letters/{doLetter}/submit-ci', [DoLetterController::class, 'submitToCi'])->middleware('role:admin,ad_administration');
+        Route::post('/do-letters/{doLetter}/approve-ci', [DoLetterController::class, 'approveCi'])->middleware('role:admin,circle_incharge');
+        Route::post('/do-letters/{doLetter}/send-back', [DoLetterController::class, 'sendBack'])->middleware('role:admin,circle_incharge');
+        Route::post('/do-letters/{doLetter}/forward-hq', [DoLetterController::class, 'forwardToHq'])->middleware('role:admin,circle_incharge');
+        Route::post('/do-letters/{doLetter}/ack-hq', [DoLetterController::class, 'acknowledgeHq'])->middleware('role:admin,director_general');
+        Route::get('/do-letters/{doLetter}/export', [DoLetterController::class, 'export']);
     });
 
     // Complaints

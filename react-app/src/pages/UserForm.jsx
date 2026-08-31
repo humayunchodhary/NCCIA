@@ -5,7 +5,7 @@ import api from '../api';
 const roles = [
   'admin', 'operator', 'verification_officer', 'circle_incharge',
   'enquiry_officer', 'investigation_officer', 'moharrar', 'reader_branch',
-  'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+  'ad_legal', 'dd_legal', 'additional_director', 'ad_administration', 'director_general',
   'admin_forensic', 'dd_forensic', 'ad_forensic', 'desk_forensic', 'forensic_team',
 ];
 

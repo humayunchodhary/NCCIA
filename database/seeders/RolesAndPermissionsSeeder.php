@@ -20,7 +20,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'reports', 'enquiries', 'io_records', 'dac_cases',
             'court_cases', 'users', 'circles', 'offence_types',
             'reference', 'sms_logs', 'profile', 'login_history',
-            'forensic', 'forensic_users',
+            'forensic', 'forensic_users', 'dsr_reports', 'do_letters',
         ];
 
         foreach ($features as $feat) {
@@ -32,11 +32,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'admin' => [
                 'dashboard','analytics','complaints','verifications','reports','enquiries',
                 'io_records','dac_cases','court_cases','users','circles','offence_types','reference','sms_logs','profile','login_history',
+                'dsr_reports','do_letters',
             ],
             // Assign VO/EO/IO, approve reports/CFR/cases
             'circle_incharge' => [
                 'dashboard','analytics','complaints','verifications','reports','enquiries',
                 'io_records','dac_cases','court_cases','offence_types','reference','sms_logs','profile',
+                'dsr_reports','do_letters',
             ],
             // CMU: Complete Registration only (+ assign VO on that form)
             'operator' => [
@@ -68,7 +70,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'director_general' => [
                 'dashboard','analytics','complaints','verifications','reports','enquiries',
                 'io_records','dac_cases','court_cases','users','circles','offence_types','reference','sms_logs','profile','login_history',
+                'dsr_reports','do_letters',
             ],
+            // Assistant Director Administration — compiles DSR & D.O. Letter
+            'ad_administration' => ['dashboard','dsr_reports','do_letters','profile'],
             // Forensic portal roles — isolated from the main NCCIA modules
             'admin_forensic' => ['forensic', 'forensic_users', 'profile'],
             'dd_forensic'    => ['forensic', 'profile'],

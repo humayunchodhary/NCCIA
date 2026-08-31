@@ -38,13 +38,16 @@ import Rules from './pages/Rules';
 import SOP from './pages/SOP';
 import UserManual from './pages/UserManual';
 import Chat from './pages/Chat';
-import SmsLog from './pages/SmsLog';
+import DsrReports from './pages/DsrReports';
+import DsrReportForm from './pages/DsrReportForm';
+import DoLetters from './pages/DoLetters';
+import DoLetterForm from './pages/DoLetterForm';
 import { canAssignVerification, canCreateComplaint, canCreateDirectVerification, canView, isForensicUser } from './utils/permissions';
 
 const MAIN_ROLES = [
   'admin', 'circle_incharge', 'operator', 'verification_officer',
   'enquiry_officer', 'investigation_officer', 'moharrar', 'reader_branch',
-  'ad_legal', 'dd_legal', 'additional_director', 'director_general',
+  'ad_legal', 'dd_legal', 'additional_director', 'ad_administration', 'director_general',
 ];
 
 function hasMainAccess(user) {
@@ -166,6 +169,12 @@ function AppRoutes() {
         <Route path="user-manuals/create" element={<FeatureRoute feature="reference"><UserManual /></FeatureRoute>} />
         <Route path="user-manuals/:id/edit" element={<FeatureRoute feature="reference"><UserManual /></FeatureRoute>} />
         <Route path="sms" element={<FeatureRoute feature="sms_logs"><SmsLog /></FeatureRoute>} />
+        <Route path="dsr-reports" element={<FeatureRoute feature="dsr_reports"><DsrReports /></FeatureRoute>} />
+        <Route path="dsr-reports/create" element={<FeatureRoute feature="dsr_reports"><DsrReportForm /></FeatureRoute>} />
+        <Route path="dsr-reports/:id" element={<FeatureRoute feature="dsr_reports"><DsrReportForm /></FeatureRoute>} />
+        <Route path="do-letters" element={<FeatureRoute feature="do_letters"><DoLetters /></FeatureRoute>} />
+        <Route path="do-letters/create" element={<FeatureRoute feature="do_letters"><DoLetterForm /></FeatureRoute>} />
+        <Route path="do-letters/:id" element={<FeatureRoute feature="do_letters"><DoLetterForm /></FeatureRoute>} />
       </Route>
     </Routes>
   );

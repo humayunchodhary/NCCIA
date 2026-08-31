@@ -41,6 +41,7 @@ class DatabaseSeeder extends Seeder
             'ad_legal',
             'dd_legal',
             'additional_director',
+            'ad_administration',
             'director_general',
         ];
 
@@ -84,6 +85,7 @@ class DatabaseSeeder extends Seeder
             'ad_legal' => 'Assistant Director Legal',
             'dd_legal' => 'Deputy Director Legal',
             'additional_director' => 'Additional Director',
+            'ad_administration' => 'Assistant Director Administration',
             'director_general' => 'Director General',
             default => 'Officer',
         };
