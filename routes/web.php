@@ -16,25 +16,44 @@ if (! function_exists('spaHtmlResponse')) {
      */
     function spaHtmlResponse()
     {
-        $path = public_path('react/index.html');
-        abort_unless(is_file($path), 500, 'Frontend build missing. Run npm run build.');
+        $candidates = array_values(array_unique(array_filter([
+            public_path('react/index.html'),
+            base_path('public/react/index.html'),
+            isset($_SERVER['DOCUMENT_ROOT'])
+                ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/\\') . '/react/index.html'
+                : null,
+        ])));
 
-        $html = file_get_contents($path);
-        $bust = (string) filemtime($path);
+        foreach ($candidates as $path) {
+            if (! is_readable($path)) {
+                continue;
+            }
 
-        // Bust non-hashed CSS so style updates also appear without hard refresh
-        $html = preg_replace(
-            '#(href=")(/css/[^"?]+)(")#',
-            '$1$2?v=' . $bust . '$3',
-            $html
-        ) ?? $html;
+            $html = @file_get_contents($path);
+            if ($html === false || $html === '') {
+                continue;
+            }
 
-        return response($html, 200, [
-            'Content-Type'  => 'text/html; charset=UTF-8',
-            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-            'Pragma'        => 'no-cache',
-            'Expires'       => '0',
-        ]);
+            $mtime = @filemtime($path);
+            if ($mtime) {
+                $bust = (string) $mtime;
+                $html = preg_replace(
+                    '#(href=")(/css/[^"?]+)(")#',
+                    '$1$2?v=' . $bust . '$3',
+                    $html
+                ) ?? $html;
+            }
+
+            return response($html, 200, [
+                'Content-Type'  => 'text/html; charset=UTF-8',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma'        => 'no-cache',
+                'Expires'       => '0',
+            ]);
+        }
+
+        // Last resort: static shell is deployed but PHP cannot resolve the path (shared hosting).
+        return redirect('/react/index.html');
     }
 }
 
