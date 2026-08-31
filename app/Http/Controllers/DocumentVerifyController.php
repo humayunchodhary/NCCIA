@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CaseActivity;
+use App\Models\CaseFile;
 use App\Models\Complaint;
 use App\Models\Enquiry;
 use App\Models\EnquiryActivity;
@@ -65,7 +67,7 @@ class DocumentVerifyController extends Controller
             return response()->json([
                 'url'     => $url,
                 'payload' => $url,
-                'caption' => $fields['Lab File No'] ?? ($fields['Request No'] ?? ($fields['Enquiry No'] ?? ($fields['Complaint No'] ?? $payload['title']))),
+                'caption' => $fields['FIR No'] ?? ($fields['Lab File No'] ?? ($fields['Request No'] ?? ($fields['Enquiry No'] ?? ($fields['Complaint No'] ?? $payload['title'])))),
                 'title'   => $payload['title'],
             ]);
         } catch (\Throwable $e) {
@@ -101,10 +103,12 @@ class DocumentVerifyController extends Controller
                 $rows = $this->enquiryRows((int) $id);
                 break;
             case 'scope':
+                [$rows, $devices, $notes] = $this->scopeDetails((int) $id);
+                break;
             case 'raid':
             case 'warrant':
             case 'arrest':
-                [$rows, $devices, $notes] = $this->scopeDetails((int) $id);
+                [$rows, $devices, $notes] = $this->warrantDetails((int) $id, $type);
                 break;
             case 'diary':
                 $rows = $this->diaryRows((int) $id);
@@ -152,6 +156,158 @@ class DocumentVerifyController extends Controller
             ['k' => 'Status', 'v' => $this->statusLabel($e->status)],
             ['k' => 'Registered', 'v' => $e->reg_date ? \Carbon\Carbon::parse($e->reg_date)->format('d/m/Y') : ($e->created_at?->format('d/m/Y') ?: '—')],
         ];
+    }
+
+    /**
+     * Warrant / raid / arrest verification — prefers activity ID (matches printed QR).
+     *
+     * @return array{0:list<array{k:string,v:string}>,1:list<array>,2:list<array{k:string,v:string}>}
+     */
+    private function warrantDetails(int $id, string $docType): array
+    {
+        $activity = EnquiryActivity::with([
+            'enquiry.complaint.circle',
+            'enquiry.officer',
+            'enquiry.accusedPersons',
+            'enquiry.caseFile',
+        ])->find($id);
+
+        if ($activity?->enquiry) {
+            return $this->buildWarrantVerifyPayload($activity->enquiry, $activity, $docType);
+        }
+
+        $caseActivity = CaseActivity::with([
+            'caseFile.enquiry.complaint.circle',
+            'caseFile.enquiry.officer',
+            'caseFile.enquiry.accusedPersons',
+            'caseFile.investigationOfficer',
+        ])->find($id);
+
+        if ($caseActivity?->caseFile) {
+            $caseFile = $caseActivity->caseFile;
+            $enquiry = $caseFile->enquiry;
+            if (!$enquiry) {
+                $enquiry = new Enquiry([
+                    'enquiry_number' => $caseFile->fir_no,
+                    'direct_info'    => $caseFile->direct_info,
+                ]);
+                $enquiry->setRelation('caseFile', $caseFile);
+                $enquiry->setRelation('officer', $caseFile->investigationOfficer);
+                $enquiry->setRelation('complaint', null);
+                $enquiry->setRelation('accusedPersons', collect());
+            } else {
+                $enquiry->setRelation('caseFile', $caseFile);
+            }
+
+            return $this->buildWarrantVerifyPayload($enquiry, $caseActivity, $docType);
+        }
+
+        return $this->scopeDetails($id);
+    }
+
+    /**
+     * @param  EnquiryActivity|CaseActivity  $activity
+     * @return array{0:list<array{k:string,v:string}>,1:list<array>,2:list<array{k:string,v:string}>}
+     */
+    private function buildWarrantVerifyPayload(Enquiry $enquiry, EnquiryActivity|CaseActivity $activity, string $docType): array
+    {
+        $meta = is_array($activity->meta) ? $activity->meta : [];
+        $label = self::LABELS[$docType] ?? ucwords(str_replace('_', ' ', $docType));
+
+        $activityType = (string) ($activity->type ?? '');
+        if ($activityType === 'search_seize') {
+            $label = 'Search Warrant';
+        } elseif ($activityType === 'raid') {
+            $label = 'Raid Permission';
+        } elseif ($activityType === 'arrest_warrant') {
+            $label = 'Arrest Warrant';
+        }
+
+        $enquiryId = (int) ($enquiry->id ?: ($activity instanceof EnquiryActivity ? $activity->enquiry_id : 0));
+        $baseRows = $enquiryId > 0 ? $this->enquiryRows($enquiryId) : $this->enquiryRowsFromModel($enquiry);
+
+        $subject = trim((string) ($meta['subject'] ?? ''));
+        $kota = trim((string) ($meta['kota'] ?? ''));
+        $against = trim((string) ($meta['against_whom'] ?? ''));
+        $scheduled = trim((string) ($meta['scheduled_at'] ?? ''));
+        $description = trim((string) ($activity->description ?? ''));
+
+        $docRows = [
+            ['k' => 'Document', 'v' => $label],
+            ['k' => 'Subject', 'v' => $subject ?: '—'],
+            ['k' => 'Location / Kota', 'v' => $kota ?: '—'],
+            ['k' => 'Against', 'v' => $against ?: '—'],
+            ['k' => 'Scheduled', 'v' => $this->formatDateTime($scheduled)],
+            ['k' => 'Activity Date', 'v' => $activity->activity_date ? $activity->activity_date->format('d/m/Y') : '—'],
+        ];
+
+        if ($enquiry->caseFile?->fir_no) {
+            array_splice($docRows, 1, 0, [['k' => 'FIR No', 'v' => (string) $enquiry->caseFile->fir_no]]);
+        }
+
+        $rows = array_merge($docRows, $baseRows);
+        $devices = $this->devicesFromActivityMeta($meta);
+        $notes = [];
+
+        if ($description !== '' && !in_array($description, ['Search Warrant', 'Raid Permission', 'Arrest Warrant', 'Search & Seize'], true)) {
+            $notes[] = ['k' => 'Brief Facts', 'v' => $description];
+        }
+
+        $scopeText = trim((string) ($meta['analysis_scope'] ?? ''));
+        if ($scopeText !== '') {
+            $notes[] = ['k' => 'Scope of Analysis', 'v' => $scopeText];
+        }
+
+        return [$rows, $devices, $notes];
+    }
+
+    private function enquiryRowsFromModel(Enquiry $e): array
+    {
+        if ($e->id) {
+            return $this->enquiryRows((int) $e->id);
+        }
+
+        $direct = is_array($e->direct_info) ? $e->direct_info : [];
+
+        return [
+            ['k' => 'Enquiry No', 'v' => $e->enquiry_number ?: '—'],
+            ['k' => 'Complaint No', 'v' => $e->complaint?->tracking_no ?: ($direct['reference_no'] ?? '—')],
+            ['k' => 'Complainant', 'v' => $e->complaint?->complainant_name ?: ($direct['complainant_name'] ?? '—')],
+            ['k' => 'Circle', 'v' => $e->complaint?->circle?->name ?: ($direct['circle_name'] ?? '—')],
+            ['k' => 'Officer', 'v' => $e->officer?->name ?: '—'],
+            ['k' => 'Status', 'v' => $this->statusLabel($e->status)],
+            ['k' => 'Registered', 'v' => $e->reg_date ? \Carbon\Carbon::parse($e->reg_date)->format('d/m/Y') : ($e->created_at?->format('d/m/Y') ?: '—')],
+        ];
+    }
+
+    private function devicesFromActivityMeta(array $meta): array
+    {
+        $devices = [];
+        $items = $meta['seize_items'] ?? [];
+        if (!is_array($items)) {
+            return [];
+        }
+        foreach ($items as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $devices[] = $this->normalizeDevice($it);
+        }
+
+        return $devices;
+    }
+
+    private function formatDateTime(?string $value): string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return '—';
+        }
+        try {
+            return \Carbon\Carbon::parse($value)->format('d/m/Y h:i A');
+        } catch (\Throwable) {
+            return $value;
+        }
     }
 
     /**

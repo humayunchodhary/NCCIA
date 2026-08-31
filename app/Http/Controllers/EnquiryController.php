@@ -1386,6 +1386,13 @@ class EnquiryController extends Controller
         }
     }
 
+    private function warrantPrintActivityId(Request $request): ?int
+    {
+        $id = (int) $request->input('activity_id', 0);
+
+        return $id > 0 ? $id : null;
+    }
+
     /**
      * Fields the EO fills on raid / search / arrest activities.
      */
@@ -1417,7 +1424,7 @@ class EnquiryController extends Controller
 
         try {
             return response()->json([
-                'html' => $print->raidPermissionPrintDocument($enquiry, is_array($teamMembers) ? $teamMembers : [], $this->warrantPrintDetails($request)),
+                'html' => $print->raidPermissionPrintDocument($enquiry, is_array($teamMembers) ? $teamMembers : [], $this->warrantPrintDetails($request), $this->warrantPrintActivityId($request)),
             ]);
         } catch (\Throwable $e) {
             report($e);
@@ -1437,7 +1444,7 @@ class EnquiryController extends Controller
 
         try {
             return response()->json([
-                'html' => $print->searchWarrantPrintDocument($enquiry, $this->warrantPrintDetails($request)),
+                'html' => $print->searchWarrantPrintDocument($enquiry, $this->warrantPrintDetails($request), $this->warrantPrintActivityId($request)),
             ]);
         } catch (\Throwable $e) {
             report($e);
@@ -1457,7 +1464,7 @@ class EnquiryController extends Controller
 
         try {
             return response()->json([
-                'html' => $print->arrestWarrantPrintDocument($enquiry, $this->warrantPrintDetails($request)),
+                'html' => $print->arrestWarrantPrintDocument($enquiry, $this->warrantPrintDetails($request), $this->warrantPrintActivityId($request)),
             ]);
         } catch (\Throwable $e) {
             report($e);

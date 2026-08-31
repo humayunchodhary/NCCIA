@@ -218,6 +218,13 @@ class CaseFileController extends Controller
         }
     }
 
+    private function warrantPrintActivityId(Request $request): ?int
+    {
+        $id = (int) $request->input('activity_id', 0);
+
+        return $id > 0 ? $id : null;
+    }
+
     private function warrantPrintDetails(Request $request): array
     {
         return [
@@ -864,7 +871,8 @@ class CaseFileController extends Controller
                 'html' => $print->raidPermissionPrintDocument(
                     $this->enquiryForWarrantPrint($caseFile),
                     is_array($teamMembers) ? $teamMembers : [],
-                    $this->warrantPrintDetails($request)
+                    $this->warrantPrintDetails($request),
+                    $this->warrantPrintActivityId($request)
                 ),
             ]);
         } catch (\Throwable $e) {
@@ -881,7 +889,8 @@ class CaseFileController extends Controller
             return response()->json([
                 'html' => $print->searchWarrantPrintDocument(
                     $this->enquiryForWarrantPrint($caseFile),
-                    $this->warrantPrintDetails($request)
+                    $this->warrantPrintDetails($request),
+                    $this->warrantPrintActivityId($request)
                 ),
             ]);
         } catch (\Throwable $e) {
@@ -898,7 +907,8 @@ class CaseFileController extends Controller
             return response()->json([
                 'html' => $print->arrestWarrantPrintDocument(
                     $this->enquiryForWarrantPrint($caseFile),
-                    $this->warrantPrintDetails($request)
+                    $this->warrantPrintDetails($request),
+                    $this->warrantPrintActivityId($request)
                 ),
             ]);
         } catch (\Throwable $e) {

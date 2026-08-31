@@ -480,15 +480,19 @@ export default function CaseForm() {
       alert('Pehle case save karein, phir print karein.');
       return;
     }
+    if (!act?.id) {
+      alert('Pehle case save karein taake warrant QR verify page par sahi details dikhein.');
+    }
     const win = preparePrintWindow();
     if (!win) return;
     try {
       const r = await api.get(`/cases/${id}/${endpoint}`, {
         params: {
-          subject: act.subject || '',
-          kota: act.kota || '',
-          against_whom: act.against_whom || '',
-          scheduled_at: act.scheduled_at || act.activity_date || '',
+          activity_id: act.id || '',
+          subject: act.subject || act.meta?.subject || '',
+          kota: act.kota || act.meta?.kota || '',
+          against_whom: act.against_whom || act.meta?.against_whom || '',
+          scheduled_at: act.scheduled_at || act.meta?.scheduled_at || act.activity_date || '',
           description: act.description || '',
         },
       });

@@ -1109,11 +1109,15 @@ export default function EnquiryForm() {
   };
 
   const printWarrantFromActivity = (endpoint, act) => {
+    if (!act?.id) {
+      alert('Pehle enquiry save karein taake warrant QR verify page par sahi details dikhein.');
+    }
     printDocument(endpoint, {
-      subject: act.subject || '',
-      kota: act.kota || '',
-      against_whom: act.against_whom || '',
-      scheduled_at: act.scheduled_at || act.activity_date || '',
+      activity_id: act.id || '',
+      subject: act.subject || act.meta?.subject || '',
+      kota: act.kota || act.meta?.kota || '',
+      against_whom: act.against_whom || act.meta?.against_whom || '',
+      scheduled_at: act.scheduled_at || act.meta?.scheduled_at || act.activity_date || '',
       description: act.description || '',
     });
   };

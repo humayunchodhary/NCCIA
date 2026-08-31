@@ -1241,7 +1241,7 @@ HTML;
     /**
      * Printable Permission to Conduct a Raid in Case FIR No. matching PDF Page 4.
      */
-    public function raidPermissionPrintDocument(Enquiry $enquiry, array $teamMembers = [], array $details = []): string
+    public function raidPermissionPrintDocument(Enquiry $enquiry, array $teamMembers = [], array $details = [], ?int $activityId = null): string
     {
         $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
 
@@ -1297,7 +1297,7 @@ HTML;
         $officerName  = e($officer?->name ?: 'Sub-Inspector');
         $officerDesig = e($officer?->designation ?: 'Sub-Inspector');
         $officerSigHtml = $this->getOfficerSignatureHtml($officer);
-        $qrHtml = $this->documentQr('raid', (int) $enquiry->id, [
+        $qrHtml = $this->documentQr('raid', $activityId ?: (int) $enquiry->id, [
             'Type'       => 'Raid Permission',
             'Enquiry No' => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
             'Circle'     => $circle?->name ?? '—',
@@ -1373,7 +1373,7 @@ HTML;
     /**
      * Printable Search Warrant U/S 33 of PECA-2016 matching PDF Page 5.
      */
-    public function searchWarrantPrintDocument(Enquiry $enquiry, array $details = []): string
+    public function searchWarrantPrintDocument(Enquiry $enquiry, array $details = [], ?int $activityId = null): string
     {
         $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
 
@@ -1411,7 +1411,7 @@ HTML;
         $allegation = e($enquiry->brief_allegation ?: ($enquiry->charge_against ?: ($enquiry->complaint?->offence_type ?: 'cybercrime offences / unauthorized access')));
         $briefHtml  = $brief !== '' ? nl2br(e($brief)) : "An enquiry no <strong>{$enquiryNo}</strong> was registered on the complaint of <strong>{$compName}</strong> that a person namely <strong>{$accName}</strong> r/o <strong>{$accAddr}</strong>, found involved in <strong>{$allegation}</strong>. The complainant requested for strict legal action against the culprits.";
         $whenLine   = $whenText !== '' ? "<p>The search is to be conducted on <strong>{$whenText}</strong> at <strong>{$kota}</strong>.</p>" : "<p>The search is to be conducted at <strong>{$kota}</strong>.</p>";
-        $qrHtml = $this->documentQr('warrant', (int) $enquiry->id, [
+        $qrHtml = $this->documentQr('warrant', $activityId ?: (int) $enquiry->id, [
             'Type'        => 'Search Warrant',
             'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
             'FIR No'      => $enquiry->caseFile?->fir_no ?: '—',
@@ -1490,7 +1490,7 @@ HTML;
     /**
      * Printable Arrest Warrant matching the Search Warrant court format.
      */
-    public function arrestWarrantPrintDocument(Enquiry $enquiry, array $details = []): string
+    public function arrestWarrantPrintDocument(Enquiry $enquiry, array $details = [], ?int $activityId = null): string
     {
         $enquiry->loadMissing(['complaint.circle', 'officer', 'accusedPersons', 'caseFile']);
 
@@ -1528,7 +1528,7 @@ HTML;
         $whenLine = $whenText !== ''
             ? "<p>The arrest is to be effected on <strong>{$whenText}</strong> against <strong>{$againstHtml}</strong> at <strong>{$kota}</strong>.</p>"
             : "<p>The arrest is to be effected against <strong>{$againstHtml}</strong> at <strong>{$kota}</strong>.</p>";
-        $qrHtml = $this->documentQr('arrest', (int) $enquiry->id, [
+        $qrHtml = $this->documentQr('arrest', $activityId ?: (int) $enquiry->id, [
             'Type'        => 'Arrest Warrant',
             'Enquiry No'  => $enquiry->enquiry_number ?: ('ENQ-' . $enquiry->id),
             'FIR No'      => $enquiry->caseFile?->fir_no ?: '—',

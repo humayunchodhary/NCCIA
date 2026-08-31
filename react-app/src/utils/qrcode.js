@@ -69,14 +69,12 @@ export function officialDocumentPayload({ type, number, verifyUrl }) {
  */
 export async function generateOfficialDocumentQr({ type, id, fallback, size = 64 }) {
   const caption = fallback?.number || fallback?.type || '';
-  const localPayload = officialDocumentPayload({
-    type: fallback?.type,
-    number: fallback?.number,
-    verifyUrl: fallback?.verifyUrl
-      || (typeof window !== 'undefined' && type && id
-        ? `${window.location.origin}/verify/doc/${type}/${id}`
-        : ''),
-  });
+  const localPayload = fallback?.verifyUrl
+    ? String(fallback.verifyUrl).trim()
+    : officialDocumentPayload({
+        type: fallback?.type,
+        number: fallback?.number,
+      });
 
   try {
     const r = await Promise.race([
