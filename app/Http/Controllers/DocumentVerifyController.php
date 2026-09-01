@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\CaseActivity;
 use App\Models\CaseFile;
 use App\Models\Complaint;
+use App\Models\DoLetter;
+use App\Models\DsrReport;
 use App\Models\Enquiry;
 use App\Models\EnquiryActivity;
 use App\Models\EnquiryNotice;
@@ -29,6 +31,8 @@ class DocumentVerifyController extends Controller
         'diary'             => 'Case Diary',
         'account'           => 'Account Opening Request',
         'scope'             => 'Forensic Scope Letter',
+        'dsr_report'        => 'Daily Situation Report (DSR)',
+        'do_letter'         => 'D.O. Letter',
     ];
 
     public function __construct(private readonly QrService $qr)
@@ -119,6 +123,12 @@ class DocumentVerifyController extends Controller
             case 'forensic':
             case 'custody':
                 [$rows, $devices, $custody, $notes] = $this->forensicDetails((int) $id);
+                break;
+            case 'dsr_report':
+                $rows = $this->dsrReportRows((int) $id);
+                break;
+            case 'do_letter':
+                $rows = $this->doLetterRows((int) $id);
                 break;
             default:
                 abort(404);
@@ -538,6 +548,37 @@ class DocumentVerifyController extends Controller
             ['k' => 'Complaint No', 'v' => $n->enquiry?->complaint?->tracking_no ?: '—'],
             ['k' => 'Circle', 'v' => $n->enquiry?->complaint?->circle?->name ?: '—'],
             ['k' => 'Status', 'v' => $this->statusLabel($n->status)],
+        ];
+    }
+
+    private function dsrReportRows(int $id): array
+    {
+        $report = DsrReport::with(['circle', 'compiler'])->findOrFail($id);
+
+        return [
+            ['k' => 'Document', 'v' => 'Daily Situation Report (DSR)'],
+            ['k' => 'DSR Ref', 'v' => 'DSR-' . $report->id],
+            ['k' => 'Unit', 'v' => $report->unit_name ?: '—'],
+            ['k' => 'Circle', 'v' => $report->circle?->name ?: '—'],
+            ['k' => 'Report Date', 'v' => $report->report_date?->format('d/m/Y') ?: '—'],
+            ['k' => 'Status', 'v' => $this->statusLabel($report->status)],
+            ['k' => 'Compiled By', 'v' => $report->compiler?->name ?: '—'],
+            ['k' => 'Compiled At', 'v' => $report->updated_at?->format('d/m/Y h:i A') ?: '—'],
+        ];
+    }
+
+    private function doLetterRows(int $id): array
+    {
+        $letter = DoLetter::with(['circle', 'compiler'])->findOrFail($id);
+
+        return [
+            ['k' => 'Document', 'v' => 'D.O. Letter'],
+            ['k' => 'Letter Ref', 'v' => 'DO-' . $letter->id],
+            ['k' => 'Month', 'v' => $letter->month_label ?: '—'],
+            ['k' => 'Circle', 'v' => $letter->circle?->name ?: '—'],
+            ['k' => 'Status', 'v' => $this->statusLabel($letter->status)],
+            ['k' => 'Compiled By', 'v' => $letter->compiler?->name ?: '—'],
+            ['k' => 'Compiled At', 'v' => $letter->updated_at?->format('d/m/Y h:i A') ?: '—'],
         ];
     }
 

@@ -9,12 +9,18 @@
         table { width: 100%; border-collapse: collapse; margin: 12px 0; }
         th, td { border: 1px solid #333; padding: 4px 6px; }
         th { background: #f0f0f0; }
+        .nccia-official-header svg { width: 64px; height: 64px; display: block; }
     </style>
 </head>
 <body>
-    <h1>D.O. LETTER FOR THE MONTH OF {{ strtoupper($letter->month_label) }}</h1>
-    <h2>({{ $letter->circle?->name }})</h2>
-    <p><strong>Status:</strong> {{ str_replace('_', ' ', $letter->status) }}</p>
+    @include('exports.partials.nccia-official-header', [
+        'qrType' => 'do_letter',
+        'qrId' => $letter->id,
+        'qrCaption' => 'DO-' . $letter->id,
+        'documentSubtitle' => 'D.O. Letter for the Month of ' . strtoupper($letter->month_label) . ' (' . ($letter->circle?->name ?? 'Circle') . ')',
+    ])
+
+    <p style="text-align:center; margin:0 0 12px;"><strong>Status:</strong> {{ str_replace('_', ' ', $letter->status) }}</p>
 
     @php $p = $letter->payload ?? []; @endphp
 

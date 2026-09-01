@@ -17,6 +17,7 @@
         .nil-row td { text-align: center; font-weight: bold; }
         .count { font-size: 14px; font-weight: bold; text-align: center; }
         .no-print { text-align: right; margin-bottom: 8px; }
+        .nccia-official-header svg { width: 64px; height: 64px; display: block; }
         @media print { .no-print { display: none; } }
     </style>
 </head>
@@ -30,8 +31,12 @@
 
 <p class="no-print"><button onclick="window.print()">Print / Save PDF</button></p>
 
-<h1>DAILY SITUATION REPORT (DSR) — {{ strtoupper($report->unit_name) }}</h1>
-<h2>Dated {{ $report->report_date->format('d.m.Y') }}</h2>
+@include('exports.partials.nccia-official-header', [
+    'qrType' => 'dsr_report',
+    'qrId' => $report->id,
+    'qrCaption' => 'DSR-' . $report->id,
+    'documentSubtitle' => 'Daily Situation Report (DSR) — ' . strtoupper($report->unit_name) . ' — Dated ' . $report->report_date->format('d.m.Y'),
+])
 
 <h3>Highlights</h3>
 <table class="highlights">
