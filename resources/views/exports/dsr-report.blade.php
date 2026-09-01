@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>DSR — {{ $report->unit_name }} — {{ $report->report_date->format('d.m.Y') }}</title>
     <style>
-        @page { size: A4 landscape; margin: 8mm 10mm; }
+        @page { size: A4 portrait; margin: 10mm 8mm; }
 
         * { box-sizing: border-box; }
 
@@ -19,7 +19,6 @@
         }
 
         .no-print { text-align: right; margin-bottom: 8px; }
-        @media print { .no-print { display: none; } }
 
         /* Letterhead */
         .nccia-letterhead {
@@ -95,6 +94,10 @@
             gap: 6px;
             margin-bottom: 14px;
         }
+        @media print {
+            .no-print { display: none; }
+            @page { size: A4 portrait; }
+        }
         .highlight-card {
             border: 1px solid #94a3b8;
             border-radius: 4px;
@@ -164,14 +167,14 @@
         }
         .data-table th {
             background: #f1f5f9;
-            font-size: 8px;
+            font-size: 7px;
             font-weight: 700;
             text-align: center;
-            line-height: 1.2;
+            line-height: 1.15;
             text-transform: uppercase;
         }
         .data-table td {
-            font-size: 9px;
+            font-size: 8px;
         }
         .data-table tbody tr:nth-child(even) td { background: #fafafa; }
         .col-sr { width: 3%; text-align: center; }
@@ -211,7 +214,10 @@
     ];
 @endphp
 
-<p class="no-print"><button onclick="window.print()">Print / Save PDF</button></p>
+<p class="no-print">
+    <button onclick="window.print()">Print / Save PDF</button>
+    <span style="margin-left:12px;font-size:11px;color:#64748b;">Tip: In print dialog, choose <strong>Portrait</strong> orientation.</span>
+</p>
 
 @include('exports.partials.nccia-official-header', [
     'qrType' => 'dsr_report',
