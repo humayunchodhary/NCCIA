@@ -725,10 +725,11 @@ class CaseFileController extends Controller
         );
 
         $caseFile->load(
-            'enquiry.complaint',
+            'enquiry.complaint.verification.officer',
+            'enquiry.complaint.latestVerificationReport.creator',
             'enquiry.accusedPersons',
             'enquiry.witnesses',
-            'enquiry.activities',
+            'enquiry.activities.creator',
             'enquiry.officer',
             'investigationOfficer',
             'activities.creator',
@@ -739,7 +740,14 @@ class CaseFileController extends Controller
 
         if ($caseFile->enquiry) {
             app(EnquiryRecordHydrator::class)->hydrate($caseFile->enquiry);
-            $caseFile->enquiry->refresh()->load(['complaint', 'accusedPersons', 'witnesses', 'activities', 'officer']);
+            $caseFile->enquiry->refresh()->load([
+                'complaint.verification.officer',
+                'complaint.latestVerificationReport.creator',
+                'accusedPersons',
+                'witnesses',
+                'activities.creator',
+                'officer',
+            ]);
         }
 
         return response()->json($caseFile);

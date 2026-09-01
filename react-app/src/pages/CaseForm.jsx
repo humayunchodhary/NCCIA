@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
+import CaseProcessHistoryPanel from '../components/CaseProcessHistoryPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import CaseChatPanel from '../components/CaseChatPanel';
 import {
@@ -74,6 +75,35 @@ const RECOMMENDATIONS = [
 const LEGAL_ROLES = ['circle_incharge', 'dd_legal', 'ad_legal', 'dg_legal', 'additional_director'];
 const LEGAL_DECISIONS = ['agree', 'disagree', 'review'];
 
+function buildInheritedFromEnquiry(enq) {
+  if (!enq) {
+    return { complaint: null, accused: [], witnesses: [], devices: [], enquiry: null, enquiryActivities: [], verification: null, verificationReport: null };
+  }
+  const devices = (enq.activities || [])
+    .filter(a => a.type === 'seizures' || a.type === 'seizure')
+    .flatMap(a => a.meta?.seize_items || a.seize_items || []);
+  const complaint = enq.complaint || null;
+
+  return {
+    complaint,
+    accused: enq.accused_persons || enq.accusedPersons || [],
+    witnesses: enq.witnesses || [],
+    devices,
+    enquiry: {
+      id: enq.id,
+      enquiry_number: enq.enquiry_number,
+      status: enq.status,
+      reg_date: enq.reg_date,
+      cfr_summary: enq.cfr_summary,
+      charge_against: enq.charge_against,
+      officer: enq.officer || null,
+    },
+    enquiryActivities: enq.activities || [],
+    verification: complaint?.verification || null,
+    verificationReport: complaint?.latest_verification_report || complaint?.latestVerificationReport || null,
+  };
+}
+
 const initialForm = {
   enquiry_id: '',
   fir_no: '',
@@ -112,7 +142,7 @@ export default function CaseForm() {
   const [activeTab, setActiveTab] = useState('details');
   const [directMode, setDirectMode] = useState(!id && searchParams.get('direct') === '1');
   const [direct, setDirect] = useState(emptyDirectInfo());
-  const [inherited, setInherited] = useState({ complaint: null, accused: [], witnesses: [], devices: [] });
+  const [inherited, setInherited] = useState(() => buildInheritedFromEnquiry(null));
   const [sendingForensic, setSendingForensic] = useState(false);
   const [linkedForensicRequests, setLinkedForensicRequests] = useState([]);
   const linkedForensicRef = useRef([]);
@@ -132,7 +162,7 @@ export default function CaseForm() {
   };
 
   useEffect(() => {
-    api.get('/enquiries?status=registered,assigned,in_progress,cfr_submitted,approved,closed').then(r => {
+    api.get('/enquiries?status=registered,assigned,in_progress,cfr_submitted,approved,closed,converted_to_case').then(r => {
       const d = r.data.data || r.data;
       setEnquiries((Array.isArray(d) ? d : []).map(e => ({
         value: e.id,
@@ -209,15 +239,7 @@ export default function CaseForm() {
           })),
         });
         const enq = d.enquiry || {};
-        const devices = (enq.activities || [])
-          .filter(a => a.type === 'seizures' || a.type === 'seizure')
-          .flatMap(a => a.meta?.seize_items || a.seize_items || []);
-        setInherited({
-          complaint: enq.complaint || null,
-          accused: enq.accused_persons || enq.accusedPersons || [],
-          witnesses: enq.witnesses || [],
-          devices,
-        });
+        setInherited(buildInheritedFromEnquiry(enq));
         if (!d.enquiry_id && d.direct_info) {
           setDirectMode(true);
           setDirect(normalizeDirectInfo(d.direct_info));
@@ -226,6 +248,17 @@ export default function CaseForm() {
       }).catch(() => navigate('/cases'));
     }
   }, [id, navigate]);
+
+  useEffect(() => {
+    if (!form.enquiry_id || directMode) {
+      if (!form.enquiry_id) setInherited(buildInheritedFromEnquiry(null));
+      return;
+    }
+    api.get(`/enquiries/${form.enquiry_id}`).then(r => {
+      const enq = r.data?.data || r.data;
+      setInherited(buildInheritedFromEnquiry(enq));
+    }).catch(() => {});
+  }, [form.enquiry_id, directMode]);
 
   useEffect(() => {
     linkedForensicRef.current = linkedForensicRequests;
@@ -312,7 +345,15 @@ export default function CaseForm() {
   }));
 
   // Arrests
-  const addArrest = () => setForm(f => ({ ...f, arrests: [...f.arrests, { accused_name: '', cnic: '', arrest_date: new Date().toISOString().split('T')[0], remand_details: '' }] }));
+  const addArrest = (prefill = null) => setForm(f => ({
+    ...f,
+    arrests: [...f.arrests, {
+      accused_name: prefill?.name || '',
+      cnic: prefill?.cnic || '',
+      arrest_date: new Date().toISOString().split('T')[0],
+      remand_details: '',
+    }],
+  }));
   const removeArrest = (i) => {
     const row = form.arrests[i];
     if (isSavedDiaryLocked(row, user)) {
@@ -664,9 +705,10 @@ export default function CaseForm() {
         </div>
 
         <div className="cf-tabs" style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '4px', flexWrap: 'wrap' }}>
-          {['details', 'activities', 'arrests', 'legal', 'approvals', 'outcome', 'chat'].map(tab => (
+          {['details', 'history', 'activities', 'arrests', 'legal', 'approvals', 'outcome', 'chat'].map(tab => (
             <button key={tab} type="button" className={`cf-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)} style={{ padding: '10px 20px', border: 'none', background: activeTab === tab ? 'var(--primary)' : 'transparent', color: activeTab === tab ? '#fff' : '#666', borderRadius: '8px 8px 0 0', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
               {tab === 'details' && 'Details'}
+              {tab === 'history' && 'Process History'}
               {tab === 'activities' && 'Activities'}
               {tab === 'arrests' && 'Arrests'}
               {tab === 'legal' && 'Legal Opinions'}
@@ -813,6 +855,21 @@ export default function CaseForm() {
           </>
         )}
 
+        {/* PROCESS HISTORY TAB */}
+        {activeTab === 'history' && (
+          <div className="cf-section">
+            <div className="cf-section-header">
+              <div className="cf-section-icon" style={{ background: '#2d6a4f' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+              </div>
+              <div><div className="cf-section-title">Full Process History</div><div className="cf-section-sub">Complaint → VO verification → EO enquiry (live, read-only)</div></div>
+            </div>
+            <div className="cf-body">
+              <CaseProcessHistoryPanel inherited={inherited} />
+            </div>
+          </div>
+        )}
+
         {/* ACTIVITIES TAB */}
         {activeTab === 'activities' && (
           <div className="cf-section">
@@ -824,6 +881,22 @@ export default function CaseForm() {
               <div className="cf-section-badge">STEP 3</div>
             </div>
             <div className="cf-body">
+              {(inherited.enquiryActivities || []).length > 0 && (
+                <div style={{ marginBottom: 20, padding: 14, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: '#92400e', marginBottom: 10 }}>
+                    Enquiry phase (EO) — read only · {inherited.enquiryActivities.length} record(s)
+                  </div>
+                  {inherited.enquiryActivities.map((act, i) => (
+                    <div key={act.id || `eo-${i}`} style={{ padding: 10, marginBottom: 8, background: '#fff', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 12 }}>
+                      <strong>{ACTIVITY_TYPES.find(t => t.value === act.type)?.name || act.type}</strong>
+                      {' · '}{act.activity_date ? String(act.activity_date).slice(0, 10) : ''}
+                      {act.creator?.name ? ` · ${act.creator.name}` : ''}
+                      {act.description && <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{act.description}</div>}
+                    </div>
+                  ))}
+                  <p style={{ margin: '8px 0 0', fontSize: 11, color: '#92400e' }}>Case investigation activities add karein — neeche &quot;Add Activity&quot; use karein.</p>
+                </div>
+              )}
               <button type="button" className="btn btn-outline btn-sm" onClick={addActivity} style={{ marginBottom: 16 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Activity
               </button>
@@ -1220,9 +1293,46 @@ export default function CaseForm() {
               <div className="cf-section-badge">STEP 4</div>
             </div>
             <div className="cf-body">
-              <button type="button" className="btn btn-outline btn-sm" onClick={addArrest} style={{ marginBottom: 16 }}>
+              {inherited.accused.length > 0 && (
+                <div style={{ marginBottom: 20, padding: 14, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: '#1e40af', marginBottom: 10 }}>
+                    Accused from enquiry (live, read-only)
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: '#dbeafe' }}>
+                          <th style={{ border: '1px solid #93c5fd', padding: 6, textAlign: 'left' }}>Name</th>
+                          <th style={{ border: '1px solid #93c5fd', padding: 6, textAlign: 'left' }}>Father</th>
+                          <th style={{ border: '1px solid #93c5fd', padding: 6, textAlign: 'left' }}>CNIC</th>
+                          <th style={{ border: '1px solid #93c5fd', padding: 6, textAlign: 'left' }}>Contact</th>
+                          <th style={{ border: '1px solid #93c5fd', padding: 6 }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inherited.accused.map((acc, i) => (
+                          <tr key={acc.id || i}>
+                            <td style={{ border: '1px solid #e2e8f0', padding: 6 }}>{acc.name || '—'}</td>
+                            <td style={{ border: '1px solid #e2e8f0', padding: 6 }}>{acc.father_name || '—'}</td>
+                            <td style={{ border: '1px solid #e2e8f0', padding: 6, fontFamily: 'monospace' }}>{acc.cnic || '—'}</td>
+                            <td style={{ border: '1px solid #e2e8f0', padding: 6 }}>{acc.contact_no || acc.whatsapp_no || '—'}</td>
+                            <td style={{ border: '1px solid #e2e8f0', padding: 6, textAlign: 'center' }}>
+                              <button type="button" className="btn btn-outline btn-sm" onClick={() => addArrest(acc)} style={{ fontSize: 11 }}>
+                                Record arrest
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => addArrest()}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Arrest
               </button>
+              </div>
               {form.arrests.map((a, i) => (
                 <div key={a.id || `new-arr-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   {isSavedDiaryLocked(a, user) && (
