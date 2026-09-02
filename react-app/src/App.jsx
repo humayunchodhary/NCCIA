@@ -37,6 +37,7 @@ import Laws from './pages/Laws';
 import Rules from './pages/Rules';
 import SOP from './pages/SOP';
 import UserManual from './pages/UserManual';
+import SoftwareGuide from './pages/SoftwareGuide';
 import Chat from './pages/Chat';
 import SmsLog from './pages/SmsLog';
 import DsrReports from './pages/DsrReports';
@@ -169,6 +170,7 @@ function AppRoutes() {
         <Route path="user-manuals" element={<FeatureRoute feature="reference"><UserManual /></FeatureRoute>} />
         <Route path="user-manuals/create" element={<FeatureRoute feature="reference"><UserManual /></FeatureRoute>} />
         <Route path="user-manuals/:id/edit" element={<FeatureRoute feature="reference"><UserManual /></FeatureRoute>} />
+        <Route path="software-guide" element={<SoftwareGuide />} />
         <Route path="sms" element={<FeatureRoute feature="sms_logs"><SmsLog /></FeatureRoute>} />
         <Route path="dsr-reports" element={<FeatureRoute feature="dsr_reports"><DsrReports /></FeatureRoute>} />
         <Route path="dsr-reports/create" element={<FeatureRoute feature="dsr_reports"><DsrReportForm /></FeatureRoute>} />

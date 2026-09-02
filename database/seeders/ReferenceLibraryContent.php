@@ -569,6 +569,25 @@ TXT,
     {
         return [
             [
+                'title' => 'Software Guide Video (Animated Tour)',
+                'audience' => 'All Users',
+                'version' => '1.0',
+                'description' => <<<'TXT'
+SIDEBAR → Software Guide
+
+Animated tour with Cyber Officer Sara explaining NCCIA CMS benefits and workflow.
+
+FEATURES
+• Auto-play video-style scenes (10 chapters)
+• Roman Urdu / English voice narration
+• Complaint → Verification → Enquiry → Case → Court flow
+• DSR, SMS, Reference Library overview
+
+CONTROLS
+Play, Pause, Prev/Next, chapter jump, Replay voice
+TXT,
+            ],
+            [
                 'title' => 'NCCIA Portal User Guide – Getting Started',
                 'audience' => 'All Users',
                 'version' => '1.1',

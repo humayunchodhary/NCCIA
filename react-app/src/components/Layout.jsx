@@ -697,6 +697,12 @@ export default function Layout() {
               <span>User Manual</span>
             </NavLink>
           </div>}
+          {canView('reference', user) && <div className="nav-item">
+            <NavLink to="/software-guide" className="nav-link" data-page="software-guide">
+              <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+              <span>Software Guide</span>
+            </NavLink>
+          </div>}
           {canView('sms_logs', user) && <div className="nav-item">
             <NavLink to="/sms" className="nav-link" data-page="sms">
               <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></span>
@@ -718,7 +724,7 @@ export default function Layout() {
           </div>
         </nav>
          <div className="sidebar-footer">
-           <NavLink to="/user-manuals" className="help-btn">
+           <NavLink to="/software-guide" className="help-btn">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
              <span>Help &amp; Support</span>
            </NavLink>

@@ -1,0 +1,302 @@
+.software-guide-page .sg-player {
+  background: #0f172a;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.sg-screen {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  min-height: 320px;
+  overflow: hidden;
+  color: #fff;
+}
+
+.sg-scene-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 45%, #1e40af 100%);
+  animation: sg-bg-shift 18s ease-in-out infinite alternate;
+}
+
+.sg-scene-bg[data-scene='intro'] { background: linear-gradient(135deg, #1e4d8c, #0f172a); }
+.sg-scene-bg[data-scene='complaint'] { background: linear-gradient(135deg, #155e75, #0f172a); }
+.sg-scene-bg[data-scene='verification'] { background: linear-gradient(135deg, #047857, #0f172a); }
+.sg-scene-bg[data-scene='enquiry'] { background: linear-gradient(135deg, #6d28d9, #0f172a); }
+.sg-scene-bg[data-scene='forensic'] { background: linear-gradient(135deg, #b45309, #0f172a); }
+.sg-scene-bg[data-scene='court'] { background: linear-gradient(135deg, #991b1b, #0f172a); }
+.sg-scene-bg[data-scene='sms'] { background: linear-gradient(135deg, #0e7490, #0f172a); }
+.sg-scene-bg[data-scene='admin'] { background: linear-gradient(135deg, #4338ca, #0f172a); }
+.sg-scene-bg[data-scene='reference'] { background: linear-gradient(135deg, #1d4ed8, #0f172a); }
+.sg-scene-bg[data-scene='summary'] { background: linear-gradient(135deg, #15803d, #0f172a); }
+
+@keyframes sg-bg-shift {
+  from { transform: scale(1) translate(0, 0); }
+  to { transform: scale(1.06) translate(-1%, -1%); }
+}
+
+.sg-scene-visual {
+  position: absolute;
+  top: 8%;
+  right: 6%;
+  font-size: clamp(48px, 8vw, 88px);
+  opacity: 0.22;
+  animation: sg-float 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sg-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+.sg-stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(12px, 3vw, 28px);
+  padding: clamp(16px, 4vw, 32px);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.sg-bubble {
+  flex: 1;
+  max-width: 560px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1e293b;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  animation: sg-bubble-in 0.45s ease;
+  position: relative;
+}
+
+.sg-bubble::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  bottom: 36px;
+  border: 10px solid transparent;
+  border-right-color: rgba(255, 255, 255, 0.96);
+}
+
+.sg-bubble-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e40af;
+}
+
+.sg-bubble-ur {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.sg-bubble-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.sg-bubble-en {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+}
+
+@keyframes sg-bubble-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.sg-benefits {
+  position: absolute;
+  bottom: 52px;
+  left: clamp(16px, 4vw, 32px);
+  right: clamp(16px, 4vw, 32px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  z-index: 3;
+}
+
+.sg-benefit-chip {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(6px);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sg-captions {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 3;
+}
+
+.sg-scene-counter {
+  font-size: 11px;
+  opacity: 0.75;
+  letter-spacing: 0.04em;
+}
+
+.sg-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 16px;
+  background: #1e293b;
+}
+
+.sg-progress-wrap {
+  flex: 1;
+  min-width: 120px;
+  height: 6px;
+  background: #334155;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sg-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  transition: width 0.12s linear;
+}
+
+.sg-chapters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  padding: 12px 16px 16px;
+  background: #0f172a;
+}
+
+.sg-chapter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #1e293b;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 20px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.sg-chapter small {
+  font-size: 9px;
+  text-align: center;
+  line-height: 1.2;
+  color: #94a3b8;
+}
+
+.sg-chapter.active {
+  border-color: #3b82f6;
+  background: #1e3a8a;
+}
+
+.sg-chapter:hover {
+  border-color: #60a5fa;
+}
+
+/* Character animations */
+.sg-eyes {
+  animation: sg-blink 4.5s infinite;
+}
+
+@keyframes sg-blink {
+  0%, 48%, 52%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.1); }
+}
+
+.sg-mouth-talk {
+  animation: sg-talk 0.28s ease-in-out infinite alternate;
+}
+
+@keyframes sg-talk {
+  from { transform: scaleY(0.85); }
+  to { transform: scaleY(1.15); }
+}
+
+.sg-arm-wave {
+  animation: sg-wave 1.2s ease-in-out infinite;
+}
+
+@keyframes sg-wave {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-18deg); }
+}
+
+.sg-flow-map {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.sg-flow-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sg-flow-node {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1e40af;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sg-flow-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.sg-flow-arrow {
+  color: #94a3b8;
+  font-size: 18px;
+  margin: 0 4px;
+}
+
+@media (max-width: 720px) {
+  .sg-stage {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .sg-bubble::before {
+    display: none;
+  }
+
+  .sg-character {
+    width: 120px !important;
+    height: auto !important;
+  }
+
+  .sg-benefits {
+    bottom: 44px;
+  }
+}
