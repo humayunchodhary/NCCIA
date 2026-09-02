@@ -672,6 +672,7 @@ export default function Layout() {
               <span>Crime Categories</span>
             </NavLink>
           </div>}
+          {canView('reference', user) && <div className="nav-section-label">Reference Library</div>}
           {canView('reference', user) && <div className="nav-item">
             <NavLink to="/laws" className="nav-link" data-page="laws">
               <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16v16H4z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg></span>
@@ -717,7 +718,7 @@ export default function Layout() {
           </div>
         </nav>
          <div className="sidebar-footer">
-           <NavLink to="/profile" className="help-btn">
+           <NavLink to="/user-manuals" className="help-btn">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
              <span>Help &amp; Support</span>
            </NavLink>

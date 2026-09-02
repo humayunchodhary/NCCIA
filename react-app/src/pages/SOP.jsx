@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ConfirmModal from '../components/ConfirmModal';
+import ReferenceViewModal from '../components/ReferenceViewModal';
+import { useAuth } from '../contexts/AuthContext';
+import { canManageReference } from '../utils/permissions';
 
 const EMPTY_FORM = { title: '', department: 'Investigation', version: '1.0', effective_date: '', content: '' };
 
@@ -16,10 +19,13 @@ const DEPARTMENTS = [
 ];
 
 export default function SOP() {
+  const { user } = useAuth();
+  const canManage = canManageReference(user);
   const [sops, setSops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // 'create' | 'edit'
   const [editing, setEditing] = useState(null);
+  const [viewTarget, setViewTarget] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -51,7 +57,7 @@ export default function SOP() {
       department: s.department || 'Investigation',
       version: s.version || '1.0',
       effective_date: s.effective_date ? s.effective_date.split('T')[0] : '',
-      content: s.content || '',
+      content: s.content || s.description || '',
     });
     setError('');
     setModal('edit');
@@ -62,10 +68,12 @@ export default function SOP() {
     setSaving(true);
     setError('');
     try {
+      const payload = { ...form, description: form.content || form.description || '' };
+      delete payload.content;
       if (editing) {
-        await api.put(`/sops/${editing.id}`, form);
+        await api.put(`/sops/${editing.id}`, payload);
       } else {
-        await api.post('/sops', form);
+        await api.post('/sops', payload);
       }
       setModal(null);
       fetchSops();
@@ -98,11 +106,19 @@ export default function SOP() {
           <div className="title-underline"></div>
         </div>
         <div className="page-actions">
+          {canManage && (
           <button onClick={openCreate} className="btn btn-primary btn-sm">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> Add SOP
           </button>
+          )}
         </div>
       </div>
+
+      {!canManage && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e40af' }}>
+          Official NCCIA SOPs — read only.
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body" style={{padding:0}}>
@@ -121,12 +137,17 @@ export default function SOP() {
                     <td>{s.effective_date ? new Date(s.effective_date).toLocaleDateString('en-GB') : '-'}</td>
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'flex',gap:'6px',justifyContent:'center'}}>
+                        <button onClick={() => setViewTarget(s)} className="btn btn-outline btn-sm">View</button>
+                        {canManage && (
+                        <>
                         <button onClick={() => openEdit(s)} className="btn btn-outline btn-sm btn-icon" title="Edit">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                         <button onClick={() => setDeleteTarget(s)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:8,width:32,height:32,display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
+                        </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -197,6 +218,18 @@ export default function SOP() {
         danger={true}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ReferenceViewModal
+        open={!!viewTarget}
+        title={viewTarget?.title}
+        item={viewTarget}
+        fields={[
+          { key: 'department', label: 'Department' },
+          { key: 'version', label: 'Version' },
+          { key: 'effective_date', label: 'Effective Date' },
+        ]}
+        onClose={() => setViewTarget(null)}
       />
     </div>
   );

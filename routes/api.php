@@ -318,27 +318,27 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::get('/lookup/investigation-officers', [LookupController::class, 'investigationOfficers']);
     Route::get('/lookup/circle-incharges', [LookupController::class, 'circleIncharges']);
 
-    // Reference data — Laws, Rules, SOPs, User Manuals
+    // Reference data — Laws, Rules, SOPs, User Manuals (all authenticated users can read)
     Route::get('/laws', [ReferenceController::class, 'lawsIndex']);
-    Route::post('/laws', [ReferenceController::class, 'lawsStore']);
     Route::get('/laws/{law}', [ReferenceController::class, 'lawsShow']);
-    Route::put('/laws/{law}', [ReferenceController::class, 'lawsUpdate']);
-    Route::delete('/laws/{law}', [ReferenceController::class, 'lawsDestroy']);
+    Route::post('/laws', [ReferenceController::class, 'lawsStore'])->middleware('role:admin,circle_incharge,director_general');
+    Route::put('/laws/{law}', [ReferenceController::class, 'lawsUpdate'])->middleware('role:admin,circle_incharge,director_general');
+    Route::delete('/laws/{law}', [ReferenceController::class, 'lawsDestroy'])->middleware('role:admin,circle_incharge,director_general');
     Route::get('/rules', [ReferenceController::class, 'rulesIndex']);
-    Route::post('/rules', [ReferenceController::class, 'rulesStore']);
     Route::get('/rules/{rule}', [ReferenceController::class, 'rulesShow']);
-    Route::put('/rules/{rule}', [ReferenceController::class, 'rulesUpdate']);
-    Route::delete('/rules/{rule}', [ReferenceController::class, 'rulesDestroy']);
+    Route::post('/rules', [ReferenceController::class, 'rulesStore'])->middleware('role:admin,circle_incharge,director_general');
+    Route::put('/rules/{rule}', [ReferenceController::class, 'rulesUpdate'])->middleware('role:admin,circle_incharge,director_general');
+    Route::delete('/rules/{rule}', [ReferenceController::class, 'rulesDestroy'])->middleware('role:admin,circle_incharge,director_general');
     Route::get('/sops', [ReferenceController::class, 'sopsIndex']);
-    Route::post('/sops', [ReferenceController::class, 'sopsStore']);
     Route::get('/sops/{sop}', [ReferenceController::class, 'sopsShow']);
-    Route::put('/sops/{sop}', [ReferenceController::class, 'sopsUpdate']);
-    Route::delete('/sops/{sop}', [ReferenceController::class, 'sopsDestroy']);
+    Route::post('/sops', [ReferenceController::class, 'sopsStore'])->middleware('role:admin,circle_incharge,director_general');
+    Route::put('/sops/{sop}', [ReferenceController::class, 'sopsUpdate'])->middleware('role:admin,circle_incharge,director_general');
+    Route::delete('/sops/{sop}', [ReferenceController::class, 'sopsDestroy'])->middleware('role:admin,circle_incharge,director_general');
     Route::get('/user-manuals', [ReferenceController::class, 'manualsIndex']);
-    Route::post('/user-manuals', [ReferenceController::class, 'manualsStore']);
     Route::get('/user-manuals/{manual}', [ReferenceController::class, 'manualsShow']);
-    Route::put('/user-manuals/{manual}', [ReferenceController::class, 'manualsUpdate']);
-    Route::delete('/user-manuals/{manual}', [ReferenceController::class, 'manualsDestroy']);
+    Route::post('/user-manuals', [ReferenceController::class, 'manualsStore'])->middleware('role:admin,circle_incharge,director_general');
+    Route::put('/user-manuals/{manual}', [ReferenceController::class, 'manualsUpdate'])->middleware('role:admin,circle_incharge,director_general');
+    Route::delete('/user-manuals/{manual}', [ReferenceController::class, 'manualsDestroy'])->middleware('role:admin,circle_incharge,director_general');
 
     // Forensic portal — isolated from the main NCCIA modules
     Route::get('/forensic/stats', [ForensicUserController::class, 'stats'])
@@ -419,7 +419,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
 
     // SMS
     Route::get('/sms', [SmsController::class, 'index'])
-        ->middleware('role:admin,director_general,circle_incharge');
+        ->middleware('role:admin,director_general,circle_incharge,ad_administration');
     Route::post('/sms', [SmsController::class, 'store'])
         ->middleware('role:admin,director_general,circle_incharge');
     Route::get('/sms/templates', [SmsController::class, 'templates'])

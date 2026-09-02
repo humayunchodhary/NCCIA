@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ConfirmModal from '../components/ConfirmModal';
+import ReferenceViewModal from '../components/ReferenceViewModal';
+import { useAuth } from '../contexts/AuthContext';
+import { canManageReference } from '../utils/permissions';
 
 const EMPTY_FORM = { title: '', audience: 'All Users', version: '1.0', content: '', document_path: '' };
 
@@ -17,10 +20,13 @@ const AUDIENCES = [
 ];
 
 export default function UserManual() {
+  const { user } = useAuth();
+  const canManage = canManageReference(user);
   const [manuals, setManuals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // 'create' | 'edit'
   const [editing, setEditing] = useState(null);
+  const [viewTarget, setViewTarget] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -51,7 +57,7 @@ export default function UserManual() {
       title: m.title || '',
       audience: m.audience || 'All Users',
       version: m.version || '1.0',
-      content: m.content || '',
+      content: m.content || m.description || '',
       document_path: m.document_path || '',
     });
     setError('');
@@ -63,10 +69,12 @@ export default function UserManual() {
     setSaving(true);
     setError('');
     try {
+      const payload = { ...form, description: form.content || form.description || '' };
+      delete payload.content;
       if (editing) {
-        await api.put(`/user-manuals/${editing.id}`, form);
+        await api.put(`/user-manuals/${editing.id}`, payload);
       } else {
-        await api.post('/user-manuals', form);
+        await api.post('/user-manuals', payload);
       }
       setModal(null);
       fetchManuals();
@@ -99,11 +107,19 @@ export default function UserManual() {
           <div className="title-underline"></div>
         </div>
         <div className="page-actions">
+          {canManage && (
           <button onClick={openCreate} className="btn btn-primary btn-sm">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> Add Manual
           </button>
+          )}
         </div>
       </div>
+
+      {!canManage && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13, color: '#1e40af' }}>
+          Official NCCIA user manuals — read only.
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body" style={{padding:0}}>
@@ -122,12 +138,17 @@ export default function UserManual() {
                     <td>{m.updated_at ? new Date(m.updated_at).toLocaleDateString('en-GB') : '-'}</td>
                     <td style={{textAlign:'center'}}>
                       <div style={{display:'flex',gap:'6px',justifyContent:'center'}}>
+                        <button onClick={() => setViewTarget(m)} className="btn btn-outline btn-sm">View</button>
+                        {canManage && (
+                        <>
                         <button onClick={() => openEdit(m)} className="btn btn-outline btn-sm btn-icon" title="Edit">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                         <button onClick={() => setDeleteTarget(m)} className="btn btn-sm" style={{background:'rgba(229,62,62,0.15)',color:'#e53e3e',border:'none',borderRadius:8,width:32,height:32,display:'inline-flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}} title="Delete">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                         </button>
+                        </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -194,6 +215,17 @@ export default function UserManual() {
         danger={true}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ReferenceViewModal
+        open={!!viewTarget}
+        title={viewTarget?.title}
+        item={viewTarget}
+        fields={[
+          { key: 'audience', label: 'Audience' },
+          { key: 'version', label: 'Version' },
+        ]}
+        onClose={() => setViewTarget(null)}
       />
     </div>
   );

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import { useAuth } from '../contexts/AuthContext';
+import { canSendManualSms } from '../utils/permissions';
 
 const STATUS_STYLE = {
   pending: { bg: '#fff3cd', color: '#856404' },
@@ -10,6 +12,8 @@ const STATUS_STYLE = {
 };
 
 export default function SmsLog() {
+  const { user } = useAuth();
+  const canSend = canSendManualSms(user);
   const [data, setData] = useState({ data: [], links: null });
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ trigger: '', status: '', phone: '' });
@@ -20,17 +24,18 @@ export default function SmsLog() {
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState(null);
 
-  const fetchLogs = () => {
+  const fetchLogs = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams({ per_page: 25, page });
     if (filters.trigger) params.set('trigger', filters.trigger);
     if (filters.status) params.set('status', filters.status);
     if (filters.phone) params.set('phone', filters.phone);
     api.get(`/sms?${params.toString()}`).then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
-  };
+  }, [page, filters]);
 
-  useEffect(fetchLogs, [page]);
-  useEffect(() => { setPage(1); }, [filters]);
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -77,13 +82,21 @@ export default function SmsLog() {
           <div className="title-underline"></div>
         </div>
         <div className="page-actions">
+          {canSend && (
           <button className="btn btn-primary btn-sm" onClick={() => { setSendOpen(!sendOpen); setMsg(null); }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Send SMS
           </button>
+          )}
         </div>
       </div>
 
-      {sendOpen && (
+      {!canSend && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, color: '#475569' }}>
+          Live SMS delivery history from complaints, verifications, and system notifications.
+        </div>
+      )}
+
+      {canSend && sendOpen && (
         <div className="card" style={{ marginBottom: 20 }}>
           <div className="card-header"><span className="card-title">Manual SMS</span></div>
           <div className="card-body">
@@ -144,17 +157,17 @@ export default function SmsLog() {
                 type="text"
                 placeholder="Filter by phone..."
                 value={filters.phone}
-                onChange={e => setFilters({ ...filters, phone: e.target.value })}
+                onChange={e => { setPage(1); setFilters({ ...filters, phone: e.target.value }); }}
               />
             </div>
             <div style={filterBox}>
-              <select style={inputStyle} value={filters.trigger} onChange={e => setFilters({ ...filters, trigger: e.target.value })}>
+              <select style={inputStyle} value={filters.trigger} onChange={e => { setPage(1); setFilters({ ...filters, trigger: e.target.value }); }}>
                 <option value="">All Triggers</option>
                 {(data.triggers || []).map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
               </select>
             </div>
             <div style={filterBox}>
-              <select style={inputStyle} value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
+              <select style={inputStyle} value={filters.status} onChange={e => { setPage(1); setFilters({ ...filters, status: e.target.value }); }}>
                 <option value="">All Statuses</option>
                 {(data.statuses || []).map(s => <option key={s} value={s}>{s}</option>)}
               </select>

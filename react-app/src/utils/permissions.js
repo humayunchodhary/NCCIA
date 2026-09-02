@@ -2,16 +2,16 @@
 export const ROLE_FEATURES = {
   admin:                ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile', 'login_history', 'dsr_reports', 'do_letters'],
   circle_incharge:      ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'offence_types', 'reference', 'sms_logs', 'profile', 'dsr_reports', 'do_letters'],
-  operator:             ['dashboard', 'complaints', 'profile'],
-  verification_officer: ['dashboard', 'verifications', 'reports', 'profile'],
-  enquiry_officer:      ['dashboard', 'enquiries', 'dac_cases', 'profile'],
-  investigation_officer:['dashboard', 'dac_cases', 'court_cases', 'profile'],
-  moharrar:             ['dashboard', 'dac_cases', 'court_cases', 'profile'],
-  reader_branch:        ['dashboard', 'enquiries', 'profile'],
-  ad_legal:             ['dashboard', 'enquiries', 'dac_cases', 'profile'],
-  dd_legal:             ['dashboard', 'enquiries', 'dac_cases', 'profile'],
-  additional_director:  ['dashboard', 'enquiries', 'dac_cases', 'profile'],
-  ad_administration:    ['dashboard', 'dsr_reports', 'do_letters', 'profile'],
+  operator:             ['dashboard', 'complaints', 'reference', 'profile'],
+  verification_officer: ['dashboard', 'verifications', 'reports', 'reference', 'profile'],
+  enquiry_officer:      ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],
+  investigation_officer:['dashboard', 'dac_cases', 'court_cases', 'reference', 'profile'],
+  moharrar:             ['dashboard', 'dac_cases', 'court_cases', 'reference', 'profile'],
+  reader_branch:        ['dashboard', 'enquiries', 'reference', 'profile'],
+  ad_legal:             ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],
+  dd_legal:             ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],
+  additional_director:  ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],
+  ad_administration:    ['dashboard', 'dsr_reports', 'do_letters', 'reference', 'sms_logs', 'profile'],
   director_general:     ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile', 'login_history', 'dsr_reports', 'do_letters'],
 };
 
@@ -123,6 +123,15 @@ export const LEGAL_REVIEW_ROLES = [
 
 export function canFillLegalAndApprove(user) {
   return hasAnyRole(user, LEGAL_REVIEW_ROLES);
+}
+
+/** Laws, Rules, SOPs, User Manuals — create / edit / delete */
+export function canManageReference(user) {
+  return hasAnyRole(user, ['admin', 'circle_incharge', 'director_general']);
+}
+
+export function canSendManualSms(user) {
+  return hasAnyRole(user, ['admin', 'circle_incharge', 'director_general']);
 }
 
 export const CASE_CFR_REVIEW_STATUSES = [
