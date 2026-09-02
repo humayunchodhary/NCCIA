@@ -1,7 +1,8 @@
 /** Animated NCCIA guide mascot (anime-style SVG) */
-export default function SoftwareGuideCharacter({ speaking = false, wave = false }) {
+export default function SoftwareGuideCharacter({ speaking = false, wave = false, size = 240 }) {
+  const height = Math.round(size * 1.4);
   return (
-    <svg viewBox="0 0 200 280" width="180" height="252" aria-hidden="true" className="sg-character">
+    <svg viewBox="0 0 200 280" width={size} height={height} aria-hidden="true" className="sg-character">
       <defs>
         <linearGradient id="sg-uniform" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#1e4d8c" />

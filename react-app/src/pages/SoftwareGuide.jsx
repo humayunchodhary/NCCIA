@@ -212,25 +212,23 @@ export default function SoftwareGuide() {
         <div className="sg-screen">
           <div className="sg-scene-bg" data-scene={scene.id} />
           <div className="sg-scene-visual" key={scene.id}>{scene.visual}</div>
+          <div className="sg-scene-badge">Scene {sceneIndex + 1} / {SCENES.length}</div>
 
           <div className="sg-stage">
-            <SoftwareGuideCharacter speaking={speaking || playing} wave={scene.id === 'intro'} />
-            <div className="sg-bubble">
+            <div className="sg-character-wrap">
+              <SoftwareGuideCharacter speaking={speaking || playing} wave={scene.id === 'intro'} size={260} />
+            </div>
+            <div className="sg-bubble" key={scene.id}>
               <div className="sg-bubble-title">{scene.title}</div>
               <div className="sg-bubble-ur">{scene.titleUr}</div>
               <p className="sg-bubble-text">{lang === 'en' ? scene.narrationEn : scene.narration}</p>
               {lang === 'both' && <p className="sg-bubble-text sg-bubble-en">{scene.narrationEn}</p>}
+              <div className="sg-benefits-inline">
+                {scene.benefits.map(b => (
+                  <span key={b} className="sg-benefit-chip">{b}</span>
+                ))}
+              </div>
             </div>
-          </div>
-
-          <div className="sg-benefits">
-            {scene.benefits.map(b => (
-              <span key={b} className="sg-benefit-chip">{b}</span>
-            ))}
-          </div>
-
-          <div className="sg-captions">
-            <span className="sg-scene-counter">Scene {sceneIndex + 1} / {SCENES.length}</span>
           </div>
         </div>
 
