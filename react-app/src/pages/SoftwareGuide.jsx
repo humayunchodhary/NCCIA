@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import SoftwareGuideCharacter from '../components/SoftwareGuideCharacter';
+import SoftwareGuideBackdrop from '../components/SoftwareGuideBackdrop';
 import './SoftwareGuide.css';
 
 const SCENES = [
   {
     id: 'intro',
+    workflowStep: -1,
     title: 'Welcome to NCCIA CMS',
     titleUr: 'NCCIA CMS mein khush amdeed',
     visual: '🛡️',
@@ -16,6 +18,7 @@ const SCENES = [
   },
   {
     id: 'complaint',
+    workflowStep: 0,
     title: 'Complaint Registration',
     titleUr: 'Shikayat darj karna',
     visual: '📝',
@@ -27,6 +30,7 @@ const SCENES = [
   },
   {
     id: 'verification',
+    workflowStep: 1,
     title: 'Verification Stage',
     titleUr: 'Tasdeeq ka marhala',
     visual: '✅',
@@ -38,6 +42,7 @@ const SCENES = [
   },
   {
     id: 'enquiry',
+    workflowStep: 2,
     title: 'Enquiry & Investigation',
     titleUr: 'Tahqeek aur investigation',
     visual: '🔍',
@@ -49,6 +54,7 @@ const SCENES = [
   },
   {
     id: 'forensic',
+    workflowStep: 4,
     title: 'Digital Forensics',
     titleUr: 'Digital forensic',
     visual: '💾',
@@ -60,6 +66,7 @@ const SCENES = [
   },
   {
     id: 'court',
+    workflowStep: 5,
     title: 'Court & Legal',
     titleUr: 'Adalat aur legal',
     visual: '⚖️',
@@ -71,6 +78,7 @@ const SCENES = [
   },
   {
     id: 'sms',
+    workflowStep: -1,
     title: 'SMS Notifications',
     titleUr: 'SMS notifications',
     visual: '📱',
@@ -82,6 +90,7 @@ const SCENES = [
   },
   {
     id: 'admin',
+    workflowStep: 3,
     title: 'DSR & D.O. Letters',
     titleUr: 'DSR aur D.O. Letter',
     visual: '📊',
@@ -93,6 +102,7 @@ const SCENES = [
   },
   {
     id: 'reference',
+    workflowStep: -1,
     title: 'Reference Library',
     titleUr: 'Reference Library',
     visual: '📚',
@@ -104,6 +114,7 @@ const SCENES = [
   },
   {
     id: 'summary',
+    workflowStep: 6,
     title: 'Why NCCIA CMS?',
     titleUr: 'NCCIA CMS kyun?',
     visual: '🎯',
@@ -211,12 +222,15 @@ export default function SoftwareGuide() {
       <div className="sg-player">
         <div className="sg-screen">
           <div className="sg-scene-bg" data-scene={scene.id} />
-          <div className="sg-scene-visual" key={scene.id}>{scene.visual}</div>
           <div className="sg-scene-badge">Scene {sceneIndex + 1} / {SCENES.length}</div>
 
           <div className="sg-stage">
-            <div className="sg-character-wrap">
-              <SoftwareGuideCharacter speaking={speaking || playing} wave={scene.id === 'intro'} size={260} />
+            <div className="sg-character-stage">
+              <SoftwareGuideBackdrop activeStep={scene.workflowStep} />
+              <div className="sg-character-foreground">
+                <div className="sg-character-platform" />
+                <SoftwareGuideCharacter speaking={speaking || playing} wave={scene.id === 'intro'} size={220} />
+              </div>
             </div>
             <div className="sg-bubble" key={scene.id}>
               <div className="sg-bubble-title">{scene.title}</div>
