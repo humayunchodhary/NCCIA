@@ -14,6 +14,7 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+  const streamRef = useRef(null);
 
   const [stream, setStream] = useState(null);
   const [devices, setDevices] = useState([]);
@@ -22,11 +23,27 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Stop current active stream
+  // Stop active stream tracks
   const stopStream = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        try { track.stop(); } catch (e) { /* ignore */ }
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setStream(null);
+  }, []);
+
+  // Attach stream to video tag whenever stream changes
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(e => {
+        console.warn('Video auto-play suppressed:', e);
+      });
     }
   }, [stream]);
 
@@ -36,38 +53,32 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
     setLoading(true);
     setCapturedDataUrl(null);
 
-    // Stop previous track if running
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
+    // Stop existing stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => {
+        try { t.stop(); } catch (e) { /* ignore */ }
+      });
+      streamRef.current = null;
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setError('Webcam access is not supported by your browser. Please use the direct file upload option below.');
+      setError('Webcam access is not supported by this browser. Please use the "Upload Photo File" option below.');
       setLoading(false);
       return;
     }
 
     try {
-      let mediaStream;
-      try {
-        const constraints = {
-          video: deviceId
-            ? { deviceId: { exact: deviceId } }
-            : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        };
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (innerErr) {
-        // Fallback to basic video constraint if ideal constraints fail
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      }
+      // Direct robust constraints
+      const constraints = {
+        video: deviceId ? { deviceId: { exact: deviceId } } : true,
+        audio: false,
+      };
 
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = mediaStream;
       setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
 
-      // Enumerate available cameras
+      // Enumerate available video devices
       try {
         const devList = await navigator.mediaDevices.enumerateDevices();
         const videoDevs = devList.filter(d => d.kind === 'videoinput');
@@ -75,23 +86,26 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
         if (!selectedDeviceId && videoDevs.length > 0) {
           setSelectedDeviceId(videoDevs[0].deviceId);
         }
-      } catch {
-        // Enumerate fallback
+      } catch (devErr) {
+        console.warn('Device enumeration failed', devErr);
       }
     } catch (err) {
+      console.error('getUserMedia error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setError('Camera permission was blocked by your browser. Please follow the quick steps below to allow access:');
+        setError('Camera permission is blocked in browser settings. Please click the 🔒 / 🎛️ icon on top-left of the address bar, toggle Camera to Allow, then click "Retry Camera".');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setError('No webcam or camera device found on this computer. You can upload a photo file directly below.');
+        setError('No webcam or camera device found on this system. You can upload a photo directly from files.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setError('Camera is currently in use by another application (e.g. Zoom, Teams, Skype). Please close other apps and click "Retry Camera".');
       } else {
-        setError(err.message || 'Unable to start camera feed.');
+        setError(`Camera Error: ${err.name} — ${err.message}`);
       }
     } finally {
       setLoading(false);
     }
-  }, [stream, selectedDeviceId]);
+  }, [selectedDeviceId]);
 
-  // Handle open / close lifecycle
+  // Modal open / close lifecycle
   useEffect(() => {
     if (open) {
       startCamera();
@@ -105,7 +119,7 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
     };
   }, [open]);
 
-  // Change camera device
+  // Switch camera device
   const handleDeviceChange = (e) => {
     const devId = e.target.value;
     setSelectedDeviceId(devId);
@@ -117,10 +131,12 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
     if (!videoRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current || document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, width, height);
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     setCapturedDataUrl(dataUrl);
@@ -137,21 +153,24 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
   const confirmPhoto = () => {
     if (!capturedDataUrl) return;
 
-    // Convert dataUrl to Blob -> File
-    const arr = capturedDataUrl.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    const blob = new Blob([u8arr], { type: mime });
-    const filename = `photo_${Date.now()}.jpg`;
-    const file = new File([blob], filename, { type: 'image/jpeg', lastModified: Date.now() });
+    try {
+      const arr = capturedDataUrl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], { type: mime });
+      const filename = `photo_${Date.now()}.jpg`;
+      const file = new File([blob], filename, { type: 'image/jpeg', lastModified: Date.now() });
 
-    onCapture(file);
-    onClose();
+      onCapture(file);
+      onClose();
+    } catch (e) {
+      console.error('Photo confirmation error', e);
+    }
   };
 
   // Fallback direct system camera / photo input
@@ -258,18 +277,13 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                 ⚠️ Camera Permission Notice
               </div>
-              <div style={{ marginBottom: 8 }}>{error}</div>
-              <ol style={{ margin: '0 0 12px 18px', padding: 0, lineHeight: 1.6, fontSize: 12.5 }}>
-                <li>Browser address bar mein top-left par <strong>🔒 Padlock / 🎛️ Tune Icon</strong> par click karein.</li>
-                <li><strong>Camera</strong> option ko <strong>"Allow"</strong> (toggle ON) karein.</li>
-                <li>Neechay <strong>"Retry Camera"</strong> button click karein.</li>
-              </ol>
+              <div style={{ marginBottom: 10, lineHeight: 1.5 }}>{error}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => startCamera(selectedDeviceId)}
                   className="btn btn-sm btn-primary"
-                  style={{ fontSize: 12, padding: '5px 14px', background: '#e11d48', borderColor: '#e11d48' }}
+                  style={{ fontSize: 12, padding: '6px 16px', background: '#015C94', borderColor: '#015C94', fontWeight: 600 }}
                 >
                   🔄 Retry Camera
                 </button>
@@ -277,7 +291,7 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="btn btn-sm btn-outline"
-                  style={{ fontSize: 12, padding: '5px 14px' }}
+                  style={{ fontSize: 12, padding: '6px 16px' }}
                 >
                   📁 Upload Photo File
                 </button>
@@ -325,19 +339,24 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
               boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
             }}
           >
-            {capturedDataUrl ? (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: capturedDataUrl ? 'none' : 'block',
+              }}
+            />
+
+            {capturedDataUrl && (
               <img
                 src={capturedDataUrl}
                 alt="Captured Snapshot"
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            ) : (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             )}
 
@@ -354,7 +373,7 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
                   background: 'rgba(0,0,0,0.6)',
                 }}
               >
-                Initializing camera feed...
+                Starting camera feed...
               </div>
             )}
 
@@ -438,7 +457,7 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
                 <button
                   type="button"
                   onClick={capturePhoto}
-                  disabled={loading || !!error}
+                  disabled={loading || !!error || !stream}
                   className="btn btn-primary"
                   style={{
                     fontSize: 14,
