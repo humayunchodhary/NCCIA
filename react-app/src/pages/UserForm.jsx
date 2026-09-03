@@ -137,25 +137,48 @@ export default function UserForm() {
             <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label">Designation</label>
-                <input className="cf-input" type="text" value={form.designation} onChange={setF('designation')} placeholder="e.g. Inspector" />
+                <input className="cf-input" type="text" value={form.designation} onChange={setF('designation')} placeholder="e.g. Director General" />
               </div>
+              <div className="cf-field"></div>
+            </div>
+
+            {['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin'].includes(form.role) && (
+              <div style={{
+                background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8,
+                padding: '12px 16px', margin: '8px 0 16px', display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'
+              }}>
+                <div style={{ fontSize: 13, color: '#0369a1', lineHeight: 1.45, maxWidth: 550 }}>
+                  <strong>🏛️ Headquarters Role (National Jurisdiction):</strong> This executive officer operates across Pakistan (Islamabad HQ). Leave Zone &amp; Circle as National/HQ to oversee all circles, or click below.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, zone_id: '', circle_id: '' }))}
+                  style={{
+                    padding: '6px 14px', background: '#015C94', color: '#fff',
+                    border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  📍 Set as Islamabad HQ (National)
+                </button>
+              </div>
+            )}
+
+            <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label">Zone</label>
                 <select className="cf-input" value={form.zone_id} onChange={e => { setForm(f => ({ ...f, zone_id: e.target.value, circle_id: '' })); setErrors(e => ({ ...e, zone_id: null })); }}>
-                  <option value="">— Select Zone —</option>
+                  <option value="">{['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin'].includes(form.role) ? '— National / All Zones (Islamabad HQ) —' : '— Select Zone —'}</option>
                   {zones.map(z => <option key={z.id} value={z.id}>{z.name} ({z.code})</option>)}
                 </select>
               </div>
-            </div>
-            <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label">Circle</label>
                 <select className="cf-input" value={form.circle_id} onChange={setF('circle_id')}>
-                  <option value="">— Select Circle —</option>
+                  <option value="">{['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin'].includes(form.role) ? '— All Circles / National Jurisdiction (Islamabad HQ) —' : '— Select Circle —'}</option>
                   {circles.filter(c => !form.zone_id || c.zone_id == form.zone_id).map(c => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
                 </select>
               </div>
-              <div className="cf-field"></div>
             </div>
           </div>
         </div>
