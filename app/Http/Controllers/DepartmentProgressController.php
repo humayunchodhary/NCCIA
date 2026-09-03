@@ -27,25 +27,32 @@ class DepartmentProgressController extends Controller
         'dd_legal',
         'ad_legal',
         'admin',
+        'circle_incharge',
     ];
 
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        // 1. Strict Role Security: Only DG, Additional Director, DD Legal, AD Legal, Admin
+        // 1. Strict Role Security: DG, Additional Director, DD Legal, AD Legal, Admin, Circle Incharge
         if (!$user || !$user->hasAnyRole(self::ALLOWED_ROLES)) {
             return response()->json([
-                'message' => 'Unauthorized. This monitoring dashboard is restricted to Executive and Legal officers only.'
+                'message' => 'Unauthorized. This monitoring dashboard is restricted to Executive, Legal and Circle Incharge officers only.'
             ], 403);
         }
 
         $year = (int) $request->input('year', now()->year);
         $circleId = $request->input('circle_id') ? (int) $request->input('circle_id') : null;
+
+        // If user is a Circle Incharge and has a circle_id, lock to their circle
+        if ($user->hasRole('circle_incharge') && $user->circle_id && !$user->hasRole('admin')) {
+            $circleId = (int) $user->circle_id;
+        }
+
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
-        $cacheKey = "dept_prog:v3:{$user->id}:{$year}:" . ($circleId ?: 'all') . ":{$dateFrom}:{$dateTo}";
+        $cacheKey = "dept_prog:v4:{$user->id}:{$year}:" . ($circleId ?: 'all') . ":{$dateFrom}:{$dateTo}";
 
         $payload = Cache::remember($cacheKey, 60, function () use ($year, $circleId, $dateFrom, $dateTo) {
             return $this->buildProgressData($year, $circleId, $dateFrom, $dateTo);
@@ -84,7 +91,7 @@ class DepartmentProgressController extends Controller
             $courtQuery->whereDate('created_at', '<=', $dateTo);
         }
 
-        // If a specific circle is chosen in the filter
+        // If a specific circle is chosen
         if ($circleId) {
             $cmpQuery->where('circle_id', $circleId);
             $enqQuery->where(function ($q) use ($circleId) {
@@ -99,7 +106,7 @@ class DepartmentProgressController extends Controller
             });
         }
 
-        // 3. Overall KPI Metrics
+        // 3. Overall KPI Metrics for selected scope
         $totalComplaints = (clone $cmpQuery)->count();
         $resolvedComplaints = (clone $cmpQuery)
             ->where(function ($q) {
@@ -310,7 +317,33 @@ class DepartmentProgressController extends Controller
             ];
         })->sortByDesc('assigned_workload')->values();
 
-        // 6. Pie Chart Data: Workflow Stage Distribution
+        // 6. Selected Circle Info (for dedicated separate circle portal)
+        $selectedCircleInfo = null;
+        if ($circleId) {
+            $cModel = Circle::with('zone:id,name,code')->find($circleId);
+            if ($cModel) {
+                $incharge = User::where('circle_id', $circleId)
+                    ->where(function ($q) {
+                        $q->where('role', 'circle_incharge')
+                          ->orWhereHas('roles', fn ($sq) => $sq->where('name', 'circle_incharge'));
+                    })->first();
+
+                $selectedCircleInfo = [
+                    'id' => $cModel->id,
+                    'name' => $cModel->name,
+                    'code' => $cModel->code,
+                    'zone_name' => $cModel->zone?->name ?: 'Regional Zone',
+                    'zone_code' => $cModel->zone?->code ?: 'RZ',
+                    'incharge_name' => $incharge?->name ?: 'Circle Incharge / Designated Officer',
+                    'incharge_email' => $incharge?->email ?: 'incharge.' . strtolower($cModel->code ?: 'circle') . '@nccia.gov.pk',
+                    'incharge_phone' => $incharge?->phone ?: 'Official Helpdesk',
+                    'incharge_designation' => $incharge?->designation ?: 'Circle Incharge / Deputy Director',
+                    'total_officers' => count($circleOfficers),
+                ];
+            }
+        }
+
+        // 7. Pie Chart Data: Workflow Stage Distribution (Scoped)
         $workflowPie = [
             [
                 'name' => 'Complaints (CMU)',
@@ -339,7 +372,7 @@ class DepartmentProgressController extends Controller
             ],
         ];
 
-        // 7. Pie Chart / Bar Data: Offence Categories Breakdown
+        // 8. Pie Chart / Bar Data: Offence Categories Breakdown (Scoped)
         $categoryBreakdown = OffenceType::query()
             ->selectRaw('offence_types.name, COUNT(*) as count')
             ->join('complaints', 'offence_types.value', '=', 'complaints.offence_type')
@@ -357,7 +390,7 @@ class DepartmentProgressController extends Controller
                 ];
             });
 
-        // 8. Monthly Trends (Inflow vs Disposal)
+        // 9. Monthly Trends (Inflow vs Disposal - Scoped)
         $monthlyTrends = [];
         $receivedMonths = (clone $cmpQuery)
             ->selectRaw('MONTH(created_at) as m, COUNT(*) as c')
@@ -381,8 +414,14 @@ class DepartmentProgressController extends Controller
             ];
         }
 
-        // 9. Recent Legal Review Backlog Items (CFRs & Opinions for AD/DD/DG)
+        // 10. Legal Review Backlog Items (CFRs & Opinions for AD/DD/DG)
         $legalBacklog = Enquiry::whereIn('status', $legalStatuses)
+            ->where(function ($q) use ($circleId) {
+                if ($circleId) {
+                    $q->whereHas('complaint', fn ($sq) => $sq->where('circle_id', $circleId))
+                      ->orWhere('direct_info->circle_id', $circleId);
+                }
+            })
             ->with(['complaint.circle'])
             ->latest('updated_at')
             ->limit(8)
@@ -391,20 +430,25 @@ class DepartmentProgressController extends Controller
                 'id' => $e->id,
                 'type' => 'Enquiry CFR',
                 'number' => $e->enquiry_no ?: ("ENQ-" . str_pad($e->id, 5, '0', STR_PAD_LEFT)),
-                'circle' => $e->complaint?->circle?->name ?: 'Islamabad HQ',
+                'circle' => $e->complaint?->circle?->name ?: 'Circle Unit',
                 'status' => $e->status,
                 'updated_at' => $e->updated_at ? $e->updated_at->format('d M Y') : 'N/A',
             ]);
 
-        // 10. Islamabad HQ Central Inflow: DSR Reports forwarded to HQ from circles
+        // 11. DSR Reports (Scoped to circle or nationwide HQ)
         $hqDsrFeed = [];
         $pendingDsrCount = 0;
         if (Schema::hasTable('dsr_reports')) {
-            $pendingDsrCount = DsrReport::where('status', DsrReport::STATUS_FORWARDED_HQ)->count();
-            $hqDsrFeed = DsrReport::query()
-                ->whereIn('status', [DsrReport::STATUS_FORWARDED_HQ, DsrReport::STATUS_HQ_ACK])
+            $dsrQuery = DsrReport::query();
+            if ($circleId) {
+                $dsrQuery->where('circle_id', $circleId);
+            } else {
+                $dsrQuery->whereIn('status', [DsrReport::STATUS_FORWARDED_HQ, DsrReport::STATUS_HQ_ACK]);
+            }
+            $pendingDsrCount = (clone $dsrQuery)->where('status', DsrReport::STATUS_FORWARDED_HQ)->count();
+            $hqDsrFeed = $dsrQuery
                 ->with(['circle:id,name,code', 'compiler:id,name'])
-                ->latest('forwarded_to_hq_at')
+                ->latest('report_date')
                 ->limit(6)
                 ->get()
                 ->map(fn ($r) => [
@@ -415,20 +459,25 @@ class DepartmentProgressController extends Controller
                     'unit_name' => $r->unit_name ?: 'Circle Operations',
                     'status' => $r->status,
                     'is_pending_ack' => $r->status === DsrReport::STATUS_FORWARDED_HQ,
-                    'status_label' => $r->status === DsrReport::STATUS_FORWARDED_HQ ? 'Pending HQ Acknowledgment' : 'HQ Acknowledged',
-                    'forwarded_at' => $r->forwarded_to_hq_at ? Carbon::parse($r->forwarded_to_hq_at)->format('d M Y, h:i A') : 'N/A',
+                    'status_label' => $r->status === DsrReport::STATUS_FORWARDED_HQ ? 'Pending HQ Acknowledgment' : ($r->status === DsrReport::STATUS_HQ_ACK ? 'HQ Acknowledged' : ucwords(str_replace('_', ' ', $r->status))),
+                    'forwarded_at' => $r->forwarded_to_hq_at ? Carbon::parse($r->forwarded_to_hq_at)->format('d M Y, h:i A') : ($r->created_at ? $r->created_at->format('d M Y') : 'N/A'),
                 ]);
         }
 
-        // 11. Islamabad HQ Central Inflow: D.O. Letters forwarded to DG / HQ
+        // 12. D.O. Letters (Scoped to circle or nationwide HQ)
         $hqDoFeed = [];
         $pendingDoCount = 0;
         if (Schema::hasTable('do_letters')) {
-            $pendingDoCount = DoLetter::where('status', DoLetter::STATUS_FORWARDED_HQ)->count();
-            $hqDoFeed = DoLetter::query()
-                ->whereIn('status', [DoLetter::STATUS_FORWARDED_HQ, DoLetter::STATUS_HQ_ACK])
+            $doQuery = DoLetter::query();
+            if ($circleId) {
+                $doQuery->where('circle_id', $circleId);
+            } else {
+                $doQuery->whereIn('status', [DoLetter::STATUS_FORWARDED_HQ, DoLetter::STATUS_HQ_ACK]);
+            }
+            $pendingDoCount = (clone $doQuery)->where('status', DoLetter::STATUS_FORWARDED_HQ)->count();
+            $hqDoFeed = $doQuery
                 ->with(['circle:id,name,code', 'compiler:id,name'])
-                ->latest('forwarded_to_hq_at')
+                ->latest('report_month')
                 ->limit(6)
                 ->get()
                 ->map(fn ($l) => [
@@ -438,13 +487,20 @@ class DepartmentProgressController extends Controller
                     'month_label' => $l->month_label ?: ($l->report_month ? Carbon::parse($l->report_month)->format('F Y') : 'Monthly D.O.'),
                     'status' => $l->status,
                     'is_pending_ack' => $l->status === DoLetter::STATUS_FORWARDED_HQ,
-                    'status_label' => $l->status === DoLetter::STATUS_FORWARDED_HQ ? 'Awaiting DG Review' : 'Acknowledged by DG',
-                    'forwarded_at' => $l->forwarded_to_hq_at ? Carbon::parse($l->forwarded_to_hq_at)->format('d M Y, h:i A') : 'N/A',
+                    'status_label' => $l->status === DoLetter::STATUS_FORWARDED_HQ ? 'Awaiting DG Review' : ($l->status === DoLetter::STATUS_HQ_ACK ? 'Acknowledged by DG' : ucwords(str_replace('_', ' ', $l->status))),
+                    'forwarded_at' => $l->forwarded_to_hq_at ? Carbon::parse($l->forwarded_to_hq_at)->format('d M Y, h:i A') : ($l->created_at ? $l->created_at->format('d M Y') : 'N/A'),
                 ]);
         }
 
-        // 12. Inter-Circle Transfers (e.g. Gujranwala <-> Lahore <-> Karachi)
-        $transfersFeed = Complaint::whereNotNull('transfer_to_circle_id')
+        // 13. Inter-Circle Transfers (Scoped or Nationwide)
+        $transfersQuery = Complaint::whereNotNull('transfer_to_circle_id');
+        if ($circleId) {
+            $transfersQuery->where(function ($q) use ($circleId) {
+                $q->where('circle_id', $circleId)
+                  ->orWhere('transfer_to_circle_id', $circleId);
+            });
+        }
+        $transfersFeed = $transfersQuery
             ->with(['circle:id,name,code', 'transferToCircle:id,name,code'])
             ->latest('updated_at')
             ->limit(6)
@@ -457,7 +513,7 @@ class DepartmentProgressController extends Controller
                 'transferred_at' => $cmp->updated_at ? $cmp->updated_at->format('d M Y') : 'N/A',
             ]);
 
-        $totalTransfersCount = Complaint::whereNotNull('transfer_to_circle_id')->count();
+        $totalTransfersCount = (clone $transfersQuery)->count();
 
         return [
             'metrics' => [
@@ -481,6 +537,7 @@ class DepartmentProgressController extends Controller
                 'pending_do' => $pendingDoCount,
                 'total_transfers' => $totalTransfersCount,
             ],
+            'selected_circle' => $selectedCircleInfo,
             'circles' => $circles,
             'circle_breakdown' => $circleBreakdown,
             'circle_bar_chart' => array_slice($circleBarChart, 0, 10),

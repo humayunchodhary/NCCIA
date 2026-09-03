@@ -266,6 +266,7 @@ export default function DepartmentProgress() {
     legal_backlog = [],
     circle_officers = [],
     hq_command = {},
+    selected_circle = null,
     hq_dsr_feed = [],
     hq_do_feed = [],
     transfers_feed = []
@@ -273,117 +274,279 @@ export default function DepartmentProgress() {
 
   return (
     <div className="page-content" style={{ paddingBottom: 60 }}>
-      {/* Islamabad HQ Central Executive Command Banner */}
+      {/* Circle Command Switcher Tabs Bar */}
       <div style={{
-        background: 'linear-gradient(135deg, #013658 0%, #015C94 65%, #0284c7 100%)',
-        color: '#fff', borderRadius: 14, padding: '22px 26px', marginBottom: 20,
-        boxShadow: '0 8px 24px rgba(1,92,148,0.25)', position: 'relative', overflow: 'hidden'
+        display: 'flex', gap: 8, alignItems: 'center', overflowX: 'auto', padding: '10px 14px',
+        background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 16,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
       }}>
-        {/* Subtle Background Badge Pattern */}
-        <div style={{
-          position: 'absolute', right: -20, top: -20, opacity: 0.08, fontSize: 180,
-          pointerEvents: 'none', userSelect: 'none', fontWeight: 900
-        }}>
-          HQ
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ maxWidth: 700 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span style={{
-                background: '#f59e0b', color: '#000', fontSize: 11, fontWeight: 800,
-                padding: '3px 10px', borderRadius: 12, letterSpacing: '0.06em', textTransform: 'uppercase'
-              }}>
-                Federal Executive Command
-              </span>
-              <span style={{ fontSize: 12, opacity: 0.9 }}>
-                • NCCIA Headquarters, Islamabad
-              </span>
-            </div>
-            <h1 style={{ fontSize: 25, fontWeight: 800, margin: '0 0 6px 0', letterSpacing: '-0.01em' }}>
-              Islamabad HQ — Central Executive Monitoring Portal
-            </h1>
-            <p style={{ margin: 0, fontSize: 13.5, opacity: 0.9, lineHeight: 1.5 }}>
-              Central Command & Oversight Directorate for DG, Additional Director, DD Legal & AD Legal. Monitoring all provincial circles across Pakistan.
-            </p>
-
-            {/* Quick HQ Summary Badges */}
-            <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-              <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                🏛️ {hq_command.total_circles || circles.length} Circles Monitored
-              </span>
-              <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                👮‍♂️ {hq_command.total_officers || circle_officers.length} Deployed Officers
-              </span>
-              <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                📑 {hq_command.pending_dsr || 0} DSRs Pending HQ
-              </span>
-              <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                ✉️ {hq_command.pending_do || 0} D.O. Letters for DG
-              </span>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
+          Select Command Portal:
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            setCircleId('');
+            setOfficerCircleFilter('');
+          }}
+          style={{
+            padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            border: 'none', whiteSpace: 'nowrap',
+            background: !circleId ? '#013658' : '#e2e8f0',
+            color: !circleId ? '#fff' : '#334155'
+          }}
+        >
+          🏛️ Islamabad HQ (Nationwide Command)
+        </button>
+        {circles.map(c => {
+          const isSelected = String(circleId) === String(c.id);
+          return (
             <button
+              key={c.id}
               type="button"
-              onClick={handlePrintBriefing}
+              onClick={() => {
+                setCircleId(isSelected ? '' : String(c.id));
+                setOfficerCircleFilter(isSelected ? '' : String(c.id));
+              }}
               style={{
-                background: '#fff', color: '#013658', border: 'none', borderRadius: 8,
-                padding: '9px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                border: 'none', whiteSpace: 'nowrap',
+                background: isSelected ? '#0284c7' : '#f1f5f9',
+                color: isSelected ? '#fff' : '#1e293b'
               }}
             >
-              <span>🖨️ Print Executive Briefing</span>
+              🏛️ {c.name} {c.code ? `(${c.code})` : ''}
             </button>
-            <div style={{ fontSize: 11, opacity: 0.8, textAlign: 'right' }}>
-              DG Secretariat & Ministry of Interior Briefing
+          );
+        })}
+      </div>
+
+      {/* Main Command Banner: Dedicated Circle Portal OR Islamabad HQ Portal */}
+      {selected_circle ? (
+        /* DEDICATED SEPARATE CIRCLE COMMAND BANNER */
+        <div style={{
+          background: 'linear-gradient(135deg, #0c4a6e 0%, #0284c7 65%, #0369a1 100%)',
+          color: '#fff', borderRadius: 14, padding: '22px 26px', marginBottom: 20,
+          boxShadow: '0 8px 24px rgba(2,132,199,0.25)', position: 'relative', overflow: 'hidden'
+        }}>
+          {/* Subtle Background Code Pattern */}
+          <div style={{
+            position: 'absolute', right: -15, top: -25, opacity: 0.08, fontSize: 160,
+            pointerEvents: 'none', userSelect: 'none', fontWeight: 900
+          }}>
+            {selected_circle.code || 'CIR'}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ maxWidth: 700 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{
+                  background: '#10b981', color: '#fff', fontSize: 11, fontWeight: 800,
+                  padding: '3px 10px', borderRadius: 12, letterSpacing: '0.06em', textTransform: 'uppercase'
+                }}>
+                  Regional Circle Command
+                </span>
+                <span style={{ fontSize: 12, opacity: 0.95 }}>
+                  • {selected_circle.zone_name} ({selected_circle.zone_code}) Jurisdiction
+                </span>
+              </div>
+              <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 6px 0', letterSpacing: '-0.01em' }}>
+                {selected_circle.name} — Regional Command Portal
+              </h1>
+              <p style={{ margin: 0, fontSize: 13.5, opacity: 0.9, lineHeight: 1.5 }}>
+                Dedicated monitoring &amp; casework portal for {selected_circle.name}. Managing all verification, enquiry, and case files under this circle's territorial jurisdiction.
+              </p>
+
+              {/* Circle Badges & Incharge Card */}
+              <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ background: 'rgba(255,255,255,0.2)', padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700 }}>
+                  👤 Incharge: {selected_circle.incharge_name}
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                  👮‍♂️ {selected_circle.total_officers || circle_officers.length} Officers Deployed
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                  📑 {hq_dsr_feed.length} Recent DSRs
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                  ✉️ {hq_do_feed.length} Monthly D.O. Letters
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={handlePrintBriefing}
+                style={{
+                  background: '#fff', color: '#0369a1', border: 'none', borderRadius: 8,
+                  padding: '9px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              >
+                <span>🖨️ Print {selected_circle.name} Briefing</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCircleId('');
+                  setOfficerCircleFilter('');
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.18)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)',
+                  borderRadius: 6, padding: '5px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                ← Back to Islamabad HQ (All Circles)
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Islamabad HQ Jump Navigation Bar */}
-        <div style={{
-          display: 'flex', gap: 8, marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.2)',
-          flexWrap: 'wrap'
-        }}>
-          <button
-            type="button"
-            onClick={() => chartsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-          >
-            📊 Analytics & Charts
-          </button>
-          <button
-            type="button"
-            onClick={() => circlesSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-          >
-            🏛️ Circle Progress (Lahore, Gujranwala...)
-          </button>
-          <button
-            type="button"
-            onClick={() => officersSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-          >
-            👮‍♂️ Circle Officers Directory
-          </button>
-          <button
-            type="button"
-            onClick={() => hqFeedsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-          >
-            📑 HQ DSR & D.O. Feeds ({hq_command.pending_dsr || 0})
-          </button>
-          <button
-            type="button"
-            onClick={() => legalSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-          >
-            ⚖️ Legal Scrutiny ({legal_backlog.length})
-          </button>
+          {/* Quick Jump Bar */}
+          <div style={{
+            display: 'flex', gap: 8, marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.2)',
+            flexWrap: 'wrap'
+          }}>
+            <button
+              type="button"
+              onClick={() => chartsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              📊 {selected_circle.name} Analytics
+            </button>
+            <button
+              type="button"
+              onClick={() => officersSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              👮‍♂️ {selected_circle.name} Officers ({selected_circle.total_officers || circle_officers.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => hqFeedsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              📑 Circle DSR &amp; D.O. Reports ({hq_dsr_feed.length + hq_do_feed.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => legalSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              ⚖️ Pending Legal Reviews ({legal_backlog.length})
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* ISLAMABAD HQ CENTRAL EXECUTIVE COMMAND BANNER */
+        <div style={{
+          background: 'linear-gradient(135deg, #013658 0%, #015C94 65%, #0284c7 100%)',
+          color: '#fff', borderRadius: 14, padding: '22px 26px', marginBottom: 20,
+          boxShadow: '0 8px 24px rgba(1,92,148,0.25)', position: 'relative', overflow: 'hidden'
+        }}>
+          <div style={{
+            position: 'absolute', right: -20, top: -20, opacity: 0.08, fontSize: 180,
+            pointerEvents: 'none', userSelect: 'none', fontWeight: 900
+          }}>
+            HQ
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ maxWidth: 700 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{
+                  background: '#f59e0b', color: '#000', fontSize: 11, fontWeight: 800,
+                  padding: '3px 10px', borderRadius: 12, letterSpacing: '0.06em', textTransform: 'uppercase'
+                }}>
+                  Federal Executive Command
+                </span>
+                <span style={{ fontSize: 12, opacity: 0.9 }}>
+                  • NCCIA Headquarters, Islamabad
+                </span>
+              </div>
+              <h1 style={{ fontSize: 25, fontWeight: 800, margin: '0 0 6px 0', letterSpacing: '-0.01em' }}>
+                Islamabad HQ — Central Executive Monitoring Portal
+              </h1>
+              <p style={{ margin: 0, fontSize: 13.5, opacity: 0.9, lineHeight: 1.5 }}>
+                Central Command &amp; Oversight Directorate for DG, Additional Director, DD Legal &amp; AD Legal. Monitoring all provincial circles across Pakistan.
+              </p>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                  🏛️ {hq_command.total_circles || circles.length} Circles Monitored
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                  👮‍♂️ {hq_command.total_officers || circle_officers.length} Deployed Officers
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                  📑 {hq_command.pending_dsr || 0} DSRs Pending HQ
+                </span>
+                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                  ✉️ {hq_command.pending_do || 0} D.O. Letters for DG
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={handlePrintBriefing}
+                style={{
+                  background: '#fff', color: '#013658', border: 'none', borderRadius: 8,
+                  padding: '9px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              >
+                <span>🖨️ Print Executive Briefing</span>
+              </button>
+              <div style={{ fontSize: 11, opacity: 0.8, textAlign: 'right' }}>
+                DG Secretariat &amp; Ministry of Interior Briefing
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            display: 'flex', gap: 8, marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.2)',
+            flexWrap: 'wrap'
+          }}>
+            <button
+              type="button"
+              onClick={() => chartsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              📊 Analytics &amp; Charts
+            </button>
+            <button
+              type="button"
+              onClick={() => circlesSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              🏛️ Circle Progress (Lahore, Gujranwala...)
+            </button>
+            <button
+              type="button"
+              onClick={() => officersSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              👮‍♂️ Circle Officers Directory
+            </button>
+            <button
+              type="button"
+              onClick={() => hqFeedsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              📑 HQ DSR &amp; D.O. Feeds ({hq_command.pending_dsr || 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => legalSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              ⚖️ Legal Scrutiny ({legal_backlog.length})
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Global Filter Bar */}
       <div style={{
@@ -409,7 +572,7 @@ export default function DepartmentProgress() {
 
           {/* Circle Filter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Select Circle:</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Selected Circle:</span>
             <select
               className="filter-select"
               value={circleId}
@@ -417,9 +580,9 @@ export default function DepartmentProgress() {
                 setCircleId(e.target.value);
                 setOfficerCircleFilter(e.target.value);
               }}
-              style={{ padding: '5px 10px', fontSize: 13, minWidth: 170 }}
+              style={{ padding: '5px 10px', fontSize: 13, minWidth: 180 }}
             >
-              <option value="">All Circles / Nationwide</option>
+              <option value="">All Circles (Islamabad HQ)</option>
               {circles.map(c => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.code ? `(${c.code})` : ''}
@@ -505,7 +668,9 @@ export default function DepartmentProgress() {
           <div className="stat-value" style={{ fontSize: 26, fontWeight: 800 }}>
             {metrics.total_workload?.toLocaleString() || 0}
           </div>
-          <div className="stat-label">Total Nationwide Workload</div>
+          <div className="stat-label">
+            {selected_circle ? `${selected_circle.name} Workload` : 'Total Nationwide Workload'}
+          </div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
             {metrics.total_complaints || 0} CMU + {metrics.total_enquiries || 0} Enq + {metrics.registered_cases || 0} Cases
           </div>
@@ -525,7 +690,7 @@ export default function DepartmentProgress() {
               {metrics.overall_disposal_rate >= 70 ? 'Optimal' : 'In Progress'}
             </span>
           </div>
-          <div className="stat-label">Agency Disposal Rate</div>
+          <div className="stat-label">Disposal Rate</div>
           <div style={{ marginTop: 6 }}>
             <ProgressBar value={metrics.overall_disposal_rate || 0} color="#16a34a" />
           </div>
@@ -536,7 +701,7 @@ export default function DepartmentProgress() {
           <div className="stat-value" style={{ fontSize: 26, fontWeight: 800, color: '#ea580c' }}>
             {metrics.active_enquiries?.toLocaleString() || 0}
           </div>
-          <div className="stat-label">Active Enquiries Across Circles</div>
+          <div className="stat-label">Active Enquiries</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
             Out of {metrics.total_enquiries || 0} registered
           </div>
@@ -547,7 +712,7 @@ export default function DepartmentProgress() {
           <div className="stat-value" style={{ fontSize: 26, fontWeight: 800, color: '#0d9488' }}>
             {metrics.finalized_cases?.toLocaleString() || 0}
           </div>
-          <div className="stat-label">Finalized Cases / Disposals</div>
+          <div className="stat-label">Finalized Cases</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
             Active FIR Cases: {Math.max(0, (metrics.registered_cases || 0) - (metrics.finalized_cases || 0))}
           </div>
@@ -568,7 +733,7 @@ export default function DepartmentProgress() {
           </div>
           <div className="stat-label">Pending Legal Scrutiny</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-            CFRs awaiting AD/DD/DG approval
+            CFRs awaiting review
           </div>
         </div>
 
@@ -577,30 +742,30 @@ export default function DepartmentProgress() {
           <div className="stat-value" style={{ fontSize: 26, fontWeight: 800, color: '#7c3aed' }}>
             {metrics.total_court_cases || 0}
           </div>
-          <div className="stat-label">Court Trial Registry</div>
+          <div className="stat-label">Court Cases</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
             Under active trial in courts
           </div>
         </div>
       </div>
 
-      {/* Section: Islamabad HQ Feeds (DSR Reports & D.O. Letters Inflow) */}
+      {/* Section: Feeds (DSR Reports & D.O. Letters) */}
       <div ref={hqFeedsSectionRef} style={{ marginTop: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
-          {/* Card 1: Incoming DSR Reports Forwarded to HQ */}
+          {/* Card 1: DSR Reports */}
           <div className="card" style={{ borderTop: '3px solid #0284c7' }}>
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span>📑 Daily Situation Reports (DSR Feed)</span>
-                  {hq_command.pending_dsr > 0 && (
+                  <span>📑 {selected_circle ? `${selected_circle.name} Daily Situation Reports (DSR)` : 'Daily Situation Reports (DSR Feed)'}</span>
+                  {hq_command.pending_dsr > 0 && !selected_circle && (
                     <span style={{ background: '#ef4444', color: '#fff', fontSize: 10.5, fontWeight: 800, padding: '2px 7px', borderRadius: 10 }}>
                       {hq_command.pending_dsr} Pending HQ
                     </span>
                   )}
                 </div>
                 <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                  Daily situation updates forwarded by Circle Incharges to HQ.
+                  {selected_circle ? `Daily reports compiled by ${selected_circle.name}` : 'Daily situation updates forwarded by Circle Incharges to HQ.'}
                 </div>
               </div>
               <Link to="/dsr-reports" style={{ fontSize: 12, fontWeight: 700, color: '#015C94', textDecoration: 'none' }}>
@@ -616,7 +781,7 @@ export default function DepartmentProgress() {
                       <th>Circle</th>
                       <th>Date</th>
                       <th>Status</th>
-                      <th style={{ textAlign: 'right' }}>Forwarded At</th>
+                      <th style={{ textAlign: 'right' }}>Submitted At</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -644,7 +809,7 @@ export default function DepartmentProgress() {
                     {!hq_dsr_feed.length && (
                       <tr>
                         <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
-                          No forwarded DSR reports at this moment.
+                          No DSR reports found for this view.
                         </td>
                       </tr>
                     )}
@@ -654,20 +819,20 @@ export default function DepartmentProgress() {
             </div>
           </div>
 
-          {/* Card 2: Monthly D.O. Letters Forwarded to DG / HQ */}
+          {/* Card 2: Monthly D.O. Letters */}
           <div className="card" style={{ borderTop: '3px solid #7c3aed' }}>
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span>✉️ Monthly D.O. Letters (DG Inflow)</span>
-                  {hq_command.pending_do > 0 && (
+                  <span>✉️ {selected_circle ? `${selected_circle.name} Monthly D.O. Letters` : 'Monthly D.O. Letters (DG Inflow)'}</span>
+                  {hq_command.pending_do > 0 && !selected_circle && (
                     <span style={{ background: '#f59e0b', color: '#000', fontSize: 10.5, fontWeight: 800, padding: '2px 7px', borderRadius: 10 }}>
                       {hq_command.pending_do} Awaiting DG
                     </span>
                   )}
                 </div>
                 <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-                  Confidential monthly reports submitted to Director General.
+                  {selected_circle ? `Confidential monthly reports of ${selected_circle.name}` : 'Confidential monthly reports submitted to Director General.'}
                 </div>
               </div>
               <Link to="/do-letters" style={{ fontSize: 12, fontWeight: 700, color: '#015C94', textDecoration: 'none' }}>
@@ -680,7 +845,7 @@ export default function DepartmentProgress() {
                 <table className="data-table" style={{ fontSize: 12.5 }}>
                   <thead>
                     <tr>
-                      <th>Originating Circle</th>
+                      <th>Circle</th>
                       <th>Month</th>
                       <th>DG Status</th>
                       <th style={{ textAlign: 'right' }}>Submitted</th>
@@ -710,7 +875,7 @@ export default function DepartmentProgress() {
                     {!hq_do_feed.length && (
                       <tr>
                         <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
-                          No forwarded D.O. letters at this moment.
+                          No D.O. letters found for this view.
                         </td>
                       </tr>
                     )}
@@ -726,9 +891,9 @@ export default function DepartmentProgress() {
           <div className="card" style={{ marginTop: 16, borderLeft: '4px solid #0891b2' }}>
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
-                <span>🔄 Recent Inter-Circle Case Transfers</span>
+                <span>🔄 {selected_circle ? `${selected_circle.name} Transfers Movement` : 'Recent Inter-Circle Case Transfers'}</span>
                 <span style={{ fontSize: 11, color: '#64748b' }}>
-                  ({hq_command.total_transfers || transfers_feed.length} Total Transferred across circles)
+                  ({transfers_feed.length} Active Records)
                 </span>
               </div>
             </div>
@@ -889,7 +1054,7 @@ export default function DepartmentProgress() {
         <div className="card">
           <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="card-title">
-              <span>Agency Inflow vs Disposal Trend ({year})</span>
+              <span>{selected_circle ? `${selected_circle.name} Inflow vs Disposal Trend (${year})` : `Agency Inflow vs Disposal Trend (${year})`}</span>
             </div>
             <div style={{ display: 'flex', gap: 14, fontSize: 12 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#2563eb', fontWeight: 600 }}>
@@ -963,233 +1128,247 @@ export default function DepartmentProgress() {
         </div>
       </div>
 
-      {/* Charts Section Row 2: Circle Comparative Bar Chart */}
-      <div className="card" style={{ marginTop: 24 }}>
-        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="card-title">
-            <span>Circle-by-Circle Comparative Performance (Top Circles by Volume)</span>
-          </div>
-          <div style={{ display: 'flex', gap: 14, fontSize: 12 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#0284c7', fontWeight: 600 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: '#0284c7' }}></span> Disposed
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#f97316', fontWeight: 600 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f97316' }}></span> Active / Pending
-            </span>
-          </div>
-        </div>
-
-        <div className="card-body" style={{ padding: '20px 24px' }}>
-          {barChartData.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {barChartData.map((circle) => {
-                const disposedPercent = circle.total > 0 ? Math.round((circle.disposed / circle.total) * 100) : 0;
-                const pendingPercent = 100 - disposedPercent;
-                const widthPercent = Math.max(5, (circle.total / maxBarValue) * 100);
-
-                return (
-                  <div key={circle.name} style={{ display: 'grid', gridTemplateColumns: '180px 1fr 100px', alignItems: 'center', gap: 16 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {circle.name}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>
-                        {circle.code ? `Code: ${circle.code}` : ''}
-                      </div>
-                    </div>
-
-                    <div style={{ width: '100%', background: '#f1f5f9', borderRadius: 8, height: 24, overflow: 'hidden', display: 'flex', position: 'relative' }}>
-                      <div style={{ width: `${widthPercent}%`, height: '100%', display: 'flex', borderRadius: 8, overflow: 'hidden' }}>
-                        <div
-                          style={{
-                            width: `${disposedPercent}%`,
-                            background: '#0284c7',
-                            height: '100%',
-                            transition: 'width 0.4s ease'
-                          }}
-                          title={`Disposed: ${circle.disposed}`}
-                        />
-                        <div
-                          style={{
-                            width: `${pendingPercent}%`,
-                            background: '#f97316',
-                            height: '100%',
-                            transition: 'width 0.4s ease'
-                          }}
-                          title={`Pending: ${circle.pending}`}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
-                        {circle.total} cases
-                      </span>
-                      <span style={{
-                        fontSize: 11, fontWeight: 700,
-                        color: circle.rate >= 70 ? '#15803d' : (circle.rate >= 40 ? '#b45309' : '#dc2626')
-                      }}>
-                        {circle.rate}% Disposed
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+      {/* Charts Section Row 2: Circle Comparative Bar Chart (when viewing all circles) */}
+      {!selected_circle && (
+        <div className="card" style={{ marginTop: 24 }}>
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card-title">
+              <span>Circle-by-Circle Comparative Performance (Top Circles by Volume)</span>
             </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>
-              No circle performance data available for this filter.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Circle Detailed Progress Table */}
-      <div ref={circlesSectionRef} className="card" style={{ marginTop: 24 }}>
-        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div className="card-title">Comprehensive Department & Circle Progress</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              Individual performance metrics, officers deployed & disposal ratios across all circles
+            <div style={{ display: 'flex', gap: 14, fontSize: 12 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#0284c7', fontWeight: 600 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#0284c7' }}></span> Disposed
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#f97316', fontWeight: 600 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f97316' }}></span> Active / Pending
+              </span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="text"
-              placeholder="Search circle name or code..."
-              value={tableSearch}
-              onChange={e => setTableSearch(e.target.value)}
-              className="filter-input"
-              style={{ width: 220, fontSize: 12.5 }}
-            />
-          </div>
-        </div>
+          <div className="card-body" style={{ padding: '20px 24px' }}>
+            {barChartData.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {barChartData.map((circle) => {
+                  const disposedPercent = circle.total > 0 ? Math.round((circle.disposed / circle.total) * 100) : 0;
+                  const pendingPercent = 100 - disposedPercent;
+                  const widthPercent = Math.max(5, (circle.total / maxBarValue) * 100);
 
-        <div className="card-body" style={{ padding: 0 }}>
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Circle / Department</th>
-                  <th>Officers Deployed</th>
-                  <th>Complaints (CMU)</th>
-                  <th>Enquiries</th>
-                  <th>FIR Cases</th>
-                  <th>Legal Pending</th>
-                  <th style={{ width: 180 }}>Disposal Progress</th>
-                  <th style={{ textAlign: 'center' }}>Health Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCircles.map(c => (
-                  <tr key={c.id}>
-                    <td>
-                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{c.name}</div>
-                      {c.code && <span className="table-id" style={{ marginTop: 2 }}>{c.code}</span>}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => handleCircleOfficersClick(c.id)}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px',
-                          background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd',
-                          borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer'
-                        }}
-                        title={`View ${c.name} officers`}
-                      >
-                        <span>👥 {c.officers_count || 0} Officers</span>
-                        <span style={{ fontSize: 10 }}>↓</span>
-                      </button>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.total_complaints}</div>
-                      <div style={{ fontSize: 11, color: '#16a34a' }}>{c.resolved_complaints} resolved</div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.total_enquiries}</div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.total_cases}</div>
-                      <div style={{ fontSize: 11, color: '#0d9488' }}>{c.finalized_cases} finalized</div>
-                    </td>
-                    <td>
-                      {c.pending_legal > 0 ? (
-                        <span style={{
-                          background: '#fef3c7', color: '#b45309', padding: '3px 8px',
-                          borderRadius: 6, fontSize: 11, fontWeight: 700
-                        }}>
-                          {c.pending_legal} pending
+                  return (
+                    <div key={circle.name} style={{ display: 'grid', gridTemplateColumns: '180px 1fr 100px', alignItems: 'center', gap: 16 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {circle.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#64748b' }}>
+                          {circle.code ? `Code: ${circle.code}` : ''}
+                        </div>
+                      </div>
+
+                      <div style={{ width: '100%', background: '#f1f5f9', borderRadius: 8, height: 24, overflow: 'hidden', display: 'flex', position: 'relative' }}>
+                        <div style={{ width: `${widthPercent}%`, height: '100%', display: 'flex', borderRadius: 8, overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              width: `${disposedPercent}%`,
+                              background: '#0284c7',
+                              height: '100%',
+                              transition: 'width 0.4s ease'
+                            }}
+                            title={`Disposed: ${circle.disposed}`}
+                          />
+                          <div
+                            style={{
+                              width: `${pendingPercent}%`,
+                              background: '#f97316',
+                              height: '100%',
+                              transition: 'width 0.4s ease'
+                            }}
+                            title={`Pending: ${circle.pending}`}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+                          {circle.total} cases
                         </span>
-                      ) : (
-                        <span style={{ color: '#94a3b8', fontSize: 12 }}>0</span>
-                      )}
-                    </td>
-                    <td>
-                      <ProgressBar value={c.disposal_rate} showLabel />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span style={{
-                        padding: '4px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700,
-                        background: c.status_badge === 'high' ? '#dcfce7' : (c.status_badge === 'medium' ? '#fef3c7' : '#fee2e2'),
-                        color: c.status_badge === 'high' ? '#15803d' : (c.status_badge === 'medium' ? '#b45309' : '#b91c1c')
-                      }}>
-                        {c.status_badge === 'high' ? 'High' : (c.status_badge === 'medium' ? 'Moderate' : 'Critical')}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {!filteredCircles.length && (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>
-                      No circles found matching "{tableSearch}"
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700,
+                          color: circle.rate >= 70 ? '#15803d' : (circle.rate >= 40 ? '#b45309' : '#dc2626')
+                        }}>
+                          {circle.rate}% Disposed
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>
+                No circle performance data available for this filter.
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Circle Detailed Progress Table (with direct "Open Circle Portal" action) */}
+      {!selected_circle && (
+        <div ref={circlesSectionRef} className="card" style={{ marginTop: 24 }}>
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <div className="card-title">Comprehensive Department &amp; Circle Progress</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                Individual performance metrics, officers deployed &amp; one-click dedicated circle portal view
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Search circle name or code..."
+                value={tableSearch}
+                onChange={e => setTableSearch(e.target.value)}
+                className="filter-input"
+                style={{ width: 220, fontSize: 12.5 }}
+              />
+            </div>
+          </div>
+
+          <div className="card-body" style={{ padding: 0 }}>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Circle / Department</th>
+                    <th>Officers Deployed</th>
+                    <th>Complaints (CMU)</th>
+                    <th>Enquiries</th>
+                    <th>FIR Cases</th>
+                    <th>Legal Pending</th>
+                    <th style={{ width: 170 }}>Disposal Progress</th>
+                    <th style={{ textAlign: 'center' }}>Portal Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCircles.map(c => (
+                    <tr key={c.id}>
+                      <td>
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{c.name}</div>
+                        {c.code && <span className="table-id" style={{ marginTop: 2 }}>{c.code}</span>}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => handleCircleOfficersClick(c.id)}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px',
+                            background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd',
+                            borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                          }}
+                          title={`View ${c.name} officers`}
+                        >
+                          <span>👥 {c.officers_count || 0} Officers</span>
+                          <span style={{ fontSize: 10 }}>↓</span>
+                        </button>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.total_complaints}</div>
+                        <div style={{ fontSize: 11, color: '#16a34a' }}>{c.resolved_complaints} resolved</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.total_enquiries}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.total_cases}</div>
+                        <div style={{ fontSize: 11, color: '#0d9488' }}>{c.finalized_cases} finalized</div>
+                      </td>
+                      <td>
+                        {c.pending_legal > 0 ? (
+                          <span style={{
+                            background: '#fef3c7', color: '#b45309', padding: '3px 8px',
+                            borderRadius: 6, fontSize: 11, fontWeight: 700
+                          }}>
+                            {c.pending_legal} pending
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: 12 }}>0</span>
+                        )}
+                      </td>
+                      <td>
+                        <ProgressBar value={c.disposal_rate} showLabel />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCircleId(String(c.id));
+                            setOfficerCircleFilter(String(c.id));
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          style={{
+                            padding: '5px 12px', background: '#0284c7', color: '#fff', border: 'none',
+                            borderRadius: 6, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
+                          }}
+                        >
+                          🏛️ Open {c.code || c.name} Portal
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!filteredCircles.length && (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>
+                        No circles found matching "{tableSearch}"
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Circle-wise Officers Directory & Individual Workload */}
       <div className="card" ref={officersSectionRef} style={{ marginTop: 24, borderTop: '4px solid #015C94' }}>
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
           <div>
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>👮‍♂️ Circle Officers Directory & Workload</span>
+              <span>👮‍♂️ {selected_circle ? `${selected_circle.name} Officers Directory & Workload` : 'Circle Officers Directory & Workload'}</span>
               <span style={{
                 background: '#015C94', color: '#fff', fontSize: 11, fontWeight: 700,
                 padding: '2px 8px', borderRadius: 10
               }}>
-                {filteredOfficers.length} Officers Shown
+                {filteredOfficers.length} Officers
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              Officers posted across Gujranwala, Lahore, Karachi, Islamabad and other circles with live workload tracking.
+              {selected_circle
+                ? `Active officers deployed specifically in ${selected_circle.name} (${selected_circle.zone_name}) with real-time caseloads.`
+                : 'Officers posted across Gujranwala, Lahore, Karachi, Islamabad and other circles with live workload tracking.'}
             </div>
           </div>
 
           {/* Officers Search & Filter Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {/* Circle Filter */}
-            <select
-              className="filter-select"
-              value={officerCircleFilter}
-              onChange={e => setOfficerCircleFilter(e.target.value)}
-              style={{ fontSize: 12.5, minWidth: 170 }}
-            >
-              <option value="">All Circles ({circle_officers.length})</option>
-              {circles.map(c => {
-                const count = circle_officers.filter(o => String(o.circle_id) === String(c.id)).length;
-                return (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({count})
-                  </option>
-                );
-              })}
-            </select>
+            {!selected_circle && (
+              <select
+                className="filter-select"
+                value={officerCircleFilter}
+                onChange={e => setOfficerCircleFilter(e.target.value)}
+                style={{ fontSize: 12.5, minWidth: 170 }}
+              >
+                <option value="">All Circles ({circle_officers.length})</option>
+                {circles.map(c => {
+                  const count = circle_officers.filter(o => String(o.circle_id) === String(c.id)).length;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+            )}
 
             {/* Role Filter */}
             <select
@@ -1223,7 +1402,7 @@ export default function DepartmentProgress() {
               <button
                 type="button"
                 onClick={() => {
-                  setOfficerCircleFilter('');
+                  if (!selected_circle) setOfficerCircleFilter('');
                   setOfficerRoleFilter('');
                   setOfficerSearch('');
                 }}
@@ -1238,43 +1417,45 @@ export default function DepartmentProgress() {
           </div>
         </div>
 
-        {/* Quick Circle Chips (Gujranwala, Lahore, Islamabad, Karachi, etc.) */}
-        <div style={{
-          display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto',
-          background: '#f8fafc', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap'
-        }}>
-          <button
-            type="button"
-            onClick={() => setOfficerCircleFilter('')}
-            style={{
-              padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
-              cursor: 'pointer', border: 'none',
-              background: !officerCircleFilter ? '#015C94' : '#e2e8f0',
-              color: !officerCircleFilter ? '#fff' : '#334155'
-            }}
-          >
-            All Circles ({circle_officers.length})
-          </button>
-          {circles.map(c => {
-            const count = circle_officers.filter(o => String(o.circle_id) === String(c.id)).length;
-            const isSelected = String(officerCircleFilter) === String(c.id);
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setOfficerCircleFilter(isSelected ? '' : String(c.id))}
-                style={{
-                  padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
-                  cursor: 'pointer', border: 'none',
-                  background: isSelected ? '#015C94' : (count > 0 ? '#e0f2fe' : '#f1f5f9'),
-                  color: isSelected ? '#fff' : (count > 0 ? '#0369a1' : '#94a3b8')
-                }}
-              >
-                {c.name} ({count})
-              </button>
-            );
-          })}
-        </div>
+        {/* Quick Circle Chips (only when All Circles is active) */}
+        {!selected_circle && (
+          <div style={{
+            display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto',
+            background: '#f8fafc', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap'
+          }}>
+            <button
+              type="button"
+              onClick={() => setOfficerCircleFilter('')}
+              style={{
+                padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                cursor: 'pointer', border: 'none',
+                background: !officerCircleFilter ? '#015C94' : '#e2e8f0',
+                color: !officerCircleFilter ? '#fff' : '#334155'
+              }}
+            >
+              All Circles ({circle_officers.length})
+            </button>
+            {circles.map(c => {
+              const count = circle_officers.filter(o => String(o.circle_id) === String(c.id)).length;
+              const isSelected = String(officerCircleFilter) === String(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setOfficerCircleFilter(isSelected ? '' : String(c.id))}
+                  style={{
+                    padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', border: 'none',
+                    background: isSelected ? '#015C94' : (count > 0 ? '#e0f2fe' : '#f1f5f9'),
+                    color: isSelected ? '#fff' : (count > 0 ? '#0369a1' : '#94a3b8')
+                  }}
+                >
+                  {c.name} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Officers Table */}
         <div className="card-body" style={{ padding: 0 }}>
@@ -1362,12 +1543,12 @@ export default function DepartmentProgress() {
         </div>
       </div>
 
-      {/* Legal Scrutiny & Approval Backlog (Dedicated for Legal Chain + DG) */}
+      {/* Legal Scrutiny & Approval Backlog */}
       <div ref={legalSectionRef} className="card" style={{ marginTop: 24, borderTop: '3px solid #f59e0b' }}>
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>⚖️ Central Legal Scrutiny & Approval Backlog</span>
+              <span>⚖️ Central Legal Scrutiny &amp; Approval Backlog</span>
               <span style={{
                 background: '#fef3c7', color: '#b45309', fontSize: 11, fontWeight: 700,
                 padding: '2px 8px', borderRadius: 10
@@ -1376,7 +1557,9 @@ export default function DepartmentProgress() {
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              CFRs and Enquiry/Case files currently queued for AD Legal, DD Legal, Additional Director, and DG opinions.
+              {selected_circle
+                ? `CFRs and files originating from ${selected_circle.name} awaiting legal opinion.`
+                : 'CFRs and Enquiry/Case files currently queued for AD Legal, DD Legal, Additional Director, and DG opinions.'}
             </div>
           </div>
           <Link
@@ -1446,7 +1629,7 @@ export default function DepartmentProgress() {
                 {!legal_backlog.length && (
                   <tr>
                     <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: '#16a34a', fontWeight: 600 }}>
-                      ✓ No pending legal scrutiny backlogs at this moment.
+                      ✓ No pending legal scrutiny backlogs for this view.
                     </td>
                   </tr>
                 )}
