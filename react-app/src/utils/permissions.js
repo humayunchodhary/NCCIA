@@ -1,6 +1,6 @@
 // Role → feature matrix (sync with RolesAndPermissionsSeeder + NCCIA flowchart)
 export const ROLE_FEATURES = {
-  admin:                ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile', 'login_history', 'dsr_reports', 'do_letters'],
+  admin:                ['dashboard', 'analytics', 'department_progress', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile', 'login_history', 'dsr_reports', 'do_letters'],
   circle_incharge:      ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'offence_types', 'reference', 'sms_logs', 'profile', 'dsr_reports', 'do_letters'],
   operator:             ['dashboard', 'complaints', 'reference', 'profile'],
   verification_officer: ['dashboard', 'verifications', 'reports', 'reference', 'profile'],
@@ -8,11 +8,11 @@ export const ROLE_FEATURES = {
   investigation_officer:['dashboard', 'dac_cases', 'court_cases', 'reference', 'profile'],
   moharrar:             ['dashboard', 'dac_cases', 'court_cases', 'reference', 'profile'],
   reader_branch:        ['dashboard', 'enquiries', 'reference', 'profile'],
-  ad_legal:             ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],
-  dd_legal:             ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],
-  additional_director:  ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],
+  ad_legal:             ['dashboard', 'department_progress', 'enquiries', 'dac_cases', 'reference', 'profile'],
+  dd_legal:             ['dashboard', 'department_progress', 'enquiries', 'dac_cases', 'reference', 'profile'],
+  additional_director:  ['dashboard', 'department_progress', 'enquiries', 'dac_cases', 'reference', 'profile'],
   ad_administration:    ['dashboard', 'dsr_reports', 'do_letters', 'reference', 'sms_logs', 'profile'],
-  director_general:     ['dashboard', 'analytics', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile', 'login_history', 'dsr_reports', 'do_letters'],
+  director_general:     ['dashboard', 'analytics', 'department_progress', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile', 'login_history', 'dsr_reports', 'do_letters'],
 };
 
 /** Who fills / does what (flowchart WS_FLOW_CHART) */
@@ -120,6 +120,16 @@ export function hasAnyRole(user, roleNames) {
 export const LEGAL_REVIEW_ROLES = [
   'admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general',
 ];
+
+/** Executive monitoring dashboard roles: DG, Additional Director, DD Legal, AD Legal, Admin */
+export const EXECUTIVE_MONITORING_ROLES = [
+  'admin', 'director_general', 'additional_director', 'dd_legal', 'ad_legal',
+];
+
+export function canViewDepartmentProgress(user) {
+  if (!user) return false;
+  return hasAnyRole(user, EXECUTIVE_MONITORING_ROLES) || canView('department_progress', user);
+}
 
 export function canFillLegalAndApprove(user) {
   return hasAnyRole(user, LEGAL_REVIEW_ROLES);

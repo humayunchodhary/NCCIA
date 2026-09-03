@@ -7,6 +7,7 @@ import { canView, hasRole, canCreateComplaint, canSeeDirectVerification, canSeeD
 function getBreadcrumb(pathname) {
   const map = {
     '/': 'Dashboard',
+    '/department-progress': 'Department Progress',
     '/complaints': 'Complaints',
     '/verifications': 'Verifications',
     '/verifications/create': 'New Verification',
@@ -441,6 +442,21 @@ export default function Layout() {
               <span>Dashboard</span>
             </NavLink>
           </div>
+          {canView('department_progress', user) && (
+            <div className="nav-item">
+              <NavLink to="/department-progress" className="nav-link" data-page="department-progress">
+                <span className="nav-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 3v18h18"/>
+                    <path d="M18 17V9"/>
+                    <path d="M13 17V5"/>
+                    <path d="M8 17v-3"/>
+                  </svg>
+                </span>
+                <span>Department Progress</span>
+              </NavLink>
+            </div>
+          )}
           {canView('analytics', user) && <div className="nav-section-label">Analytics</div>}
           {canView('analytics', user) && <div className="nav-item">
             <NavLink to="/analytics" className="nav-link" data-page="analytics">

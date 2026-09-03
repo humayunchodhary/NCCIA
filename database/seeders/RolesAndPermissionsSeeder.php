@@ -16,7 +16,7 @@ class RolesAndPermissionsSeeder extends Seeder
         app('cache')->store($cacheStore != 'default' ? $cacheStore : null)->forget($cacheKey);
 
         $features = [
-            'dashboard', 'analytics', 'complaints', 'verifications',
+            'dashboard', 'analytics', 'department_progress', 'complaints', 'verifications',
             'reports', 'enquiries', 'io_records', 'dac_cases',
             'court_cases', 'users', 'circles', 'offence_types',
             'reference', 'sms_logs', 'profile', 'login_history',
@@ -30,7 +30,7 @@ class RolesAndPermissionsSeeder extends Seeder
         // NCCIA flowchart stages: Complaint → Verification → Enquiry → Case → Court
         $roleFeatures = [
             'admin' => [
-                'dashboard','analytics','complaints','verifications','reports','enquiries',
+                'dashboard','analytics','department_progress','complaints','verifications','reports','enquiries',
                 'io_records','dac_cases','court_cases','users','circles','offence_types','reference','sms_logs','profile','login_history',
                 'dsr_reports','do_letters',
             ],
@@ -64,11 +64,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'reader_branch' => [
                 'dashboard','enquiries','profile',
             ],
-            'ad_legal' => ['dashboard','enquiries','dac_cases','profile'],
-            'dd_legal' => ['dashboard','enquiries','dac_cases','profile'],
-            'additional_director' => ['dashboard','enquiries','dac_cases','profile'],
+            'ad_legal' => ['dashboard','department_progress','enquiries','dac_cases','profile'],
+            'dd_legal' => ['dashboard','department_progress','enquiries','dac_cases','profile'],
+            'additional_director' => ['dashboard','department_progress','enquiries','dac_cases','profile'],
             'director_general' => [
-                'dashboard','analytics','complaints','verifications','reports','enquiries',
+                'dashboard','analytics','department_progress','complaints','verifications','reports','enquiries',
                 'io_records','dac_cases','court_cases','users','circles','offence_types','reference','sms_logs','profile','login_history',
                 'dsr_reports','do_letters',
             ],

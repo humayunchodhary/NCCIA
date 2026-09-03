@@ -23,6 +23,7 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SidebarCountsController;
+use App\Http\Controllers\DepartmentProgressController;
 use App\Http\Controllers\Forensic\ForensicUserController;
 use App\Http\Controllers\Forensic\ForensicRequestController;
 use App\Http\Controllers\OfficerAssignmentHistoryController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\SmsController;
 Route::middleware(['web', 'auth:sanctum', 'throttle:dashboard'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
     Route::get('/analytics', [AnalyticsController::class, 'index']);
+    Route::get('/department-progress', [DepartmentProgressController::class, 'index']);
     Route::get('/sidebar-counts', SidebarCountsController::class);
 });
 

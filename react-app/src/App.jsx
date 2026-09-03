@@ -13,6 +13,7 @@ import ForensicRequests from './pages/ForensicRequests';
 import ForensicRequestDetail from './pages/ForensicRequestDetail';
 import Profile from './pages/Profile';
 import Analytics from './pages/Analytics';
+import DepartmentProgress from './pages/DepartmentProgress';
 import Complaints from './pages/Complaints';
 import ComplaintForm from './pages/ComplaintForm';
 import ComplaintPdfImport from './pages/ComplaintPdfImport';
@@ -129,6 +130,7 @@ function AppRoutes() {
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="analytics" element={<FeatureRoute feature="analytics"><Analytics /></FeatureRoute>} />
+        <Route path="department-progress" element={<FeatureRoute feature="department_progress"><DepartmentProgress /></FeatureRoute>} />
         <Route path="complaints" element={<FeatureRoute feature="complaints"><Complaints /></FeatureRoute>} />
         <Route path="complaints/create" element={<CreateComplaintRoute><ComplaintForm /></CreateComplaintRoute>} />
         <Route path="complaints/import-pdf" element={<CreateComplaintRoute><ComplaintPdfImport /></CreateComplaintRoute>} />
