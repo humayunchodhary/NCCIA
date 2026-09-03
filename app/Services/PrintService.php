@@ -62,20 +62,25 @@ class PrintService
         return <<<HTML
         <div class="slip">
           <div class="head">
+            <div class="gov-title">GOVERNMENT OF PAKISTAN</div>
             <table class="slip-lh">
               <tr>
                 <td class="slip-lh-l"><img src="{$ncciaLogo}" alt="NCCIA" class="slip-lh-logo" /></td>
-                <td class="slip-lh-c"><div class="slip-nccia">NCCIA</div></td>
+                <td class="slip-lh-c">
+                  <div class="slip-nccia">NCCIA</div>
+                  <div class="org">NATIONAL CYBER CRIME<br/>INVESTIGATION AGENCY</div>
+                  <div class="org-ur" dir="rtl">قومی سائبر کرائم تفتیش ایجنسی</div>
+                </td>
                 <td class="slip-lh-r"><img src="{$interiorLogo}" alt="Ministry of Interior" class="slip-lh-logo" /></td>
               </tr>
             </table>
-            <div class="org">NATIONAL CYBER CRIME<br/>INVESTIGATION AGENCY</div>
-            <div class="org-ur">قومی سائبر کرائم تفتیش ایجنسی</div>
-            <div class="tag">COMPLAINT RECEIPT</div>
+            <div class="tag-wrap">
+              <span class="tag">COMPLAINT RECEIPT</span>
+            </div>
           </div>
 
           <div class="num-box">
-            <div class="num-label">Complaint No.</div>
+            <div class="num-label">COMPLAINT / TRACKING NO.</div>
             <div class="num-val">{$numberE}</div>
           </div>
 
@@ -129,21 +134,23 @@ class PrintService
             $this->complaintSlip($complaint),
             '@page { size: 80mm auto; margin: 2mm; }
              body { margin:0; padding:0; background:#fff; }
-             .slip { width: 76mm; margin: 0 auto; font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
-             .head { text-align:center; border-bottom: 3px solid #000; padding-bottom: 7px; margin-bottom: 6px; }
-             .slip-lh { width:100%; border-collapse:collapse; margin-bottom:4px; }
+             .slip { width: 74mm; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 11px; color:#000; }
+             .head { text-align:center; border-bottom: 2px solid #000; padding-bottom: 7px; margin-bottom: 6px; }
+             .gov-title { font-size: 8.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #111; margin-bottom: 4px; text-align: center; }
+             .slip-lh { width:100%; border-collapse:collapse; margin: 0 auto; }
              .slip-lh td { border:none; vertical-align:middle; padding:0; }
-             .slip-lh-l { width:28%; text-align:left; }
-             .slip-lh-r { width:28%; text-align:right; }
-             .slip-lh-c { text-align:center; }
-             .slip-lh-logo { width:42px; height:42px; object-fit:contain; }
-             .slip-nccia { font-size:16px; font-weight:800; letter-spacing:2px; }
-             .org { font-weight:800; font-size:11px; line-height:1.3; margin-top:3px; letter-spacing:0.2px; text-align:center; }
-             .org-ur { font-size:11px; font-weight:700; margin-top:2px; text-align:center; }
-             .tag { display:inline-block; margin-top:6px; padding:2px 10px; border:2px solid #000; font-weight:800; font-size:10px; letter-spacing:1.2px; text-align:center; }
-             .num-box { text-align:center; border:2px dashed #000; padding:6px 4px; margin:8px auto; width:90%; }
-             .num-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; }
-             .num-val { font-size:16px; font-weight:800; letter-spacing:0.5px; margin-top:2px; }
+             .slip-lh-l { width:42px; text-align:left; }
+             .slip-lh-r { width:42px; text-align:right; }
+             .slip-lh-c { text-align:center; padding: 0 4px; }
+             .slip-lh-logo { width:38px; height:38px; object-fit:contain; display:block; margin: 0 auto; }
+             .slip-nccia { font-size:13px; font-weight:900; letter-spacing:2px; color:#000; line-height: 1.1; }
+             .org { font-weight:800; font-size:8.5px; line-height:1.2; margin-top:2px; letter-spacing:0.2px; text-align:center; color:#111; }
+             .org-ur { font-size:9.5px; font-weight:700; margin-top:2px; text-align:center; line-height:1.2; }
+             .tag-wrap { margin-top:5px; text-align:center; }
+             .tag { display:inline-block; padding:2px 8px; border:1.5px solid #000; border-radius:3px; font-weight:800; font-size:9px; letter-spacing:0.8px; text-align:center; background:#f4f4f4; text-transform: uppercase; }
+             .num-box { text-align:center; border:2px solid #000; border-radius: 5px; padding:5px 6px; margin:7px auto; width:88%; background:#fafafa; }
+             .num-label { font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:0.8px; color:#333; border-bottom:1px dashed #aaa; padding-bottom:2px; margin-bottom:2px; }
+             .num-val { font-size:17px; font-weight:900; letter-spacing:0.8px; color:#000; }
              .kv { width:100%; border-collapse:collapse; margin:2px auto 6px; }
              .kv td { padding:3px 0; vertical-align:top; border-bottom:1px dotted #bbb; }
              .kv tr:last-child td { border-bottom:none; }
