@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ProgressBar from '../components/ProgressBar';
-import { getRoleDuties } from '../utils/permissions';
+import { getRoleDuties, canView } from '../utils/permissions';
 
 const ROLE_PORTALS = {
   admin:               { icon: '🛠️', name: 'Admin Portal', desc: 'Full system administration — manage users, circles, offence types & all modules.' },
@@ -15,10 +15,10 @@ const ROLE_PORTALS = {
   moharrar:            { icon: '📝', name: 'Moharrar Portal', desc: 'FIR number & case registry (Case stage).' },
   reader_branch:       { icon: '📂', name: 'Reader Branch Portal', desc: 'Enquiry number registration (Enquiry stage).' },
   operator:            { icon: '💻', name: 'Front Desk Officer / CMU Portal', desc: 'Complete Registration, apni complaints aur unki progress track karein.' },
-  ad_legal:            { icon: '⚖️', name: 'AD Legal Portal', desc: 'Legal opinions on enquiry / case / court.' },
-  dd_legal:            { icon: '⚖️', name: 'DD Legal Portal', desc: 'Legal opinions on enquiry / case / court.' },
-  additional_director: { icon: '⚖️', name: 'Additional Director Portal', desc: 'Opinion / approval on legal reports.' },
-  director_general:    { icon: '🎯', name: 'Director General Portal', desc: 'Full oversight & analytics.' },
+  ad_legal:            { icon: '⚖️', name: 'Islamabad HQ — AD Legal Portal', desc: 'Headquarters Legal Directorate — opinions on enquiry, case & court reports.' },
+  dd_legal:            { icon: '⚖️', name: 'Islamabad HQ — DD Legal Portal', desc: 'Headquarters Legal Directorate — opinions on enquiry, case & court reports.' },
+  additional_director: { icon: '🏛️', name: 'Islamabad HQ — Additional Director Portal', desc: 'Headquarters Executive Oversight & approvals on legal / operational reports.' },
+  director_general:    { icon: '🎯', name: 'Islamabad HQ — Director General Command Portal', desc: 'NCCIA Headquarters Islamabad — full executive command, oversight & analytics.' },
 };
 
 export default function Dashboard() {
@@ -231,13 +231,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="role-portal-banner" style={{background:'linear-gradient(135deg,#2563eb,#1e40af)',color:'#fff',borderRadius:12,padding:'20px 24px',marginBottom:16,display:'flex',alignItems:'center',gap:16,boxShadow:'0 4px 16px rgba(37,99,235,0.25)'}}>
-        <div style={{fontSize:36}}>{portal.icon}</div>
-        <div>
-          <div style={{fontSize:13,opacity:0.85,textTransform:'uppercase',letterSpacing:1}}>Welcome back, <strong>{user?.name?.split(' ')[0] || 'User'}</strong></div>
-          <div style={{fontSize:20,fontWeight:700}}>{portal.name}</div>
-          <div style={{fontSize:13,opacity:0.9,marginTop:4}}>{portal.desc}</div>
+      <div className="role-portal-banner" style={{background:'linear-gradient(135deg,#2563eb,#1e40af)',color:'#fff',borderRadius:12,padding:'20px 24px',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16,boxShadow:'0 4px 16px rgba(37,99,235,0.25)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:16}}>
+          <div style={{fontSize:36}}>{portal.icon}</div>
+          <div>
+            <div style={{fontSize:13,opacity:0.85,textTransform:'uppercase',letterSpacing:1}}>Welcome back, <strong>{user?.name?.split(' ')[0] || 'User'}</strong></div>
+            <div style={{fontSize:20,fontWeight:700}}>{portal.name}</div>
+            <div style={{fontSize:13,opacity:0.9,marginTop:4}}>{portal.desc}</div>
+          </div>
         </div>
+        {canView('department_progress', user) && (
+          <Link to="/department-progress" className="btn" style={{background:'#fff',color:'#1e40af',fontWeight:700,display:'flex',alignItems:'center',gap:6,boxShadow:'0 2px 8px rgba(0,0,0,0.15)'}}>
+            📊 Department Progress & Monitoring
+          </Link>
+        )}
       </div>
 
       <div className="card" style={{marginBottom:24, border:'1px solid #e2e8f0'}}>

@@ -6,14 +6,18 @@ use App\Models\CaseFile;
 use App\Models\Circle;
 use App\Models\Complaint;
 use App\Models\CourtCase;
+use App\Models\DoLetter;
+use App\Models\DsrReport;
 use App\Models\Enquiry;
 use App\Models\OffenceType;
 use App\Models\User;
 use App\Models\Verification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DepartmentProgressController extends Controller
 {
@@ -41,7 +45,7 @@ class DepartmentProgressController extends Controller
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
-        $cacheKey = "dept_prog:v2:{$user->id}:{$year}:" . ($circleId ?: 'all') . ":{$dateFrom}:{$dateTo}";
+        $cacheKey = "dept_prog:v3:{$user->id}:{$year}:" . ($circleId ?: 'all') . ":{$dateFrom}:{$dateTo}";
 
         $payload = Cache::remember($cacheKey, 60, function () use ($year, $circleId, $dateFrom, $dateTo) {
             return $this->buildProgressData($year, $circleId, $dateFrom, $dateTo);
@@ -230,7 +234,7 @@ class DepartmentProgressController extends Controller
 
             $circleBreakdown[] = $item;
 
-            // Bar chart data (only circles with at least some volume or top 10)
+            // Bar chart data
             $circleBarChart[] = [
                 'name' => $c->name,
                 'code' => $c->code ?: $c->name,
@@ -294,8 +298,8 @@ class DepartmentProgressController extends Controller
                 'email' => $u->email,
                 'phone' => $u->phone,
                 'circle_id' => $u->circle_id,
-                'circle_name' => $u->circle?->name ?: 'Headquarters / All Circles',
-                'circle_code' => $u->circle?->code ?: '',
+                'circle_name' => $u->circle?->name ?: 'Islamabad HQ / National',
+                'circle_code' => $u->circle?->code ?: 'HQ',
                 'role' => $roleName,
                 'role_label' => ucwords(str_replace('_', ' ', $roleName)),
                 'designation' => $u->designation ?: ucwords(str_replace('_', ' ', $roleName)),
@@ -311,27 +315,27 @@ class DepartmentProgressController extends Controller
             [
                 'name' => 'Complaints (CMU)',
                 'count' => max(0, $totalComplaints - $resolvedComplaints),
-                'color' => '#0284c7', // Sky blue
+                'color' => '#0284c7',
             ],
             [
                 'name' => 'Active Enquiries',
                 'count' => $activeEnquiries,
-                'color' => '#f59e0b', // Amber
+                'color' => '#f59e0b',
             ],
             [
                 'name' => 'Active Cases (FIR)',
                 'count' => max(0, $registeredCases - $finalizedCases),
-                'color' => '#ef4444', // Red
+                'color' => '#ef4444',
             ],
             [
                 'name' => 'Court Trials',
                 'count' => $activeCourtCases,
-                'color' => '#8b5cf6', // Violet
+                'color' => '#8b5cf6',
             ],
             [
                 'name' => 'Disposed / Closed',
                 'count' => $totalDisposed,
-                'color' => '#10b981', // Green
+                'color' => '#10b981',
             ],
         ];
 
@@ -387,10 +391,73 @@ class DepartmentProgressController extends Controller
                 'id' => $e->id,
                 'type' => 'Enquiry CFR',
                 'number' => $e->enquiry_no ?: ("ENQ-" . str_pad($e->id, 5, '0', STR_PAD_LEFT)),
-                'circle' => $e->complaint?->circle?->name ?: 'Headquarters',
+                'circle' => $e->complaint?->circle?->name ?: 'Islamabad HQ',
                 'status' => $e->status,
                 'updated_at' => $e->updated_at ? $e->updated_at->format('d M Y') : 'N/A',
             ]);
+
+        // 10. Islamabad HQ Central Inflow: DSR Reports forwarded to HQ from circles
+        $hqDsrFeed = [];
+        $pendingDsrCount = 0;
+        if (Schema::hasTable('dsr_reports')) {
+            $pendingDsrCount = DsrReport::where('status', DsrReport::STATUS_FORWARDED_HQ)->count();
+            $hqDsrFeed = DsrReport::query()
+                ->whereIn('status', [DsrReport::STATUS_FORWARDED_HQ, DsrReport::STATUS_HQ_ACK])
+                ->with(['circle:id,name,code', 'compiler:id,name'])
+                ->latest('forwarded_to_hq_at')
+                ->limit(6)
+                ->get()
+                ->map(fn ($r) => [
+                    'id' => $r->id,
+                    'circle_name' => $r->circle?->name ?: 'Circle Unit',
+                    'circle_code' => $r->circle?->code ?: '',
+                    'report_date' => $r->report_date ? Carbon::parse($r->report_date)->format('d M Y') : 'N/A',
+                    'unit_name' => $r->unit_name ?: 'Circle Operations',
+                    'status' => $r->status,
+                    'is_pending_ack' => $r->status === DsrReport::STATUS_FORWARDED_HQ,
+                    'status_label' => $r->status === DsrReport::STATUS_FORWARDED_HQ ? 'Pending HQ Acknowledgment' : 'HQ Acknowledged',
+                    'forwarded_at' => $r->forwarded_to_hq_at ? Carbon::parse($r->forwarded_to_hq_at)->format('d M Y, h:i A') : 'N/A',
+                ]);
+        }
+
+        // 11. Islamabad HQ Central Inflow: D.O. Letters forwarded to DG / HQ
+        $hqDoFeed = [];
+        $pendingDoCount = 0;
+        if (Schema::hasTable('do_letters')) {
+            $pendingDoCount = DoLetter::where('status', DoLetter::STATUS_FORWARDED_HQ)->count();
+            $hqDoFeed = DoLetter::query()
+                ->whereIn('status', [DoLetter::STATUS_FORWARDED_HQ, DoLetter::STATUS_HQ_ACK])
+                ->with(['circle:id,name,code', 'compiler:id,name'])
+                ->latest('forwarded_to_hq_at')
+                ->limit(6)
+                ->get()
+                ->map(fn ($l) => [
+                    'id' => $l->id,
+                    'circle_name' => $l->circle?->name ?: 'Circle Unit',
+                    'circle_code' => $l->circle?->code ?: '',
+                    'month_label' => $l->month_label ?: ($l->report_month ? Carbon::parse($l->report_month)->format('F Y') : 'Monthly D.O.'),
+                    'status' => $l->status,
+                    'is_pending_ack' => $l->status === DoLetter::STATUS_FORWARDED_HQ,
+                    'status_label' => $l->status === DoLetter::STATUS_FORWARDED_HQ ? 'Awaiting DG Review' : 'Acknowledged by DG',
+                    'forwarded_at' => $l->forwarded_to_hq_at ? Carbon::parse($l->forwarded_to_hq_at)->format('d M Y, h:i A') : 'N/A',
+                ]);
+        }
+
+        // 12. Inter-Circle Transfers (e.g. Gujranwala <-> Lahore <-> Karachi)
+        $transfersFeed = Complaint::whereNotNull('transfer_to_circle_id')
+            ->with(['circle:id,name,code', 'transferToCircle:id,name,code'])
+            ->latest('updated_at')
+            ->limit(6)
+            ->get()
+            ->map(fn ($cmp) => [
+                'id' => $cmp->id,
+                'complaint_no' => $cmp->complaint_no ?: ('CMP-' . str_pad($cmp->id, 5, '0', STR_PAD_LEFT)),
+                'from_circle' => $cmp->circle?->name ?: 'Origin Circle',
+                'to_circle' => $cmp->transferToCircle?->name ?: 'Target Circle',
+                'transferred_at' => $cmp->updated_at ? $cmp->updated_at->format('d M Y') : 'N/A',
+            ]);
+
+        $totalTransfersCount = Complaint::whereNotNull('transfer_to_circle_id')->count();
 
         return [
             'metrics' => [
@@ -405,14 +472,26 @@ class DepartmentProgressController extends Controller
                 'pending_legal_reviews' => $pendingLegalReviews,
                 'overall_disposal_rate' => $overallDisposalRate,
             ],
+            'hq_command' => [
+                'headquarters' => 'Islamabad Headquarters (HQ)',
+                'jurisdiction' => 'Nationwide / Federal Territory & Provincial Circles',
+                'total_circles' => count($circles),
+                'total_officers' => count($circleOfficers),
+                'pending_dsr' => $pendingDsrCount,
+                'pending_do' => $pendingDoCount,
+                'total_transfers' => $totalTransfersCount,
+            ],
             'circles' => $circles,
             'circle_breakdown' => $circleBreakdown,
-            'circle_bar_chart' => array_slice($circleBarChart, 0, 10), // Top 10 circles
+            'circle_bar_chart' => array_slice($circleBarChart, 0, 10),
             'circle_officers' => $circleOfficers,
             'workflow_pie' => $workflowPie,
             'category_breakdown' => $categoryBreakdown,
             'monthly_trends' => $monthlyTrends,
             'legal_backlog' => $legalBacklog,
+            'hq_dsr_feed' => $hqDsrFeed,
+            'hq_do_feed' => $hqDoFeed,
+            'transfers_feed' => $transfersFeed,
             'filters' => [
                 'year' => $year,
                 'circle_id' => $circleId,

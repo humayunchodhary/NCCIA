@@ -22,11 +22,17 @@ export default function DepartmentProgress() {
   const [pieMode, setPieMode] = useState('stages'); // 'stages' | 'categories'
   const [hoveredSlice, setHoveredSlice] = useState(null);
 
+  // Section Refs for smooth jumping
+  const officersSectionRef = useRef(null);
+  const hqFeedsSectionRef = useRef(null);
+  const circlesSectionRef = useRef(null);
+  const chartsSectionRef = useRef(null);
+  const legalSectionRef = useRef(null);
+
   // Officers Directory Filters
   const [officerCircleFilter, setOfficerCircleFilter] = useState('');
   const [officerRoleFilter, setOfficerRoleFilter] = useState('');
   const [officerSearch, setOfficerSearch] = useState('');
-  const officersSectionRef = useRef(null);
 
   const fetchMonitoringData = (silent = false) => {
     if (!silent) {
@@ -79,6 +85,10 @@ export default function DepartmentProgress() {
     if (officersSectionRef.current) {
       officersSectionRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  const handlePrintBriefing = () => {
+    window.print();
   };
 
   // Pie Chart calculations for Donut
@@ -250,42 +260,141 @@ export default function DepartmentProgress() {
     );
   }
 
-  const { metrics = {}, circles = [], legal_backlog = [], circle_officers = [] } = data || {};
+  const {
+    metrics = {},
+    circles = [],
+    legal_backlog = [],
+    circle_officers = [],
+    hq_command = {},
+    hq_dsr_feed = [],
+    hq_do_feed = [],
+    transfers_feed = []
+  } = data || {};
 
   return (
     <div className="page-content" style={{ paddingBottom: 60 }}>
-      {/* Top Banner & Header */}
-      <div className="page-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-        <div className="page-title-group">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span style={{
-              background: '#015C94', color: '#fff', fontSize: 11, fontWeight: 700,
-              padding: '3px 9px', borderRadius: 12, letterSpacing: '0.05em', textTransform: 'uppercase'
-            }}>
-              Executive & Legal Oversight
-            </span>
-            <span style={{ fontSize: 12, color: '#6b7280' }}>
-              • High-Level Agency Monitoring
-            </span>
-          </div>
-          <h1 className="page-title" style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>
-            Department Progress & Monitoring Dashboard
-          </h1>
-          <p className="page-subtitle" style={{ fontSize: 13, color: '#475569' }}>
-            Consolidated disposal metrics, circle comparative analytics & circle-wise officers directory (Gujranwala, Lahore, Karachi, Islamabad, etc.).
-          </p>
-          <div className="title-underline" style={{ width: 80, height: 3, background: '#015C94', marginTop: 8 }}></div>
+      {/* Islamabad HQ Central Executive Command Banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, #013658 0%, #015C94 65%, #0284c7 100%)',
+        color: '#fff', borderRadius: 14, padding: '22px 26px', marginBottom: 20,
+        boxShadow: '0 8px 24px rgba(1,92,148,0.25)', position: 'relative', overflow: 'hidden'
+      }}>
+        {/* Subtle Background Badge Pattern */}
+        <div style={{
+          position: 'absolute', right: -20, top: -20, opacity: 0.08, fontSize: 180,
+          pointerEvents: 'none', userSelect: 'none', fontWeight: 900
+        }}>
+          HQ
         </div>
 
-        {/* Global Filter Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ maxWidth: 700 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{
+                background: '#f59e0b', color: '#000', fontSize: 11, fontWeight: 800,
+                padding: '3px 10px', borderRadius: 12, letterSpacing: '0.06em', textTransform: 'uppercase'
+              }}>
+                Federal Executive Command
+              </span>
+              <span style={{ fontSize: 12, opacity: 0.9 }}>
+                • NCCIA Headquarters, Islamabad
+              </span>
+            </div>
+            <h1 style={{ fontSize: 25, fontWeight: 800, margin: '0 0 6px 0', letterSpacing: '-0.01em' }}>
+              Islamabad HQ — Central Executive Monitoring Portal
+            </h1>
+            <p style={{ margin: 0, fontSize: 13.5, opacity: 0.9, lineHeight: 1.5 }}>
+              Central Command & Oversight Directorate for DG, Additional Director, DD Legal & AD Legal. Monitoring all provincial circles across Pakistan.
+            </p>
+
+            {/* Quick HQ Summary Badges */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+              <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                🏛️ {hq_command.total_circles || circles.length} Circles Monitored
+              </span>
+              <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                👮‍♂️ {hq_command.total_officers || circle_officers.length} Deployed Officers
+              </span>
+              <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                📑 {hq_command.pending_dsr || 0} DSRs Pending HQ
+              </span>
+              <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                ✉️ {hq_command.pending_do || 0} D.O. Letters for DG
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={handlePrintBriefing}
+              style={{
+                background: '#fff', color: '#013658', border: 'none', borderRadius: 8,
+                padding: '9px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+              }}
+            >
+              <span>🖨️ Print Executive Briefing</span>
+            </button>
+            <div style={{ fontSize: 11, opacity: 0.8, textAlign: 'right' }}>
+              DG Secretariat & Ministry of Interior Briefing
+            </div>
+          </div>
+        </div>
+
+        {/* Islamabad HQ Jump Navigation Bar */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-          background: '#fff', padding: '8px 14px', borderRadius: 10,
-          border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          display: 'flex', gap: 8, marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.2)',
+          flexWrap: 'wrap'
         }}>
+          <button
+            type="button"
+            onClick={() => chartsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            📊 Analytics & Charts
+          </button>
+          <button
+            type="button"
+            onClick={() => circlesSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            🏛️ Circle Progress (Lahore, Gujranwala...)
+          </button>
+          <button
+            type="button"
+            onClick={() => officersSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            👮‍♂️ Circle Officers Directory
+          </button>
+          <button
+            type="button"
+            onClick={() => hqFeedsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            📑 HQ DSR & D.O. Feeds ({hq_command.pending_dsr || 0})
+          </button>
+          <button
+            type="button"
+            onClick={() => legalSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            ⚖️ Legal Scrutiny ({legal_backlog.length})
+          </button>
+        </div>
+      </div>
+
+      {/* Global Filter Bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
+        background: '#fff', padding: '10px 16px', borderRadius: 10,
+        border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 20
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {/* Year Filter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Year:</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Saal (Year):</span>
             <select
               className="filter-select"
               value={year}
@@ -300,7 +409,7 @@ export default function DepartmentProgress() {
 
           {/* Circle Filter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Circle:</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Select Circle:</span>
             <select
               className="filter-select"
               value={circleId}
@@ -308,9 +417,9 @@ export default function DepartmentProgress() {
                 setCircleId(e.target.value);
                 setOfficerCircleFilter(e.target.value);
               }}
-              style={{ padding: '5px 10px', fontSize: 13, minWidth: 160 }}
+              style={{ padding: '5px 10px', fontSize: 13, minWidth: 170 }}
             >
-              <option value="">All Circles / Agency Wide</option>
+              <option value="">All Circles / Nationwide</option>
               {circles.map(c => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.code ? `(${c.code})` : ''}
@@ -328,7 +437,6 @@ export default function DepartmentProgress() {
               onChange={e => setDateFrom(e.target.value)}
               placeholder="From"
               style={{ padding: '4px 8px', fontSize: 12 }}
-              title="Filter from date"
             />
             <span style={{ color: '#94a3b8', fontSize: 12 }}>–</span>
             <input
@@ -338,7 +446,6 @@ export default function DepartmentProgress() {
               onChange={e => setDateTo(e.target.value)}
               placeholder="To"
               style={{ padding: '4px 8px', fontSize: 12 }}
-              title="Filter to date"
             />
             {(dateFrom || dateTo) && (
               <button
@@ -348,7 +455,7 @@ export default function DepartmentProgress() {
                   border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer'
                 }}
               >
-                Filter
+                Apply Date
               </button>
             )}
           </form>
@@ -362,43 +469,43 @@ export default function DepartmentProgress() {
                 fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 6px'
               }}
             >
-              Clear
+              Reset Filters
             </button>
           )}
-
-          {/* Refresh button */}
-          <button
-            type="button"
-            onClick={() => fetchMonitoringData(true)}
-            disabled={refreshing}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
-              background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 6,
-              fontSize: 12, fontWeight: 600, color: '#334155', cursor: 'pointer'
-            }}
-            title="Refresh Data"
-          >
-            <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.5"
-              style={{ transform: refreshing ? 'rotate(180deg)' : 'none', transition: 'transform 0.5s' }}
-            >
-              <polyline points="23 4 23 10 17 10" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-            </svg>
-            <span>{refreshing ? 'Syncing...' : 'Refresh'}</span>
-          </button>
         </div>
+
+        {/* Refresh button */}
+        <button
+          type="button"
+          onClick={() => fetchMonitoringData(true)}
+          disabled={refreshing}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
+            background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 6,
+            fontSize: 12.5, fontWeight: 600, color: '#334155', cursor: 'pointer'
+          }}
+          title="Refresh Data"
+        >
+          <svg
+            width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5"
+            style={{ transform: refreshing ? 'rotate(180deg)' : 'none', transition: 'transform 0.5s' }}
+          >
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+          </svg>
+          <span>{refreshing ? 'Syncing...' : 'Live Refresh'}</span>
+        </button>
       </div>
 
       {/* Top Metric Cards */}
-      <div className="stats-grid" style={{ marginTop: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         {/* Total Workload */}
-        <div className="stat-card blue" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="stat-card blue">
           <div className="stat-value" style={{ fontSize: 26, fontWeight: 800 }}>
             {metrics.total_workload?.toLocaleString() || 0}
           </div>
-          <div className="stat-label">Total Workload</div>
+          <div className="stat-label">Total Nationwide Workload</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
             {metrics.total_complaints || 0} CMU + {metrics.total_enquiries || 0} Enq + {metrics.registered_cases || 0} Cases
           </div>
@@ -418,7 +525,7 @@ export default function DepartmentProgress() {
               {metrics.overall_disposal_rate >= 70 ? 'Optimal' : 'In Progress'}
             </span>
           </div>
-          <div className="stat-label">Overall Disposal Rate</div>
+          <div className="stat-label">Agency Disposal Rate</div>
           <div style={{ marginTop: 6 }}>
             <ProgressBar value={metrics.overall_disposal_rate || 0} color="#16a34a" />
           </div>
@@ -429,7 +536,7 @@ export default function DepartmentProgress() {
           <div className="stat-value" style={{ fontSize: 26, fontWeight: 800, color: '#ea580c' }}>
             {metrics.active_enquiries?.toLocaleString() || 0}
           </div>
-          <div className="stat-label">Active Enquiries</div>
+          <div className="stat-label">Active Enquiries Across Circles</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
             Out of {metrics.total_enquiries || 0} registered
           </div>
@@ -461,24 +568,197 @@ export default function DepartmentProgress() {
           </div>
           <div className="stat-label">Pending Legal Scrutiny</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-            CFRs awaiting AD/DD/DG
+            CFRs awaiting AD/DD/DG approval
           </div>
         </div>
 
-        {/* Total Deployed Officers */}
-        <div className="stat-card purple" style={{ cursor: 'pointer' }} onClick={() => officersSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}>
+        {/* Court Hearings / Active Trials */}
+        <div className="stat-card purple">
           <div className="stat-value" style={{ fontSize: 26, fontWeight: 800, color: '#7c3aed' }}>
-            {circle_officers.length || 0}
+            {metrics.total_court_cases || 0}
           </div>
-          <div className="stat-label">Deployed Officers</div>
+          <div className="stat-label">Court Trial Registry</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-            Across all circles & wings ↓
+            Under active trial in courts
           </div>
         </div>
       </div>
 
+      {/* Section: Islamabad HQ Feeds (DSR Reports & D.O. Letters Inflow) */}
+      <div ref={hqFeedsSectionRef} style={{ marginTop: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+          {/* Card 1: Incoming DSR Reports Forwarded to HQ */}
+          <div className="card" style={{ borderTop: '3px solid #0284c7' }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>📑 Daily Situation Reports (DSR Feed)</span>
+                  {hq_command.pending_dsr > 0 && (
+                    <span style={{ background: '#ef4444', color: '#fff', fontSize: 10.5, fontWeight: 800, padding: '2px 7px', borderRadius: 10 }}>
+                      {hq_command.pending_dsr} Pending HQ
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                  Daily situation updates forwarded by Circle Incharges to HQ.
+                </div>
+              </div>
+              <Link to="/dsr-reports" style={{ fontSize: 12, fontWeight: 700, color: '#015C94', textDecoration: 'none' }}>
+                All DSRs →
+              </Link>
+            </div>
+
+            <div className="card-body" style={{ padding: 0 }}>
+              <div className="table-responsive">
+                <table className="data-table" style={{ fontSize: 12.5 }}>
+                  <thead>
+                    <tr>
+                      <th>Circle</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: 'right' }}>Forwarded At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hq_dsr_feed.map(dsr => (
+                      <tr key={dsr.id}>
+                        <td>
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{dsr.circle_name}</div>
+                          <div style={{ fontSize: 10.5, color: '#64748b' }}>{dsr.unit_name}</div>
+                        </td>
+                        <td>{dsr.report_date}</td>
+                        <td>
+                          <span style={{
+                            padding: '2px 7px', borderRadius: 4, fontSize: 10.5, fontWeight: 700,
+                            background: dsr.is_pending_ack ? '#fef3c7' : '#dcfce7',
+                            color: dsr.is_pending_ack ? '#b45309' : '#15803d'
+                          }}>
+                            {dsr.status_label}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right', fontSize: 11, color: '#64748b' }}>
+                          {dsr.forwarded_at}
+                        </td>
+                      </tr>
+                    ))}
+                    {!hq_dsr_feed.length && (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                          No forwarded DSR reports at this moment.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Monthly D.O. Letters Forwarded to DG / HQ */}
+          <div className="card" style={{ borderTop: '3px solid #7c3aed' }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>✉️ Monthly D.O. Letters (DG Inflow)</span>
+                  {hq_command.pending_do > 0 && (
+                    <span style={{ background: '#f59e0b', color: '#000', fontSize: 10.5, fontWeight: 800, padding: '2px 7px', borderRadius: 10 }}>
+                      {hq_command.pending_do} Awaiting DG
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
+                  Confidential monthly reports submitted to Director General.
+                </div>
+              </div>
+              <Link to="/do-letters" style={{ fontSize: 12, fontWeight: 700, color: '#015C94', textDecoration: 'none' }}>
+                All D.O. →
+              </Link>
+            </div>
+
+            <div className="card-body" style={{ padding: 0 }}>
+              <div className="table-responsive">
+                <table className="data-table" style={{ fontSize: 12.5 }}>
+                  <thead>
+                    <tr>
+                      <th>Originating Circle</th>
+                      <th>Month</th>
+                      <th>DG Status</th>
+                      <th style={{ textAlign: 'right' }}>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hq_do_feed.map(doLetter => (
+                      <tr key={doLetter.id}>
+                        <td style={{ fontWeight: 700, color: '#0f172a' }}>
+                          {doLetter.circle_name}
+                        </td>
+                        <td>{doLetter.month_label}</td>
+                        <td>
+                          <span style={{
+                            padding: '2px 7px', borderRadius: 4, fontSize: 10.5, fontWeight: 700,
+                            background: doLetter.is_pending_ack ? '#fef3c7' : '#dcfce7',
+                            color: doLetter.is_pending_ack ? '#b45309' : '#15803d'
+                          }}>
+                            {doLetter.status_label}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right', fontSize: 11, color: '#64748b' }}>
+                          {doLetter.forwarded_at}
+                        </td>
+                      </tr>
+                    ))}
+                    {!hq_do_feed.length && (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                          No forwarded D.O. letters at this moment.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Inter-Circle Transfers Overview */}
+        {transfers_feed.length > 0 && (
+          <div className="card" style={{ marginTop: 16, borderLeft: '4px solid #0891b2' }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+                <span>🔄 Recent Inter-Circle Case Transfers</span>
+                <span style={{ fontSize: 11, color: '#64748b' }}>
+                  ({hq_command.total_transfers || transfers_feed.length} Total Transferred across circles)
+                </span>
+              </div>
+            </div>
+            <div className="card-body" style={{ padding: '8px 16px' }}>
+              <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 6 }}>
+                {transfers_feed.map(tr => (
+                  <div
+                    key={tr.id}
+                    style={{
+                      background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
+                      padding: '8px 14px', minWidth: 240, flexShrink: 0
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{tr.complaint_no}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, marginTop: 4 }}>
+                      <span style={{ color: '#64748b' }}>{tr.from_circle}</span>
+                      <span style={{ color: '#0891b2', fontWeight: 800 }}>➔</span>
+                      <span style={{ color: '#0369a1', fontWeight: 700 }}>{tr.to_circle}</span>
+                    </div>
+                    <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 3 }}>Date: {tr.transferred_at}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Charts Section Row 1: Donut/Pie Chart & Monthly Inflow/Disposal Chart */}
-      <div className="dashboard-grid" style={{ marginTop: 24, gridTemplateColumns: '1.1fr 1.4fr', gap: 20 }}>
+      <div ref={chartsSectionRef} className="dashboard-grid" style={{ marginTop: 24, gridTemplateColumns: '1.1fr 1.4fr', gap: 20 }}>
         {/* Chart 1: Interactive SVG Pie / Donut Chart */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -765,12 +1045,12 @@ export default function DepartmentProgress() {
       </div>
 
       {/* Circle Detailed Progress Table */}
-      <div className="card" style={{ marginTop: 24 }}>
+      <div ref={circlesSectionRef} className="card" style={{ marginTop: 24 }}>
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div className="card-title">Comprehensive Department & Circle Progress</div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              Individual performance metrics, officers deployed & disposal ratios
+              Individual performance metrics, officers deployed & disposal ratios across all circles
             </div>
           </div>
 
@@ -1083,11 +1363,11 @@ export default function DepartmentProgress() {
       </div>
 
       {/* Legal Scrutiny & Approval Backlog (Dedicated for Legal Chain + DG) */}
-      <div className="card" style={{ marginTop: 24, borderTop: '3px solid #f59e0b' }}>
+      <div ref={legalSectionRef} className="card" style={{ marginTop: 24, borderTop: '3px solid #f59e0b' }}>
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>⚖️ Legal Scrutiny & Approval Backlog</span>
+              <span>⚖️ Central Legal Scrutiny & Approval Backlog</span>
               <span style={{
                 background: '#fef3c7', color: '#b45309', fontSize: 11, fontWeight: 700,
                 padding: '2px 8px', borderRadius: 10
