@@ -7,6 +7,7 @@ import OfficerHistoryPanel from '../components/OfficerHistoryPanel';
 import DirectRegistrationFields from '../components/DirectRegistrationFields';
 import CaseChatPanel from '../components/CaseChatPanel';
 import AudioSampleRecorder from '../components/AudioSampleRecorder';
+import LiveCameraCaptureModal from '../components/LiveCameraCaptureModal';
 import { canRegisterCaseFromEnquiry, enquiryReadyForCaseRegistration, canViewVerificationReportInEnquiry, canFillLegalAndApprove, isSavedDiaryLocked } from '../utils/permissions';
 import { toLocalInput } from '../utils/datetime';
 import { preparePrintWindow, writePrintWindow, closePrintWindow } from '../utils/print';
@@ -241,6 +242,7 @@ export default function EnquiryForm() {
   const [linkedForensicRequests, setLinkedForensicRequests] = useState([]);
   const linkedForensicRef = useRef([]);
   const [loadingLinkedReports, setLoadingLinkedReports] = useState(false);
+  const [cameraModal, setCameraModal] = useState({ open: false, title: '', onCapture: null });
   const [showAccountOpeningModal, setShowAccountOpeningModal] = useState(false);
   const [accountOpeningData, setAccountOpeningData] = useState({
     account_no: '',
@@ -2061,18 +2063,38 @@ export default function EnquiryForm() {
                       style={{ width: '100%' }}
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                     {[
-                      ['cnic_attachment', 'CNIC Attachment'],
-                      ['passport_attachment', 'Passport Attachment'],
-                      ['nadra_verisys_attachment', 'NADRA Verisys Attachment'],
-                    ].map(([field, label]) => (
+                      ['cnic_attachment', 'CNIC Attachment', '.pdf,.jpg,.jpeg,.png,.doc,.docx'],
+                      ['passport_attachment', 'Passport Attachment', '.pdf,.jpg,.jpeg,.png,.doc,.docx'],
+                      ['nadra_verisys_attachment', 'NADRA Verisys', '.pdf,.jpg,.jpeg,.png,.doc,.docx'],
+                      ['picture', 'Photo / Picture', 'image/*'],
+                    ].map(([field, label, accept]) => (
                       <div key={field} className="cf-field">
                         <label className="cf-label">{label}</label>
-                        <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateAccusedFile(i, field, e.target.files[0])} />
-                        {a[field] && typeof a[field] === 'string' && (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input type="file" className="cf-input" accept={accept} onChange={e => updateAccusedFile(i, field, e.target.files[0])} />
+                          {field === 'picture' && (
+                            <button
+                              type="button"
+                              onClick={() => setCameraModal({
+                                open: true,
+                                title: `Capture Photo for Accused #${i + 1} (${a.name || 'Accused'})`,
+                                onCapture: (file) => updateAccusedFile(i, 'picture', file)
+                              })}
+                              className="btn btn-outline btn-sm"
+                              style={{ height: 38, padding: '0 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', borderColor: '#015C94', color: '#015C94' }}
+                              title="Open Live Webcam / Camera"
+                            >
+                              📷 Camera
+                            </button>
+                          )}
+                        </div>
+                        {a[field] instanceof File ? (
+                          <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {a[field].name}</span>
+                        ) : (a[field] && typeof a[field] === 'string') ? (
                           <a href={a[field]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Existing file ↗</a>
-                        )}
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -2210,18 +2232,37 @@ export default function EnquiryForm() {
                     <div className="cf-field"><label className="cf-label">Permanent Address</label><textarea className="cf-input" rows={2} value={w.permanent_address} onChange={e => updateWitness(i, 'permanent_address', e.target.value)} style={{ width: '100%' }} /></div>
                   </div>
                   <div className="cf-field" style={{ marginBottom: 12 }}><label className="cf-label">Address</label><textarea className="cf-input" rows={2} value={w.address} onChange={e => updateWitness(i, 'address', e.target.value)} style={{ width: '100%' }} /></div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                     {[
-                      ['attachment', 'CNIC Attachment'],
-                      ['picture', 'Picture'],
-                      ['statement_attachment', 'Statement Attachment'],
-                    ].map(([field, label]) => (
+                      ['attachment', 'CNIC Attachment', '.pdf,.jpg,.jpeg,.png,.doc,.docx'],
+                      ['picture', 'Picture / Photo', 'image/*'],
+                      ['statement_attachment', 'Statement Attachment', '.pdf,.jpg,.jpeg,.png,.doc,.docx'],
+                    ].map(([field, label, accept]) => (
                       <div key={field} className="cf-field">
                         <label className="cf-label">{label}</label>
-                        <input type="file" className="cf-input" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => updateWitnessFile(i, field, e.target.files[0])} />
-                        {w[field] && typeof w[field] === 'string' && (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input type="file" className="cf-input" accept={accept} onChange={e => updateWitnessFile(i, field, e.target.files[0])} />
+                          {field === 'picture' && (
+                            <button
+                              type="button"
+                              onClick={() => setCameraModal({
+                                open: true,
+                                title: `Capture Photo for Witness #${i + 1} (${w.name || 'Witness'})`,
+                                onCapture: (file) => updateWitnessFile(i, 'picture', file)
+                              })}
+                              className="btn btn-outline btn-sm"
+                              style={{ height: 38, padding: '0 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', borderColor: '#015C94', color: '#015C94' }}
+                              title="Open Live Webcam / Camera"
+                            >
+                              📷 Camera
+                            </button>
+                          )}
+                        </div>
+                        {w[field] instanceof File ? (
+                          <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {w[field].name}</span>
+                        ) : (w[field] && typeof w[field] === 'string') ? (
                           <a href={w[field]} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#015C94', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>Existing file ↗</a>
-                        )}
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -3693,6 +3734,15 @@ export default function EnquiryForm() {
           </div>
         </div>
       )}
+
+      <LiveCameraCaptureModal
+        open={cameraModal.open}
+        title={cameraModal.title}
+        onClose={() => setCameraModal({ open: false, title: '', onCapture: null })}
+        onCapture={(file) => {
+          if (cameraModal.onCapture) cameraModal.onCapture(file);
+        }}
+      />
     </div>
   );
 }

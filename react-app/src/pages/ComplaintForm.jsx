@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import SearchableSelect from '../components/SearchableSelect';
 import PdfAutoFillBar from '../components/PdfAutoFillBar';
+import LiveCameraCaptureModal from '../components/LiveCameraCaptureModal';
 import { mapExtractToComplaintForm, matchLookupValue } from '../utils/fillFromPdf';
 import { countryCodes } from '../data/countries';
 import { canAssignVerification, hasRole } from '../utils/permissions';
@@ -155,6 +156,7 @@ export default function ComplaintForm() {
   const [cnicBackFile, setCnicBackFile] = useState(null);
   const [passportFile, setPassportFile] = useState(null);
   const [pictureFile, setPictureFile] = useState(null);
+  const [cameraModal, setCameraModal] = useState({ open: false, title: '', onCapture: null });
   const [existingDocs, setExistingDocs] = useState({
     cnic_front_url: '',
     cnic_back_url: '',
@@ -668,7 +670,24 @@ export default function ComplaintForm() {
                 ].map(doc => (
                   <div key={doc.key} className="cf-field">
                     <label className="cf-label">{doc.label}</label>
-                    <input type="file" className="cf-input" accept={doc.accept} onChange={e => doc.setFile(e.target.files?.[0] || null)} />
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input type="file" className="cf-input" accept={doc.accept} onChange={e => doc.setFile(e.target.files?.[0] || null)} />
+                      {doc.key === 'picture' && (
+                        <button
+                          type="button"
+                          onClick={() => setCameraModal({
+                            open: true,
+                            title: 'Capture Complainant Photo',
+                            onCapture: (file) => setPictureFile(file)
+                          })}
+                          className="btn btn-outline btn-sm"
+                          style={{ height: 38, padding: '0 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', borderColor: '#015C94', color: '#015C94' }}
+                          title="Open Live Webcam / Camera"
+                        >
+                          📷 Camera
+                        </button>
+                      )}
+                    </div>
                     {doc.file ? (
                       <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {doc.file.name}</span>
                     ) : doc.url ? (
@@ -834,7 +853,24 @@ export default function ComplaintForm() {
                     {ACCUSED_DOC_FIELDS.map(doc => (
                       <div key={doc.key} className="cf-field">
                         <label className="cf-label">{doc.label}</label>
-                        {!isOperator && <input type="file" className="cf-input" accept={doc.accept} onChange={e => addInitialAccusedDoc(i, doc.key, e.target.files?.[0] || '')} />}
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          {!isOperator && <input type="file" className="cf-input" accept={doc.accept} onChange={e => addInitialAccusedDoc(i, doc.key, e.target.files?.[0] || '')} />}
+                          {doc.key === 'picture' && !isOperator && (
+                            <button
+                              type="button"
+                              onClick={() => setCameraModal({
+                                open: true,
+                                title: `Capture Photo for Accused #${i + 1} (${a.name || 'Accused'})`,
+                                onCapture: (file) => addInitialAccusedDoc(i, 'picture', file)
+                              })}
+                              className="btn btn-outline btn-sm"
+                              style={{ height: 38, padding: '0 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', borderColor: '#015C94', color: '#015C94' }}
+                              title="Open Live Webcam / Camera"
+                            >
+                              📷 Camera
+                            </button>
+                          )}
+                        </div>
                         {a[doc.key] instanceof File ? (
                           <span style={{ fontSize: 12, color: '#38a169', marginTop: 4, display: 'block' }}>Selected: {a[doc.key].name}</span>
                         ) : (a[`${doc.key}_url`] || (typeof a[doc.key] === 'string' && a[doc.key])) ? (
@@ -956,6 +992,15 @@ export default function ComplaintForm() {
           </button>
         </div>
       </form>
+
+      <LiveCameraCaptureModal
+        open={cameraModal.open}
+        title={cameraModal.title}
+        onClose={() => setCameraModal({ open: false, title: '', onCapture: null })}
+        onCapture={(file) => {
+          if (cameraModal.onCapture) cameraModal.onCapture(file);
+        }}
+      />
     </div>
   );
 }

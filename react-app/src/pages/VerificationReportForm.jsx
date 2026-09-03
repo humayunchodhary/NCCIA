@@ -4,6 +4,7 @@ import api from '../api';
 import { countryCodes } from '../data/countries';
 import { toLocalInput } from '../utils/datetime';
 import PdfAutoFillBar from '../components/PdfAutoFillBar';
+import LiveCameraCaptureModal from '../components/LiveCameraCaptureModal';
 import { mapExtractToVerificationReport, matchLookupValue } from '../utils/fillFromPdf';
 import { useAuth } from '../contexts/AuthContext';
 import { hasRole } from '../utils/permissions';
@@ -122,6 +123,7 @@ export default function VerificationReportForm() {
   const [serverError, setServerError] = useState('');
   const [linkedVerificationId, setLinkedVerificationId] = useState(null);
   const [verificationStatus, setVerificationStatus] = useState('');
+  const [cameraModal, setCameraModal] = useState({ open: false, title: '', onCapture: null });
 
   const isSupervisor = ['admin', 'circle_incharge', 'ad_legal', 'dd_legal', 'additional_director', 'director_general'].some(r => hasRole(user, r));
   const isVoLocked = !isSupervisor && !!id && ['submitted', 'approved', 'closed', 'merged', 'transferred'].includes(verificationStatus);
@@ -954,7 +956,24 @@ export default function VerificationReportForm() {
                         ].filter(doc => doc.key !== 'photo').map(doc => (
                           <div key={doc.key} className="cf-field">
                             <label className="cf-label">{doc.label}</label>
-                            <input type="file" className="cf-input" accept={doc.accept} onChange={e => updateAccusedFile(i, doc.key, e.target.files[0])} />
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <input type="file" className="cf-input" accept={doc.accept} onChange={e => updateAccusedFile(i, doc.key, e.target.files[0])} />
+                              {doc.key === 'picture' && !isVoLocked && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCameraModal({
+                                    open: true,
+                                    title: `Capture Photo for Accused #${i + 1} (${a.name || 'Accused'})`,
+                                    onCapture: (file) => updateAccusedFile(i, 'picture', file)
+                                  })}
+                                  className="btn btn-outline btn-sm"
+                                  style={{ height: 38, padding: '0 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', borderColor: '#015C94', color: '#015C94' }}
+                                  title="Open Live Webcam / Camera"
+                                >
+                                  📷 Camera
+                                </button>
+                              )}
+                            </div>
                             {a[doc.key] instanceof File
                               ? <span style={{fontSize:12,color:'#38a169',marginTop:4,display:'block'}}>Selected: {a[doc.key].name}</span>
                               : (a[`${doc.key}_url`] || (typeof a[doc.key] === 'string' && a[doc.key])
@@ -1143,6 +1162,15 @@ export default function VerificationReportForm() {
           )}
         </div>
       </form>
+
+      <LiveCameraCaptureModal
+        open={cameraModal.open}
+        title={cameraModal.title}
+        onClose={() => setCameraModal({ open: false, title: '', onCapture: null })}
+        onCapture={(file) => {
+          if (cameraModal.onCapture) cameraModal.onCapture(file);
+        }}
+      />
     </div>
   );
 }
