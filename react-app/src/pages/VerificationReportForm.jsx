@@ -246,6 +246,45 @@ export default function VerificationReportForm() {
     }
   }, [id, navigate]);
 
+  // Helper to extract proper complaint registration and assignment dates
+  const resolveComplaintDates = (comp, v = {}) => {
+    let regAt = '';
+    if (comp) {
+      if (comp.report_date && comp.entry_time) {
+        const timeStr = String(comp.entry_time).trim();
+        let hours = 0, mins = 0;
+        const isPm = /pm/i.test(timeStr);
+        const isAm = /am/i.test(timeStr);
+        const cleanTime = timeStr.replace(/[^\d:]/g, '');
+        const parts = cleanTime.split(':');
+        if (parts.length >= 2) {
+          hours = parseInt(parts[0], 10) || 0;
+          mins = parseInt(parts[1], 10) || 0;
+          if (isPm && hours < 12) hours += 12;
+          if (isAm && hours === 12) hours = 0;
+          const pad = n => String(n).padStart(2, '0');
+          const datePart = comp.report_date.split('T')[0];
+          regAt = `${datePart}T${pad(hours)}:${pad(mins)}`;
+        } else {
+          regAt = toLocalInput(comp.created_at || comp.report_date);
+        }
+      } else {
+        regAt = toLocalInput(comp.created_at || comp.report_date);
+      }
+    }
+
+    let assignAt = '';
+    if (v && v.assigned_at) {
+      assignAt = toLocalInput(v.assigned_at);
+    } else if (comp?.verification?.assigned_at) {
+      assignAt = toLocalInput(comp.verification.assigned_at);
+    } else {
+      assignAt = regAt;
+    }
+
+    return { regAt, assignAt };
+  };
+
   // Prefill from top-search deep link: /verifications/reports/create?tracking=0001/26
   useEffect(() => {
     if (id) return;
@@ -259,6 +298,7 @@ export default function VerificationReportForm() {
     if (comp.verification?.id) setLinkedVerificationId(comp.verification.id);
     const phone = (comp.contact_no || '').replace(/\D/g, '').replace(/^0+/, '');
     const v = comp.verification || {};
+    const { regAt, assignAt } = resolveComplaintDates(comp, v);
     const mapAccused = (Array.isArray(comp.initial_accused) ? comp.initial_accused : []).map(a => ({
       name: a.name || '',
       father_name: a.father_name || '',
@@ -287,8 +327,8 @@ export default function VerificationReportForm() {
       ...f,
       tracking_no: tracking,
       complaint_id: comp.id,
-      registration_at: toLocalInput(comp.entry_time || comp.created_at),
-      assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
+      registration_at: regAt || toLocalInput(comp.created_at),
+      assignment_date: assignAt || f.assignment_date,
       verification_date: f.verification_date,
       victim_name: comp.complainant_name || '',
       victim_father_name: comp.father_name || '',
@@ -306,7 +346,7 @@ export default function VerificationReportForm() {
     }));
   }, [id, searchParams, complaints]);
 
-const handleTrackingChange = (e) => {
+  const handleTrackingChange = (e) => {
     const tracking = e.target.value;
     setForm(f => ({ ...f, tracking_no: tracking }));
     const comp = complaints.find(c => c.tracking_no === tracking);
@@ -314,6 +354,7 @@ const handleTrackingChange = (e) => {
     if (comp) {
       const phone = (comp.contact_no || '').replace(/\D/g, '').replace(/^0+/, '');
       const v = comp.verification || {};
+      const { regAt, assignAt } = resolveComplaintDates(comp, v);
       const mapAccused = (Array.isArray(comp.initial_accused) ? comp.initial_accused : []).map(a => ({
         name: a.name || '',
         father_name: a.father_name || '',
@@ -362,8 +403,8 @@ const handleTrackingChange = (e) => {
         ...f,
         tracking_no: tracking,
         complaint_id: comp.id,
-        registration_at: toLocalInput(comp.entry_time || comp.created_at),
-        assignment_date: toLocalInput(v.assigned_at) || f.assignment_date,
+        registration_at: regAt || toLocalInput(comp.created_at),
+        assignment_date: assignAt || f.assignment_date,
         verification_date: f.verification_date,
         victim_name: comp.complainant_name || '',
         victim_father_name: comp.father_name || '',
@@ -629,18 +670,42 @@ const handleTrackingChange = (e) => {
                 <span className="cf-hint">Auto-fills registration / assignment / verification date-time</span>
               </div>
               <div className="cf-field">
-                <label className="cf-label">Registration Date &amp; Time</label>
+                <label className="cf-label">
+                  Registration Date &amp; Time
+                  {!isSupervisor && <span style={{ fontSize: 11, color: '#64748b', marginLeft: 6, fontWeight: 500 }}>🔒 (Auto / Non-editable)</span>}
+                </label>
                 <div className="cf-input-wrap">
-                  <input type="datetime-local" className="cf-input" name="registration_at" value={form.registration_at} onChange={setF('registration_at')} disabled={isVoLocked} />
+                  <input
+                    type="datetime-local"
+                    className="cf-input"
+                    name="registration_at"
+                    value={form.registration_at}
+                    onChange={setF('registration_at')}
+                    disabled={!isSupervisor || isVoLocked}
+                    readOnly={!isSupervisor}
+                    style={!isSupervisor ? { background: '#f8fafc', color: '#334155', cursor: 'not-allowed' } : {}}
+                  />
                 </div>
                 <span className="cf-hint">When complaint was registered</span>
               </div>
             </div>
             <div className="cf-row-2">
               <div className="cf-field">
-                <label className="cf-label">Assignment Date &amp; Time</label>
+                <label className="cf-label">
+                  Assignment Date &amp; Time
+                  {!isSupervisor && <span style={{ fontSize: 11, color: '#64748b', marginLeft: 6, fontWeight: 500 }}>🔒 (Auto / Non-editable)</span>}
+                </label>
                 <div className="cf-input-wrap">
-                  <input type="datetime-local" className="cf-input" name="assignment_date" value={form.assignment_date} onChange={setF('assignment_date')} disabled={isVoLocked} />
+                  <input
+                    type="datetime-local"
+                    className="cf-input"
+                    name="assignment_date"
+                    value={form.assignment_date}
+                    onChange={setF('assignment_date')}
+                    disabled={!isSupervisor || isVoLocked}
+                    readOnly={!isSupervisor}
+                    style={!isSupervisor ? { background: '#f8fafc', color: '#334155', cursor: 'not-allowed' } : {}}
+                  />
                 </div>
                 <span className="cf-hint">When assigned to verification officer</span>
               </div>

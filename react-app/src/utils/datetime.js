@@ -6,6 +6,14 @@ export function toLocalInput(value) {
     return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
   }
   const s = String(value).trim();
+  // If ISO string with timezone indicator (Z or +00:00), parse as Date so browser applies local timezone offset!
+  if (s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+  }
   // Match YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm
   const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})[T\s](\d{2}):(\d{2})/);
   if (match) {
