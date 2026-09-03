@@ -250,26 +250,34 @@ export default function VerificationReportForm() {
   const resolveComplaintDates = (comp, v = {}) => {
     let regAt = '';
     if (comp) {
-      if (comp.report_date && comp.entry_time) {
-        const timeStr = String(comp.entry_time).trim();
-        let hours = 0, mins = 0;
-        const isPm = /pm/i.test(timeStr);
-        const isAm = /am/i.test(timeStr);
-        const cleanTime = timeStr.replace(/[^\d:]/g, '');
-        const parts = cleanTime.split(':');
-        if (parts.length >= 2) {
-          hours = parseInt(parts[0], 10) || 0;
-          mins = parseInt(parts[1], 10) || 0;
-          if (isPm && hours < 12) hours += 12;
-          if (isAm && hours === 12) hours = 0;
-          const pad = n => String(n).padStart(2, '0');
-          const datePart = comp.report_date.split('T')[0];
-          regAt = `${datePart}T${pad(hours)}:${pad(mins)}`;
-        } else {
-          regAt = toLocalInput(comp.created_at || comp.report_date);
+      if (comp.created_at) {
+        regAt = toLocalInput(comp.created_at);
+      } else if (comp.registration_at) {
+        regAt = toLocalInput(comp.registration_at);
+      } else if (comp.report_date) {
+        const rawDate = String(comp.report_date).trim();
+        const rawTime = comp.entry_time || comp.reporting_time || '';
+        if (rawTime) {
+          const timeStr = String(rawTime).trim();
+          let hours = 0, mins = 0;
+          const isPm = /pm/i.test(timeStr);
+          const isAm = /am/i.test(timeStr);
+          const cleanTime = timeStr.replace(/[^\d:]/g, '');
+          const parts = cleanTime.split(':');
+          if (parts.length >= 2) {
+            hours = parseInt(parts[0], 10) || 0;
+            mins = parseInt(parts[1], 10) || 0;
+            if (isPm && hours < 12) hours += 12;
+            if (isAm && hours === 12) hours = 0;
+            const pad = n => String(n).padStart(2, '0');
+            const dStr = toLocalInput(rawDate).split('T')[0];
+            if (dStr) regAt = `${dStr}T${pad(hours)}:${pad(mins)}`;
+          }
         }
-      } else {
-        regAt = toLocalInput(comp.created_at || comp.report_date);
+        if (!regAt) regAt = toLocalInput(rawDate);
+      }
+      if (!regAt && comp.entry_time) {
+        regAt = toLocalInput(comp.entry_time);
       }
     }
 
@@ -278,9 +286,10 @@ export default function VerificationReportForm() {
       assignAt = toLocalInput(v.assigned_at);
     } else if (comp?.verification?.assigned_at) {
       assignAt = toLocalInput(comp.verification.assigned_at);
-    } else {
-      assignAt = regAt;
     }
+
+    if (!regAt && assignAt) regAt = assignAt;
+    if (!assignAt && regAt) assignAt = regAt;
 
     return { regAt, assignAt };
   };

@@ -14,6 +14,14 @@ export function toLocalInput(value) {
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
   }
+  // Match DD/MM/YYYY or DD-MM-YYYY [HH:mm]
+  const dmyMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[T\s](\d{2}):(\d{2}))?/);
+  if (dmyMatch && (Number(dmyMatch[1]) > 12 || dmyMatch[0].includes('/'))) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const hh = dmyMatch[4] !== undefined ? dmyMatch[4] : '00';
+    const mm = dmyMatch[5] !== undefined ? dmyMatch[5] : '00';
+    return `${dmyMatch[3]}-${pad(dmyMatch[2])}-${pad(dmyMatch[1])}T${hh}:${mm}`;
+  }
   // Match YYYY-MM-DD HH:mm:ss or YYYY-MM-DDTHH:mm
   const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})[T\s](\d{2}):(\d{2})/);
   if (match) {
