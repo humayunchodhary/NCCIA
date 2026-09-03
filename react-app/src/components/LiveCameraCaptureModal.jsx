@@ -62,7 +62,11 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setError('Webcam access is not supported by this browser. Please use the "Upload Photo File" option below.');
+      if (!window.isSecureContext) {
+        setError('Camera requires HTTPS. Please use the "Open Device Camera" button below to take a photo directly from your phone/camera, or upload a file.');
+      } else {
+        setError('Webcam access is not supported by this browser. Please use the "Upload Photo File" option below.');
+      }
       setLoading(false);
       return;
     }
@@ -92,7 +96,7 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
     } catch (err) {
       console.error('getUserMedia error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setError('Camera permission is blocked in browser settings. Please click the 🔒 / 🎛️ icon on top-left of the address bar, toggle Camera to Allow, then click "Retry Camera".');
+        setError('Camera permission is blocked in browser settings. Please click the 🔒 icon on the address bar, allow Camera, then retry. Or use "Open Device Camera" below.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setError('No webcam or camera device found on this system. You can upload a photo directly from files.');
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
@@ -181,6 +185,8 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
       onClose();
     }
   };
+
+  const isSecureContext = typeof window !== 'undefined' && window.isSecureContext;
 
   if (!open) return null;
 
@@ -279,13 +285,33 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
               </div>
               <div style={{ marginBottom: 10, lineHeight: 1.5 }}>{error}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {window.isSecureContext && (
+                  <button
+                    type="button"
+                    onClick={() => startCamera(selectedDeviceId)}
+                    className="btn btn-sm btn-primary"
+                    style={{ fontSize: 12, padding: '6px 16px', background: '#015C94', borderColor: '#015C94', fontWeight: 600 }}
+                  >
+                    🔄 Retry Camera
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => startCamera(selectedDeviceId)}
+                  onClick={() => {
+                    const capInput = document.createElement('input');
+                    capInput.type = 'file';
+                    capInput.accept = 'image/*';
+                    capInput.capture = 'user';
+                    capInput.onchange = (e) => {
+                      const f = e.target.files?.[0];
+                      if (f) { onCapture(f); onClose(); }
+                    };
+                    capInput.click();
+                  }}
                   className="btn btn-sm btn-primary"
-                  style={{ fontSize: 12, padding: '6px 16px', background: '#015C94', borderColor: '#015C94', fontWeight: 600 }}
+                  style={{ fontSize: 12, padding: '6px 16px', background: '#10b981', borderColor: '#10b981', fontWeight: 600 }}
                 >
-                  🔄 Retry Camera
+                  📸 Open Device Camera
                 </button>
                 <button
                   type="button"
@@ -413,19 +439,39 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
                 style={{ display: 'none' }}
                 onChange={handleFallbackFile}
               />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="btn btn-outline btn-sm"
-                style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                Upload from Files / Phone Camera
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const capInput = document.createElement('input');
+                    capInput.type = 'file';
+                    capInput.accept = 'image/*';
+                    capInput.capture = 'user';
+                    capInput.onchange = (e) => {
+                      const f = e.target.files?.[0];
+                      if (f) { onCapture(f); onClose(); }
+                    };
+                    capInput.click();
+                  }}
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  📸 Open Device Camera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  Upload Photo File
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
