@@ -48,14 +48,20 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
     }
 
     try {
-      const constraints = {
-        video: deviceId
-          ? { deviceId: { exact: deviceId } }
-          : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      };
+      let mediaStream;
+      try {
+        const constraints = {
+          video: deviceId
+            ? { deviceId: { exact: deviceId } }
+            : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        };
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (innerErr) {
+        // Fallback to basic video constraint if ideal constraints fail
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -74,11 +80,11 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
       }
     } catch (err) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setError('Camera permission was denied. Please allow camera access in browser address bar permissions or use system file upload.');
+        setError('Camera permission was blocked by your browser. Please follow the quick steps below to allow access:');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setError('No camera / webcam device found on this system.');
+        setError('No webcam or camera device found on this computer. You can upload a photo file directly below.');
       } else {
-        setError(err.message || 'Unable to start camera.');
+        setError(err.message || 'Unable to start camera feed.');
       }
     } finally {
       setLoading(false);
@@ -240,16 +246,42 @@ export default function LiveCameraCaptureModal({ open, onClose, onCapture, title
           {error && (
             <div
               style={{
-                background: '#fef2f2',
-                border: '1px solid #f87171',
-                borderRadius: 8,
-                padding: '12px 14px',
+                background: '#fff1f2',
+                border: '1.5px solid #fda4af',
+                borderRadius: 10,
+                padding: '14px 16px',
                 marginBottom: 16,
                 fontSize: 13,
-                color: '#991b1b',
+                color: '#9f1239',
               }}
             >
-              <strong>Camera Alert:</strong> {error}
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                ⚠️ Camera Permission Notice
+              </div>
+              <div style={{ marginBottom: 8 }}>{error}</div>
+              <ol style={{ margin: '0 0 12px 18px', padding: 0, lineHeight: 1.6, fontSize: 12.5 }}>
+                <li>Browser address bar mein top-left par <strong>🔒 Padlock / 🎛️ Tune Icon</strong> par click karein.</li>
+                <li><strong>Camera</strong> option ko <strong>"Allow"</strong> (toggle ON) karein.</li>
+                <li>Neechay <strong>"Retry Camera"</strong> button click karein.</li>
+              </ol>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => startCamera(selectedDeviceId)}
+                  className="btn btn-sm btn-primary"
+                  style={{ fontSize: 12, padding: '5px 14px', background: '#e11d48', borderColor: '#e11d48' }}
+                >
+                  🔄 Retry Camera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn btn-sm btn-outline"
+                  style={{ fontSize: 12, padding: '5px 14px' }}
+                >
+                  📁 Upload Photo File
+                </button>
+              </div>
             </div>
           )}
 
