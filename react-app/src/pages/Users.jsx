@@ -3,21 +3,26 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import { ROLE_FEATURES } from '../utils/permissions';
 
 const ALL_FEATURES = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'analytics', label: 'Analytics' },
   { key: 'complaints', label: 'Complaints' },
   { key: 'verifications', label: 'Verifications' },
-  { key: 'reports', label: 'Reports' },
+  { key: 'reports', label: 'Verification Reports' },
   { key: 'enquiries', label: 'Enquiries' },
   { key: 'io_records', label: 'IO Records' },
   { key: 'dac_cases', label: 'DAC Cases' },
   { key: 'court_cases', label: 'Court Cases' },
-  { key: 'users', label: 'Users' },
+  { key: 'dsr_reports', label: 'DSR (Daily Situation Report)' },
+  { key: 'do_letters', label: 'D.O. Letters (Monthly)' },
+  { key: 'users', label: 'Users Management' },
   { key: 'circles', label: 'Circles' },
   { key: 'offence_types', label: 'Crime Categories' },
-  { key: 'reference', label: 'Reference' },
+  { key: 'sms_logs', label: 'SMS & WhatsApp Logs' },
+  { key: 'login_history', label: 'Login History' },
+  { key: 'reference', label: 'Reference / Law Books' },
   { key: 'profile', label: 'Profile' },
 ];
 
@@ -71,7 +76,7 @@ export default function Users() {
     const roles = u.roles?.map?.(r => r.name || r) || [u.role || ''];
     const granted = new Set();
     roles.forEach(r => {
-      const feats = { admin:['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile'], circle_incharge:['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','offence_types','reference','profile'], verification_officer:['dashboard','verifications','reports','profile'], enquiry_officer:['dashboard','enquiries','dac_cases','profile'], investigation_officer:['dashboard','dac_cases','court_cases','profile'], moharrar:['dashboard','dac_cases','court_cases','profile'], reader_branch:['dashboard','enquiries','profile'], operator:['dashboard','complaints','profile'], ad_legal:['dashboard','enquiries','dac_cases','profile'], dd_legal:['dashboard','enquiries','dac_cases','profile'], additional_director:['dashboard','enquiries','dac_cases','profile'], director_general:['dashboard','analytics','complaints','verifications','reports','enquiries','io_records','dac_cases','court_cases','users','circles','offence_types','reference','profile'] }[r] || [];
+      const feats = ROLE_FEATURES[r] || [];
       feats.forEach(f => granted.add(f));
     });
     return granted;

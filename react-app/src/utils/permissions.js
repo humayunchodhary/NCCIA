@@ -188,7 +188,7 @@ export function canAssignVerification(user) {
 
 /** Sidebar / create: VIP Direct Verification */
 export function canSeeDirectVerification(user) {
-  return hasAnyRole(user, ['admin', 'circle_incharge', 'operator', 'verification_officer', 'director_general']);
+  return hasAnyRole(user, ['admin', 'circle_incharge', 'verification_officer', 'director_general']);
 }
 
 /** Sidebar / create: VIP Direct Enquiry */
@@ -207,7 +207,7 @@ export function canSeeDirectFir(user) {
   ]) || canView('dac_cases', user);
 }
 
-/** VO may open direct verification create (assigned to self); CI/admin/operator assign freely */
+/** VO may open direct verification create (assigned to self); CI/admin assign freely */
 export function canCreateDirectVerification(user) {
   return canSeeDirectVerification(user);
 }

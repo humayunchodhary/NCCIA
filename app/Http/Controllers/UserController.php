@@ -104,7 +104,7 @@ class UserController extends Controller
                 'permission' => 'required|string',
             ]);
 
-            $permission = Permission::findByName($data['permission'], 'web');
+            $permission = Permission::firstOrCreate(['name' => $data['permission'], 'guard_name' => 'web']);
             $user->givePermissionTo($permission);
 
             return response()->json([
@@ -123,8 +123,10 @@ class UserController extends Controller
                 'permission' => 'required|string',
             ]);
 
-            $permission = Permission::findByName($data['permission'], 'web');
-            $user->revokePermissionTo($permission);
+            $permission = Permission::where('name', $data['permission'])->where('guard_name', 'web')->first();
+            if ($permission) {
+                $user->revokePermissionTo($permission);
+            }
 
             return response()->json([
                 'message' => "Permission '{$data['permission']}' revoked from {$user->name}",
