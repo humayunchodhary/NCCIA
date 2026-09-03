@@ -8,6 +8,7 @@ use App\Models\Complaint;
 use App\Models\CourtCase;
 use App\Models\Enquiry;
 use App\Models\OffenceType;
+use App\Models\User;
 use App\Models\Verification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,7 +41,7 @@ class DepartmentProgressController extends Controller
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
-        $cacheKey = "dept_prog:v1:{$user->id}:{$year}:" . ($circleId ?: 'all') . ":{$dateFrom}:{$dateTo}";
+        $cacheKey = "dept_prog:v2:{$user->id}:{$year}:" . ($circleId ?: 'all') . ":{$dateFrom}:{$dateTo}";
 
         $payload = Cache::remember($cacheKey, 60, function () use ($year, $circleId, $dateFrom, $dateTo) {
             return $this->buildProgressData($year, $circleId, $dateFrom, $dateTo);
@@ -131,6 +132,11 @@ class DepartmentProgressController extends Controller
         $overallDisposalRate = min(100, $overallDisposalRate);
 
         // 4. Circle-by-Circle Detailed Breakdown
+        $officersCountByCircle = User::whereNotNull('circle_id')
+            ->selectRaw('circle_id, count(*) as count')
+            ->groupBy('circle_id')
+            ->pluck('count', 'circle_id');
+
         $circleBreakdown = [];
         $circleBarChart = [];
 
@@ -211,6 +217,7 @@ class DepartmentProgressController extends Controller
                 'id' => $c->id,
                 'name' => $c->name,
                 'code' => $c->code,
+                'officers_count' => (int) ($officersCountByCircle[$c->id] ?? 0),
                 'total_complaints' => $cCmpTotal,
                 'resolved_complaints' => $cCmpResolved,
                 'total_enquiries' => $cEnqTotal,
@@ -238,7 +245,68 @@ class DepartmentProgressController extends Controller
         usort($circleBreakdown, fn ($a, $b) => ($b['total_complaints'] + $b['total_enquiries']) <=> ($a['total_complaints'] + $a['total_enquiries']));
         usort($circleBarChart, fn ($a, $b) => $b['total'] <=> $a['total']);
 
-        // 5. Pie Chart Data: Workflow Stage Distribution
+        // 5. Circle-wise Officers Directory & Individual Workload
+        $officersQuery = User::query()
+            ->with(['circle:id,name,code', 'roles:id,name'])
+            ->select('id', 'name', 'email', 'phone', 'role', 'designation', 'circle_id');
+
+        if ($circleId) {
+            $officersQuery->where('circle_id', $circleId);
+        }
+
+        $officers = $officersQuery->get();
+
+        $enquiryCounts = Enquiry::selectRaw('enquiry_officer_id, count(*) as total, sum(case when status in (\'approved\', \'closed\') then 1 else 0 end) as completed')
+            ->whereNotNull('enquiry_officer_id')
+            ->when($year, fn ($q) => $q->whereYear('created_at', $year))
+            ->groupBy('enquiry_officer_id')
+            ->get()
+            ->keyBy('enquiry_officer_id');
+
+        $caseCounts = CaseFile::selectRaw('investigation_officer_id, count(*) as total, sum(case when status = \'closed\' then 1 else 0 end) as completed')
+            ->whereNotNull('investigation_officer_id')
+            ->when($year, fn ($q) => $q->whereYear('created_at', $year))
+            ->groupBy('investigation_officer_id')
+            ->get()
+            ->keyBy('investigation_officer_id');
+
+        $verificationCounts = Verification::selectRaw('verification_officer_id, count(*) as total, sum(case when status in (\'submitted\', \'approved\') then 1 else 0 end) as completed')
+            ->whereNotNull('verification_officer_id')
+            ->when($year, fn ($q) => $q->whereYear('created_at', $year))
+            ->groupBy('verification_officer_id')
+            ->get()
+            ->keyBy('verification_officer_id');
+
+        $circleOfficers = $officers->map(function ($u) use ($enquiryCounts, $caseCounts, $verificationCounts) {
+            $roleName = $u->roles->first()?->name ?? $u->role ?? 'Officer';
+            $enqStat = $enquiryCounts->get($u->id);
+            $caseStat = $caseCounts->get($u->id);
+            $verStat = $verificationCounts->get($u->id);
+
+            $assigned = ($enqStat->total ?? 0) + ($caseStat->total ?? 0) + ($verStat->total ?? 0);
+            $completed = ($enqStat->completed ?? 0) + ($caseStat->completed ?? 0) + ($verStat->completed ?? 0);
+            $pending = max(0, $assigned - $completed);
+            $rate = $assigned > 0 ? (int) round(($completed / $assigned) * 100) : 0;
+
+            return [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'phone' => $u->phone,
+                'circle_id' => $u->circle_id,
+                'circle_name' => $u->circle?->name ?: 'Headquarters / All Circles',
+                'circle_code' => $u->circle?->code ?: '',
+                'role' => $roleName,
+                'role_label' => ucwords(str_replace('_', ' ', $roleName)),
+                'designation' => $u->designation ?: ucwords(str_replace('_', ' ', $roleName)),
+                'assigned_workload' => $assigned,
+                'completed_workload' => $completed,
+                'pending_workload' => $pending,
+                'completion_rate' => $rate,
+            ];
+        })->sortByDesc('assigned_workload')->values();
+
+        // 6. Pie Chart Data: Workflow Stage Distribution
         $workflowPie = [
             [
                 'name' => 'Complaints (CMU)',
@@ -267,7 +335,7 @@ class DepartmentProgressController extends Controller
             ],
         ];
 
-        // 6. Pie Chart / Bar Data: Offence Categories Breakdown
+        // 7. Pie Chart / Bar Data: Offence Categories Breakdown
         $categoryBreakdown = OffenceType::query()
             ->selectRaw('offence_types.name, COUNT(*) as count')
             ->join('complaints', 'offence_types.value', '=', 'complaints.offence_type')
@@ -285,7 +353,7 @@ class DepartmentProgressController extends Controller
                 ];
             });
 
-        // 7. Monthly Trends (Inflow vs Disposal)
+        // 8. Monthly Trends (Inflow vs Disposal)
         $monthlyTrends = [];
         $receivedMonths = (clone $cmpQuery)
             ->selectRaw('MONTH(created_at) as m, COUNT(*) as c')
@@ -309,7 +377,7 @@ class DepartmentProgressController extends Controller
             ];
         }
 
-        // 8. Recent Legal Review Backlog Items (CFRs & Opinions for AD/DD/DG)
+        // 9. Recent Legal Review Backlog Items (CFRs & Opinions for AD/DD/DG)
         $legalBacklog = Enquiry::whereIn('status', $legalStatuses)
             ->with(['complaint.circle'])
             ->latest('updated_at')
@@ -340,6 +408,7 @@ class DepartmentProgressController extends Controller
             'circles' => $circles,
             'circle_breakdown' => $circleBreakdown,
             'circle_bar_chart' => array_slice($circleBarChart, 0, 10), // Top 10 circles
+            'circle_officers' => $circleOfficers,
             'workflow_pie' => $workflowPie,
             'category_breakdown' => $categoryBreakdown,
             'monthly_trends' => $monthlyTrends,

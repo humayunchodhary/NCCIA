@@ -22,6 +22,12 @@ export default function DepartmentProgress() {
   const [pieMode, setPieMode] = useState('stages'); // 'stages' | 'categories'
   const [hoveredSlice, setHoveredSlice] = useState(null);
 
+  // Officers Directory Filters
+  const [officerCircleFilter, setOfficerCircleFilter] = useState('');
+  const [officerRoleFilter, setOfficerRoleFilter] = useState('');
+  const [officerSearch, setOfficerSearch] = useState('');
+  const officersSectionRef = useRef(null);
+
   const fetchMonitoringData = (silent = false) => {
     if (!silent) {
       setLoading(true);
@@ -65,6 +71,14 @@ export default function DepartmentProgress() {
     setCircleId('');
     setDateFrom('');
     setDateTo('');
+    setOfficerCircleFilter('');
+  };
+
+  const handleCircleOfficersClick = (cId) => {
+    setOfficerCircleFilter(String(cId));
+    if (officersSectionRef.current) {
+      officersSectionRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   // Pie Chart calculations for Donut
@@ -103,7 +117,6 @@ export default function DepartmentProgress() {
       const endAngle = cumulativeAngle + sliceAngle;
       cumulativeAngle = endAngle;
 
-      // Convert polar to cartesian
       const startRad = (startAngle - 90) * (Math.PI / 180);
       const endRad = (endAngle - 90) * (Math.PI / 180);
 
@@ -169,6 +182,30 @@ export default function DepartmentProgress() {
     );
   }, [data, tableSearch]);
 
+  // Filtered Officers List (Gujranwala, Lahore, etc.)
+  const filteredOfficers = useMemo(() => {
+    const list = data?.circle_officers || [];
+    return list.filter(off => {
+      if (officerCircleFilter && String(off.circle_id) !== String(officerCircleFilter)) {
+        return false;
+      }
+      if (officerRoleFilter && !String(off.role).toLowerCase().includes(officerRoleFilter.toLowerCase())) {
+        return false;
+      }
+      if (officerSearch.trim()) {
+        const q = officerSearch.toLowerCase();
+        const matchName = off.name && off.name.toLowerCase().includes(q);
+        const matchEmail = off.email && off.email.toLowerCase().includes(q);
+        const matchDesig = off.designation && off.designation.toLowerCase().includes(q);
+        const matchCircle = off.circle_name && off.circle_name.toLowerCase().includes(q);
+        if (!matchName && !matchEmail && !matchDesig && !matchCircle) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [data, officerCircleFilter, officerRoleFilter, officerSearch]);
+
   if (loading) {
     return (
       <div className="page-content">
@@ -213,7 +250,7 @@ export default function DepartmentProgress() {
     );
   }
 
-  const { metrics = {}, circles = [], legal_backlog = [] } = data || {};
+  const { metrics = {}, circles = [], legal_backlog = [], circle_officers = [] } = data || {};
 
   return (
     <div className="page-content" style={{ paddingBottom: 60 }}>
@@ -235,7 +272,7 @@ export default function DepartmentProgress() {
             Department Progress & Monitoring Dashboard
           </h1>
           <p className="page-subtitle" style={{ fontSize: 13, color: '#475569' }}>
-            Consolidated disposal metrics, circle comparative analytics & legal scrutiny pipeline across NCCIA.
+            Consolidated disposal metrics, circle comparative analytics & circle-wise officers directory (Gujranwala, Lahore, Karachi, Islamabad, etc.).
           </p>
           <div className="title-underline" style={{ width: 80, height: 3, background: '#015C94', marginTop: 8 }}></div>
         </div>
@@ -267,8 +304,11 @@ export default function DepartmentProgress() {
             <select
               className="filter-select"
               value={circleId}
-              onChange={e => setCircleId(e.target.value)}
-              style={{ padding: '5px 10px', fontSize: 13, minWidth: 150 }}
+              onChange={e => {
+                setCircleId(e.target.value);
+                setOfficerCircleFilter(e.target.value);
+              }}
+              style={{ padding: '5px 10px', fontSize: 13, minWidth: 160 }}
             >
               <option value="">All Circles / Agency Wide</option>
               {circles.map(c => (
@@ -313,7 +353,7 @@ export default function DepartmentProgress() {
             )}
           </form>
 
-          {(circleId || dateFrom || dateTo) && (
+          {(circleId || dateFrom || dateTo || officerCircleFilter) && (
             <button
               type="button"
               onClick={handleResetFilters}
@@ -406,7 +446,7 @@ export default function DepartmentProgress() {
           </div>
         </div>
 
-        {/* Pending Legal Review Backlog (Key for AD Legal, DD Legal, AD, DG) */}
+        {/* Pending Legal Review Backlog */}
         <div className="stat-card gold" style={{ borderLeft: '4px solid #f59e0b' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
             <div className="stat-value" style={{ fontSize: 26, fontWeight: 800, color: '#d97706' }}>
@@ -421,18 +461,18 @@ export default function DepartmentProgress() {
           </div>
           <div className="stat-label">Pending Legal Scrutiny</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-            CFRs & opinions awaiting AD/DD/DG
+            CFRs awaiting AD/DD/DG
           </div>
         </div>
 
-        {/* Court Hearings / Active Trials */}
-        <div className="stat-card purple">
+        {/* Total Deployed Officers */}
+        <div className="stat-card purple" style={{ cursor: 'pointer' }} onClick={() => officersSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}>
           <div className="stat-value" style={{ fontSize: 26, fontWeight: 800, color: '#7c3aed' }}>
-            {metrics.total_court_cases || 0}
+            {circle_officers.length || 0}
           </div>
-          <div className="stat-label">Court Case Registry</div>
+          <div className="stat-label">Deployed Officers</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-            Under trial across circles
+            Across all circles & wings ↓
           </div>
         </div>
       </div>
@@ -446,9 +486,7 @@ export default function DepartmentProgress() {
               <span>Distribution Breakdown</span>
             </div>
             {/* Toggle Pie Mode */}
-            <div style={{
-              display: 'flex', background: '#f1f5f9', borderRadius: 6, padding: 2, gap: 2
-            }}>
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 6, padding: 2, gap: 2 }}>
               <button
                 type="button"
                 onClick={() => setPieMode('stages')}
@@ -505,7 +543,6 @@ export default function DepartmentProgress() {
                       );
                     })}
                   </svg>
-                  {/* Center Text inside Donut */}
                   <div style={{
                     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -597,7 +634,6 @@ export default function DepartmentProgress() {
                 </linearGradient>
               </defs>
 
-              {/* Grid Lines */}
               {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
                 <line
                   key={i}
@@ -607,21 +643,16 @@ export default function DepartmentProgress() {
                 />
               ))}
 
-              {/* Polylines and Area Gradients */}
               {monthlyTrends.length > 0 && (
                 <>
-                  {/* Received Area */}
                   <polygon
                     fill="url(#trendRecGrad)"
                     points={`30,200 ${monthlyTrends.map((m, i) => `${i * 48 + 40},${200 - (m.received / maxMonthlyVal) * 170}`).join(' ')} ${11 * 48 + 40},200`}
                   />
-                  {/* Resolved Area */}
                   <polygon
                     fill="url(#trendResGrad)"
                     points={`30,200 ${monthlyTrends.map((m, i) => `${i * 48 + 40},${200 - (m.resolved / maxMonthlyVal) * 170}`).join(' ')} ${11 * 48 + 40},200`}
                   />
-
-                  {/* Lines */}
                   <polyline
                     fill="none" stroke="#2563eb" strokeWidth="2.5"
                     points={monthlyTrends.map((m, i) => `${i * 48 + 40},${200 - (m.received / maxMonthlyVal) * 170}`).join(' ')}
@@ -631,7 +662,6 @@ export default function DepartmentProgress() {
                     points={monthlyTrends.map((m, i) => `${i * 48 + 40},${200 - (m.resolved / maxMonthlyVal) * 170}`).join(' ')}
                   />
 
-                  {/* Dots & Labels */}
                   {monthlyTrends.map((m, i) => {
                     const cx = i * 48 + 40;
                     const cyRec = 200 - (m.received / maxMonthlyVal) * 170;
@@ -688,7 +718,6 @@ export default function DepartmentProgress() {
                       </div>
                     </div>
 
-                    {/* Stacked Bar Container */}
                     <div style={{ width: '100%', background: '#f1f5f9', borderRadius: 8, height: 24, overflow: 'hidden', display: 'flex', position: 'relative' }}>
                       <div style={{ width: `${widthPercent}%`, height: '100%', display: 'flex', borderRadius: 8, overflow: 'hidden' }}>
                         <div
@@ -712,7 +741,6 @@ export default function DepartmentProgress() {
                       </div>
                     </div>
 
-                    {/* Total & Rate */}
                     <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                       <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
                         {circle.total} cases
@@ -742,7 +770,7 @@ export default function DepartmentProgress() {
           <div>
             <div className="card-title">Comprehensive Department & Circle Progress</div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-              Individual performance metrics, legal bottlenecks & disposal ratios
+              Individual performance metrics, officers deployed & disposal ratios
             </div>
           </div>
 
@@ -764,11 +792,12 @@ export default function DepartmentProgress() {
               <thead>
                 <tr>
                   <th>Circle / Department</th>
+                  <th>Officers Deployed</th>
                   <th>Complaints (CMU)</th>
                   <th>Enquiries</th>
                   <th>FIR Cases</th>
                   <th>Legal Pending</th>
-                  <th style={{ width: 200 }}>Disposal Progress</th>
+                  <th style={{ width: 180 }}>Disposal Progress</th>
                   <th style={{ textAlign: 'center' }}>Health Status</th>
                 </tr>
               </thead>
@@ -778,6 +807,21 @@ export default function DepartmentProgress() {
                     <td>
                       <div style={{ fontWeight: 700, color: '#0f172a' }}>{c.name}</div>
                       {c.code && <span className="table-id" style={{ marginTop: 2 }}>{c.code}</span>}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => handleCircleOfficersClick(c.id)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px',
+                          background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd',
+                          borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                        }}
+                        title={`View ${c.name} officers`}
+                      >
+                        <span>👥 {c.officers_count || 0} Officers</span>
+                        <span style={{ fontSize: 10 }}>↓</span>
+                      </button>
                     </td>
                     <td>
                       <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.total_complaints}</div>
@@ -818,8 +862,217 @@ export default function DepartmentProgress() {
                 ))}
                 {!filteredCircles.length && (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>
                       No circles found matching "{tableSearch}"
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Circle-wise Officers Directory & Individual Workload */}
+      <div className="card" ref={officersSectionRef} style={{ marginTop: 24, borderTop: '4px solid #015C94' }}>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+          <div>
+            <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>👮‍♂️ Circle Officers Directory & Workload</span>
+              <span style={{
+                background: '#015C94', color: '#fff', fontSize: 11, fontWeight: 700,
+                padding: '2px 8px', borderRadius: 10
+              }}>
+                {filteredOfficers.length} Officers Shown
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              Officers posted across Gujranwala, Lahore, Karachi, Islamabad and other circles with live workload tracking.
+            </div>
+          </div>
+
+          {/* Officers Search & Filter Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {/* Circle Filter */}
+            <select
+              className="filter-select"
+              value={officerCircleFilter}
+              onChange={e => setOfficerCircleFilter(e.target.value)}
+              style={{ fontSize: 12.5, minWidth: 170 }}
+            >
+              <option value="">All Circles ({circle_officers.length})</option>
+              {circles.map(c => {
+                const count = circle_officers.filter(o => String(o.circle_id) === String(c.id)).length;
+                return (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({count})
+                  </option>
+                );
+              })}
+            </select>
+
+            {/* Role Filter */}
+            <select
+              className="filter-select"
+              value={officerRoleFilter}
+              onChange={e => setOfficerRoleFilter(e.target.value)}
+              style={{ fontSize: 12.5, minWidth: 150 }}
+            >
+              <option value="">All Roles</option>
+              <option value="circle_incharge">Circle Incharge</option>
+              <option value="investigation_officer">Investigation Officer</option>
+              <option value="enquiry_officer">Enquiry Officer</option>
+              <option value="verification_officer">Verification Officer</option>
+              <option value="reader_branch">Reader Branch</option>
+              <option value="moharrar">Moharrar</option>
+              <option value="operator">Front Desk / CMU</option>
+              <option value="legal">Legal Officer</option>
+            </select>
+
+            {/* Officer Search Input */}
+            <input
+              type="text"
+              placeholder="Search officer name, email..."
+              value={officerSearch}
+              onChange={e => setOfficerSearch(e.target.value)}
+              className="filter-input"
+              style={{ width: 200, fontSize: 12.5 }}
+            />
+
+            {(officerCircleFilter || officerRoleFilter || officerSearch) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOfficerCircleFilter('');
+                  setOfficerRoleFilter('');
+                  setOfficerSearch('');
+                }}
+                style={{
+                  background: 'transparent', border: 'none', color: '#ef4444',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '4px 6px'
+                }}
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Circle Chips (Gujranwala, Lahore, Islamabad, Karachi, etc.) */}
+        <div style={{
+          display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto',
+          background: '#f8fafc', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap'
+        }}>
+          <button
+            type="button"
+            onClick={() => setOfficerCircleFilter('')}
+            style={{
+              padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+              cursor: 'pointer', border: 'none',
+              background: !officerCircleFilter ? '#015C94' : '#e2e8f0',
+              color: !officerCircleFilter ? '#fff' : '#334155'
+            }}
+          >
+            All Circles ({circle_officers.length})
+          </button>
+          {circles.map(c => {
+            const count = circle_officers.filter(o => String(o.circle_id) === String(c.id)).length;
+            const isSelected = String(officerCircleFilter) === String(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setOfficerCircleFilter(isSelected ? '' : String(c.id))}
+                style={{
+                  padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', border: 'none',
+                  background: isSelected ? '#015C94' : (count > 0 ? '#e0f2fe' : '#f1f5f9'),
+                  color: isSelected ? '#fff' : (count > 0 ? '#0369a1' : '#94a3b8')
+                }}
+              >
+                {c.name} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Officers Table */}
+        <div className="card-body" style={{ padding: 0 }}>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Officer</th>
+                  <th>Circle / Posting</th>
+                  <th>Designation / Role</th>
+                  <th>Assigned Tasks</th>
+                  <th>Completed / Disposed</th>
+                  <th>Active Backlog</th>
+                  <th style={{ width: 170 }}>Completion Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOfficers.map(off => (
+                  <tr key={off.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 34, height: 34, borderRadius: '50%', background: '#015C94', color: '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0
+                        }}>
+                          {off.name ? off.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : 'OF'}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{off.name}</div>
+                          <div style={{ fontSize: 11, color: '#64748b' }}>{off.email}</div>
+                          {off.phone && <div style={{ fontSize: 10.5, color: '#94a3b8' }}>📞 {off.phone}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        background: '#f1f5f9', color: '#0f172a', padding: '3px 9px',
+                        borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1px solid #e2e8f0'
+                      }}>
+                        🏛️ {off.circle_name}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{
+                        background: '#e0f2fe', color: '#0284c7', padding: '3px 8px',
+                        borderRadius: 6, fontSize: 11, fontWeight: 700
+                      }}>
+                        {off.designation}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 800, color: '#0f172a', fontSize: 13 }}>
+                        {off.assigned_workload}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: '#16a34a', fontSize: 13 }}>
+                        {off.completed_workload}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{
+                        fontWeight: 700, fontSize: 13,
+                        color: off.pending_workload > 0 ? '#ea580c' : '#64748b'
+                      }}>
+                        {off.pending_workload}
+                      </span>
+                    </td>
+                    <td>
+                      <ProgressBar value={off.completion_rate} showLabel />
+                    </td>
+                  </tr>
+                ))}
+                {!filteredOfficers.length && (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>
+                      No officers found matching the selected circle or filters.
                     </td>
                   </tr>
                 )}
