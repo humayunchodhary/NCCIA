@@ -264,8 +264,8 @@ export default function SoftwareGuide() {
 
   const handleSendWhatsApp = () => {
     const text = getFormattedIssueText();
-    // Support hotline dispatcher: 923000000000
-    const devPhone = '923000000000';
+    // Developer WhatsApp Hotline: 03464701439 (Pakistan: +92 346 4701439)
+    const devPhone = '923464701439';
     const url = `https://wa.me/${devPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -490,15 +490,23 @@ export default function SoftwareGuide() {
                       </svg>
                     </div>
                     <div className="dev-contact-details">
-                      <div className="dev-contact-label">Direct Developer WhatsApp Hotline</div>
-                      <div className="dev-contact-value">+92 300 0000000 · Direct WhatsApp Chat</div>
+                      <div className="dev-contact-label">Direct Developer WhatsApp &amp; Call Hotline</div>
+                      <a
+                        href="https://wa.me/923464701439"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="dev-contact-value"
+                        title="Click to open WhatsApp chat"
+                      >
+                        +92 346 4701439 (0346-4701439)
+                      </a>
                     </div>
                     <button
                       type="button"
                       className="dev-copy-btn highlight"
                       onClick={handleSendWhatsApp}
                     >
-                      Open WhatsApp
+                      Chat on WhatsApp
                     </button>
                   </div>
                 </div>
