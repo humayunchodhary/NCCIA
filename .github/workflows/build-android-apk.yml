@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
+      - 'mobile-app/**'
       - 'react-app/**'
       - '.github/workflows/build-android-apk.yml'
   workflow_dispatch:
@@ -29,26 +30,30 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Frontend Dependencies
+      - name: Build Web Application
         working-directory: react-app
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
 
-      - name: Build Web Application & Sync Capacitor
-        working-directory: react-app
-        run: npm run build:mobile
+      - name: Setup Mobile App & Sync Capacitor
+        working-directory: mobile-app
+        run: |
+          npm install --legacy-peer-deps
+          npx cap sync android
 
       - name: Grant Execute Permission for Gradle
-        working-directory: react-app/android
+        working-directory: mobile-app/android
         run: chmod +x gradlew
 
       - name: Build Android Debug APK
-        working-directory: react-app/android
+        working-directory: mobile-app/android
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Prepare APK for Release Artifact
         run: |
           mkdir -p release-apk
-          cp react-app/android/app/build/outputs/apk/debug/app-debug.apk release-apk/NCCIA-CMS-v2.4.1.apk
+          cp mobile-app/android/app/build/outputs/apk/debug/app-debug.apk release-apk/NCCIA-CMS-v2.4.1.apk
           echo "APK build complete: release-apk/NCCIA-CMS-v2.4.1.apk"
 
       - name: Upload Downloadable APK Artifact
