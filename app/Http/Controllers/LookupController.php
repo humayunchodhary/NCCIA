@@ -56,7 +56,7 @@ class LookupController extends Controller
         $user = request()->user();
         $circleId = ($user && $user->circle_id && !$user->hasAnyRole(['admin', 'director_general'])) ? $user->circle_id : 0;
         
-        $data = Cache::remember('lookup_eo_circle_' . $circleId, 60, function () use ($user, $circleId) {
+        $data = Cache::remember('lookup_eo_circle_' . $circleId, 60, function () use ($circleId) {
             $query = \App\Models\User::role('enquiry_officer')
                 ->with('circle:id,name,code', 'zone:id,name,code')
                 ->orderBy('name');
@@ -65,7 +65,7 @@ class LookupController extends Controller
                 $query->where('circle_id', $circleId);
             }
 
-            return $query->get(['id', 'name', 'email', 'designation', 'circle_id', 'zone_id']);
+            return $query->get(['id', 'name', 'designation', 'circle_id', 'zone_id']);
         });
 
         return response()->json($data);
@@ -73,11 +73,21 @@ class LookupController extends Controller
 
     public function legalOfficers()
     {
-        $data = Cache::remember('lookup_legal_officers', 60, function () {
-            return \App\Models\User::role(['ad_legal', 'additional_director', 'dd_legal'])
+        $user = request()->user();
+        $circleId = ($user && $user->circle_id && !$user->hasAnyRole(['admin', 'director_general'])) ? $user->circle_id : 0;
+
+        $data = Cache::remember('lookup_legal_officers_c' . $circleId, 60, function () use ($circleId) {
+            $query = \App\Models\User::role(['ad_legal', 'additional_director', 'dd_legal'])
                 ->with('circle:id,name,code', 'zone:id,name,code')
-                ->orderBy('name')
-                ->get(['id', 'name', 'email', 'designation', 'circle_id', 'zone_id']);
+                ->orderBy('name');
+
+            if ($circleId > 0) {
+                $query->where(function ($q) use ($circleId) {
+                    $q->where('circle_id', $circleId)->orWhereNull('circle_id');
+                });
+            }
+
+            return $query->get(['id', 'name', 'designation', 'circle_id', 'zone_id']);
         });
 
         return response()->json($data);
@@ -97,7 +107,7 @@ class LookupController extends Controller
                 $query->where('circle_id', $circleId);
             }
 
-            return $query->get(['id', 'name', 'email', 'designation', 'circle_id', 'zone_id']);
+            return $query->get(['id', 'name', 'designation', 'circle_id', 'zone_id']);
         });
 
         return response()->json($data);
@@ -105,11 +115,19 @@ class LookupController extends Controller
 
     public function investigationOfficers()
     {
-        $data = Cache::remember('lookup_investigation_officers', 60, function () {
-            return \App\Models\User::role('investigation_officer')
+        $user = request()->user();
+        $circleId = ($user && $user->circle_id && !$user->hasAnyRole(['admin', 'director_general'])) ? $user->circle_id : 0;
+
+        $data = Cache::remember('lookup_investigation_officers_c' . $circleId, 60, function () use ($circleId) {
+            $query = \App\Models\User::role('investigation_officer')
                 ->with('circle:id,name,code', 'zone:id,name,code')
-                ->orderBy('name')
-                ->get(['id', 'name', 'email', 'designation', 'circle_id', 'zone_id']);
+                ->orderBy('name');
+
+            if ($circleId > 0) {
+                $query->where('circle_id', $circleId);
+            }
+
+            return $query->get(['id', 'name', 'designation', 'circle_id', 'zone_id']);
         });
 
         return response()->json($data);
@@ -117,11 +135,19 @@ class LookupController extends Controller
 
     public function circleIncharges()
     {
-        $data = Cache::remember('lookup_circle_incharges', 60, function () {
-            return \App\Models\User::role('circle_incharge')
+        $user = request()->user();
+        $circleId = ($user && $user->circle_id && !$user->hasAnyRole(['admin', 'director_general'])) ? $user->circle_id : 0;
+
+        $data = Cache::remember('lookup_circle_incharges_c' . $circleId, 60, function () use ($circleId) {
+            $query = \App\Models\User::role('circle_incharge')
                 ->with('circle:id,name,code', 'zone:id,name,code')
-                ->orderBy('name')
-                ->get(['id', 'name', 'email', 'designation', 'circle_id', 'zone_id']);
+                ->orderBy('name');
+
+            if ($circleId > 0) {
+                $query->where('circle_id', $circleId);
+            }
+
+            return $query->get(['id', 'name', 'designation', 'circle_id', 'zone_id']);
         });
 
         return response()->json($data);
