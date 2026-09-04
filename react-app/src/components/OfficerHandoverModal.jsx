@@ -11,6 +11,8 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
   // Form State
   const [actionType, setActionType] = useState('transfer'); // 'transfer' | 'suspend' | 'reassign' | 'reinstate'
   const [roleFilter, setRoleFilter] = useState('same'); // 'same' | 'vo' | 'eo' | 'io' | 'ci' | 'all'
+  const [selectedCircleFilter, setSelectedCircleFilter] = useState(''); // filter replacement officers by circle
+  const [searchQuery, setSearchQuery] = useState(''); // instant search replacement officers
   const [splitByStage, setSplitByStage] = useState(false);
 
   // Replacement targets
@@ -36,6 +38,8 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
       setOrderNo('');
       setReason('');
       setRoleFilter('same');
+      setSelectedCircleFilter('');
+      setSearchQuery('');
       setSplitByStage(false);
 
       // Default action based on officer status
@@ -60,7 +64,7 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
             setTargetOfficerId(String(officersList[0].id));
           }
 
-          // Also pre-select for stage-by-stage
+          // Pre-select for stage-by-stage
           const firstVo = officersList.find(o => o.role_code === 'vo') || sameRoleList[0] || officersList[0];
           const firstEo = officersList.find(o => o.role_code === 'eo') || sameRoleList[0] || officersList[0];
           const firstIo = officersList.find(o => o.role_code === 'io') || sameRoleList[0] || officersList[0];
@@ -146,28 +150,45 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
     ? officer.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     : (officer.designation || 'Officer');
 
-  // Categorized officer lists
-  const sameRoleOfficers = eligibleOfficers.filter(o => o.is_same_role);
-  const voOfficers = eligibleOfficers.filter(o => o.role_code === 'vo');
-  const eoOfficers = eligibleOfficers.filter(o => o.role_code === 'eo');
-  const ioOfficers = eligibleOfficers.filter(o => o.role_code === 'io');
-  const ciOfficers = eligibleOfficers.filter(o => o.role_code === 'ci');
+  // Filter by Circle (if selected)
+  const circleScopedOfficers = selectedCircleFilter
+    ? eligibleOfficers.filter(o => String(o.circle_id) === String(selectedCircleFilter))
+    : eligibleOfficers;
 
-  // Filter based on active roleFilter tab
-  let displayedOfficers = eligibleOfficers;
+  // Categorized officer lists within scope
+  const sameRoleOfficers = circleScopedOfficers.filter(o => o.is_same_role);
+  const voOfficers = circleScopedOfficers.filter(o => o.role_code === 'vo');
+  const eoOfficers = circleScopedOfficers.filter(o => o.role_code === 'eo');
+  const ioOfficers = circleScopedOfficers.filter(o => o.role_code === 'io');
+  const ciOfficers = circleScopedOfficers.filter(o => o.role_code === 'ci');
+
+  // Filter by Role Tab
+  let roleFilteredOfficers = circleScopedOfficers;
   if (roleFilter === 'same') {
-    displayedOfficers = sameRoleOfficers;
+    roleFilteredOfficers = sameRoleOfficers;
   } else if (roleFilter === 'vo') {
-    displayedOfficers = voOfficers;
+    roleFilteredOfficers = voOfficers;
   } else if (roleFilter === 'eo') {
-    displayedOfficers = eoOfficers;
+    roleFilteredOfficers = eoOfficers;
   } else if (roleFilter === 'io') {
-    displayedOfficers = ioOfficers;
+    roleFilteredOfficers = ioOfficers;
   } else if (roleFilter === 'ci') {
-    displayedOfficers = ciOfficers;
+    roleFilteredOfficers = ciOfficers;
   }
 
-  // Check if multiple casework stages exist for this officer
+  // Filter by Search Query
+  const displayedOfficers = searchQuery.trim()
+    ? roleFilteredOfficers.filter(o => {
+        const q = searchQuery.toLowerCase().trim();
+        return (
+          o.name.toLowerCase().includes(q) ||
+          o.email.toLowerCase().includes(q) ||
+          (o.designation && o.designation.toLowerCase().includes(q)) ||
+          (o.circle_name && o.circle_name.toLowerCase().includes(q))
+        );
+      })
+    : roleFilteredOfficers;
+
   const activeStagesCount = [counts.verifications > 0, counts.enquiries > 0, counts.cases > 0].filter(Boolean).length;
 
   return (
@@ -178,7 +199,7 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
       zIndex: 9999, padding: 16
     }}>
       <div style={{
-        background: '#fff', borderRadius: 14, width: '100%', maxWidth: 720,
+        background: '#fff', borderRadius: 14, width: '100%', maxWidth: 740,
         maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
         display: 'flex', flexDirection: 'column'
       }}>
@@ -196,7 +217,7 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
               </h2>
             </div>
             <div style={{ fontSize: 12, opacity: 0.85, marginTop: 3 }}>
-              Safe transfer, suspension &amp; role-based workload reassignment (VO, EO, IO)
+              Safe transfer, suspension &amp; role-based workload reassignment (VO, EO, IO, Circle Incharge)
             </div>
           </div>
           <button
@@ -266,7 +287,7 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
                       }}>
                         {officerRoleLabel}
                       </span>
-                      • <strong>{officer.circle_name || 'Circle'}</strong>
+                      • <strong>{officer.circle_name || 'National / HQ'}</strong>
                     </div>
                     <div style={{ fontSize: 11.5, color: '#94a3b8' }}>{officer.email}</div>
                   </div>
@@ -381,12 +402,12 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
               }}>
                 {actionType === 'transfer' && (
                   <div>
-                    <strong>🔄 Transfer Protocol:</strong> Officer will be moved to the new circle. Their current active files in {officer.circle_name || 'this circle'} will be handed over to the selected replacement officer with an immutable handover snapshot.
+                    <strong>🔄 Transfer Protocol:</strong> Officer will be moved to the new circle. Their current active files will be handed over to the selected replacement officer with an immutable handover snapshot.
                   </div>
                 )}
                 {actionType === 'suspend' && (
                   <div>
-                    <strong>⛔ Suspension Protocol:</strong> Officer login access will be immediately blocked to prevent tampering. All active files in {officer.circle_name || 'this circle'} will immediately transfer to the replacement officer.
+                    <strong>⛔ Suspension Protocol:</strong> Officer login access will be immediately blocked to prevent tampering. All active files will immediately transfer to the replacement officer.
                   </div>
                 )}
                 {actionType === 'reassign' && (
@@ -423,7 +444,7 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
                 </div>
               )}
 
-              {/* Multi-Stage Split Toggle (If officer has mixed caseload) */}
+              {/* Multi-Stage Split Toggle */}
               {actionType !== 'reinstate' && counts.total_active > 0 && activeStagesCount > 1 && (
                 <div style={{
                   background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8,
@@ -477,14 +498,14 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
                           <option value="">— Select VO —</option>
                           {voOfficers.map(off => (
                             <option key={off.id} value={off.id}>
-                              ⭐ {off.name} (VO - {off.designation}) — {off.circle_name}
+                              ⭐ [VO] {off.name} ({off.designation || off.role_label}) — {off.circle_name}
                             </option>
                           ))}
                           {eligibleOfficers.filter(o => o.role_code !== 'vo').length > 0 && (
-                            <optgroup label="Other Circle Officers">
+                            <optgroup label="Other Officers (Circle Incharge / Cross-Role)">
                               {eligibleOfficers.filter(o => o.role_code !== 'vo').map(off => (
                                 <option key={off.id} value={off.id}>
-                                  {off.name} ({off.role_label}) — {off.circle_name}
+                                  [{off.role_code.toUpperCase()}] {off.name} ({off.designation || off.role_label}) — {off.circle_name}
                                 </option>
                               ))}
                             </optgroup>
@@ -509,14 +530,14 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
                           <option value="">— Select EO —</option>
                           {eoOfficers.map(off => (
                             <option key={off.id} value={off.id}>
-                              ⭐ {off.name} (EO - {off.designation}) — {off.circle_name}
+                              ⭐ [EO] {off.name} ({off.designation || off.role_label}) — {off.circle_name}
                             </option>
                           ))}
                           {eligibleOfficers.filter(o => o.role_code !== 'eo').length > 0 && (
-                            <optgroup label="Other Circle Officers">
+                            <optgroup label="Other Officers (Circle Incharge / Cross-Role)">
                               {eligibleOfficers.filter(o => o.role_code !== 'eo').map(off => (
                                 <option key={off.id} value={off.id}>
-                                  {off.name} ({off.role_label}) — {off.circle_name}
+                                  [{off.role_code.toUpperCase()}] {off.name} ({off.designation || off.role_label}) — {off.circle_name}
                                 </option>
                               ))}
                             </optgroup>
@@ -541,14 +562,14 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
                           <option value="">— Select IO —</option>
                           {ioOfficers.map(off => (
                             <option key={off.id} value={off.id}>
-                              ⭐ {off.name} (IO - {off.designation}) — {off.circle_name}
+                              ⭐ [IO] {off.name} ({off.designation || off.role_label}) — {off.circle_name}
                             </option>
                           ))}
                           {eligibleOfficers.filter(o => o.role_code !== 'io').length > 0 && (
-                            <optgroup label="Other Circle Officers">
+                            <optgroup label="Other Officers (Circle Incharge / Cross-Role)">
                               {eligibleOfficers.filter(o => o.role_code !== 'io').map(off => (
                                 <option key={off.id} value={off.id}>
-                                  {off.name} ({off.role_label}) — {off.circle_name}
+                                  [{off.role_code.toUpperCase()}] {off.name} ({off.designation || off.role_label}) — {off.circle_name}
                                 </option>
                               ))}
                             </optgroup>
@@ -558,133 +579,211 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
                     )}
                   </div>
                 ) : (
-                  /* SINGLE REPLACEMENT SELECTOR WITH BY-ROLE PILL TABS */
+                  /* SINGLE REPLACEMENT SELECTOR WITH SEARCH & CIRCLE FILTER & BY-ROLE TABS */
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
                       <label style={{ fontSize: 12.5, fontWeight: 700, color: '#334155', margin: 0 }}>
-                        Select Replacement Officer in {officer.circle_name || 'this Circle'}: <span style={{ color: '#dc2626' }}>*</span>
+                        Select Replacement Officer: <span style={{ color: '#dc2626' }}>*</span>
                       </label>
+                    </div>
 
-                      {/* ROLE FILTER TABS (VO, EO, IO, CI, ALL) */}
-                      <div style={{ display: 'inline-flex', background: '#e2e8f0', borderRadius: 6, padding: 2, flexWrap: 'wrap', gap: 2 }}>
-                        {sameRoleOfficers.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRoleFilter('same');
-                              if (sameRoleOfficers.length > 0 && !sameRoleOfficers.some(o => String(o.id) === targetOfficerId)) {
-                                setTargetOfficerId(String(sameRoleOfficers[0].id));
-                              }
-                            }}
-                            style={{
-                              padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
-                              background: roleFilter === 'same' ? '#015C94' : 'transparent',
-                              color: roleFilter === 'same' ? '#fff' : '#475569',
-                            }}
-                          >
-                            🎯 Same Role ({sameRoleOfficers.length})
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRoleFilter('vo');
-                            if (voOfficers.length > 0 && !voOfficers.some(o => String(o.id) === targetOfficerId)) {
-                              setTargetOfficerId(String(voOfficers[0].id));
-                            }
-                          }}
-                          style={{
-                            padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
-                            background: roleFilter === 'vo' ? '#015C94' : 'transparent',
-                            color: roleFilter === 'vo' ? '#fff' : '#475569',
-                          }}
+                    {/* FILTER TOOLBAR: CIRCLE FILTER & INSTANT SEARCH */}
+                    <div style={{
+                      display: 'grid', gridTemplateColumns: 'minmax(180px, 1.2fr) minmax(200px, 2fr)',
+                      gap: 8, marginBottom: 8, background: '#f1f5f9', padding: 8, borderRadius: 8, border: '1px solid #e2e8f0'
+                    }}>
+                      <div>
+                        <select
+                          className="filter-select"
+                          value={selectedCircleFilter}
+                          onChange={e => setSelectedCircleFilter(e.target.value)}
+                          style={{ width: '100%', padding: '6px 10px', fontSize: 12, background: '#fff' }}
                         >
-                          📋 VO ({voOfficers.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRoleFilter('eo');
-                            if (eoOfficers.length > 0 && !eoOfficers.some(o => String(o.id) === targetOfficerId)) {
-                              setTargetOfficerId(String(eoOfficers[0].id));
-                            }
-                          }}
-                          style={{
-                            padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
-                            background: roleFilter === 'eo' ? '#015C94' : 'transparent',
-                            color: roleFilter === 'eo' ? '#fff' : '#475569',
-                          }}
-                        >
-                          🔍 EO ({eoOfficers.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRoleFilter('io');
-                            if (ioOfficers.length > 0 && !ioOfficers.some(o => String(o.id) === targetOfficerId)) {
-                              setTargetOfficerId(String(ioOfficers[0].id));
-                            }
-                          }}
-                          style={{
-                            padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
-                            background: roleFilter === 'io' ? '#015C94' : 'transparent',
-                            color: roleFilter === 'io' ? '#fff' : '#475569',
-                          }}
-                        >
-                          🕵️ IO ({ioOfficers.length})
-                        </button>
-                        {ciOfficers.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRoleFilter('ci');
-                              if (ciOfficers.length > 0 && !ciOfficers.some(o => String(o.id) === targetOfficerId)) {
-                                setTargetOfficerId(String(ciOfficers[0].id));
-                              }
-                            }}
-                            style={{
-                              padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
-                              background: roleFilter === 'ci' ? '#015C94' : 'transparent',
-                              color: roleFilter === 'ci' ? '#fff' : '#475569',
-                            }}
-                          >
-                            🏛️ Incharge ({ciOfficers.length})
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setRoleFilter('all')}
-                          style={{
-                            padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
-                            background: roleFilter === 'all' ? '#015C94' : 'transparent',
-                            color: roleFilter === 'all' ? '#fff' : '#475569',
-                          }}
-                        >
-                          🌐 All ({eligibleOfficers.length})
-                        </button>
+                          <option value="">🏛️ All Circles ({eligibleOfficers.length} officers)</option>
+                          {circles.map(c => {
+                            const inC = eligibleOfficers.filter(o => String(o.circle_id) === String(c.id)).length;
+                            return (
+                              <option key={c.id} value={c.id}>
+                                🏛️ {c.name} {c.code ? `(${c.code})` : ''} ({inC})
+                              </option>
+                            );
+                          })}
+                        </select>
                       </div>
+
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="text"
+                          className="filter-input"
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                          placeholder="🔍 Search officer by name (e.g. jamil)..."
+                          style={{ width: '100%', padding: '6px 10px', fontSize: 12, background: '#fff' }}
+                        />
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            style={{
+                              position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                              background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 12
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ROLE FILTER TABS (VO, EO, IO, CI, ALL) */}
+                    <div style={{
+                      display: 'inline-flex', background: '#e2e8f0', borderRadius: 6,
+                      padding: 2, flexWrap: 'wrap', gap: 2, marginBottom: 8, width: '100%'
+                    }}>
+                      {sameRoleOfficers.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRoleFilter('same');
+                            if (sameRoleOfficers.length > 0 && !sameRoleOfficers.some(o => String(o.id) === targetOfficerId)) {
+                              setTargetOfficerId(String(sameRoleOfficers[0].id));
+                            }
+                          }}
+                          style={{
+                            padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                            background: roleFilter === 'same' ? '#015C94' : 'transparent',
+                            color: roleFilter === 'same' ? '#fff' : '#475569',
+                          }}
+                        >
+                          🎯 Same Role ({sameRoleOfficers.length})
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoleFilter('vo');
+                          if (voOfficers.length > 0 && !voOfficers.some(o => String(o.id) === targetOfficerId)) {
+                            setTargetOfficerId(String(voOfficers[0].id));
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                          background: roleFilter === 'vo' ? '#015C94' : 'transparent',
+                          color: roleFilter === 'vo' ? '#fff' : '#475569',
+                        }}
+                      >
+                        📋 VO ({voOfficers.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoleFilter('eo');
+                          if (eoOfficers.length > 0 && !eoOfficers.some(o => String(o.id) === targetOfficerId)) {
+                            setTargetOfficerId(String(eoOfficers[0].id));
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                          background: roleFilter === 'eo' ? '#015C94' : 'transparent',
+                          color: roleFilter === 'eo' ? '#fff' : '#475569',
+                        }}
+                      >
+                        🔍 EO ({eoOfficers.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoleFilter('io');
+                          if (ioOfficers.length > 0 && !ioOfficers.some(o => String(o.id) === targetOfficerId)) {
+                            setTargetOfficerId(String(ioOfficers[0].id));
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                          background: roleFilter === 'io' ? '#015C94' : 'transparent',
+                          color: roleFilter === 'io' ? '#fff' : '#475569',
+                        }}
+                      >
+                        🕵️ IO ({ioOfficers.length})
+                      </button>
+                      {ciOfficers.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRoleFilter('ci');
+                            if (ciOfficers.length > 0 && !ciOfficers.some(o => String(o.id) === targetOfficerId)) {
+                              setTargetOfficerId(String(ciOfficers[0].id));
+                            }
+                          }}
+                          style={{
+                            padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                            background: roleFilter === 'ci' ? '#015C94' : 'transparent',
+                            color: roleFilter === 'ci' ? '#fff' : '#475569',
+                          }}
+                        >
+                          🏛️ Incharge ({ciOfficers.length})
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setRoleFilter('all')}
+                        style={{
+                          padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                          background: roleFilter === 'all' ? '#015C94' : 'transparent',
+                          color: roleFilter === 'all' ? '#fff' : '#475569',
+                        }}
+                      >
+                        🌐 All ({circleScopedOfficers.length})
+                      </button>
                     </div>
 
                     {displayedOfficers.length === 0 ? (
                       <div style={{
                         padding: '10px 12px', background: '#fffbeb', border: '1px solid #fef3c7',
                         borderRadius: 8, fontSize: 12, color: '#b45309', marginBottom: 8,
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap'
                       }}>
-                        <span>⚠️ No officers found with role: <strong>{roleFilter.toUpperCase()}</strong> in {officer.circle_name || 'this Circle'}.</span>
-                        <button
-                          type="button"
-                          onClick={() => setRoleFilter('all')}
-                          style={{
-                            background: '#b45309', color: '#fff', border: 'none', padding: '4px 10px',
-                            borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0
-                          }}
-                        >
-                          Show All Circle Officers
-                        </button>
+                        <span>⚠️ No officers found matching the selected filters.</span>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {selectedCircleFilter && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCircleFilter('')}
+                              style={{
+                                background: '#015C94', color: '#fff', border: 'none', padding: '3px 8px',
+                                borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700
+                              }}
+                            >
+                              Show All Circles
+                            </button>
+                          )}
+                          {searchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSearchQuery('')}
+                              style={{
+                                background: '#64748b', color: '#fff', border: 'none', padding: '3px 8px',
+                                borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700
+                              }}
+                            >
+                              Clear Search
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => { setRoleFilter('all'); setSelectedCircleFilter(''); setSearchQuery(''); }}
+                            style={{
+                              background: '#b45309', color: '#fff', border: 'none', padding: '3px 8px',
+                              borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700
+                            }}
+                          >
+                            Reset All Filters
+                          </button>
+                        </div>
                       </div>
                     ) : null}
 
+                    {/* REPLACEMENT OFFICER SELECT */}
                     <select
                       className="filter-select"
                       value={targetOfficerId}
@@ -692,67 +791,18 @@ export default function OfficerHandoverModal({ officer, isOpen, onClose, onSucce
                       required
                       style={{ width: '100%', padding: '8px 12px', fontSize: 13 }}
                     >
-                      <option value="">— Select Replacement Officer —</option>
-                      {roleFilter !== 'all' ? (
-                        displayedOfficers.map(off => (
-                          <option key={off.id} value={off.id}>
-                            {off.is_same_role ? '⭐ ' : ''}[{off.role_code.toUpperCase()}] {off.name} ({off.designation || off.role_label}) — {off.circle_name}
-                          </option>
-                        ))
-                      ) : (
-                        <>
-                          {sameRoleOfficers.length > 0 && (
-                            <optgroup label={`★ Recommended (Same Role: ${officerRoleLabel})`}>
-                              {sameRoleOfficers.map(off => (
-                                <option key={off.id} value={off.id}>
-                                  ⭐ [{off.role_code.toUpperCase()}] {off.name} ({off.designation || off.role_label})
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                          {voOfficers.filter(o => !o.is_same_role).length > 0 && (
-                            <optgroup label="Verification Officers (VO)">
-                              {voOfficers.filter(o => !o.is_same_role).map(off => (
-                                <option key={off.id} value={off.id}>
-                                  [VO] {off.name} ({off.designation || off.role_label})
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                          {eoOfficers.filter(o => !o.is_same_role).length > 0 && (
-                            <optgroup label="Enquiry Officers (EO)">
-                              {eoOfficers.filter(o => !o.is_same_role).map(off => (
-                                <option key={off.id} value={off.id}>
-                                  [EO] {off.name} ({off.designation || off.role_label})
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                          {ioOfficers.filter(o => !o.is_same_role).length > 0 && (
-                            <optgroup label="Investigation Officers (IO)">
-                              {ioOfficers.filter(o => !o.is_same_role).map(off => (
-                                <option key={off.id} value={off.id}>
-                                  [IO] {off.name} ({off.designation || off.role_label})
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                          {ciOfficers.filter(o => !o.is_same_role).length > 0 && (
-                            <optgroup label="Circle Incharge / Supervisory Officers">
-                              {ciOfficers.filter(o => !o.is_same_role).map(off => (
-                                <option key={off.id} value={off.id}>
-                                  [CI] {off.name} ({off.designation || off.role_label})
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </>
-                      )}
+                      <option value="">— Select Replacement Officer ({displayedOfficers.length} available) —</option>
+                      {displayedOfficers.map(off => (
+                        <option key={off.id} value={off.id}>
+                          {off.is_same_role ? '⭐ ' : ''}[{off.role_code.toUpperCase()}] {off.name} ({off.designation || off.role_label}) — {off.circle_name}
+                        </option>
+                      ))}
                     </select>
+
                     <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                      {roleFilter === 'same'
-                        ? `🔒 Filtered strictly to ${officerRoleLabel}s. Click VO, EO, IO, or All to switch.`
-                        : `ℹ️ Filtered to ${roleFilter.toUpperCase()} officers in ${officer.circle_name || 'this circle'}.`}
+                      Showing {displayedOfficers.length} officer(s).
+                      {selectedCircleFilter ? ` Filtered to circle.` : ''}
+                      {searchQuery ? ` Search: "${searchQuery}".` : ''}
                     </div>
                   </div>
                 )

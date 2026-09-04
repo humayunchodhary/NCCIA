@@ -86,36 +86,56 @@ class OfficerHandoverController extends Controller
             ->where(function ($q) {
                 $q->whereNull('status')->orWhere('status', 'active');
             })
-            ->with('circle:id,name,code');
+            ->with(['circle:id,name,code', 'roles:id,name']);
 
         if ($user->circle_id && !$actor->hasAnyRole(['admin', 'director_general'])) {
             $officersQuery->where('circle_id', $user->circle_id);
         }
 
-        $getRoleCode = function ($role, $desig) {
-            $r = strtolower(trim((string)$role));
-            $d = strtolower(trim((string)$desig));
-            if (str_contains($r, 'verif') || str_contains($d, 'verif')) return 'vo';
-            if (str_contains($r, 'enquir') || str_contains($d, 'enquir') || str_contains($r, 'inspector') || str_contains($d, 'inspector')) return 'eo';
-            if (str_contains($r, 'investig') || str_contains($d, 'investig')) return 'io';
-            if (str_contains($r, 'incharge') || str_contains($d, 'incharge')) return 'ci';
+        $getRoleCode = function ($role, $desig, $rolesCollection = null) {
+            $candidates = [];
+            if ($role) $candidates[] = strtolower(trim((string)$role));
+            if ($desig) $candidates[] = strtolower(trim((string)$desig));
+            if ($rolesCollection) {
+                foreach ($rolesCollection as $r) {
+                    if (!empty($r->name)) {
+                        $candidates[] = strtolower(trim((string)$r->name));
+                    }
+                }
+            }
+
+            foreach ($candidates as $c) {
+                if (str_contains($c, 'verif') || $c === 'vo') return 'vo';
+            }
+            foreach ($candidates as $c) {
+                if (str_contains($c, 'enquir') || str_contains($c, 'inspector') || $c === 'eo' || $c === 'sho') return 'eo';
+            }
+            foreach ($candidates as $c) {
+                if (str_contains($c, 'investig') || $c === 'io') return 'io';
+            }
+            foreach ($candidates as $c) {
+                if (str_contains($c, 'incharge') || $c === 'ci') return 'ci';
+            }
             return 'other';
         };
 
-        $userRoleCode = $getRoleCode($user->role, $user->designation);
+        $userRoleCode = $getRoleCode($user->role, $user->designation, $user->roles);
 
         $eligibleOfficers = $officersQuery->get()->map(function ($u) use ($userRoleCode, $getRoleCode) {
-            $uRoleCode = $getRoleCode($u->role, $u->designation);
+            $uRoleCode = $getRoleCode($u->role, $u->designation, $u->roles);
             $isSame = ($uRoleCode === $userRoleCode && $uRoleCode !== 'other');
+            $primaryRole = $u->roles->first()?->name ?? $u->role ?? 'Officer';
             return [
                 'id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
-                'role' => $u->role,
+                'role' => $primaryRole,
                 'role_code' => $uRoleCode, // 'vo', 'eo', 'io', 'ci', 'other'
-                'role_label' => ucwords(str_replace('_', ' ', $u->role ?: 'Officer')),
-                'designation' => $u->designation ?: ucwords(str_replace('_', ' ', $u->role ?: 'Officer')),
+                'role_label' => ucwords(str_replace('_', ' ', $primaryRole)),
+                'designation' => $u->designation ?: ucwords(str_replace('_', ' ', $primaryRole)),
+                'circle_id' => $u->circle_id,
                 'circle_name' => $u->circle?->name ?: 'National / HQ',
+                'circle_code' => $u->circle?->code ?: '',
                 'is_same_role' => $isSame,
             ];
         });

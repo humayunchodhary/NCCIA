@@ -46,6 +46,7 @@ class UserController extends Controller
             'name'        => $data['name'],
             'email'       => $data['email'],
             'password'    => Hash::make($data['password']),
+            'role'        => $data['role'],
             'designation' => $data['designation'] ?? null,
             'circle_id'   => $data['circle_id'] ?? null,
             'zone_id'     => $data['zone_id'] ?? null,
@@ -71,6 +72,7 @@ class UserController extends Controller
         $updateData = [
             'name'        => $data['name'],
             'email'       => $data['email'],
+            'role'        => $data['role'],
             'designation' => $data['designation'] ?? null,
             'circle_id'   => $data['circle_id'] ?? null,
             'zone_id'     => $data['zone_id'] ?? null,
