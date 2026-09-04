@@ -5,6 +5,8 @@
 *.html diff=html
 *.md diff=markdown
 *.php diff=php
+gradlew text eol=lf
+*.sh text eol=lf
 
 /.github export-ignore
 CHANGELOG.md export-ignore

@@ -1,12 +1,37 @@
 import axios from 'axios';
 
+export const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const savedUrl = localStorage.getItem('nccia_server_url');
+    if (savedUrl) return savedUrl.replace(/\/+$/, '') + '/api';
+  }
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/+$/, '') + '/api';
+  }
+  // Default server for mobile APK when running in native webview (e.g. capacitor://localhost or https://localhost)
+  if (typeof window !== 'undefined' && (window.Capacitor?.isNativePlatform?.() || window.location.protocol === 'capacitor:')) {
+    return 'https://nccia.real-erp.net/api';
+  }
+  return '/api';
+};
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: getApiBaseUrl(),
   headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
   withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
+
+  // Attach Bearer token if present (for mobile app)
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('auth_token');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
   // Let the browser set multipart boundary for FormData (JSON content-type breaks uploads/updates)
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
     if (config.headers) {
@@ -18,10 +43,16 @@ api.interceptors.request.use((config) => {
 });
 
 let csrfReady = false;
-const ensureCsrf = async () => {
+export const ensureCsrf = async () => {
   if (csrfReady) return;
-  await axios.get('/sanctum/csrf-cookie', { withCredentials: true });
-  csrfReady = true;
+  const base = getApiBaseUrl().replace(/\/api\/?$/, '');
+  const csrfUrl = base ? `${base}/sanctum/csrf-cookie` : '/sanctum/csrf-cookie';
+  try {
+    await axios.get(csrfUrl, { withCredentials: true });
+    csrfReady = true;
+  } catch (e) {
+    // If running native app without cookies, token auth will handle request authorization
+  }
 };
 
 api.interceptors.response.use(

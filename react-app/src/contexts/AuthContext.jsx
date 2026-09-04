@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import api from '../api';
+import api, { ensureCsrf } from '../api';
 
 import { getClientWebRtcIps } from '../utils/detectClientIp';
 
-export const csrf = () => axios.get('/sanctum/csrf-cookie', { withCredentials: true });
+export const csrf = () => ensureCsrf();
 
 const AuthContext = createContext(null);
 
@@ -19,6 +19,7 @@ export function AuthProvider({ children }) {
     const forced = sessionStorage.getItem('force_logout');
     if (forced) {
       sessionStorage.removeItem('force_logout');
+      localStorage.removeItem('auth_token');
       setLoading(false);
       return;
     }
@@ -40,6 +41,9 @@ export function AuthProvider({ children }) {
       const client_webrtc_ips = await getClientWebRtcIps();
       const r = await api.post('/login', { email, password, client_webrtc_ips });
       setUser(r.data.user);
+      if (r.data?.token) {
+        localStorage.setItem('auth_token', r.data.token);
+      }
       return r.data;
     } catch (err) {
       const data = err.response?.data || {};
@@ -82,6 +86,7 @@ export function AuthProvider({ children }) {
   const clearError = () => { setError(null); setRemaining(null); setRetryAfter(null); };
 
   const logout = async () => {
+    localStorage.removeItem('auth_token');
     // Always navigate to force-logout which destroys session regardless of API state
     window.location.href = '/force-logout';
   };

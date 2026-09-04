@@ -1024,3 +1024,34 @@ html, body, #root {
   }
 }
 
+/* ==========================================================================
+   MOBILE & CAPACITOR SAFE AREA ADJUSTMENTS
+   ========================================================================== */
+:root {
+  --ion-safe-area-top: env(safe-area-inset-top, 0px);
+  --ion-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+header.header {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 4px);
+}
+
+@media (max-width: 768px) {
+  .header {
+    height: auto !important;
+    min-height: 56px;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .page-content {
+    padding: 12px !important;
+  }
+}
+
