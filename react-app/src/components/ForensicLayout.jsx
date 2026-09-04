@@ -155,6 +155,15 @@ export default function ForensicLayout() {
           </div>
 
           <div className="nav-item">
+            <NavLink to="/forensic/help-support" className="nav-link" data-page="help-support">
+              <span className="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+              <span>Help &amp; Support</span>
+            </NavLink>
+          </div>
+
+          <div className="nav-item">
             <a href="#" className="nav-link" onClick={(e) => { e.preventDefault(); logout(); }}>
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -234,6 +243,13 @@ export default function ForensicLayout() {
                         <div className="user-dropdown-item-text"><span>Forensic Users</span><small>Manage users & credentials</small></div>
                       </a>
                     )}
+
+                    <a href="#help" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/forensic/help-support'); }}>
+                      <div className="user-dropdown-item-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      </div>
+                      <div className="user-dropdown-item-text"><span>Help &amp; Support</span><small>Developer Desk &amp; Guide</small></div>
+                    </a>
                   </div>
 
                   <div className="user-dropdown-footer">

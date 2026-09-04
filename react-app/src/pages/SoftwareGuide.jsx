@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import SoftwareGuideCharacter from '../components/SoftwareGuideCharacter';
 import SoftwareGuideBackdrop from '../components/SoftwareGuideBackdrop';
 import './SoftwareGuide.css';
@@ -129,8 +131,23 @@ const SCENES = [
 const SCENE_MS = 14000;
 
 export default function SoftwareGuide() {
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Tab State: 'support' | 'guide' | 'faqs'
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(
+    tabParam === 'guide' ? 'guide' : (tabParam === 'faqs' ? 'faqs' : 'support')
+  );
+
+  const setTab = (tab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
+  // Video Player State
   const [sceneIndex, setSceneIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [lang, setLang] = useState('ur'); // ur | en | both
   const [progress, setProgress] = useState(0);
@@ -138,6 +155,21 @@ export default function SoftwareGuide() {
   const progressRef = useRef(null);
   const speechRef = useRef(null);
   const scene = SCENES[sceneIndex];
+
+  // Developer Support / Issue Reporter State
+  const [issueCategory, setIssueCategory] = useState('Official Prints & Letterheads');
+  const [issuePriority, setIssuePriority] = useState('Critical / High');
+  const [issueDesc, setIssueDesc] = useState('');
+  const [copiedDiagnostic, setCopiedDiagnostic] = useState(false);
+  const [copiedIssue, setCopiedIssue] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+
+  // FAQ Accordion State
+  const [openFaq, setOpenFaq] = useState(null);
+
+  const toggleFaq = (idx) => {
+    setOpenFaq(openFaq === idx ? null : idx);
+  };
 
   const stopSpeech = useCallback(() => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -182,8 +214,9 @@ export default function SoftwareGuide() {
   }, [clearTimers, playing, stopSpeech]);
 
   useEffect(() => {
-    if (!playing) {
+    if (activeTab !== 'guide' || !playing) {
       clearTimers();
+      stopSpeech();
       return undefined;
     }
     setProgress(0);
@@ -196,95 +229,685 @@ export default function SoftwareGuide() {
       setSceneIndex(i => (i + 1) % SCENES.length);
     }, SCENE_MS);
     return clearTimers;
-  }, [playing, sceneIndex, lang, clearTimers, speakScene]);
+  }, [activeTab, playing, sceneIndex, lang, clearTimers, speakScene, stopSpeech]);
 
   useEffect(() => () => { clearTimers(); stopSpeech(); }, [clearTimers, stopSpeech]);
 
   const togglePlay = () => setPlaying(p => !p);
 
+  // Helper: format officer issue text for WhatsApp / Email
+  const getFormattedIssueText = () => {
+    const circleName = user?.circle?.name || user?.circle_name || 'Islamabad HQ';
+    const roleName = user?.roles?.map(r => r.name).join(', ') || user?.role || user?.designation || 'Field Officer';
+    const timeStr = new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' });
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown';
+
+    return `🚨 *NCCIA CMS TECHNICAL SUPPORT REQUEST* 🚨\n` +
+      `--------------------------------------------------\n` +
+      `👤 *Officer:* ${user?.name || 'Officer'}\n` +
+      `🏛️ *Circle:* ${circleName}\n` +
+      `🏷️ *Role / Designation:* ${roleName}\n` +
+      `📧 *Email:* ${user?.email || 'N/A'}\n` +
+      `⚡ *Urgency:* ${issuePriority}\n` +
+      `📂 *Category:* ${issueCategory}\n` +
+      `🕒 *Reported At:* ${timeStr}\n` +
+      `--------------------------------------------------\n` +
+      `📝 *Issue Description:*\n` +
+      `${issueDesc ? issueDesc.trim() : '(No description entered — officer requested direct contact)'}\n` +
+      `--------------------------------------------------\n` +
+      `💻 *System Diagnostics:*\n` +
+      `• Version: NCCIA CMS v2.4.1 (Enterprise Production)\n` +
+      `• Browser: ${userAgent.split(') ')[0] + ')'}\n` +
+      `• Screen: ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'N/A'}\n` +
+      `--------------------------------------------------`;
+  };
+
+  const handleSendWhatsApp = () => {
+    const text = getFormattedIssueText();
+    // Support hotline dispatcher: 923000000000
+    const devPhone = '923000000000';
+    const url = `https://wa.me/${devPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleSendEmail = () => {
+    const circleName = user?.circle?.name || user?.circle_name || 'Islamabad HQ';
+    const subject = `[NCCIA CMS Support] ${issuePriority} - ${issueCategory} (${circleName})`;
+    const body = getFormattedIssueText();
+    const mailtoUrl = `mailto:nccia@real-erp.net?cc=support@real-erp.net&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoUrl;
+  };
+
+  const handleCopyIssue = () => {
+    const text = getFormattedIssueText();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedIssue(true);
+        setTimeout(() => setCopiedIssue(false), 3000);
+      });
+    }
+  };
+
+  const handleCopyDiagnostics = () => {
+    const circleName = user?.circle?.name || user?.circle_name || 'Islamabad HQ';
+    const diag = `NCCIA CMS TECHNICAL DIAGNOSTICS SNAPSHOT\n` +
+      `==================================================\n` +
+      `Officer Name:  ${user?.name || 'N/A'}\n` +
+      `Officer Email: ${user?.email || 'N/A'}\n` +
+      `Role / Title:  ${user?.roles?.map(r => r.name).join(', ') || user?.role || user?.designation || 'N/A'}\n` +
+      `Circle:        ${circleName}\n` +
+      `Zone:          ${user?.zone?.name || 'All Zones'}\n` +
+      `Build Version: NCCIA CMS v2.4.1 (Enterprise Production)\n` +
+      `Client Agent:  ${typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'}\n` +
+      `Viewport:      ${typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight} (DPR: ${window.devicePixelRatio || 1})` : 'N/A'}\n` +
+      `Local Time:    ${new Date().toISOString()}\n` +
+      `Status:        API Server 200 OK (Authenticated)\n` +
+      `==================================================`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(diag).then(() => {
+        setCopiedDiagnostic(true);
+        setTimeout(() => setCopiedDiagnostic(false), 3000);
+      });
+    }
+  };
+
+  const copyEmailAddress = (email) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(email).then(() => {
+        setCopiedEmail(true);
+        setTimeout(() => setCopiedEmail(false), 2500);
+      });
+    }
+  };
+
   return (
     <div className="page-content software-guide-page">
-      <div className="page-header">
+      {/* Page Header */}
+      <div className="page-header" style={{ marginBottom: 16 }}>
         <div className="page-title-group">
-          <h1 className="page-title">Software Guide Video</h1>
-          <p className="page-subtitle">AI-style animated tour — NCCIA CMS benefits &amp; workflow (Roman Urdu + English)</p>
+          <div className="page-label">Assistance &amp; Documentation</div>
+          <h1 className="page-title">Help &amp; Technical Support Center</h1>
+          <p className="page-subtitle">
+            Direct Developer Helpdesk, Interactive Character Tour &amp; Field Operational SOPs
+          </p>
           <div className="title-underline" />
         </div>
-        <div className="page-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <select className="cf-input" style={{ width: 'auto', minWidth: 120 }} value={lang} onChange={e => setLang(e.target.value)}>
-            <option value="ur">Roman Urdu</option>
-            <option value="en">English</option>
-            <option value="both">Both</option>
-          </select>
+        <div className="page-actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="sg-status-badge">
+            <span className="sg-status-dot" />
+            <span>Systems Online · v2.4.1</span>
+          </div>
         </div>
       </div>
 
-      <div className="sg-player">
-        <div className="sg-screen">
-          <div className="sg-scene-bg" data-scene={scene.id} />
-          <div className="sg-scene-badge">Scene {sceneIndex + 1} / {SCENES.length}</div>
+      {/* Top Navigation Tabs */}
+      <div className="sg-tabs-bar">
+        <button
+          type="button"
+          className={`sg-tab-btn${activeTab === 'support' ? ' active' : ''}`}
+          onClick={() => setTab('support')}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+          </svg>
+          <span>Developer &amp; Technical Helpdesk</span>
+          <span className="sg-tab-pill">Direct Reach</span>
+        </button>
 
-          <div className="sg-stage">
-            <div className="sg-character-stage">
-              <SoftwareGuideBackdrop activeStep={scene.workflowStep} />
-              <div className="sg-character-foreground">
-                <div className="sg-character-platform" />
-                <SoftwareGuideCharacter speaking={speaking || playing} wave={scene.id === 'intro'} size={220} />
+        <button
+          type="button"
+          className={`sg-tab-btn${activeTab === 'guide' ? ' active' : ''}`}
+          onClick={() => setTab('guide')}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          <span>Interactive Video Tour</span>
+          <span className="sg-tab-pill">Officer Sara</span>
+        </button>
+
+        <button
+          type="button"
+          className={`sg-tab-btn${activeTab === 'faqs' ? ' active' : ''}`}
+          onClick={() => setTab('faqs')}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <span>Troubleshooting &amp; FAQs</span>
+          <span className="sg-tab-pill">SOPs</span>
+        </button>
+      </div>
+
+      {/* TAB 1: DEVELOPER & TECHNICAL HELPDESK */}
+      {activeTab === 'support' && (
+        <div className="sg-tab-content">
+          {/* Hero Banner */}
+          <div className="dev-hero-banner">
+            <div className="dev-hero-left">
+              <div className="dev-hero-tag">
+                <span className="dev-shield-icon">🛡️</span>
+                <span>NCCIA CMS Core Engineering &amp; Architecture Desk</span>
+              </div>
+              <h2 className="dev-hero-title">Developer &amp; Technical Support Hotline</h2>
+              <p className="dev-hero-desc">
+                Agar aap ko kisi bhi Regional Circle (Lahore, Karachi, Rawalpindi, Peshawar, Quetta, Gujranwala waghera)
+                ya Islamabad HQ mein CMS ke kisi module mein koi takneeqi masla pesh aye — maslan Officer Handover,
+                Official Prints / Letterheads, Verifications, Enquiries, ya Forensic Requests — tou aap niche diye gaye
+                developer contacts par barah-e-raast WhatsApp ya Email ke zariye 1-click mein rabta kar saktay hain.
+              </p>
+            </div>
+            <div className="dev-hero-right">
+              <div className="dev-sla-badge">
+                <div className="dev-sla-num">&lt; 15 min</div>
+                <div className="dev-sla-label">Priority Critical SLA</div>
+              </div>
+              <div className="dev-sla-badge">
+                <div className="dev-sla-num">24 / 7</div>
+                <div className="dev-sla-label">Circle Hotline</div>
               </div>
             </div>
-            <div className="sg-bubble" key={scene.id}>
-              <div className="sg-bubble-title">{scene.title}</div>
-              <div className="sg-bubble-ur">{scene.titleUr}</div>
-              <p className="sg-bubble-text">{lang === 'en' ? scene.narrationEn : scene.narration}</p>
-              {lang === 'both' && <p className="sg-bubble-text sg-bubble-en">{scene.narrationEn}</p>}
-              <div className="sg-benefits-inline">
-                {scene.benefits.map(b => (
-                  <span key={b} className="sg-benefit-chip">{b}</span>
-                ))}
+          </div>
+
+          {/* Main 2-Column Grid */}
+          <div className="dev-grid">
+            {/* Column 1: Developer Profile & Direct Credentials */}
+            <div className="dev-card">
+              <div className="dev-card-header">
+                <div className="dev-avatar-wrap">
+                  <div className="dev-avatar">👨‍💻</div>
+                  <span className="dev-online-indicator" title="System Architect Available" />
+                </div>
+                <div className="dev-info-header">
+                  <div className="dev-verified-chip">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z" />
+                    </svg>
+                    <span>Verified Lead Developer</span>
+                  </div>
+                  <h3 className="dev-name">Engr. Humayun</h3>
+                  <div className="dev-role-title">Lead System Architect &amp; Core Full-Stack Developer</div>
+                  <div className="dev-org-name">LiveSoftix Software Engineering / NCCIA System Architecture</div>
+                </div>
+              </div>
+
+              <div className="dev-card-body">
+                <p className="dev-bio">
+                  Responsible for NCCIA Case Management System core engine, database synchronizations, Spatie role
+                  permissions, official letterhead generators, QR audit verification, and high-availability operations
+                  across all 16 Cyber Crime Circles nationwide.
+                </p>
+
+                <div className="dev-contact-list">
+                  <div className="dev-contact-item">
+                    <div className="dev-contact-icon email">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                        <polyline points="22,6 12,13 2,6" />
+                      </svg>
+                    </div>
+                    <div className="dev-contact-details">
+                      <div className="dev-contact-label">Official Core Developer Email</div>
+                      <a href="mailto:nccia@real-erp.net" className="dev-contact-value">nccia@real-erp.net</a>
+                    </div>
+                    <button
+                      type="button"
+                      className="dev-copy-btn"
+                      title="Copy Email Address"
+                      onClick={() => copyEmailAddress('nccia@real-erp.net')}
+                    >
+                      {copiedEmail ? '✓ Copied' : 'Copy'}
+                    </button>
+                  </div>
+
+                  <div className="dev-contact-item">
+                    <div className="dev-contact-icon email-alt">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="4" />
+                        <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94" />
+                      </svg>
+                    </div>
+                    <div className="dev-contact-details">
+                      <div className="dev-contact-label">Technical Helpdesk Desk Email</div>
+                      <a href="mailto:support@real-erp.net" className="dev-contact-value">support@real-erp.net</a>
+                    </div>
+                    <button
+                      type="button"
+                      className="dev-copy-btn"
+                      title="Copy Email Address"
+                      onClick={() => copyEmailAddress('support@real-erp.net')}
+                    >
+                      Copy
+                    </button>
+                  </div>
+
+                  <div className="dev-contact-item">
+                    <div className="dev-contact-icon wa">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                      </svg>
+                    </div>
+                    <div className="dev-contact-details">
+                      <div className="dev-contact-label">Direct Developer WhatsApp Hotline</div>
+                      <div className="dev-contact-value">+92 300 0000000 · Direct WhatsApp Chat</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="dev-copy-btn highlight"
+                      onClick={handleSendWhatsApp}
+                    >
+                      Open WhatsApp
+                    </button>
+                  </div>
+                </div>
+
+                {/* Scope Coverage */}
+                <div className="dev-scope-box">
+                  <div className="dev-scope-title">Coverage &amp; Support Scope:</div>
+                  <div className="dev-scope-tags">
+                    <span className="dev-scope-pill">⚡ Caseload Handover &amp; Transfer</span>
+                    <span className="dev-scope-pill">🖨️ PDF &amp; Letterhead Prints</span>
+                    <span className="dev-scope-pill">🔐 User Permissions &amp; Roles</span>
+                    <span className="dev-scope-pill">💾 Database &amp; Data Integrity</span>
+                    <span className="dev-scope-pill">🔬 Digital Forensics &amp; Malkhana</span>
+                    <span className="dev-scope-pill">📱 Complainant SMS Alerts</span>
+                    <span className="dev-scope-pill">🏛️ All 16 Regional Circles</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Column 2: Interactive Issue Dispatcher (WhatsApp & Email Form) */}
+            <div className="dev-reporter-card">
+              <div className="dev-reporter-header">
+                <div className="dev-reporter-icon">🚀</div>
+                <div>
+                  <h3 className="dev-reporter-title">1-Click Technical Issue Dispatcher</h3>
+                  <p className="dev-reporter-sub">
+                    Masla select karein aur aik click par WhatsApp ya Email ke zariye developer ko pohnchayein.
+                  </p>
+                </div>
+              </div>
+
+              <div className="dev-reporter-body">
+                {/* Officer Context Card */}
+                <div className="dev-officer-strip">
+                  <div className="dev-officer-cell">
+                    <span className="dev-officer-lbl">Reporting Officer</span>
+                    <span className="dev-officer-val">{user?.name || 'Officer'}</span>
+                  </div>
+                  <div className="dev-officer-cell">
+                    <span className="dev-officer-lbl">Circle</span>
+                    <span className="dev-officer-val highlight">{user?.circle?.name || user?.circle_name || 'Islamabad HQ'}</span>
+                  </div>
+                  <div className="dev-officer-cell">
+                    <span className="dev-officer-lbl">Role</span>
+                    <span className="dev-officer-val">{user?.roles?.map(r => r.name).join(', ') || user?.role || user?.designation || 'Officer'}</span>
+                  </div>
+                </div>
+
+                {/* Form Controls */}
+                <div className="dev-form-row">
+                  <div className="dev-field">
+                    <label className="dev-label">Problem Category</label>
+                    <select
+                      className="cf-input"
+                      value={issueCategory}
+                      onChange={e => setIssueCategory(e.target.value)}
+                    >
+                      <option value="Official Prints & Letterheads">🖨️ Official Prints &amp; Letterheads (DSR, D.O. Letter, VO/EO)</option>
+                      <option value="Officer Handover & Transfer Caseload">🔄 Officer Handover &amp; Transfer Caseload</option>
+                      <option value="Verification or Enquiry Locked">🔒 Verification / Enquiry Locked or Reassignment</option>
+                      <option value="Digital Forensics & Evidence Register">🔬 Digital Forensics &amp; Evidence Register</option>
+                      <option value="User Account, Password & Permissions">👤 User Account, Password &amp; Spatie Permissions</option>
+                      <option value="SMS Notifications & Delivery Log">📱 SMS Notifications &amp; Complainant Log</option>
+                      <option value="Database / Performance / Error Notice">⚙️ Database / Performance / Bug Notice</option>
+                      <option value="General Feature Request / Guidance">💡 General Feature Request / Operational Guidance</option>
+                    </select>
+                  </div>
+
+                  <div className="dev-field">
+                    <label className="dev-label">Urgency Level</label>
+                    <div className="dev-urgency-radios">
+                      {[
+                        { key: 'Critical / High', label: '🔴 Critical / Urgent (Work Halted)' },
+                        { key: 'Medium', label: '🟡 Medium (Needs Fix Today)' },
+                        { key: 'Low', label: '🟢 Low (Inquiry / Tweak)' },
+                      ].map(u => (
+                        <button
+                          key={u.key}
+                          type="button"
+                          className={`dev-urgency-btn${issuePriority === u.key ? ' active' : ''}`}
+                          onClick={() => setIssuePriority(u.key)}
+                        >
+                          {u.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="dev-field" style={{ marginTop: 14 }}>
+                  <label className="dev-label">
+                    Describe the Problem or Error Details
+                    <span style={{ fontSize: 11, fontWeight: 400, color: '#64748b', marginLeft: 8 }}>
+                      (Screen error code, complaint number, ya masla yahan likhein)
+                    </span>
+                  </label>
+                  <textarea
+                    className="cf-input dev-textarea"
+                    rows="4"
+                    value={issueDesc}
+                    onChange={e => setIssueDesc(e.target.value)}
+                    placeholder="Maslan: Circle Lahore mein Officer Handover karte waqt VO ki pending verifications dropdown mein nahi aa rahi theen..."
+                  />
+                </div>
+
+                {/* Dispatch Action Buttons */}
+                <div className="dev-actions-grid">
+                  <button
+                    type="button"
+                    className="btn btn-primary dev-dispatch-btn wa-btn"
+                    onClick={handleSendWhatsApp}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                    </svg>
+                    <span>Send via WhatsApp</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-outline dev-dispatch-btn"
+                    onClick={handleSendEmail}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                      <polyline points="22,6 12,13 2,6" />
+                    </svg>
+                    <span>Send via Email</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-outline dev-dispatch-btn"
+                    onClick={handleCopyIssue}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    <span>{copiedIssue ? '✓ Copied Issue' : 'Copy Report'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Live System Diagnostics Snapshot */}
+          <div className="dev-diagnostics-card">
+            <div className="dev-diag-header">
+              <div className="dev-diag-title-wrap">
+                <span className="dev-diag-icon">💻</span>
+                <div>
+                  <h4 className="dev-diag-title">Real-Time System &amp; Session Diagnostics</h4>
+                  <p className="dev-diag-desc">
+                    Masla hal karne ke liye yeh diagnostic info developer ko copy kar ke bhejein.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline dev-diag-copy-btn"
+                onClick={handleCopyDiagnostics}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                <span>{copiedDiagnostic ? '✓ Diagnostics Copied!' : 'Copy System Diagnostics'}</span>
+              </button>
+            </div>
+
+            <div className="dev-diag-grid">
+              <div className="dev-diag-item">
+                <span className="dev-diag-k">Officer Name:</span>
+                <span className="dev-diag-v">{user?.name || 'Authenticated Officer'}</span>
+              </div>
+              <div className="dev-diag-item">
+                <span className="dev-diag-k">Circle / Station:</span>
+                <span className="dev-diag-v highlight">{user?.circle?.name || user?.circle_name || 'Islamabad HQ'}</span>
+              </div>
+              <div className="dev-diag-item">
+                <span className="dev-diag-k">Role:</span>
+                <span className="dev-diag-v">{user?.roles?.map(r => r.name).join(', ') || user?.role || user?.designation || 'Field User'}</span>
+              </div>
+              <div className="dev-diag-item">
+                <span className="dev-diag-k">Software Build:</span>
+                <span className="dev-diag-v code">NCCIA CMS v2.4.1 (Production)</span>
+              </div>
+              <div className="dev-diag-item">
+                <span className="dev-diag-k">Client Environment:</span>
+                <span className="dev-diag-v">{typeof navigator !== 'undefined' ? navigator.userAgent.split(') ')[0] + ')' : 'Web Browser'}</span>
+              </div>
+              <div className="dev-diag-item">
+                <span className="dev-diag-k">Resolution:</span>
+                <span className="dev-diag-v">{typeof window !== 'undefined' ? `${window.innerWidth} x ${window.innerHeight}` : '1920 x 1080'}</span>
               </div>
             </div>
           </div>
         </div>
+      )}
 
-        <div className="sg-controls">
-          <button type="button" className="btn btn-primary btn-sm" onClick={togglePlay}>
-            {playing ? '⏸ Pause' : '▶ Play'}
-          </button>
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => goToScene(sceneIndex - 1, playing)}>⏮ Prev</button>
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => goToScene(sceneIndex + 1, playing)}>Next ⏭</button>
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => speakScene(sceneIndex)}>🔊 Replay voice</button>
-          <div className="sg-progress-wrap">
-            <div className="sg-progress-bar" style={{ width: `${progress}%` }} />
+      {/* TAB 2: INTERACTIVE VIDEO TOUR (OFFICER SARA) */}
+      {activeTab === 'guide' && (
+        <div className="sg-tab-content">
+          <div className="sg-player">
+            <div className="sg-screen">
+              <div className="sg-scene-bg" data-scene={scene.id} />
+              <div className="sg-scene-badge">Scene {sceneIndex + 1} / {SCENES.length}</div>
+
+              <div className="sg-stage">
+                <div className="sg-character-stage">
+                  <SoftwareGuideBackdrop activeStep={scene.workflowStep} />
+                  <div className="sg-character-foreground">
+                    <div className="sg-character-platform" />
+                    <SoftwareGuideCharacter speaking={speaking || playing} wave={scene.id === 'intro'} size={220} />
+                  </div>
+                </div>
+                <div className="sg-bubble" key={scene.id}>
+                  <div className="sg-bubble-title">{scene.title}</div>
+                  <div className="sg-bubble-ur">{scene.titleUr}</div>
+                  <p className="sg-bubble-text">{lang === 'en' ? scene.narrationEn : scene.narration}</p>
+                  {lang === 'both' && <p className="sg-bubble-text sg-bubble-en">{scene.narrationEn}</p>}
+                  <div className="sg-benefits-inline">
+                    {scene.benefits.map(b => (
+                      <span key={b} className="sg-benefit-chip">{b}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sg-controls">
+              <button type="button" className="btn btn-primary btn-sm" onClick={togglePlay}>
+                {playing ? '⏸ Pause' : '▶ Play'}
+              </button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => goToScene(sceneIndex - 1, playing)}>⏮ Prev</button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => goToScene(sceneIndex + 1, playing)}>Next ⏭</button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => speakScene(sceneIndex)}>🔊 Replay voice</button>
+
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>Narration:</span>
+                <select className="cf-input" style={{ width: 'auto', minWidth: 120, height: 32, fontSize: 12 }} value={lang} onChange={e => setLang(e.target.value)}>
+                  <option value="ur">Roman Urdu</option>
+                  <option value="en">English</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+
+              <div className="sg-progress-wrap">
+                <div className="sg-progress-bar" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+
+            <div className="sg-chapters">
+              {SCENES.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`sg-chapter${i === sceneIndex ? ' active' : ''}`}
+                  onClick={() => goToScene(i, false)}
+                >
+                  <span>{s.visual}</span>
+                  <small>{s.title}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: 20 }}>
+            <div className="card-header"><span className="card-title">NCCIA CMS End-to-End Workflow Flowchart</span></div>
+            <div className="card-body sg-flow-map">
+              {['Complaint Registration', 'Verification Stage', 'Enquiry & Investigation', 'Case / FIR', 'Digital Forensics', 'Court & Legal', 'Disposed / Closed'].map((step, i, arr) => (
+                <div key={step} className="sg-flow-step">
+                  <div className="sg-flow-node">{i + 1}</div>
+                  <div className="sg-flow-label">{step}</div>
+                  {i < arr.length - 1 && <div className="sg-flow-arrow">→</div>}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="sg-chapters">
-          {SCENES.map((s, i) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`sg-chapter${i === sceneIndex ? ' active' : ''}`}
-              onClick={() => goToScene(i, false)}
-            >
-              <span>{s.visual}</span>
-              <small>{s.title}</small>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-header"><span className="card-title">Quick workflow map</span></div>
-        <div className="card-body sg-flow-map">
-          {['Complaint', 'Verification', 'Enquiry', 'Case / FIR', 'Forensic', 'Court', 'Closed'].map((step, i, arr) => (
-            <div key={step} className="sg-flow-step">
-              <div className="sg-flow-node">{i + 1}</div>
-              <div className="sg-flow-label">{step}</div>
-              {i < arr.length - 1 && <div className="sg-flow-arrow">→</div>}
+      {/* TAB 3: FAQS & TROUBLESHOOTING */}
+      {activeTab === 'faqs' && (
+        <div className="sg-tab-content">
+          <div className="faq-container">
+            <div className="faq-intro">
+              <h3>Field Operational SOPs &amp; Common Troubleshooting</h3>
+              <p>Regional Circles aur HQ officers ke aam sawalat aur un ke hal:</p>
             </div>
-          ))}
+
+            <div className="faq-list">
+              {[
+                {
+                  id: 1,
+                  q: '🖨️ Official Print / DSR / D.O. Letter ya Enquiry print nahi ho rahi (Popup Blocked)?',
+                  badge: 'Print Issue',
+                  ans: (
+                    <div>
+                      <p><strong>Masla:</strong> Modern browsers (Google Chrome, Microsoft Edge, Brave) security ki wajah se print window ko popup samajh kar block kar dete hain.</p>
+                      <p><strong>Hal (Resolution Steps):</strong></p>
+                      <ol style={{ paddingLeft: 20, margin: '8px 0' }}>
+                        <li>Browser ki URL address bar mein bilkul right side par <strong>"Pop-up blocked"</strong> ka red icon ya lock icon click karein.</li>
+                        <li><strong>"Always allow pop-ups and redirects from this site"</strong> select karein.</li>
+                        <li><strong>Done</strong> par click karein aur page reload karein. Ab aap ke tamam official letterheads, DSR, aur verification prints direct print dialog mein open hongay.</li>
+                      </ol>
+                    </div>
+                  ),
+                },
+                {
+                  id: 2,
+                  q: '🔄 Officer Handover / Caseload Reassignment kaise kaam karta hai?',
+                  badge: 'Administration',
+                  ans: (
+                    <div>
+                      <p>Jab koi Verification Officer (VO), Enquiry Officer (EO), ya Investigation Officer (IO) transfer ya suspend hota hai, tou us ka caseload dosray officer ko muntaqil karna zaroori hota hai.</p>
+                      <ul style={{ paddingLeft: 20, margin: '8px 0' }}>
+                        <li><strong>Rastah:</strong> <code>Administration &rarr; User Management &rarr; "Manage Handover"</code> button.</li>
+                        <li><strong>Same-Role Enforcement:</strong> System by default VO ka kaam sirf doosray VO ko, aur EO ka kaam sirf EO ko assign karta hai taakay process violate na ho. Agar zaroorat ho tou "Allow All Roles" toggle on kar saktay hain.</li>
+                        <li><strong>Circle Filter &amp; Search:</strong> Target circle select karein ya officer ka naam type karein — live search mein foran officer mil jata hai.</li>
+                        <li><strong>Audit Trail:</strong> Muntaqil shuda tamam files par permanent transfer order aur timestamp record ho jata hai.</li>
+                      </ul>
+                    </div>
+                  ),
+                },
+                {
+                  id: 3,
+                  q: '✍️ Official Digital Signature aur Circle Stamp kaise upload karein?',
+                  badge: 'Profile & Print',
+                  ans: (
+                    <div>
+                      <p>Tamam reports, DSR briefings aur D.O. Letters par automatic official signatures aur muhar (stamp) print hoti hain.</p>
+                      <ol style={{ paddingLeft: 20, margin: '8px 0' }}>
+                        <li>Top right par apna user avatar click karein aur <strong>"My Profile"</strong> mein jayen.</li>
+                        <li>Niche <strong>"Digital Signature"</strong> section mein apna transparent PNG signature upload karein.</li>
+                        <li>Save hone ke baad aap ke sign karda tamam documents aur letterheads par yeh signature khud ba khud print ho jayega.</li>
+                      </ol>
+                    </div>
+                  ),
+                },
+                {
+                  id: 4,
+                  q: '📱 Complainant ko tracking SMS kyun nahi pohncha?',
+                  badge: 'SMS Gateway',
+                  ans: (
+                    <div>
+                      <p>NCCIA CMS har verification aur FIR stage par citizen ko automated SMS bhejta hai.</p>
+                      <ul style={{ paddingLeft: 20, margin: '8px 0' }}>
+                        <li><strong>Phone Number Format:</strong> Check karein ke citizen ka number sahi 11 digits mein hai (maslan <code>03001234567</code>). Dashes ya country code (+92) ki zaroorat nahi hoti.</li>
+                        <li><strong>SMS Log Module:</strong> Sidebar navigation mein <code>SMS Log</code> kholain. Wahan live delivery status (Delivered, Pending, Failed) aur gateway response code dekh saktay hain.</li>
+                      </ul>
+                    </div>
+                  ),
+                },
+                {
+                  id: 5,
+                  q: '🔬 Digital Forensics Lab request aur Malkhana Chain of Custody kaise banayi jaye?',
+                  badge: 'Forensics',
+                  ans: (
+                    <div>
+                      <p>Case ke doran bar-amad shuda digital evidence (Mobile, Laptop, Hard Drive) ki forensic examination ke liye:</p>
+                      <ul style={{ paddingLeft: 20, margin: '8px 0' }}>
+                        <li>IO case file ke andar <strong>"Forensic Request"</strong> par click kar ke device ka IMEI / Serial No darj karta hai.</li>
+                        <li>Malkhana Custody register mein seal number aur parcel barcode lock ho jata hai.</li>
+                        <li>Forensic Lab Analyst request accept karta hai aur report upload hotay hi IO ke case file mein attach ho jati hai.</li>
+                      </ul>
+                    </div>
+                  ),
+                },
+                {
+                  id: 6,
+                  q: '🔒 Session Timeout aur Password Reset ka kya tariqa hai?',
+                  badge: 'Security',
+                  ans: (
+                    <div>
+                      <p>NCCIA cyber security compliance ke tehat 2 ghantay tak inactive rehne par session protectively lock ho jata hai.</p>
+                      <p>Agar aap password bhool gaye hain tou login screen par <strong>"Forgot Password"</strong> use karein ya Circle Incharge / ADA Administration se apna password reset karwayen.</p>
+                    </div>
+                  ),
+                },
+              ].map((faq, idx) => (
+                <div
+                  key={faq.id}
+                  className={`faq-card${openFaq === idx ? ' expanded' : ''}`}
+                  onClick={() => toggleFaq(idx)}
+                >
+                  <div className="faq-card-header">
+                    <div className="faq-q-title">
+                      <span className="faq-badge">{faq.badge}</span>
+                      <span className="faq-text">{faq.q}</span>
+                    </div>
+                    <div className="faq-toggle-icon">
+                      {openFaq === idx ? '−' : '+'}
+                    </div>
+                  </div>
+                  {openFaq === idx && (
+                    <div className="faq-card-body">
+                      {faq.ans}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
+

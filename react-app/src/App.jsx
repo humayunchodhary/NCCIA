@@ -126,6 +126,7 @@ function AppRoutes() {
         <Route path="forensic/requests/:id" element={<ForensicRequestDetail />} />
         <Route path="forensic/users" element={<ForensicUsers />} />
         <Route path="forensic/profile" element={<Profile />} />
+        <Route path="forensic/help-support" element={<SoftwareGuide />} />
       </Route>
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
@@ -173,6 +174,7 @@ function AppRoutes() {
         <Route path="user-manuals/create" element={<FeatureRoute feature="reference"><UserManual /></FeatureRoute>} />
         <Route path="user-manuals/:id/edit" element={<FeatureRoute feature="reference"><UserManual /></FeatureRoute>} />
         <Route path="software-guide" element={<SoftwareGuide />} />
+        <Route path="help-support" element={<SoftwareGuide />} />
         <Route path="sms" element={<FeatureRoute feature="sms_logs"><SmsLog /></FeatureRoute>} />
         <Route path="dsr-reports" element={<FeatureRoute feature="dsr_reports"><DsrReports /></FeatureRoute>} />
         <Route path="dsr-reports/create" element={<FeatureRoute feature="dsr_reports"><DsrReportForm /></FeatureRoute>} />

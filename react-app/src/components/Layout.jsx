@@ -960,9 +960,9 @@ export default function Layout() {
                       <div className="user-dropdown-item-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33"/></svg></div>
                       <div className="user-dropdown-item-text"><span>Account Settings</span><small>Password, preferences</small></div>
                     </a>
-                    <a href="#help" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/profile'); }}>
+                    <a href="#help" className="user-dropdown-item" role="menuitem" onClick={(e) => { e.preventDefault(); setUserMenuOpen(false); go('/software-guide'); }}>
                       <div className="user-dropdown-item-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-                      <div className="user-dropdown-item-text"><span>Help & Support</span><small>Docs, FAQs, contact</small></div>
+                      <div className="user-dropdown-item-text"><span>Help & Support</span><small>Developer contact, docs, guide</small></div>
                     </a>
                   </div>
                   <div className="user-dropdown-footer">
