@@ -242,7 +242,7 @@ export default function ForensicRequestDetail() {
     table{width:100%;border-collapse:collapse;margin-bottom:12px;}td,th{border:1px solid #000;padding:5px 7px;vertical-align:top;}
     th{background:#d0d0d0;font-weight:bold;text-align:center;}.lbl{font-weight:bold;background:#f5f5f5;}
     .sec{background:#c0c0c0;font-weight:bold;text-align:center;padding:5px;}
-    @media print{body{padding:8px;}}</style></head><body>${area.innerHTML}</body></html>`);
+    @media print{body{padding:8px;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>${area.innerHTML}</body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   };
 

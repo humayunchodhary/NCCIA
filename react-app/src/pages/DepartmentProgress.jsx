@@ -276,8 +276,191 @@ export default function DepartmentProgress() {
 
   return (
     <div className="page-content" style={{ paddingBottom: 60 }}>
+      {/* Dynamic Print Stylesheet for Official Briefing Output */}
+      <style>{`
+        .print-only-letterhead { display: none; }
+        .print-only-footer { display: none; }
+
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 10mm 12mm 10mm;
+          }
+
+          .print-only-letterhead { display: block !important; margin-bottom: 14px !important; }
+          .print-only-footer { display: block !important; margin-top: 24px !important; }
+
+          /* Hide application chrome and interactive UI elements */
+          .no-print,
+          .main-sidebar,
+          aside,
+          nav,
+          .main-header,
+          .topbar,
+          .header,
+          .user-dropdown,
+          button,
+          input,
+          select,
+          .modal-backdrop,
+          .modal-overlay,
+          .officer-handover-modal {
+            display: none !important;
+          }
+
+          body, html {
+            background: #fff !important;
+            color: #0f172a !important;
+            font-size: 11px !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          .page-content {
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+
+          /* Ink-efficient high-contrast command banner */
+          .command-hero-card {
+            background: #f8fafc !important;
+            color: #0f172a !important;
+            border: 2px solid #1a3d6b !important;
+            box-shadow: none !important;
+            padding: 14px 18px !important;
+            margin-bottom: 14px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .command-hero-card h1 {
+            color: #1a3d6b !important;
+            font-size: 19px !important;
+          }
+          .command-hero-card p {
+            color: #334155 !important;
+            font-size: 11.5px !important;
+          }
+          .command-hero-badge {
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+          }
+
+          .card {
+            box-shadow: none !important;
+            border: 1px solid #94a3b8 !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            margin-bottom: 14px !important;
+            background: #fff !important;
+          }
+
+          .card-header {
+            background: #f1f5f9 !important;
+            border-bottom: 1px solid #94a3b8 !important;
+            padding: 8px 12px !important;
+          }
+
+          .card-title {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+            font-size: 13px !important;
+          }
+
+          .dashboard-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 14px !important;
+          }
+
+          table.data-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+          }
+
+          table.data-table th {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+            border: 1px solid #94a3b8 !important;
+            padding: 5px 6px !important;
+            font-size: 9.5px !important;
+            font-weight: 700 !important;
+          }
+
+          table.data-table td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 4px 6px !important;
+            font-size: 10px !important;
+          }
+
+          table.data-table tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+        }
+      `}</style>
+
+      {/* Official Print-Only Letterhead */}
+      <div className="print-only-letterhead">
+        <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #1a3d6b', paddingBottom: 8, marginBottom: 12 }}>
+          <tbody>
+            <tr>
+              <td style={{ width: 68, verticalAlign: 'middle', textAlign: 'left', border: 'none', padding: 0 }}>
+                <img src="/images/images.jpg" alt="NCCIA" style={{ width: 56, height: 56, objectFit: 'contain' }} />
+              </td>
+              <td style={{ verticalAlign: 'middle', textAlign: 'center', border: 'none', padding: '0 12px' }}>
+                <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '2px', color: '#334155', textTransform: 'uppercase' }}>
+                  Government of Pakistan &bull; Ministry of Interior
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '3.5px', color: '#1a3d6b', lineHeight: 1.1, marginTop: 2 }}>
+                  NCCIA
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#1a3d6b', textTransform: 'uppercase', letterSpacing: '0.8px', marginTop: 1 }}>
+                  National Cyber Crime Investigation Agency
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', marginTop: 4, letterSpacing: '0.5px' }}>
+                  {selected_circle
+                    ? `${selected_circle.name.toUpperCase()} — REGIONAL COMMAND PERFORMANCE BRIEFING`
+                    : 'NATIONWIDE EXECUTIVE COMMAND & PERFORMANCE BRIEFING'}
+                </div>
+                <div style={{ fontSize: 10, color: '#475569', fontWeight: 600, marginTop: 2 }}>
+                  {selected_circle
+                    ? `Territorial Command: ${selected_circle.zone_name || 'Regional Zone'} | Circle Incharge: ${selected_circle.incharge_name || 'Assigned Officer'}`
+                    : 'Federal Headquarters Command & Control &bull; Director General & Ministry of Interior Casework Review'}
+                </div>
+              </td>
+              <td style={{ width: 68, verticalAlign: 'middle', textAlign: 'right', border: 'none', padding: 0 }}>
+                <img src="/images/pak-govt-logo.png" alt="Govt of Pakistan" style={{ width: 54, height: 54, objectFit: 'contain' }} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Official Meta Bar */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 4,
+          padding: '5px 10px', fontSize: 10, fontWeight: 600, color: '#334155', marginBottom: 14
+        }}>
+          <div>
+            <span style={{ color: '#64748b' }}>Reference: </span>
+            <strong>NCCIA/HQ/BRIEF/{year || new Date().getFullYear()}/{selected_circle?.code || 'EXEC'}</strong>
+          </div>
+          <div>
+            <span style={{ color: '#64748b' }}>Generated: </span>
+            <strong>{new Date().toLocaleDateString('en-GB')} {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</strong>
+          </div>
+          <div>
+            <span style={{ color: '#64748b' }}>Classification: </span>
+            <strong style={{ color: '#b91c1c' }}>OFFICIAL &bull; CONFIDENTIAL</strong>
+          </div>
+        </div>
+      </div>
+
       {/* Circle Command Switcher Tabs Bar */}
-      <div style={{
+      <div className="circle-tabs-bar no-print" style={{
         display: 'flex', gap: 8, alignItems: 'center', overflowX: 'auto', padding: '10px 14px',
         background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 16,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
@@ -326,7 +509,7 @@ export default function DepartmentProgress() {
       {/* Main Command Banner: Dedicated Circle Portal OR Islamabad HQ Portal */}
       {selected_circle ? (
         /* DEDICATED SEPARATE CIRCLE COMMAND BANNER */
-        <div style={{
+        <div className="command-hero-card" style={{
           background: 'linear-gradient(135deg, #0c4a6e 0%, #0284c7 65%, #0369a1 100%)',
           color: '#fff', borderRadius: 14, padding: '22px 26px', marginBottom: 20,
           boxShadow: '0 8px 24px rgba(2,132,199,0.25)', position: 'relative', overflow: 'hidden'
@@ -342,7 +525,7 @@ export default function DepartmentProgress() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div style={{ maxWidth: 700 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{
+                <span className="command-hero-badge" style={{
                   background: '#10b981', color: '#fff', fontSize: 11, fontWeight: 800,
                   padding: '3px 10px', borderRadius: 12, letterSpacing: '0.06em', textTransform: 'uppercase'
                 }}>
@@ -361,22 +544,22 @@ export default function DepartmentProgress() {
 
               {/* Circle Badges & Incharge Card */}
               <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ background: 'rgba(255,255,255,0.2)', padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700 }}>
+                <span className="command-hero-badge" style={{ background: 'rgba(255,255,255,0.2)', padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700 }}>
                   👤 Incharge: {selected_circle.incharge_name}
                 </span>
-                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                <span className="command-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   👮‍♂️ {selected_circle.total_officers || circle_officers.length} Officers Deployed
                 </span>
-                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                <span className="command-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   📑 {hq_dsr_feed.length} Recent DSRs
                 </span>
-                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                <span className="command-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   ✉️ {hq_do_feed.length} Monthly D.O. Letters
                 </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+            <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
               <button
                 type="button"
                 onClick={handlePrintBriefing}
@@ -405,7 +588,7 @@ export default function DepartmentProgress() {
           </div>
 
           {/* Quick Jump Bar */}
-          <div style={{
+          <div className="jump-nav-bar no-print" style={{
             display: 'flex', gap: 8, marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.2)',
             flexWrap: 'wrap'
           }}>
@@ -441,7 +624,7 @@ export default function DepartmentProgress() {
         </div>
       ) : (
         /* ISLAMABAD HQ CENTRAL EXECUTIVE COMMAND BANNER */
-        <div style={{
+        <div className="command-hero-card" style={{
           background: 'linear-gradient(135deg, #013658 0%, #015C94 65%, #0284c7 100%)',
           color: '#fff', borderRadius: 14, padding: '22px 26px', marginBottom: 20,
           boxShadow: '0 8px 24px rgba(1,92,148,0.25)', position: 'relative', overflow: 'hidden'
@@ -456,7 +639,7 @@ export default function DepartmentProgress() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div style={{ maxWidth: 700 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{
+                <span className="command-hero-badge" style={{
                   background: '#f59e0b', color: '#000', fontSize: 11, fontWeight: 800,
                   padding: '3px 10px', borderRadius: 12, letterSpacing: '0.06em', textTransform: 'uppercase'
                 }}>
@@ -474,22 +657,22 @@ export default function DepartmentProgress() {
               </p>
 
               <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                <span className="command-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   🏛️ {hq_command.total_circles || circles.length} Circles Monitored
                 </span>
-                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                <span className="command-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   👮‍♂️ {hq_command.total_officers || circle_officers.length} Deployed Officers
                 </span>
-                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                <span className="command-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   📑 {hq_command.pending_dsr || 0} DSRs Pending HQ
                 </span>
-                <span style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                <span className="command-hero-badge" style={{ background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
                   ✉️ {hq_command.pending_do || 0} D.O. Letters for DG
                 </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+            <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
               <button
                 type="button"
                 onClick={handlePrintBriefing}
@@ -507,7 +690,7 @@ export default function DepartmentProgress() {
             </div>
           </div>
 
-          <div style={{
+          <div className="jump-nav-bar no-print" style={{
             display: 'flex', gap: 8, marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.2)',
             flexWrap: 'wrap'
           }}>
@@ -551,7 +734,7 @@ export default function DepartmentProgress() {
       )}
 
       {/* Global Filter Bar */}
-      <div style={{
+      <div className="filter-bar no-print" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
         background: '#fff', padding: '10px 16px', borderRadius: 10,
         border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: 20
@@ -933,7 +1116,7 @@ export default function DepartmentProgress() {
               <span>Distribution Breakdown</span>
             </div>
             {/* Toggle Pie Mode */}
-            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 6, padding: 2, gap: 2 }}>
+            <div className="no-print" style={{ display: 'flex', background: '#f1f5f9', borderRadius: 6, padding: 2, gap: 2 }}>
               <button
                 type="button"
                 onClick={() => setPieMode('stages')}
@@ -1224,7 +1407,7 @@ export default function DepartmentProgress() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="table-search-box no-print" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input
                 type="text"
                 placeholder="Search circle name or code..."
@@ -1248,7 +1431,7 @@ export default function DepartmentProgress() {
                     <th>FIR Cases</th>
                     <th>Legal Pending</th>
                     <th style={{ width: 170 }}>Disposal Progress</th>
-                    <th style={{ textAlign: 'center' }}>Portal Action</th>
+                    <th className="action-col no-print" style={{ textAlign: 'center' }}>Portal Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1299,7 +1482,7 @@ export default function DepartmentProgress() {
                       <td>
                         <ProgressBar value={c.disposal_rate} showLabel />
                       </td>
-                      <td style={{ textAlign: 'center' }}>
+                      <td className="action-cell no-print" style={{ textAlign: 'center' }}>
                         <button
                           type="button"
                           onClick={() => {
@@ -1352,7 +1535,7 @@ export default function DepartmentProgress() {
           </div>
 
           {/* Officers Search & Filter Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div className="filter-controls no-print" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {!selected_circle && (
               <select
                 className="filter-select"
@@ -1421,7 +1604,7 @@ export default function DepartmentProgress() {
 
         {/* Quick Circle Chips (only when All Circles is active) */}
         {!selected_circle && (
-          <div style={{
+          <div className="chips-bar no-print" style={{
             display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto',
             background: '#f8fafc', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap'
           }}>
@@ -1472,7 +1655,7 @@ export default function DepartmentProgress() {
                   <th>Completed / Disposed</th>
                   <th>Active Backlog</th>
                   <th style={{ width: 150 }}>Completion Rate</th>
-                  <th style={{ textAlign: 'center' }}>Handover / Lifecycle</th>
+                  <th className="action-col no-print" style={{ textAlign: 'center' }}>Handover / Lifecycle</th>
                 </tr>
               </thead>
               <tbody>
@@ -1539,7 +1722,7 @@ export default function DepartmentProgress() {
                     <td>
                       <ProgressBar value={off.completion_rate} showLabel />
                     </td>
-                    <td style={{ textAlign: 'center' }}>
+                    <td className="action-cell no-print" style={{ textAlign: 'center' }}>
                       <button
                         type="button"
                         onClick={() => setSelectedOfficerForHandover(off)}
@@ -1593,6 +1776,7 @@ export default function DepartmentProgress() {
           </div>
           <Link
             to="/enquiries"
+            className="no-print"
             style={{
               fontSize: 12, fontWeight: 600, color: '#015C94', textDecoration: 'none'
             }}
@@ -1611,7 +1795,7 @@ export default function DepartmentProgress() {
                   <th>Originating Circle</th>
                   <th>Current Approval Stage</th>
                   <th>Last Movement</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
+                  <th className="action-col no-print" style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1642,7 +1826,7 @@ export default function DepartmentProgress() {
                     <td style={{ fontSize: 12, color: '#64748b' }}>
                       {item.updated_at}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td className="action-cell no-print" style={{ textAlign: 'right' }}>
                       <Link
                         to={`/enquiries/${item.id}/edit`}
                         style={{
@@ -1664,6 +1848,74 @@ export default function DepartmentProgress() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Official Print-Only Footer Authentication */}
+      <div className="print-only-footer">
+        <div style={{ marginTop: 28, paddingTop: 14, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: 'none' }}>
+            <tbody>
+              <tr>
+                {selected_circle ? (
+                  <>
+                    <td style={{ width: '33%', verticalAlign: 'top', textAlign: 'left', border: 'none', padding: '0 8px' }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Compiled &amp; Verified By:</div>
+                      <div style={{ marginTop: 42, borderTop: '1.5px dashed #475569', paddingTop: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>Moharrar / Reader Branch</div>
+                        <div style={{ fontSize: 9.5, color: '#475569' }}>{selected_circle.name} Regional Circle</div>
+                      </div>
+                    </td>
+                    <td style={{ width: '33%', verticalAlign: 'top', textAlign: 'center', border: 'none', padding: '0 8px' }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Supervising Authority:</div>
+                      <div style={{ marginTop: 42, borderTop: '1.5px dashed #475569', paddingTop: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>{selected_circle.incharge_name || 'Circle Incharge'}</div>
+                        <div style={{ fontSize: 9.5, color: '#475569' }}>Circle Incharge / Incharge Officer</div>
+                      </div>
+                    </td>
+                    <td style={{ width: '33%', verticalAlign: 'top', textAlign: 'right', border: 'none', padding: '0 8px' }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Zonal Countersignature:</div>
+                      <div style={{ marginTop: 42, borderTop: '1.5px dashed #475569', paddingTop: 4, display: 'inline-block', textAlign: 'left' }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>Zonal Director / AD</div>
+                        <div style={{ fontSize: 9.5, color: '#475569' }}>{selected_circle.zone_name || 'Zonal Directorate'}</div>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td style={{ width: '33%', verticalAlign: 'top', textAlign: 'left', border: 'none', padding: '0 8px' }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Prepared By:</div>
+                      <div style={{ marginTop: 42, borderTop: '1.5px dashed #475569', paddingTop: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>Monitoring &amp; CMS Cell</div>
+                        <div style={{ fontSize: 9.5, color: '#475569' }}>Federal Headquarters, Islamabad</div>
+                      </div>
+                    </td>
+                    <td style={{ width: '33%', verticalAlign: 'top', textAlign: 'center', border: 'none', padding: '0 8px' }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Reviewed By:</div>
+                      <div style={{ marginTop: 42, borderTop: '1.5px dashed #475569', paddingTop: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>Additional Director (Operations)</div>
+                        <div style={{ fontSize: 9.5, color: '#475569' }}>NCCIA Federal Headquarters</div>
+                      </div>
+                    </td>
+                    <td style={{ width: '33%', verticalAlign: 'top', textAlign: 'right', border: 'none', padding: '0 8px' }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Approved By:</div>
+                      <div style={{ marginTop: 42, borderTop: '1.5px dashed #475569', paddingTop: 4, display: 'inline-block', textAlign: 'left' }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>The Director General</div>
+                        <div style={{ fontSize: 9.5, color: '#475569' }}>NCCIA Pakistan, Islamabad</div>
+                      </div>
+                    </td>
+                  </>
+                )}
+              </tr>
+            </tbody>
+          </table>
+
+          <div style={{
+            marginTop: 20, textAlign: 'center', fontSize: 8.5, color: '#64748b',
+            borderTop: '1px solid #cbd5e1', paddingTop: 6
+          }}>
+            CONFIDENTIAL &bull; National Cyber Crime Investigation Agency (NCCIA) CMS System-Generated Briefing &bull; Tampering or unauthorized circulation is strictly prohibited under PECA 2016.
           </div>
         </div>
       </div>

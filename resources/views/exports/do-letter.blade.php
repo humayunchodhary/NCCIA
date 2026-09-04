@@ -4,9 +4,31 @@
     <meta charset="UTF-8">
     <title>D.O. Letter — {{ $letter->month_label }}</title>
     <style>
-        @page { size: A4 portrait; margin: 12mm; }
+        @page { size: A4 portrait; margin: 12mm 10mm; }
         * { box-sizing: border-box; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; margin: 0; line-height: 1.35; }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            color: #111;
+            margin: 0;
+            line-height: 1.35;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .no-print { text-align: right; margin-bottom: 12px; }
+        .no-print button {
+            background: #1a3d6b;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        @media print {
+            .no-print { display: none !important; }
+        }
         .nccia-letterhead { border: 1.5px solid #1a3d6b; margin-bottom: 14px; }
         .letterhead-table { width: 100%; border-collapse: collapse; }
         .letterhead-table td { border: none; vertical-align: middle; padding: 8px 10px 4px; }
@@ -34,6 +56,9 @@
     </style>
 </head>
 <body>
+    <div class="no-print">
+        <button type="button" onclick="window.print()">🖨️ Print D.O. Letter</button>
+    </div>
     @include('exports.partials.nccia-official-header', [
         'qrType' => 'do_letter',
         'qrId' => $letter->id,
@@ -161,5 +186,31 @@
             <p style="margin:8px 0; padding:0 4px;">{{ $letter->notes }}</p>
         </div>
     @endif
+
+    <div class="report-section" style="margin-top: 36px; page-break-inside: avoid;">
+        <table style="width: 100%; border-collapse: collapse; border: none;">
+            <tr>
+                <td style="width: 48%; border: none; vertical-align: top; text-align: left; padding: 0;">
+                    <div style="font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase;">Submitted By:</div>
+                    <div style="margin-top: 45px; border-top: 1.5px dashed #475569; padding-top: 4px; display: inline-block; min-width: 220px;">
+                        <div style="font-size: 12px; font-weight: 800; color: #0f172a;">{{ $letter->circle?->incharge_name ?? 'Incharge Officer' }}</div>
+                        <div style="font-size: 10.5px; font-weight: 600; color: #334155;">Circle Incharge / Incharge Officer</div>
+                        <div style="font-size: 10px; color: #64748b;">{{ $letter->circle?->name ?? 'Regional Circle' }}</div>
+                    </div>
+                </td>
+                <td style="width: 48%; border: none; vertical-align: top; text-align: right; padding: 0;">
+                    <div style="font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase;">Submitted To:</div>
+                    <div style="margin-top: 45px; border-top: 1.5px dashed #475569; padding-top: 4px; display: inline-block; min-width: 220px; text-align: left;">
+                        <div style="font-size: 12px; font-weight: 800; color: #0f172a;">The Director General</div>
+                        <div style="font-size: 10.5px; font-weight: 600; color: #334155;">National Cyber Crime Investigation Agency (NCCIA)</div>
+                        <div style="font-size: 10px; color: #64748b;">Headquarters, Islamabad</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        <div style="margin-top: 24px; text-align: center; font-size: 9px; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 6px;">
+            CONFIDENTIAL &bull; Official D.O. Communication from Regional Circle Command to DG NCCIA Headquarters &bull; Government of Pakistan
+        </div>
+    </div>
 </body>
 </html>

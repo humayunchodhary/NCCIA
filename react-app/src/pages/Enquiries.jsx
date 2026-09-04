@@ -362,7 +362,7 @@ export default function Enquiries() {
         <title>Forensic Scope Letter - ${enqNo}</title>
         <style>
           @page { size: A4 portrait; margin: 12mm 14mm; }
-          body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.4; font-size: 12.5px; }
+          body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; line-height: 1.4; font-size: 12.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .meta-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12.5px; }
           .to-sec { margin-bottom: 10px; font-size: 12.5px; }
           .subj { font-weight: 800; text-transform: uppercase; border-bottom: 1.5px solid #000; padding-bottom: 3px; margin: 10px 0; font-size: 12px; }

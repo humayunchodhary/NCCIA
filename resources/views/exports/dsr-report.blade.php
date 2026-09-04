@@ -625,5 +625,29 @@
     </table>
 </div>
 
+<div class="report-section" style="margin-top: 30px; page-break-inside: avoid;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+        <tr>
+            <td style="width: 48%; border: none; vertical-align: top; text-align: left; padding: 0;">
+                <div style="font-size: 9.5px; font-weight: 700; color: #475569; text-transform: uppercase;">Prepared &amp; Compiled By:</div>
+                <div style="margin-top: 40px; border-top: 1.5px dashed #475569; padding-top: 4px; display: inline-block; min-width: 200px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #0f172a;">Moharrar / Reader Branch</div>
+                    <div style="font-size: 9.5px; color: #475569;">{{ $report->unit_name }}</div>
+                </div>
+            </td>
+            <td style="width: 48%; border: none; vertical-align: top; text-align: right; padding: 0;">
+                <div style="font-size: 9.5px; font-weight: 700; color: #475569; text-transform: uppercase;">Countersigned &amp; Approved By:</div>
+                <div style="margin-top: 40px; border-top: 1.5px dashed #475569; padding-top: 4px; display: inline-block; min-width: 200px; text-align: left;">
+                    <div style="font-size: 11px; font-weight: 800; color: #0f172a;">Circle Incharge / Incharge Officer</div>
+                    <div style="font-size: 9.5px; color: #475569;">{{ $report->circle?->incharge_name ?: $report->unit_name }}</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+    <div style="margin-top: 20px; text-align: center; font-size: 8.5px; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 5px;">
+        Daily Situation Report (DSR) &bull; Submitted Daily to Central Monitoring Cell &amp; Directorate General NCCIA Islamabad
+    </div>
+</div>
+
 </body>
 </html>

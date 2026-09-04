@@ -916,3 +916,111 @@ html, body, #root {
   pointer-events: none !important;
 }
 
+/* ==========================================================================
+   Global Print Styles for NCCIA CMS
+   ========================================================================== */
+@media print {
+  /* Hide application navigation, header, sidebar, toolbars, buttons, modals */
+  nav,
+  aside,
+  header,
+  .main-sidebar,
+  .sidebar,
+  .sidebar-overlay,
+  .main-header,
+  .topbar,
+  .user-dropdown,
+  .notifications-dropdown,
+  .no-print,
+  .page-actions,
+  .filters-bar,
+  .alert-banner,
+  .bulk-bar,
+  .action-btn,
+  .btn-icon,
+  .pagination,
+  button,
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  .modal-backdrop,
+  .modal-overlay,
+  .officer-handover-modal,
+  .circle-tabs-bar,
+  .jump-nav-bar,
+  .filter-controls,
+  .filter-bar,
+  .chips-bar,
+  .action-col,
+  .action-cell,
+  .table-actions {
+    display: none !important;
+  }
+
+  /* Reset layout for full page printed output */
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #root,
+  .app-layout,
+  .main-content,
+  .page-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 14px !important;
+    background: #fff !important;
+  }
+
+  .card-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    padding: 8px 12px !important;
+  }
+
+  .table-responsive {
+    overflow: visible !important;
+  }
+
+  table.data-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  table.data-table th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #94a3b8 !important;
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  table.data-table td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 5px 8px !important;
+    font-size: 10.5px !important;
+  }
+
+  table.data-table tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+
