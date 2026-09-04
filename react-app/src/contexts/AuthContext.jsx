@@ -87,8 +87,12 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     localStorage.removeItem('auth_token');
-    // Always navigate to force-logout which destroys session regardless of API state
-    window.location.href = '/force-logout';
+    setUser(null);
+    if (typeof window !== 'undefined' && (window.Capacitor?.isNativePlatform?.() || window.location.protocol === 'capacitor:' || window.location.hostname === 'localhost')) {
+      window.location.hash = '/login';
+    } else {
+      window.location.href = '/force-logout';
+    }
   };
 
   return (

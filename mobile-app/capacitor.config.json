@@ -1,7 +1,7 @@
 {
   "appId": "pk.gov.nccia.cms",
   "appName": "NCCIA CMS",
-  "webDir": "../public/react",
+  "webDir": "www",
   "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",

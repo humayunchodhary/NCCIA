@@ -8,8 +8,18 @@ export const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL.replace(/\/+$/, '') + '/api';
   }
-  // Default server for mobile APK when running in native webview (e.g. capacitor://localhost or https://localhost)
-  if (typeof window !== 'undefined' && (window.Capacitor?.isNativePlatform?.() || window.location.protocol === 'capacitor:')) {
+  if (import.meta.env.DEV) {
+    return '/api';
+  }
+  // Mobile APK when running in native webview (capacitor://localhost or https://localhost)
+  if (typeof window !== 'undefined' && (
+    window.Capacitor?.isNativePlatform?.() || 
+    window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'file:' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.pathname.endsWith('.html')
+  )) {
     return 'https://nccia.real-erp.net/api';
   }
   return '/api';

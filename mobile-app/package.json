@@ -4,6 +4,7 @@
   "description": "National Cyber Crime Investigation Agency (NCCIA) CMS - Native Android Mobile Application",
   "private": true,
   "scripts": {
+    "build": "npm --prefix ../react-app run build:mobile && cap sync android",
     "sync": "cap sync android",
     "copy": "cap copy android",
     "open": "cap open android"

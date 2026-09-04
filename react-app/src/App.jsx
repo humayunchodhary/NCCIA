@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ForensicLayout from './components/ForensicLayout';
@@ -183,16 +183,29 @@ function AppRoutes() {
         <Route path="do-letters/create" element={<FeatureRoute feature="do_letters"><DoLetterForm /></FeatureRoute>} />
         <Route path="do-letters/:id" element={<FeatureRoute feature="do_letters"><DoLetterForm /></FeatureRoute>} />
       </Route>
+
+      {/* Fallback routes for mobile webview and unmatched paths */}
+      <Route path="/index.html" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
+const isNativePlatform = typeof window !== 'undefined' && (
+  window.Capacitor?.isNativePlatform?.() ||
+  window.location.protocol === 'capacitor:' ||
+  window.location.protocol === 'file:' ||
+  (window.location.hostname === 'localhost' && !import.meta.env.DEV) ||
+  window.location.pathname.endsWith('.html')
+);
+
 export default function App() {
+  const Router = isNativePlatform ? HashRouter : BrowserRouter;
   return (
-    <BrowserRouter>
+    <Router>
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>
-    </BrowserRouter>
+    </Router>
   );
 }

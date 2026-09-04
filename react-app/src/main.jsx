@@ -29,11 +29,20 @@ async function checkForAppUpdate() {
   }
 }
 
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') checkForAppUpdate()
-})
-setTimeout(checkForAppUpdate, 5000)
-setInterval(checkForAppUpdate, 120_000)
+const isNative = typeof window !== 'undefined' && (
+  window.Capacitor?.isNativePlatform?.() || 
+  window.location.protocol === 'capacitor:' ||
+  window.location.protocol === 'file:' ||
+  (window.location.hostname === 'localhost' && !import.meta.env.DEV)
+);
+
+if (!isNative) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForAppUpdate()
+  })
+  setTimeout(checkForAppUpdate, 5000)
+  setInterval(checkForAppUpdate, 120_000)
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

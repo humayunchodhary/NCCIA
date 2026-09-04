@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/copy-ocr-assets.mjs",
+    "build:mobile": "vite build --base ./ --outDir ../mobile-app/www --emptyOutDir",
     "lint": "oxlint",
     "preview": "vite preview"
   },
