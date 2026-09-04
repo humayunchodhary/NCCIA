@@ -2,4 +2,6 @@ node_modules/
 dist/
 build/
 .gradle/
+.idea/
+www/
 capacitor.config.json.timestamp-*
