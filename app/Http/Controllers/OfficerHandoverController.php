@@ -92,15 +92,27 @@ class OfficerHandoverController extends Controller
             $officersQuery->where('circle_id', $user->circle_id);
         }
 
-        $targetUserRole = strtolower(trim((string) ($user->role ?? '')));
-        $eligibleOfficers = $officersQuery->get()->map(function ($u) use ($targetUserRole) {
-            $uRole = strtolower(trim((string) ($u->role ?? '')));
-            $isSame = ($uRole !== '' && $uRole === $targetUserRole);
+        $getRoleCode = function ($role, $desig) {
+            $r = strtolower(trim((string)$role));
+            $d = strtolower(trim((string)$desig));
+            if (str_contains($r, 'verif') || str_contains($d, 'verif')) return 'vo';
+            if (str_contains($r, 'enquir') || str_contains($d, 'enquir') || str_contains($r, 'inspector') || str_contains($d, 'inspector')) return 'eo';
+            if (str_contains($r, 'investig') || str_contains($d, 'investig')) return 'io';
+            if (str_contains($r, 'incharge') || str_contains($d, 'incharge')) return 'ci';
+            return 'other';
+        };
+
+        $userRoleCode = $getRoleCode($user->role, $user->designation);
+
+        $eligibleOfficers = $officersQuery->get()->map(function ($u) use ($userRoleCode, $getRoleCode) {
+            $uRoleCode = $getRoleCode($u->role, $u->designation);
+            $isSame = ($uRoleCode === $userRoleCode && $uRoleCode !== 'other');
             return [
                 'id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
                 'role' => $u->role,
+                'role_code' => $uRoleCode, // 'vo', 'eo', 'io', 'ci', 'other'
                 'role_label' => ucwords(str_replace('_', ' ', $u->role ?: 'Officer')),
                 'designation' => $u->designation ?: ucwords(str_replace('_', ' ', $u->role ?: 'Officer')),
                 'circle_name' => $u->circle?->name ?: 'National / HQ',
@@ -118,6 +130,7 @@ class OfficerHandoverController extends Controller
                 'email' => $user->email,
                 'phone' => $user->phone,
                 'role' => $user->role,
+                'role_code' => $userRoleCode,
                 'designation' => $user->designation,
                 'circle_id' => $user->circle_id,
                 'circle_name' => $user->circle?->name ?: 'Islamabad HQ / National',
@@ -154,6 +167,9 @@ class OfficerHandoverController extends Controller
         $data = $request->validate([
             'action_type' => 'required|in:transfer,suspend,reassign,reinstate',
             'target_officer_id' => 'nullable|exists:users,id',
+            'target_vo_id' => 'nullable|exists:users,id',
+            'target_eo_id' => 'nullable|exists:users,id',
+            'target_io_id' => 'nullable|exists:users,id',
             'new_circle_id' => 'nullable|exists:circles,id',
             'order_no' => 'nullable|string|max:120',
             'reason' => 'required|string|max:1000',
@@ -161,6 +177,10 @@ class OfficerHandoverController extends Controller
 
         $actionType = $data['action_type'];
         $targetOfficerId = $data['target_officer_id'] ? (int) $data['target_officer_id'] : null;
+        $targetVoId = !empty($data['target_vo_id']) ? (int) $data['target_vo_id'] : $targetOfficerId;
+        $targetEoId = !empty($data['target_eo_id']) ? (int) $data['target_eo_id'] : $targetOfficerId;
+        $targetIoId = !empty($data['target_io_id']) ? (int) $data['target_io_id'] : $targetOfficerId;
+
         $newCircleId = $data['new_circle_id'] ? (int) $data['new_circle_id'] : null;
         $orderNo = trim($data['order_no'] ?? '');
         $reason = trim($data['reason']);
@@ -176,12 +196,11 @@ class OfficerHandoverController extends Controller
         ];
 
         DB::transaction(function () use (
-            $user, $actionType, $targetOfficerId, $targetOfficer, $newCircleId,
-            $fullReason, $actor, &$handoverCounts
+            $user, $actionType, $targetOfficerId, $targetVoId, $targetEoId, $targetIoId,
+            $newCircleId, $fullReason, $actor, &$handoverCounts
         ) {
-            // Reassign active files if a replacement officer is provided
-            if ($targetOfficerId) {
-                // 1. Reassign Verifications
+            // 1. Reassign Verifications (to target_vo_id or target_officer_id)
+            if ($targetVoId) {
                 $verifications = Verification::query()
                     ->where('verification_officer_id', $user->id)
                     ->whereNotIn('status', ['submitted', 'approved', 'closed'])
@@ -192,15 +211,17 @@ class OfficerHandoverController extends Controller
                         $ver,
                         OfficerAssignmentService::TYPE_VERIFICATION,
                         OfficerAssignmentService::ROLE_VO,
-                        $targetOfficerId,
+                        $targetVoId,
                         $actor->id,
                         $fullReason
                     );
-                    $ver->update(['verification_officer_id' => $targetOfficerId]);
+                    $ver->update(['verification_officer_id' => $targetVoId]);
                     $handoverCounts['verifications']++;
                 }
+            }
 
-                // 2. Reassign Enquiries
+            // 2. Reassign Enquiries (to target_eo_id or target_officer_id)
+            if ($targetEoId) {
                 $enquiries = Enquiry::query()
                     ->where('enquiry_officer_id', $user->id)
                     ->whereNotIn('status', ['approved', 'closed'])
@@ -211,15 +232,17 @@ class OfficerHandoverController extends Controller
                         $enq,
                         OfficerAssignmentService::TYPE_ENQUIRY,
                         OfficerAssignmentService::ROLE_EO,
-                        $targetOfficerId,
+                        $targetEoId,
                         $actor->id,
                         $fullReason
                     );
-                    $enq->update(['enquiry_officer_id' => $targetOfficerId]);
+                    $enq->update(['enquiry_officer_id' => $targetEoId]);
                     $handoverCounts['enquiries']++;
                 }
+            }
 
-                // 3. Reassign Cases
+            // 3. Reassign Cases (to target_io_id or target_officer_id)
+            if ($targetIoId) {
                 $cases = CaseFile::query()
                     ->where('investigation_officer_id', $user->id)
                     ->whereNotIn('status', ['closed'])
@@ -230,11 +253,11 @@ class OfficerHandoverController extends Controller
                         $case,
                         OfficerAssignmentService::TYPE_CASE,
                         OfficerAssignmentService::ROLE_IO,
-                        $targetOfficerId,
+                        $targetIoId,
                         $actor->id,
                         $fullReason
                     );
-                    $case->update(['investigation_officer_id' => $targetOfficerId]);
+                    $case->update(['investigation_officer_id' => $targetIoId]);
                     $handoverCounts['cases']++;
                 }
             }
