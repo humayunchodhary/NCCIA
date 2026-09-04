@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api';
 import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import OfficerHandoverModal from '../components/OfficerHandoverModal';
 import { ROLE_FEATURES } from '../utils/permissions';
 
 const ALL_FEATURES = [
@@ -38,6 +39,7 @@ export default function Users() {
   const [resetTarget, setResetTarget] = useState(null);
   const [resetPwd, setResetPwd] = useState('');
   const [savingReset, setSavingReset] = useState(false);
+  const [handoverTarget, setHandoverTarget] = useState(null);
 
   const fetchData = useCallback((p = page) => {
     setLoading(true);
@@ -164,7 +166,16 @@ export default function Users() {
                 {filteredList.map((u, i) => (
                   <tr key={u.id}>
                     <td><span className="table-id">#{u.id}</span></td>
-                    <td><span style={{fontSize:'13px',fontWeight:500}}>{u.name}</span></td>
+                    <td>
+                      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                        <span style={{fontSize:'13px',fontWeight:600}}>{u.name}</span>
+                        {u.status === 'suspended' && (
+                          <span style={{background:'#fee2e2',color:'#b91c1c',fontSize:10,fontWeight:800,padding:'2px 6px',borderRadius:4}}>
+                            ⛔ SUSPENDED
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td>{u.email}</td>
                     <td>
                       {u.roles?.length > 0 ? (
@@ -181,7 +192,23 @@ export default function Users() {
                       </button>
                     </td>
                     <td>
-                      <div style={{display:'flex',gap:'6px'}}>
+                      <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                        <button
+                          onClick={() => setHandoverTarget(u)}
+                          className="btn btn-sm"
+                          title="Officer Lifecycle: Transfer, Suspend or Handover Caseload"
+                          style={{
+                            background: u.status === 'suspended' ? '#fee2e2' : '#e0f2fe',
+                            color: u.status === 'suspended' ? '#b91c1c' : '#0369a1',
+                            border: '1px solid',
+                            borderColor: u.status === 'suspended' ? '#fca5a5' : '#bae6fd',
+                            borderRadius: '8px', height: '36px',
+                            padding: '0 10px', display: 'inline-flex', alignItems: 'center',
+                            gap: 4, cursor: 'pointer', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap'
+                          }}
+                        >
+                          <span>🔄 Handover</span>
+                        </button>
                         <Link to={`/users/${u.id}/edit`} className="btn btn-outline btn-sm btn-icon" title="Edit">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </Link>
@@ -293,6 +320,16 @@ export default function Users() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Officer Lifecycle & Handover Modal */}
+      {handoverTarget && (
+        <OfficerHandoverModal
+          officer={handoverTarget}
+          isOpen={Boolean(handoverTarget)}
+          onClose={() => setHandoverTarget(null)}
+          onSuccess={() => fetchData()}
+        />
       )}
 
       <ConfirmModal

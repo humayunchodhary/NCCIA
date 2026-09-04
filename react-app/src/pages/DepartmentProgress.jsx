@@ -4,6 +4,7 @@ import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import ProgressBar from '../components/ProgressBar';
+import OfficerHandoverModal from '../components/OfficerHandoverModal';
 
 export default function DepartmentProgress() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export default function DepartmentProgress() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedOfficerForHandover, setSelectedOfficerForHandover] = useState(null);
 
   // Filters
   const currentYear = new Date().getFullYear();
@@ -1469,7 +1471,8 @@ export default function DepartmentProgress() {
                   <th>Assigned Tasks</th>
                   <th>Completed / Disposed</th>
                   <th>Active Backlog</th>
-                  <th style={{ width: 170 }}>Completion Rate</th>
+                  <th style={{ width: 150 }}>Completion Rate</th>
+                  <th style={{ textAlign: 'center' }}>Handover / Lifecycle</th>
                 </tr>
               </thead>
               <tbody>
@@ -1478,13 +1481,21 @@ export default function DepartmentProgress() {
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{
-                          width: 34, height: 34, borderRadius: '50%', background: '#015C94', color: '#fff',
+                          width: 34, height: 34, borderRadius: '50%',
+                          background: off.status === 'suspended' ? '#dc2626' : '#015C94', color: '#fff',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0
                         }}>
                           {off.name ? off.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : 'OF'}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{off.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 700, color: '#0f172a' }}>{off.name}</span>
+                            {off.status === 'suspended' && (
+                              <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: 9.5, fontWeight: 800, padding: '1px 5px', borderRadius: 4 }}>
+                                ⛔ SUSPENDED
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: 11, color: '#64748b' }}>{off.email}</div>
                           {off.phone && <div style={{ fontSize: 10.5, color: '#94a3b8' }}>📞 {off.phone}</div>}
                         </div>
@@ -1528,11 +1539,29 @@ export default function DepartmentProgress() {
                     <td>
                       <ProgressBar value={off.completion_rate} showLabel />
                     </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOfficerForHandover(off)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px',
+                          background: off.status === 'suspended' ? '#fee2e2' : '#e0f2fe',
+                          border: '1px solid',
+                          borderColor: off.status === 'suspended' ? '#fca5a5' : '#bae6fd',
+                          borderRadius: 6, fontSize: 11, fontWeight: 700,
+                          color: off.status === 'suspended' ? '#b91c1c' : '#0369a1',
+                          cursor: 'pointer', whiteSpace: 'nowrap'
+                        }}
+                        title="Transfer, Suspend, or Handover Workload"
+                      >
+                        <span>🔄 Handover</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {!filteredOfficers.length && (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: 36, color: '#94a3b8' }}>
                       No officers found matching the selected circle or filters.
                     </td>
                   </tr>
@@ -1638,6 +1667,16 @@ export default function DepartmentProgress() {
           </div>
         </div>
       </div>
+
+      {/* Officer Lifecycle & Handover Modal */}
+      {selectedOfficerForHandover && (
+        <OfficerHandoverModal
+          officer={selectedOfficerForHandover}
+          isOpen={Boolean(selectedOfficerForHandover)}
+          onClose={() => setSelectedOfficerForHandover(null)}
+          onSuccess={() => fetchMonitoringData(true)}
+        />
+      )}
     </div>
   );
 }

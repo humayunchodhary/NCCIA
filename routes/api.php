@@ -27,6 +27,7 @@ use App\Http\Controllers\DepartmentProgressController;
 use App\Http\Controllers\Forensic\ForensicUserController;
 use App\Http\Controllers\Forensic\ForensicRequestController;
 use App\Http\Controllers\OfficerAssignmentHistoryController;
+use App\Http\Controllers\OfficerHandoverController;
 use App\Http\Controllers\SmsController;
 
 Route::middleware(['web', 'auth:sanctum', 'throttle:dashboard'])->group(function () {
@@ -47,6 +48,12 @@ Route::middleware(['web', 'auth:sanctum', 'throttle:api'])->group(function () {
             ]);
         }
         return response()->json(null);
+    });
+
+    // Officer Lifecycle, Caseload Handover & Reassignment
+    Route::middleware('role:admin,circle_incharge,director_general,additional_director')->group(function () {
+        Route::get('/officers/{user}/caseload', [OfficerHandoverController::class, 'caseload']);
+        Route::post('/officers/{user}/handover', [OfficerHandoverController::class, 'executeHandover']);
     });
 
     Route::middleware('role:admin,ad_administration,circle_incharge,director_general')->group(function () {

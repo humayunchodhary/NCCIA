@@ -19,7 +19,12 @@ class User extends Authenticatable
         hasAnyRole as traitHasAnyRole;
     }
 
-    protected $fillable = ['name', 'email', 'password', 'role', 'designation', 'circle_id', 'zone_id', 'signature', 'phone', 'country_code'];
+    protected $fillable = ['name', 'email', 'password', 'role', 'designation', 'circle_id', 'zone_id', 'signature', 'phone', 'country_code', 'status', 'status_remarks'];
+
+    public function isSuspended(): bool
+    {
+        return strtolower((string) ($this->status ?? 'active')) === 'suspended';
+    }
 
     protected function casts(): array
     {

@@ -259,7 +259,7 @@ class DepartmentProgressController extends Controller
         // 5. Circle-wise Officers Directory & Individual Workload
         $officersQuery = User::query()
             ->with(['circle:id,name,code', 'roles:id,name'])
-            ->select('id', 'name', 'email', 'phone', 'role', 'designation', 'circle_id');
+            ->select('id', 'name', 'email', 'phone', 'role', 'designation', 'circle_id', 'status', 'status_remarks');
 
         if ($circleId) {
             $officersQuery->where('circle_id', $circleId);
@@ -314,6 +314,8 @@ class DepartmentProgressController extends Controller
                 'completed_workload' => $completed,
                 'pending_workload' => $pending,
                 'completion_rate' => $rate,
+                'status' => $u->status ?: 'active',
+                'status_remarks' => $u->status_remarks,
             ];
         })->sortByDesc('assigned_workload')->values();
 
