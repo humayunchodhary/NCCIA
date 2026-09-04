@@ -92,15 +92,21 @@ class OfficerHandoverController extends Controller
             $officersQuery->where('circle_id', $user->circle_id);
         }
 
-        $eligibleOfficers = $officersQuery->get()->map(fn ($u) => [
-            'id' => $u->id,
-            'name' => $u->name,
-            'email' => $u->email,
-            'role' => $u->role,
-            'role_label' => ucwords(str_replace('_', ' ', $u->role ?: 'Officer')),
-            'designation' => $u->designation ?: ucwords(str_replace('_', ' ', $u->role ?: 'Officer')),
-            'circle_name' => $u->circle?->name ?: 'National / HQ',
-        ]);
+        $targetUserRole = strtolower(trim((string) ($user->role ?? '')));
+        $eligibleOfficers = $officersQuery->get()->map(function ($u) use ($targetUserRole) {
+            $uRole = strtolower(trim((string) ($u->role ?? '')));
+            $isSame = ($uRole !== '' && $uRole === $targetUserRole);
+            return [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'role' => $u->role,
+                'role_label' => ucwords(str_replace('_', ' ', $u->role ?: 'Officer')),
+                'designation' => $u->designation ?: ucwords(str_replace('_', ' ', $u->role ?: 'Officer')),
+                'circle_name' => $u->circle?->name ?: 'National / HQ',
+                'is_same_role' => $isSame,
+            ];
+        });
 
         // 5. Available Circles (for transfer)
         $circles = Circle::query()->select('id', 'name', 'code')->orderBy('name')->get();
