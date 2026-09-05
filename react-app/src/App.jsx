@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -200,6 +201,44 @@ const isNativePlatform = typeof window !== 'undefined' && (
 );
 
 export default function App() {
+  useEffect(() => {
+    // 1. Strictly block right click context menu
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // 2. Strictly block DevTools & inspect shortcuts
+    const handleKeyDown = (e) => {
+      // F12
+      if (e.keyCode === 123 || e.key === 'F12') {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
+      if (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      // Ctrl+U (View Source) or Ctrl+S (Save Page)
+      if (e.ctrlKey && ['U', 'u', 'S', 's'].includes(e.key)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu, { capture: true });
+    document.addEventListener('keydown', handleKeyDown, { capture: true });
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu, { capture: true });
+      document.removeEventListener('keydown', handleKeyDown, { capture: true });
+    };
+  }, []);
+
   const Router = isNativePlatform ? HashRouter : BrowserRouter;
   return (
     <Router>

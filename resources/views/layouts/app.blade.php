@@ -21,8 +21,17 @@
 
   <link rel="stylesheet" href="{{ asset('css/style.css') }}">
   <link rel="stylesheet" href="{{ asset('css/form.css') }}">
-  <link rel="stylesheet" href="{{ asset('css/Responsive.css') }}">
   <style>@keyframes slideInToast{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}</style>
+  <script>
+    (function() {
+      document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, { capture: true });
+      document.addEventListener('keydown', function(e) {
+        if (e.keyCode === 123 || e.key === 'F12') { e.preventDefault(); e.stopPropagation(); return false; }
+        if (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].indexOf(e.key) !== -1) { e.preventDefault(); e.stopPropagation(); return false; }
+        if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's')) { e.preventDefault(); e.stopPropagation(); return false; }
+      }, { capture: true });
+    })();
+  </script>
   @stack('extra_css')
 </head>
 <body>

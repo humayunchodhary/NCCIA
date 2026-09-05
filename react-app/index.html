@@ -11,6 +11,34 @@
     <link rel="stylesheet" href="/css/Responsive.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>NCCIA - National Cyber Crime Investigation Agency</title>
+    <script>
+      (function() {
+        // Disable Right Click
+        document.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          return false;
+        }, { capture: true });
+
+        // Disable DevTools & Inspect Shortcuts
+        document.addEventListener('keydown', function(e) {
+          if (e.keyCode === 123 || e.key === 'F12') {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+          if (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].indexOf(e.key) !== -1) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+          if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's')) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        }, { capture: true });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
