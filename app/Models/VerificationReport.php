@@ -81,7 +81,7 @@ class VerificationReport extends Model
 
         // circle_incharge and regional station staff only see verification
         // reports for complaints that belong to their own circle.
-        if ($user->hasAnyRole(['circle_incharge', 'moharrar', 'reader_branch', 'ad_administration'])) {
+        if ($user->hasAnyRole(['circle_incharge', 'director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin', 'moharrar', 'reader_branch', 'ad_administration'])) {
             return $query->whereHas('complaint', function ($q) use ($user) {
                 if ($user->circle_id) {
                     $q->where('circle_id', $user->circle_id);

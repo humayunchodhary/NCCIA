@@ -178,8 +178,8 @@ class Complaint extends Model
             return $query;
         }
 
-        // Regional Supervisory & Station Staff: CI, Moharrar, Reader Branch, AD Admin
-        if ($user->hasAnyRole(['circle_incharge', 'moharrar', 'reader_branch', 'ad_administration'])) {
+        // Regional Supervisory & Station Staff: CI, Regional Executive, Legal, Moharrar, Reader Branch, AD Admin
+        if ($user->hasAnyRole(['circle_incharge', 'director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin', 'moharrar', 'reader_branch', 'ad_administration'])) {
             return $user->circle_id
                 ? $query->where('circle_id', $user->circle_id)
                 : $query->whereNull('circle_id');

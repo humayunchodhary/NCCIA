@@ -278,7 +278,7 @@ class Enquiry extends Model
             return $query->whereRaw('1 = 0');
         }
 
-        $isStaff = $isCi || $user->hasAnyRole(['moharrar', 'reader_branch', 'ad_administration']);
+        $isStaff = $isCi || $user->hasAnyRole(['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin', 'moharrar', 'reader_branch', 'ad_administration']);
 
         if ($isStaff) {
             if (!$user->circle_id) {

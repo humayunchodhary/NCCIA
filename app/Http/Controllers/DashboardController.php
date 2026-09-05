@@ -127,7 +127,7 @@ class DashboardController extends Controller
             $dateTo = request('date_to');
             $accountFilter = request('account');
 
-            $cacheKey = 'dash:v3:' . ($user?->id ?: 0) . ':' . md5(json_encode([$role, $year, $dateFrom, $dateTo, $accountFilter]));
+            $cacheKey = 'dash:v5:' . ($user?->id ?: 0) . ':' . ($user?->circle_id ?: 'none') . ':' . md5(json_encode([$role, $year, $dateFrom, $dateTo, $accountFilter]));
 
             $payload = Cache::remember($cacheKey, 180, function () use ($user, $role, $year, $dateFrom, $dateTo) {
                 $queries = $this->statsService->scopedQueries($user, $dateFrom, $dateTo);

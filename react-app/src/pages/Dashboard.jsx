@@ -7,18 +7,18 @@ import ProgressBar from '../components/ProgressBar';
 import { getRoleDuties, canView } from '../utils/permissions';
 
 const ROLE_PORTALS = {
-  admin:               { icon: '🛠️', name: 'Admin Portal', desc: 'Full system administration — manage users, circles, offence types & all modules.' },
-  circle_incharge:     { icon: '✅', name: 'Circle Incharge Portal', desc: 'Assign officers, approve verification/enquiry/case reports per flowchart.' },
-  verification_officer:{ icon: '📋', name: 'Verification Officer Portal', desc: 'Verification stage only — notify complainant, verify, VO comments, submit recommendations.' },
-  enquiry_officer:     { icon: '🔍', name: 'Enquiry Officer Portal', desc: 'Enquiry stage — activities, evidence, CFR.' },
-  investigation_officer:{ icon: '🕵️', name: 'Investigation Officer Portal', desc: 'Case/Court stage — investigation, challan, court reports.' },
-  moharrar:            { icon: '📝', name: 'Moharrar Portal', desc: 'FIR number & case registry (Case stage).' },
-  reader_branch:       { icon: '📂', name: 'Reader Branch Portal', desc: 'Enquiry number registration (Enquiry stage).' },
-  operator:            { icon: '💻', name: 'Front Desk Officer / CMU Portal', desc: 'Complete Registration, apni complaints aur unki progress track karein.' },
-  ad_legal:            { icon: '⚖️', name: 'Islamabad HQ — AD Legal Portal', desc: 'Headquarters Legal Directorate — opinions on enquiry, case & court reports.' },
-  dd_legal:            { icon: '⚖️', name: 'Islamabad HQ — DD Legal Portal', desc: 'Headquarters Legal Directorate — opinions on enquiry, case & court reports.' },
-  additional_director: { icon: '🏛️', name: 'Islamabad HQ — Additional Director Portal', desc: 'Headquarters Executive Oversight & approvals on legal / operational reports.' },
-  director_general:    { icon: '🎯', name: 'Islamabad HQ — Director General Command Portal', desc: 'NCCIA Headquarters Islamabad — full executive command, oversight & analytics.' },
+  admin:               { icon: '🛠️', title: 'Admin Command Portal', desc: 'Full system administration — manage users, circles, offence types & all modules.' },
+  circle_incharge:     { icon: '✅', title: 'Circle Incharge Portal', desc: 'Assign officers, approve verification/enquiry/case reports per flowchart.' },
+  verification_officer:{ icon: '📋', title: 'Verification Officer Portal', desc: 'Verification stage only — notify complainant, verify, VO comments, submit recommendations.' },
+  enquiry_officer:     { icon: '🔍', title: 'Enquiry Officer Portal', desc: 'Enquiry stage — activities, evidence, CFR.' },
+  investigation_officer:{ icon: '🕵️', title: 'Investigation Officer Portal', desc: 'Case/Court stage — investigation, challan, court reports.' },
+  moharrar:            { icon: '📝', title: 'Moharrar Portal', desc: 'FIR number & case registry (Case stage).' },
+  reader_branch:       { icon: '📂', title: 'Reader Branch Portal', desc: 'Enquiry number registration (Enquiry stage).' },
+  operator:            { icon: '💻', title: 'Front Desk Officer / CMU Portal', desc: 'Complete Registration, apni complaints aur unki progress track karein.' },
+  ad_legal:            { icon: '⚖️', title: 'AD Legal Portal', desc: 'Legal Directorate — opinions on enquiry, case & court reports.' },
+  dd_legal:            { icon: '⚖️', title: 'DD Legal Portal', desc: 'Legal Directorate — opinions on enquiry, case & court reports.' },
+  additional_director: { icon: '🏛️', title: 'Additional Director Portal', desc: 'Executive Oversight & approvals on legal / operational reports.' },
+  director_general:    { icon: '🎯', title: 'Director General Command Portal', desc: 'Executive command, oversight & analytics.' },
 };
 
 export default function Dashboard() {
@@ -26,7 +26,21 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const role = user?.roles?.[0]?.name || user?.role || 'operator';
-  const portal = ROLE_PORTALS[role] || ROLE_PORTALS.operator;
+
+  const circleName = user?.circle?.name || user?.circle_name || '';
+  const circleCode = user?.circle?.code || user?.circle_code || '';
+  const isHq = !user?.circle_id || circleCode === 'ISB' || circleCode === 'HQ' || circleName.toLowerCase().includes('islamabad');
+  const stationLabel = isHq ? 'Islamabad HQ' : (circleName || 'Regional Circle');
+
+  const basePortal = ROLE_PORTALS[role] || ROLE_PORTALS.operator;
+  const portal = {
+    icon: basePortal.icon,
+    name: `${stationLabel} — ${basePortal.title}`,
+    desc: isHq
+      ? `NCCIA Headquarters Islamabad — Nationwide Command & Oversight · ${basePortal.desc}`
+      : `${stationLabel} Directorate / Field Station — Regional Operational Jurisdiction · ${basePortal.desc}`
+  };
+
   const duties = getRoleDuties(user);
 
   const [error, setError] = useState(null);
@@ -204,7 +218,7 @@ export default function Dashboard() {
         <div className="page-title-group">
           <div className="page-label">Overview</div>
           <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} &nbsp;·&nbsp; Multi-Role Oversight</p>
+          <p className="page-subtitle">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} &nbsp;·&nbsp; {stationLabel} &nbsp;·&nbsp; Multi-Role Oversight</p>
           <div className="title-underline"></div>
         </div>
         <div className="page-actions">
@@ -235,7 +249,7 @@ export default function Dashboard() {
         <div style={{display:'flex',alignItems:'center',gap:16}}>
           <div style={{fontSize:36}}>{portal.icon}</div>
           <div>
-            <div style={{fontSize:13,opacity:0.85,textTransform:'uppercase',letterSpacing:1}}>Welcome back, <strong>{user?.name?.split(' ')[0] || 'User'}</strong></div>
+            <div style={{fontSize:13,opacity:0.85,textTransform:'uppercase',letterSpacing:1}}>Welcome back, <strong>{user?.name || 'User'}</strong> &nbsp;·&nbsp; {stationLabel}</div>
             <div style={{fontSize:20,fontWeight:700}}>{portal.name}</div>
             <div style={{fontSize:13,opacity:0.9,marginTop:4}}>{portal.desc}</div>
           </div>

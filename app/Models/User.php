@@ -109,24 +109,21 @@ class User extends Authenticatable
      */
     public function isHeadquarters(): bool
     {
-        if ($this->hasAnyRole(['admin', 'director_general'])) {
-            return true;
-        }
-
-        if (!$this->circle_id) {
-            return $this->hasAnyRole(['additional_director', 'ad_legal', 'dd_legal']);
-        }
-
-        $circle = $this->circle;
-        if ($circle) {
-            $code = strtoupper(trim((string)$circle->code));
-            $name = strtolower(trim((string)$circle->name));
-            if ($code === 'HQ' || $code === 'ISL' || $code === 'ISB' || str_contains($name, 'islamabad') || str_contains($name, 'headquarter')) {
-                return true;
+        // 1. If user is explicitly assigned to a regional circle (e.g. Lahore, Gujranwala, Karachi, etc.)
+        // then they are strictly a regional officer/executive, NEVER Headquarters!
+        if ($this->circle_id) {
+            $circle = $this->circle;
+            if ($circle) {
+                $code = strtoupper(trim((string)$circle->code));
+                $name = strtolower(trim((string)$circle->name));
+                return ($code === 'HQ' || $code === 'ISL' || $code === 'ISB' || str_contains($name, 'islamabad') || str_contains($name, 'headquarter'));
             }
+            return false;
         }
 
-        return false;
+        // 2. Unassigned circle_id: Admin, DG, and Federal Directorate officers operate at Headquarters
+        return $this->hasAnyRole(['admin', 'director_general', 'additional_director', 'ad_legal', 'dd_legal'])
+            || in_array(strtolower($this->role ?? ''), ['admin', 'director_general', 'additional_director', 'ad_legal', 'dd_legal'], true);
     }
 
     /**
@@ -136,16 +133,12 @@ class User extends Authenticatable
      */
     public function seesAllData(): bool
     {
-        if ($this->hasAnyRole(['admin', 'director_general'])) {
-            return true;
+        // If assigned to a regional circle (e.g. Lahore, Gujranwala, Karachi, etc.), they do NOT see nationwide data!
+        if ($this->circle_id && !$this->isHeadquarters()) {
+            return false;
         }
 
-        if ($this->isHeadquarters()) {
-            $hqRoles = ['additional_director', 'ad_legal', 'dd_legal'];
-            return $this->hasAnyRole($hqRoles) || in_array(strtolower($this->role ?? ''), $hqRoles, true);
-        }
-
-        return false;
+        return $this->isHeadquarters();
     }
 
     /**
