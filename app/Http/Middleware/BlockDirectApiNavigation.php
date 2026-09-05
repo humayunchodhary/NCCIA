@@ -12,7 +12,7 @@ class BlockDirectApiNavigation
      * Prevent direct browser address bar visits to raw API endpoints.
      * Legitimate AJAX / Axios / Mobile calls use Sec-Fetch-Dest: empty or send JSON headers.
      */
-    public function handle(Request , Closure ): Response
+    public function handle(Request $request, Closure $next): Response
     {
         if ($request->is('api/*')) {
             $dest = $request->header('Sec-Fetch-Dest');
