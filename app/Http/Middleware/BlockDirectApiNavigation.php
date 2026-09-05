@@ -18,7 +18,13 @@ class BlockDirectApiNavigation
             $dest = $request->header('Sec-Fetch-Dest');
             $mode = $request->header('Sec-Fetch-Mode');
 
+            // 1. Direct browser address bar navigation blocked
             if ($dest === 'document' || $mode === 'navigate') {
+                return redirect('/');
+            }
+
+            // 2. Direct browser GET requests without JSON headers blocked
+            if ($request->isMethod('GET') && ! $request->expectsJson() && ! $request->ajax() && ! $request->bearerToken()) {
                 return redirect('/');
             }
         }
