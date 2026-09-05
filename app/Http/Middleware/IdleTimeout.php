@@ -31,6 +31,34 @@ class IdleTimeout
                 }
             }
 
+            // Anti-Session Hijacking: Lock session to original client IP and Device Fingerprint
+            $currentIp = $request->ip();
+            $currentAgent = substr((string) $request->userAgent(), 0, 150);
+            $sessionIp = session('auth_ip');
+            $sessionAgent = session('auth_user_agent');
+
+            if (! $sessionIp) {
+                session(['auth_ip' => $currentIp, 'auth_user_agent' => $currentAgent]);
+            } elseif ($sessionIp !== $currentIp || $sessionAgent !== $currentAgent) {
+                // Potential session hijacking / stolen cookie replay from different device or network!
+                \Illuminate\Support\Facades\Log::warning('Session hijacking attempt blocked', [
+                    'user_id'       => Auth::id(),
+                    'expected_ip'   => $sessionIp,
+                    'attempt_ip'    => $currentIp,
+                    'attempt_agent' => $currentAgent,
+                ]);
+
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => 'Session terminated: IP or Device mismatch detected.'], 401);
+                }
+
+                return redirect()->route('login');
+            }
+
             session(['last_activity' => now()]);
             \Illuminate\Support\Facades\Cache::put('user_online_' . Auth::id(), true, now()->addMinutes(2));
         }
