@@ -50,6 +50,9 @@ class LoginController extends Controller
 
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
+            $request->session()->put('auth_ip', $request->ip());
+            $request->session()->put('auth_user_agent', substr((string) $request->userAgent(), 0, 150));
+            $request->session()->put('last_activity', now());
             RateLimiter::clear($key);
             $this->recordLoginHistory($request, 'web', Auth::id());
             return redirect('/');
@@ -135,6 +138,9 @@ class LoginController extends Controller
             }
 
             $request->session()->regenerate();
+            $request->session()->put('auth_ip', $request->ip());
+            $request->session()->put('auth_user_agent', substr((string) $request->userAgent(), 0, 150));
+            $request->session()->put('last_activity', now());
             RateLimiter::clear($key);
             $this->recordLoginHistory($request, 'api', $user->id);
             return response()->json([
@@ -246,6 +252,9 @@ class LoginController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->put('auth_ip', $request->ip());
+        $request->session()->put('auth_user_agent', substr((string) $request->userAgent(), 0, 150));
+        $request->session()->put('last_activity', now());
         RateLimiter::clear($key);
         $this->recordLoginHistory($request, 'forensic', $user->id);
 

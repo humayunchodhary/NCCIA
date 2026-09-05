@@ -19,12 +19,11 @@ class MessageController extends Controller
             ->where('id', '!=', $request->user()->id)
             ->with('roles')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'designation'])
+            ->get(['id', 'name', 'designation'])
             ->map(function ($u) {
                 return [
                     'id'          => $u->id,
                     'name'        => $u->name,
-                    'email'       => $u->email,
                     'designation' => $u->designation,
                     'role'        => $u->roles->first()?->name ?? 'user',
                 ];

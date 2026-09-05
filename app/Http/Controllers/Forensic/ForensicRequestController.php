@@ -1085,7 +1085,7 @@ class ForensicRequestController extends Controller
     {
         $officers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['ad_forensic', 'admin_forensic']))
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'designation', 'phone']);
+            ->get(['id', 'name', 'designation']);
 
         return response()->json(['data' => $officers]);
     }

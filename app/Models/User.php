@@ -21,6 +21,11 @@ class User extends Authenticatable
 
     protected $fillable = ['name', 'email', 'password', 'role', 'designation', 'circle_id', 'zone_id', 'signature', 'phone', 'country_code', 'status', 'status_remarks'];
 
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     public function isSuspended(): bool
     {
         return strtolower((string) ($this->status ?? 'active')) === 'suspended';

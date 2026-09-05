@@ -33,7 +33,8 @@ use App\Http\Controllers\SmsController;
 Route::middleware(['web', 'auth:sanctum', 'throttle:dashboard'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'apiIndex']);
     Route::get('/analytics', [AnalyticsController::class, 'index']);
-    Route::get('/department-progress', [DepartmentProgressController::class, 'index']);
+    Route::get('/department-progress', [DepartmentProgressController::class, 'index'])
+        ->middleware('role:director_general,additional_director,dd_legal,ad_legal,admin,circle_incharge');
     Route::get('/sidebar-counts', SidebarCountsController::class);
 });
 
@@ -232,7 +233,8 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
         ->middleware('role:admin');
 
     // Investigation Officers - admin/circle_incharge can view, only admin can modify
-    Route::get('/investigation-officers', [InvestigationOfficerController::class, 'index'])->name('api.investigation-officers.index');
+    Route::get('/investigation-officers', [InvestigationOfficerController::class, 'index'])->name('api.investigation-officers.index')
+        ->middleware('role:admin,circle_incharge,director_general');
     Route::post('/investigation-officers', [InvestigationOfficerController::class, 'store'])->name('api.investigation-officers.store')
         ->middleware('role:admin');
     Route::get('/investigation-officers/{investigationOfficer}', [InvestigationOfficerController::class, 'show'])->name('api.investigation-officers.show')

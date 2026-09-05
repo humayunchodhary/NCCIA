@@ -14,16 +14,16 @@ class BlockDirectApiNavigation
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->is('api/*')) {
+        if ($request->is('api', 'api/*', 'sanctum/*')) {
             $dest = $request->header('Sec-Fetch-Dest');
             $mode = $request->header('Sec-Fetch-Mode');
 
-            // 1. Direct browser address bar navigation blocked
-            if ($dest === 'document' || $mode === 'navigate') {
+            // 1. Direct browser address bar navigation or iframe embedding strictly blocked
+            if (in_array($dest, ['document', 'iframe', 'frame'], true) || in_array($mode, ['navigate', 'nested-navigate'], true)) {
                 return redirect('/');
             }
 
-            // 2. Direct browser GET requests without JSON headers blocked
+            // 2. Direct browser GET requests without JSON / AJAX headers blocked
             if ($request->isMethod('GET') && ! $request->expectsJson() && ! $request->ajax() && ! $request->bearerToken()) {
                 return redirect('/');
             }
