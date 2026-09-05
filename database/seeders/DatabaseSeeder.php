@@ -17,17 +17,8 @@ class DatabaseSeeder extends Seeder
             OffenceTypeSeeder::class,
             RolesAndPermissionsSeeder::class,
             ReferenceDataSeeder::class,
+            NcciaOfficesSeeder::class,
         ]);
-
-        // Zones
-        $zoneNorth = \App\Models\Zone::firstOrCreate(['code' => 'NZ'], ['name' => 'North Zone']);
-        $zoneSouth = \App\Models\Zone::firstOrCreate(['code' => 'SZ'], ['name' => 'South Zone']);
-
-        // Circles
-        \App\Models\Circle::firstOrCreate(['code' => 'ISB'], ['name' => 'Islamabad Circle', 'zone_id' => $zoneNorth->id]);
-        \App\Models\Circle::firstOrCreate(['code' => 'LHR'], ['name' => 'Lahore Circle', 'zone_id' => $zoneNorth->id]);
-        \App\Models\Circle::firstOrCreate(['code' => 'KHI'], ['name' => 'Karachi Circle', 'zone_id' => $zoneSouth->id]);
-        \App\Models\Circle::firstOrCreate(['code' => 'UET'], ['name' => 'Quetta Circle', 'zone_id' => $zoneSouth->id]);
 
         $roles = [
             'admin',

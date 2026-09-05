@@ -134,11 +134,12 @@ export default function SoftwareGuide() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Tab State: 'support' | 'guide' | 'faqs'
+  // Tab State: 'support' | 'guide' | 'faqs' | 'jurisdictions'
   const tabParam = searchParams.get('tab');
   const [activeTab, setActiveTab] = useState(
-    tabParam === 'guide' ? 'guide' : (tabParam === 'faqs' ? 'faqs' : 'support')
+    tabParam === 'guide' ? 'guide' : (tabParam === 'faqs' ? 'faqs' : (tabParam === 'jurisdictions' ? 'jurisdictions' : 'support'))
   );
+  const [districtSearch, setDistrictSearch] = useState('');
 
   const setTab = (tab) => {
     setActiveTab(tab);
@@ -378,6 +379,19 @@ export default function SoftwareGuide() {
           </svg>
           <span>Troubleshooting &amp; FAQs</span>
           <span className="sg-tab-pill">SOPs</span>
+        </button>
+
+        <button
+          type="button"
+          className={`sg-tab-btn${activeTab === 'jurisdictions' ? ' active' : ''}`}
+          onClick={() => setTab('jurisdictions')}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <span>Regional Hubs &amp; Jurisdictions</span>
+          <span className="sg-tab-pill">Directory</span>
         </button>
       </div>
 
@@ -913,6 +927,290 @@ export default function SoftwareGuide() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 4: REGIONAL HUBS & DISTRICT JURISDICTIONS */}
+      {activeTab === 'jurisdictions' && (
+        <div className="sg-tab-content">
+          <div className="dev-hero-banner" style={{background:'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color:'#fff', padding:'24px 28px', borderRadius:'14px', marginBottom:'20px'}}>
+            <div className="dev-hero-left">
+              <div className="dev-hero-tag" style={{display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.1)', padding:'4px 10px', borderRadius:20, fontSize:12}}>
+                <span>📍</span>
+                <span>NCCIA National Cyber Crime Investigation Operational Territorial Directory</span>
+              </div>
+              <h2 style={{fontSize:'22px', fontWeight:800, margin:'10px 0 6px', color:'#fff'}}>
+                Regional Operational Hubs &amp; District Jurisdictions
+              </h2>
+              <p style={{fontSize:'13px', color:'#cbd5e1', margin:0, lineHeight:'1.5', maxWidth:'800px'}}>
+                Under the Prevention of Electronic Crimes Act (PECA), NCCIA operates specialized regional circles across Pakistan.
+                Below is the authoritative jurisdictional breakdown, office locations, and covered districts for Punjab, KPK, Balochistan, Gilgit-Baltistan, Islamabad HQ, and Sindh.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick District Search Bar */}
+          <div style={{background:'#fff', padding:'16px 20px', borderRadius:'12px', border:'1px solid #e2e8f0', marginBottom:'20px', display:'flex', alignItems:'center', gap:'12px', boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              type="text"
+              placeholder="Type any district or city to find its jurisdictional NCCIA Circle (e.g. Attock, Mianwali, Skardu, Gwadar, Haripur, Turbat, Sialkot, Bannu)..."
+              value={districtSearch}
+              onChange={e => setDistrictSearch(e.target.value)}
+              style={{flex:1, border:'none', outline:'none', fontSize:'13.5px', color:'#0f172a'}}
+            />
+            {districtSearch && (
+              <button
+                onClick={() => setDistrictSearch('')}
+                style={{background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:'14px', fontWeight:600}}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Directory Cards Grid by Province */}
+          {[
+            {
+              region: 'Punjab Regional Offices',
+              badge: 'Punjab Zone (PZ)',
+              theme: '#2563eb',
+              offices: [
+                {
+                  name: 'NCCIA Lahore (Central Directorate)',
+                  code: 'LHR',
+                  address: 'House No. B-8, G Block Main Boulevard Gulberg-II, Lahore',
+                  phone: '042-99263451',
+                  districts: ['Lahore', 'Kasur', 'Sheikhupura', 'Nankana Sahib', 'Sahiwal', 'Okara', 'Pakpattan'],
+                },
+                {
+                  name: 'NCCIA Rawalpindi',
+                  code: 'RWP',
+                  address: 'Regional Directorate NCCIA, Rawalpindi',
+                  phone: '051-9290001',
+                  districts: ['Rawalpindi', 'Attock', 'Chakwal', 'Jhelum', 'Murree', 'Talagang'],
+                },
+                {
+                  name: 'NCCIA Multan',
+                  code: 'MUX',
+                  address: 'Regional Directorate NCCIA, Multan',
+                  phone: '061-9201001',
+                  districts: ['Multan', 'Khanewal', 'Lodhran', 'Vehari', 'Bahawalpur', 'Bahawalnagar', 'Rahim Yar Khan', 'Dera Ghazi Khan', 'Layyah', 'Muzaffargarh', 'Rajanpur', 'Taunsa', 'Kot Addu'],
+                },
+                {
+                  name: 'NCCIA Gujranwala',
+                  code: 'GRW',
+                  address: 'Regional Directorate NCCIA, Gujranwala',
+                  phone: '055-9200001',
+                  districts: ['Gujranwala', 'Gujrat', 'Sialkot', 'Mandi Bahauddin', 'Narowal', 'Hafizabad', 'Wazirabad'],
+                },
+                {
+                  name: 'NCCIA Faisalabad',
+                  code: 'FSD',
+                  address: 'Regional Directorate NCCIA, Faisalabad',
+                  phone: '041-9200001',
+                  districts: ['Faisalabad', 'Toba Tek Singh', 'Jhang', 'Chiniot', 'Sargodha', 'Khushab', 'Mianwali', 'Bhakkar'],
+                },
+              ],
+            },
+            {
+              region: 'Khyber Pakhtunkhwa (KPK) Regional Offices',
+              badge: 'KPK Zone (KPZ)',
+              theme: '#059669',
+              offices: [
+                {
+                  name: 'NCCIA Peshawar',
+                  code: 'PEW',
+                  address: 'Regional Directorate NCCIA, Peshawar',
+                  phone: '091-9210001',
+                  districts: ['Peshawar', 'Charsadda', 'Nowshera', 'Mardan', 'Swabi', 'Malakand', 'Swat', 'Dir Lower', 'Dir Upper', 'Chitral Lower', 'Chitral Upper', 'Bajaur', 'Mohmand', 'Khyber', 'Buner', 'Shangla'],
+                },
+                {
+                  name: 'NCCIA Abbottabad',
+                  code: 'ATD',
+                  address: 'Regional Directorate NCCIA, Hazara Division, Abbottabad',
+                  phone: '0992-9310001',
+                  districts: ['Abbottabad', 'Haripur', 'Mansehra', 'Batagram', 'Torghar', 'Kohistan Upper', 'Lower Kohistan', 'Kolai Palas'],
+                },
+                {
+                  name: 'NCCIA Dera Ismail Khan',
+                  code: 'DIK',
+                  address: 'Regional Directorate NCCIA, Dera Ismail Khan',
+                  phone: '0966-9280001',
+                  districts: ['D.I. Khan', 'Bannu', 'Lakki Marwat', 'Tank', 'Kohat', 'Karak', 'Hangu', 'Kurram', 'Orakzai', 'North Waziristan', 'South Waziristan'],
+                },
+              ],
+            },
+            {
+              region: 'Balochistan Regional Offices',
+              badge: 'Balochistan Zone (BZ)',
+              theme: '#d97706',
+              offices: [
+                {
+                  name: 'NCCIA Quetta',
+                  code: 'UET',
+                  address: 'FIA Compound on Shabo Road, Quetta',
+                  phone: '081-9201001',
+                  districts: ['Quetta', 'Chaman', 'Pishin', 'Zhob', 'Loralai', 'Sibi', 'Nasirabad', 'Qila Abdullah', 'Qila Saifullah', 'Musakhel', 'Barkhan', 'Kohlu', 'Dera Bugti', 'Ziarat', 'Harnai', 'Jaffarabad', 'Usta Muhammad', 'Sohbatpur', 'Jhal Magsi'],
+                },
+                {
+                  name: 'NCCIA Gwadar',
+                  code: 'GWD',
+                  address: 'New Town Phase-1, Gwadar',
+                  phone: '0864-9200001',
+                  districts: ['Gwadar', 'Kech (Turbat)', 'Khuzdar', 'Kalat', 'Panjgur', 'Lasbela', 'Hub', 'Awaran', 'Surab', 'Washuk', 'Chagai'],
+                },
+              ],
+            },
+            {
+              region: 'Gilgit-Baltistan Regional Office',
+              badge: 'GB Zone (GBZ)',
+              theme: '#0891b2',
+              offices: [
+                {
+                  name: 'NCCIA Gilgit-Baltistan',
+                  code: 'GLT',
+                  address: 'Near GDA Office, River Road, Chinarbagh, Gilgit',
+                  phone: '+92 5811 960707',
+                  districts: ['Gilgit', 'Hunza', 'Skardu', 'Diamir', 'Astore', 'Ghizer', 'Baltistan', 'Shigar', 'Nagar', 'Ghanche', 'Gupis–Yasin'],
+                },
+              ],
+            },
+            {
+              region: 'Islamabad Capital & Headquarters',
+              badge: 'Federal Capital Zone (FCZ)',
+              theme: '#4f46e5',
+              offices: [
+                {
+                  name: 'NCCIA Islamabad (Headquarters)',
+                  code: 'ISB',
+                  address: 'NCCIA Headquarters, Islamabad',
+                  phone: '051-9106384',
+                  districts: ['Islamabad Capital Territory'],
+                },
+              ],
+            },
+            {
+              region: 'Sindh Regional Offices',
+              badge: 'Sindh Zone (SZ)',
+              theme: '#7c3aed',
+              offices: [
+                {
+                  name: 'NCCIA Karachi',
+                  code: 'KHI',
+                  address: 'Regional Directorate NCCIA, Karachi',
+                  phone: '021-99201001',
+                  districts: ['Karachi (South, East, West, Central, Malir, Korangi, Keamari)', 'Hyderabad', 'Thatta', 'Sujawal', 'Badin', 'Jamshoro', 'Matiari', 'Tando Allahyar', 'Tando Muhammad Khan', 'Mirpur Khas', 'Umerkot', 'Tharparkar'],
+                },
+                {
+                  name: 'NCCIA Sukkur',
+                  code: 'SKR',
+                  address: 'Regional Directorate NCCIA, Sukkur',
+                  phone: '071-9310001',
+                  districts: ['Sukkur', 'Larkana', 'Khairpur', 'Ghotki', 'Jacobabad', 'Kashmore', 'Shikarpur', 'Naushahro Feroze', 'Shaheed Benazirabad', 'Kambar Shahdadkot'],
+                },
+              ],
+            },
+          ]
+            .map(section => {
+              const q = districtSearch.trim().toLowerCase();
+              if (!q) return section;
+              const matchingOffices = section.offices.filter(o =>
+                o.name.toLowerCase().includes(q) ||
+                o.code.toLowerCase().includes(q) ||
+                o.address.toLowerCase().includes(q) ||
+                o.districts.some(d => d.toLowerCase().includes(q))
+              );
+              return { ...section, offices: matchingOffices };
+            })
+            .filter(section => section.offices.length > 0)
+            .map((section, sIdx) => (
+              <div key={sIdx} style={{marginBottom:'24px'}}>
+                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:'12px'}}>
+                  <h3 style={{fontSize:'16px', fontWeight:700, color:'#1e293b', margin:0}}>{section.region}</h3>
+                  <span style={{background:'#e2e8f0', color:'#475569', fontSize:'11px', fontWeight:700, padding:'2px 8px', borderRadius:10}}>
+                    {section.badge}
+                  </span>
+                </div>
+
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', gap:'14px'}}>
+                  {section.offices.map((off, oIdx) => (
+                    <div
+                      key={oIdx}
+                      style={{
+                        background:'#fff',
+                        borderRadius:'12px',
+                        border:'1px solid #e2e8f0',
+                        padding:'16px 18px',
+                        boxShadow:'0 1px 3px rgba(0,0,0,0.04)',
+                        display:'flex',
+                        flexDirection:'column',
+                        gap:'10px',
+                      }}
+                    >
+                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+                        <div>
+                          <div style={{fontSize:'14.5px', fontWeight:700, color:'#0f172a'}}>{off.name}</div>
+                          <span style={{fontSize:'11px', fontWeight:700, color:section.theme, letterSpacing:'0.5px'}}>
+                            CODE: {off.code}
+                          </span>
+                        </div>
+                        {off.phone && (
+                          <a
+                            href={`tel:${off.phone}`}
+                            style={{
+                              background:'#f0fdf4',
+                              color:'#15803d',
+                              fontSize:'11.5px',
+                              fontWeight:600,
+                              padding:'4px 8px',
+                              borderRadius:6,
+                              textDecoration:'none',
+                              border:'1px solid #bbf7d0',
+                              whiteSpace:'nowrap',
+                            }}
+                          >
+                            📞 {off.phone}
+                          </a>
+                        )}
+                      </div>
+
+                      <div style={{fontSize:'12px', color:'#475569', display:'flex', alignItems:'flex-start', gap:5}}>
+                        <span>📍</span>
+                        <span style={{lineHeight:1.35}}>{off.address}</span>
+                      </div>
+
+                      <div style={{borderTop:'1px solid #f1f5f9', paddingTop:'8px'}}>
+                        <div style={{fontSize:'11px', fontWeight:600, color:'#64748b', textTransform:'uppercase', marginBottom:4}}>
+                          Territorial Districts ({off.districts.length}):
+                        </div>
+                        <div style={{display:'flex', flexWrap:'wrap', gap:'4px'}}>
+                          {off.districts.map((d, di) => {
+                            const isMatch = districtSearch && d.toLowerCase().includes(districtSearch.toLowerCase());
+                            return (
+                              <span
+                                key={di}
+                                style={{
+                                  background: isMatch ? '#fef08a' : '#f8fafc',
+                                  color: isMatch ? '#854d0e' : '#334155',
+                                  fontSize:'11px',
+                                  padding:'2px 7px',
+                                  borderRadius:'4px',
+                                  border: isMatch ? '1px solid #eab308' : '1px solid #e2e8f0',
+                                  fontWeight: isMatch ? 700 : 400,
+                                }}
+                              >
+                                {d}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
         </div>
       )}
     </div>

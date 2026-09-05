@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Circle extends Model
 {
-    protected $fillable = ['name', 'code', 'zone_id'];
+    protected $fillable = ['name', 'code', 'zone_id', 'address', 'phone', 'jurisdiction'];
 
     public function zone(): BelongsTo
     {

@@ -282,19 +282,36 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
 
     // Circle management — admin + director general
     Route::get('/circles', function () {
-        return response()->json(\App\Models\Circle::with('zone')->orderBy('name')->paginate(20));
-    })->middleware('role:admin,director_general');
+        return response()->json(\App\Models\Circle::with('zone')->orderBy('name')->get());
+    });
     Route::post('/circles', function (\Illuminate\Http\Request $req) {
-        $data = $req->validate(['name' => 'required|string|max:255', 'code' => 'required|string|max:10|unique:circles,code', 'zone_id' => 'nullable|exists:zones,id']);
+        $data = $req->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:10|unique:circles,code',
+            'zone_id' => 'nullable|exists:zones,id',
+            'address' => 'nullable|string|max:500',
+            'phone' => 'nullable|string|max:100',
+            'jurisdiction' => 'nullable|string',
+        ]);
+        \Illuminate\Support\Facades\Cache::forget('lookup_all_circles');
         return response()->json(\App\Models\Circle::create($data), 201);
     })->middleware('role:admin,director_general');
     Route::put('/circles/{circle}', function (\Illuminate\Http\Request $req, \App\Models\Circle $circle) {
-        $data = $req->validate(['name' => 'required|string|max:255', 'code' => 'required|string|max:10|unique:circles,code,'.$circle->id, 'zone_id' => 'nullable|exists:zones,id']);
+        $data = $req->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:10|unique:circles,code,'.$circle->id,
+            'zone_id' => 'nullable|exists:zones,id',
+            'address' => 'nullable|string|max:500',
+            'phone' => 'nullable|string|max:100',
+            'jurisdiction' => 'nullable|string',
+        ]);
         $circle->update($data);
+        \Illuminate\Support\Facades\Cache::forget('lookup_all_circles');
         return response()->json($circle->fresh()->load('zone'));
     })->middleware('role:admin,director_general');
     Route::delete('/circles/{circle}', function (\App\Models\Circle $circle) {
         $circle->delete();
+        \Illuminate\Support\Facades\Cache::forget('lookup_all_circles');
         return response()->json(['message' => 'Circle deleted']);
     })->middleware('role:admin');
 
@@ -311,11 +328,7 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     });
     Route::get('/lookup/circles', function () {
         return response()->json(\Illuminate\Support\Facades\Cache::remember('lookup_all_circles', 1800, function () {
-            try {
-                \App\Models\Circle::firstOrCreate(['code' => 'RC1'], ['name' => 'NCCIA-RC 1']);
-                \App\Models\Circle::firstOrCreate(['code' => 'RC2'], ['name' => 'NCCIA-RC 2']);
-            } catch (\Throwable $e) {}
-            return \App\Models\Circle::orderBy('name')->get(['id', 'name', 'code', 'zone_id']);
+            return \App\Models\Circle::with('zone:id,name,code')->orderBy('name')->get(['id', 'name', 'code', 'zone_id', 'address', 'phone', 'jurisdiction']);
         }));
     });
     Route::get('/lookup/zones', function () {

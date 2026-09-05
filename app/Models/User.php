@@ -121,7 +121,7 @@ class User extends Authenticatable
         if ($circle) {
             $code = strtoupper(trim((string)$circle->code));
             $name = strtolower(trim((string)$circle->name));
-            if ($code === 'HQ' || $code === 'ISL' || str_contains($name, 'islamabad') || str_contains($name, 'headquarter')) {
+            if ($code === 'HQ' || $code === 'ISL' || $code === 'ISB' || str_contains($name, 'islamabad') || str_contains($name, 'headquarter')) {
                 return true;
             }
         }
