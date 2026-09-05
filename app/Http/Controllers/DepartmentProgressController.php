@@ -44,8 +44,8 @@ class DepartmentProgressController extends Controller
         $year = (int) $request->input('year', now()->year);
         $circleId = $request->input('circle_id') ? (int) $request->input('circle_id') : null;
 
-        // If user is a Circle Incharge and has a circle_id, lock to their circle
-        if ($user->hasRole('circle_incharge') && $user->circle_id && !$user->hasRole('admin')) {
+        // Regional circles are strictly locked to their own circle. Only Islamabad HQ / Admin / DG can see all circles.
+        if ($user->circle_id && !$user->isHeadquarters()) {
             $circleId = (int) $user->circle_id;
         }
 

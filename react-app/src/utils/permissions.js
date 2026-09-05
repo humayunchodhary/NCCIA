@@ -1,7 +1,7 @@
 // Role → feature matrix (sync with RolesAndPermissionsSeeder + NCCIA flowchart)
 export const ROLE_FEATURES = {
   admin:                ['dashboard', 'analytics', 'department_progress', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile', 'login_history', 'dsr_reports', 'do_letters'],
-  circle_incharge:      ['dashboard', 'analytics', 'department_progress', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'offence_types', 'reference', 'sms_logs', 'profile', 'dsr_reports', 'do_letters'],
+  circle_incharge:      ['dashboard', 'analytics', 'department_progress', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'offence_types', 'reference', 'sms_logs', 'profile', 'dsr_reports', 'do_letters'],
   operator:             ['dashboard', 'complaints', 'reference', 'profile'],
   verification_officer: ['dashboard', 'verifications', 'reports', 'reference', 'profile'],
   enquiry_officer:      ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],

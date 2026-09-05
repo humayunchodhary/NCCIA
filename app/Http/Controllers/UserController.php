@@ -11,40 +11,100 @@ use Spatie\Permission\Models\Permission;
 
 class UserController extends Controller
 {
-    public function index()
-    {
-        $users = User::with('roles', 'permissions')->latest()->paginate(20);
+    public const CIRCLE_MANAGEABLE_ROLES = [
+        'investigation_officer',
+        'enquiry_officer',
+        'moharrar',
+        'operator',
+        'ad_administration',
+        'reader_branch',
+        'verification_officer',
+    ];
 
-        if (request()->expectsJson()) {
+    public function index(Request $request)
+    {
+        $actor = $request->user();
+        $query = User::with('roles', 'permissions', 'circle:id,name,code', 'zone:id,name,code')->latest();
+
+        // Regional Circle Incharge: strictly limited to users in their circle
+        if ($actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general'])) {
+            $circleId = $actor->circle_id ?: 0;
+            $query->where('circle_id', $circleId);
+        }
+
+        if ($search = trim((string) $request->query('search', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('designation', 'like', "%{$search}%");
+            });
+        }
+
+        if ($roleFilter = $request->query('role')) {
+            $query->where(function ($q) use ($roleFilter) {
+                $q->where('role', $roleFilter)
+                  ->orWhereHas('roles', fn ($rq) => $rq->where('name', $roleFilter));
+            });
+        }
+
+        $perPage = min(100, max(10, (int) $request->query('per_page', 20)));
+        $users = $query->paginate($perPage);
+
+        if ($request->expectsJson()) {
             return response()->json($users);
         }
 
         return view('users.index', compact('users'));
     }
 
-    public function show(User $user)
+    public function show(Request $request, User $user)
     {
-        $user->load('roles', 'permissions');
+        $actor = $request->user();
+        if ($actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general'])) {
+            if ((int) $user->circle_id !== (int) $actor->circle_id) {
+                return response()->json(['message' => 'Unauthorized. User belongs to another circle.'], 403);
+            }
+        }
+
+        $user->load('roles', 'permissions', 'circle', 'zone');
         return response()->json($user);
     }
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'name'       => 'required|string|max:255',
-            'email'      => 'required|email|unique:users,email',
-            'password'   => ['required', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])/'],
-            'role'       => 'required|string|exists:roles,name',
-            'designation'=> 'nullable|string|max:255',
-            'circle_id'  => 'nullable|exists:circles,id',
-            'zone_id'    => 'nullable|exists:zones,id',
-        ], [
+        $actor = $request->user();
+        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general']);
+
+        $rules = [
+            'name'        => 'required|string|max:255',
+            'email'       => 'required|email|unique:users,email',
+            'password'    => ['required', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])/'],
+            'role'        => 'required|string|exists:roles,name',
+            'designation' => 'nullable|string|max:255',
+            'circle_id'   => 'nullable|exists:circles,id',
+            'zone_id'     => 'nullable|exists:zones,id',
+        ];
+
+        $data = $request->validate($rules, [
             'password.regex' => 'Password must include uppercase, lowercase, a number, and a special character (@$!%*#?&).',
         ]);
 
+        if ($isCi) {
+            // Circle Incharge can only create specific field/station roles
+            if (!in_array($data['role'], self::CIRCLE_MANAGEABLE_ROLES, true)) {
+                return response()->json([
+                    'message' => 'Circle Incharge can only create station staff: IO, EO, Moharrar, Operator, Reader Branch, AD Admin, VO.',
+                ], 403);
+            }
+
+            // Strictly lock circle to Circle Incharge's own circle
+            $data['circle_id'] = $actor->circle_id;
+            $data['zone_id'] = $actor->circle?->zone_id ?? $actor->zone_id;
+        }
+
         $user = User::create([
             'name'        => $data['name'],
-            'email'       => $data['email'],
+            'email'       => strtolower($data['email']),
             'password'    => Hash::make($data['password']),
             'role'        => $data['role'],
             'designation' => $data['designation'] ?? null,
@@ -54,24 +114,46 @@ class UserController extends Controller
 
         $user->assignRole($data['role']);
 
-        return response()->json(['message' => 'User created successfully', 'user' => $user->load('roles', 'permissions')], 201);
+        return response()->json(['message' => 'User created successfully', 'user' => $user->load('roles', 'permissions', 'circle', 'zone')], 201);
     }
 
     public function update(Request $request, User $user)
     {
+        $actor = $request->user();
+        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general']);
+
+        if ($isCi) {
+            if ((int) $user->circle_id !== (int) $actor->circle_id) {
+                return response()->json(['message' => 'Unauthorized. You can only edit officers in your circle.'], 403);
+            }
+            if (!in_array($user->role, self::CIRCLE_MANAGEABLE_ROLES, true) && !$user->hasAnyRole(self::CIRCLE_MANAGEABLE_ROLES)) {
+                return response()->json(['message' => 'Unauthorized. You cannot modify high-level leadership accounts.'], 403);
+            }
+        }
+
         $data = $request->validate([
-            'name'       => 'required|string|max:255',
-            'email'      => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'password'   => ['nullable', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])/'],
-            'role'       => 'required|string|exists:roles,name',
-            'designation'=> 'nullable|string|max:255',
-            'circle_id'  => 'nullable|exists:circles,id',
-            'zone_id'    => 'nullable|exists:zones,id',
+            'name'        => 'required|string|max:255',
+            'email'       => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
+            'password'    => ['nullable', 'string', 'min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])/'],
+            'role'        => 'required|string|exists:roles,name',
+            'designation' => 'nullable|string|max:255',
+            'circle_id'   => 'nullable|exists:circles,id',
+            'zone_id'     => 'nullable|exists:zones,id',
         ]);
+
+        if ($isCi) {
+            if (!in_array($data['role'], self::CIRCLE_MANAGEABLE_ROLES, true)) {
+                return response()->json([
+                    'message' => 'Circle Incharge can only assign station roles: IO, EO, Moharrar, Operator, Reader Branch, AD Admin, VO.',
+                ], 403);
+            }
+            $data['circle_id'] = $actor->circle_id;
+            $data['zone_id'] = $actor->circle?->zone_id ?? $actor->zone_id;
+        }
 
         $updateData = [
             'name'        => $data['name'],
-            'email'       => $data['email'],
+            'email'       => strtolower($data['email']),
             'role'        => $data['role'],
             'designation' => $data['designation'] ?? null,
             'circle_id'   => $data['circle_id'] ?? null,
@@ -85,13 +167,24 @@ class UserController extends Controller
         $user->update($updateData);
         $user->syncRoles([$data['role']]);
 
-        return response()->json(['message' => 'User updated successfully', 'user' => $user->fresh()->load('roles', 'permissions')]);
+        return response()->json(['message' => 'User updated successfully', 'user' => $user->fresh()->load('roles', 'permissions', 'circle', 'zone')]);
     }
 
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
-        if ($user->id === auth()->id()) {
+        $actor = $request->user();
+        if ($user->id === $actor->id) {
             return response()->json(['message' => 'Cannot delete your own account'], 422);
+        }
+
+        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general']);
+        if ($isCi) {
+            if ((int) $user->circle_id !== (int) $actor->circle_id) {
+                return response()->json(['message' => 'Unauthorized. You can only delete officers in your circle.'], 403);
+            }
+            if (!in_array($user->role, self::CIRCLE_MANAGEABLE_ROLES, true) && !$user->hasAnyRole(self::CIRCLE_MANAGEABLE_ROLES)) {
+                return response()->json(['message' => 'Unauthorized. You cannot delete this user.'], 403);
+            }
         }
 
         $user->delete();
@@ -141,6 +234,14 @@ class UserController extends Controller
 
     public function resetPassword(Request $request, User $user)
     {
+        $actor = $request->user();
+        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general']);
+        if ($isCi) {
+            if ((int) $user->circle_id !== (int) $actor->circle_id) {
+                return response()->json(['message' => 'Unauthorized. You can only reset password for officers in your circle.'], 403);
+            }
+        }
+
         $data = $request->validate([
             'password' => 'required|string|min:6',
         ]);

@@ -178,17 +178,22 @@ class Complaint extends Model
             return $query;
         }
 
-        if ($user->hasRole('circle_incharge')) {
+        // Regional Supervisory & Station Staff: CI, Moharrar, Reader Branch, AD Admin
+        if ($user->hasAnyRole(['circle_incharge', 'moharrar', 'reader_branch', 'ad_administration'])) {
             return $user->circle_id
                 ? $query->where('circle_id', $user->circle_id)
                 : $query->whereNull('circle_id');
         }
 
+        // Front Desk Operator: scoped to their circle and their entered complaints
         if ($user->hasRole('operator')) {
             return $query->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)
                   ->orWhere('operator_id', $user->id);
-            });
+                if ($user->circle_id) {
+                    $q->orWhere('circle_id', $user->circle_id);
+                }
+            })->when($user->circle_id, fn($q) => $q->where('circle_id', $user->circle_id));
         }
 
         // Scale-safe: EXISTS subqueries — recognize all officer roles and designations
@@ -231,7 +236,7 @@ class Complaint extends Model
                         ->where('cases.investigation_officer_id', $user->id);
                 });
             }
-        });
+        })->when($user->circle_id, fn($q) => $q->where('circle_id', $user->circle_id));
     }
 
     /**

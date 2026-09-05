@@ -254,23 +254,23 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     Route::post('/investigation-officers/{investigation_officer}/verify-otp', [InvestigationOfficerController::class, 'verifyOtp'])
         ->middleware('role:admin');
 
-    // User management — admin + director general
+    // User management — admin + director general + circle incharge (circle-scoped)
     Route::get('/users', [UserController::class, 'index'])->name('api.users.index')
-        ->middleware('role:admin,director_general');
+        ->middleware('role:admin,director_general,circle_incharge');
     Route::post('/users', [UserController::class, 'store'])->name('api.users.store')
-        ->middleware('role:admin,director_general');
+        ->middleware('role:admin,director_general,circle_incharge');
     Route::get('/users/{user}', [UserController::class, 'show'])->name('api.users.show')
-        ->middleware('role:admin,director_general');
+        ->middleware('role:admin,director_general,circle_incharge');
     Route::put('/users/{user}', [UserController::class, 'update'])->name('api.users.update')
-        ->middleware('role:admin,director_general');
+        ->middleware('role:admin,director_general,circle_incharge');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('api.users.destroy')
-        ->middleware('role:admin');
+        ->middleware('role:admin,circle_incharge');
     Route::post('/users/{user}/grant-permission', [UserController::class, 'grantPermission'])
         ->middleware('role:admin');
     Route::post('/users/{user}/revoke-permission', [UserController::class, 'revokePermission'])
         ->middleware('role:admin');
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])
-        ->middleware('role:admin,director_general');
+        ->middleware('role:admin,director_general,circle_incharge');
 
     // Login History — admin + director general
     Route::get('/login-history', [LoginHistoryController::class, 'index'])

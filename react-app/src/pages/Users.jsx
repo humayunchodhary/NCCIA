@@ -5,6 +5,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import OfficerHandoverModal from '../components/OfficerHandoverModal';
 import { ROLE_FEATURES } from '../utils/permissions';
+import { useAuth } from '../contexts/AuthContext';
 
 const ALL_FEATURES = [
   { key: 'dashboard', label: 'Dashboard' },
@@ -28,6 +29,10 @@ const ALL_FEATURES = [
 ];
 
 export default function Users() {
+  const { user: currentUser } = useAuth();
+  const isCi = currentUser?.role === 'circle_incharge' || currentUser?.roles?.some(r => (r.name || r) === 'circle_incharge');
+  const isSuper = currentUser?.role === 'admin' || currentUser?.role === 'director_general' || currentUser?.roles?.some(r => ['admin', 'director_general'].includes(r.name || r));
+
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -132,13 +137,17 @@ export default function Users() {
     <div className="page-content">
       <div className="page-header">
         <div className="page-title-group">
-          <h1 className="page-title">Users</h1>
-          <p className="page-subtitle">Manage all system users, permissions &amp; access</p>
+          <h1 className="page-title">{isCi && !isSuper ? 'Station Staff & Officers' : 'Users'}</h1>
+          <p className="page-subtitle">
+            {isCi && !isSuper
+              ? `Manage station officers and personnel for ${currentUser?.circle?.name || 'your station'}`
+              : 'Manage all system users, permissions & access'}
+          </p>
           <div className="title-underline"></div>
         </div>
         <div className="page-actions">
           <Link to="/users/create" className="btn btn-primary btn-sm">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> Add User
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg> {isCi && !isSuper ? 'Add Officer' : 'Add User'}
           </Link>
         </div>
       </div>
@@ -149,7 +158,7 @@ export default function Users() {
             <div className="card-icon">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
             </div>
-            All Users
+            {isCi && !isSuper ? 'Station Personnel' : 'All Users'}
           </div>
           <div className="section-actions">
             <input type="text" className="filter-select" placeholder="Search name or email…" value={search} onChange={e => setSearch(e.target.value)} style={{height:'32px',padding:'0 10px',fontSize:12}} />
@@ -160,7 +169,15 @@ export default function Users() {
           <div className="table-responsive">
             <table className="data-table">
               <thead>
-                <tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Designation</th><th>Permissions</th><th>Actions</th></tr>
+                <tr>
+                  <th>#</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Designation</th>
+                  {isSuper && <th>Permissions</th>}
+                  <th>Actions</th>
+                </tr>
               </thead>
               <tbody>
                 {filteredList.map((u, i) => (
@@ -185,12 +202,14 @@ export default function Users() {
                       )}
                     </td>
                     <td>{u.designation || '-'}</td>
-                    <td>
-                      <button onClick={() => setPermsTarget(u)} className="btn btn-outline btn-sm" title="Manage Permissions" style={{fontSize:11,whiteSpace:'nowrap'}}>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight:4}}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        Permissions
-                      </button>
-                    </td>
+                    {isSuper && (
+                      <td>
+                        <button onClick={() => setPermsTarget(u)} className="btn btn-outline btn-sm" title="Manage Permissions" style={{fontSize:11,whiteSpace:'nowrap'}}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight:4}}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                          Permissions
+                        </button>
+                      </td>
+                    )}
                     <td>
                       <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
                         <button
@@ -222,7 +241,7 @@ export default function Users() {
                     </td>
                   </tr>
                 ))}
-                {filteredList.length === 0 && <tr><td colSpan={7} style={{textAlign:'center',padding:'24px',color:'#6c757d'}}>No users found</td></tr>}
+                {filteredList.length === 0 && <tr><td colSpan={isSuper ? 7 : 6} style={{textAlign:'center',padding:'24px',color:'#6c757d'}}>No users found</td></tr>}
               </tbody>
             </table>
           </div>

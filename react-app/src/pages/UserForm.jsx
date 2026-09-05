@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
+import { useAuth } from '../contexts/AuthContext';
 
 const roles = [
   'admin', 'operator', 'verification_officer', 'circle_incharge',
@@ -9,11 +10,33 @@ const roles = [
   'admin_forensic', 'dd_forensic', 'ad_forensic', 'desk_forensic', 'forensic_team',
 ];
 
+const CI_ALLOWED_ROLES = [
+  { value: 'investigation_officer', label: 'Investigation Officer (IO)' },
+  { value: 'enquiry_officer', label: 'Enquiry Officer (EO)' },
+  { value: 'moharrar', label: 'Moharrar' },
+  { value: 'operator', label: 'Front Desk Officer / Operator' },
+  { value: 'ad_administration', label: 'AD Administration (AAD)' },
+  { value: 'reader_branch', label: 'Reader Branch' },
+  { value: 'verification_officer', label: 'Verification Officer (VO)' },
+];
+
 export default function UserForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: '', designation: '', circle_id: '', zone_id: '' });
+  const { user: currentUser } = useAuth();
+  const isCi = currentUser?.role === 'circle_incharge' || currentUser?.roles?.some(r => (r.name || r) === 'circle_incharge');
+  const isSuper = currentUser?.role === 'admin' || currentUser?.role === 'director_general' || currentUser?.roles?.some(r => ['admin', 'director_general'].includes(r.name || r));
+
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: '',
+    designation: '',
+    circle_id: '',
+    zone_id: '',
+  });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [circles, setCircles] = useState([]);
@@ -23,6 +46,16 @@ export default function UserForm() {
     api.get('/lookup/zones').then(r => setZones(r.data || [])).catch(() => {});
     api.get('/lookup/circles').then(r => setCircles(r.data || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!isEdit && isCi && !isSuper && currentUser?.circle_id) {
+      setForm(f => ({
+        ...f,
+        circle_id: currentUser.circle_id,
+        zone_id: currentUser.circle?.zone_id || currentUser.zone_id || '',
+      }));
+    }
+  }, [isEdit, isCi, isSuper, currentUser]);
 
   useEffect(() => {
     if (isEdit) {
@@ -129,7 +162,9 @@ export default function UserForm() {
                 <label className="cf-label required">Role</label>
                 <select className="cf-input" value={form.role} onChange={setF('role')} required>
                   <option value="">— Select Role —</option>
-                  {roles.map(r => <option key={r} value={r}>{r === 'operator' ? 'Front Desk Officer' : r.replace(/_/g, ' ')}</option>)}
+                  {(isCi && !isSuper ? CI_ALLOWED_ROLES : roles.map(r => ({ value: r, label: r === 'operator' ? 'Front Desk Officer' : r.replace(/_/g, ' ') }))).map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
                 </select>
                 {errors.role && <span className="cf-error">{errors.role[0]}</span>}
               </div>
@@ -137,7 +172,7 @@ export default function UserForm() {
             <div className="cf-row-2">
               <div className="cf-field">
                 <label className="cf-label">Designation</label>
-                <input className="cf-input" type="text" value={form.designation} onChange={setF('designation')} placeholder="e.g. Director General" />
+                <input className="cf-input" type="text" value={form.designation} onChange={setF('designation')} placeholder={isCi ? "e.g. Sub Inspector / Reader / Moharrar" : "e.g. Director General"} />
               </div>
               <div className="cf-field"></div>
             </div>
@@ -164,22 +199,35 @@ export default function UserForm() {
               </div>
             )}
 
-            <div className="cf-row-2">
-              <div className="cf-field">
-                <label className="cf-label">Zone</label>
-                <select className="cf-input" value={form.zone_id} onChange={e => { setForm(f => ({ ...f, zone_id: e.target.value, circle_id: '' })); setErrors(e => ({ ...e, zone_id: null })); }}>
-                  <option value="">{['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin'].includes(form.role) ? '— National / All Zones (Islamabad HQ) —' : '— Select Zone —'}</option>
-                  {zones.map(z => <option key={z.id} value={z.id}>{z.name} ({z.code})</option>)}
-                </select>
+            {isCi && !isSuper ? (
+              <div style={{
+                background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
+                padding: '14px 18px', margin: '12px 0 16px', display: 'flex', alignItems: 'center',
+                gap: 12
+              }}>
+                <span style={{ fontSize: 24 }}>🏢</span>
+                <div style={{ fontSize: 13, color: '#1e40af', lineHeight: 1.45 }}>
+                  <strong>Station Multi-Tenancy Protection:</strong> This officer will be permanently assigned to your circle (<strong>{circles.find(c => c.id == currentUser?.circle_id)?.name || currentUser?.circle?.name || 'Your Circle'}</strong>). Regional officers only access complaints, verifications and enquiries in their assigned station.
+                </div>
               </div>
-              <div className="cf-field">
-                <label className="cf-label">Circle</label>
-                <select className="cf-input" value={form.circle_id} onChange={setF('circle_id')}>
-                  <option value="">{['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin'].includes(form.role) ? '— All Circles / National Jurisdiction (Islamabad HQ) —' : '— Select Circle —'}</option>
-                  {circles.filter(c => !form.zone_id || c.zone_id == form.zone_id).map(c => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
-                </select>
+            ) : (
+              <div className="cf-row-2">
+                <div className="cf-field">
+                  <label className="cf-label">Zone</label>
+                  <select className="cf-input" value={form.zone_id} onChange={e => { setForm(f => ({ ...f, zone_id: e.target.value, circle_id: '' })); setErrors(e => ({ ...e, zone_id: null })); }}>
+                    <option value="">{['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin'].includes(form.role) ? '— National / All Zones (Islamabad HQ) —' : '— Select Zone —'}</option>
+                    {zones.map(z => <option key={z.id} value={z.id}>{z.name} ({z.code})</option>)}
+                  </select>
+                </div>
+                <div className="cf-field">
+                  <label className="cf-label">Circle</label>
+                  <select className="cf-input" value={form.circle_id} onChange={setF('circle_id')}>
+                    <option value="">{['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin'].includes(form.role) ? '— All Circles / National Jurisdiction (Islamabad HQ) —' : '— Select Circle —'}</option>
+                    {circles.filter(c => !form.zone_id || c.zone_id == form.zone_id).map(c => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

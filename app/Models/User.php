@@ -105,21 +105,47 @@ class User extends Authenticatable
     }
 
     /**
-     * Supervisory roles see all records across the system.
+     * Check if user belongs to Islamabad / National Headquarters.
+     */
+    public function isHeadquarters(): bool
+    {
+        if ($this->hasAnyRole(['admin', 'director_general'])) {
+            return true;
+        }
+
+        if (!$this->circle_id) {
+            return $this->hasAnyRole(['additional_director', 'ad_legal', 'dd_legal']);
+        }
+
+        $circle = $this->circle;
+        if ($circle) {
+            $code = strtoupper(trim((string)$circle->code));
+            $name = strtolower(trim((string)$circle->name));
+            if ($code === 'HQ' || $code === 'ISL' || str_contains($name, 'islamabad') || str_contains($name, 'headquarter')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Who sees all records across Pakistan:
+     * Only Admin, Director General, or officers stationed at Islamabad / Headquarters.
+     * Regional circle officers (Gujranwala, Lahore, Karachi, etc.) NEVER see all data.
      */
     public function seesAllData(): bool
     {
-        $allRoles = [
-            'admin',
-            'director_general',
-            'additional_director',
-            'moharrar',
-            'reader_branch',
-            'ad_legal',
-            'dd_legal',
-        ];
+        if ($this->hasAnyRole(['admin', 'director_general'])) {
+            return true;
+        }
 
-        return $this->hasAnyRole($allRoles) || in_array(strtolower($this->role ?? ''), $allRoles, true);
+        if ($this->isHeadquarters()) {
+            $hqRoles = ['additional_director', 'ad_legal', 'dd_legal'];
+            return $this->hasAnyRole($hqRoles) || in_array(strtolower($this->role ?? ''), $hqRoles, true);
+        }
+
+        return false;
     }
 
     /**

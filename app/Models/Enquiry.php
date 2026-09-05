@@ -278,7 +278,9 @@ class Enquiry extends Model
             return $query->whereRaw('1 = 0');
         }
 
-        if ($isCi) {
+        $isStaff = $isCi || $user->hasAnyRole(['moharrar', 'reader_branch', 'ad_administration']);
+
+        if ($isStaff) {
             if (!$user->circle_id) {
                 return $query;
             }
@@ -302,6 +304,12 @@ class Enquiry extends Model
                   ->orWhereHas('caseFile', function ($c) use ($user) {
                       $c->where('investigation_officer_id', $user->id);
                   });
+            })->when($user->circle_id, function ($cq) use ($user) {
+                $cq->where(function ($sq) use ($user) {
+                    $sq->whereHas('complaint', fn ($sub) => $sub->where('circle_id', $user->circle_id))
+                       ->orWhere('direct_info->circle_id', $user->circle_id)
+                       ->orWhere('direct_info->circle_id', (string) $user->circle_id);
+                });
             });
         }
 
@@ -312,6 +320,12 @@ class Enquiry extends Model
                     $sub->where('circle_id', $user->circle_id);
                 });
             }
+        })->when($user->circle_id, function ($cq) use ($user) {
+            $cq->where(function ($sq) use ($user) {
+                $sq->whereHas('complaint', fn ($sub) => $sub->where('circle_id', $user->circle_id))
+                   ->orWhere('direct_info->circle_id', $user->circle_id)
+                   ->orWhere('direct_info->circle_id', (string) $user->circle_id);
+            });
         });
     }
 }

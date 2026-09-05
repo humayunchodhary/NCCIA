@@ -127,15 +127,13 @@ class CaseFile extends Model
         return $query->where(function ($q) use ($user) {
             $q->whereIn('enquiry_id', Enquiry::visibleTo($user)->select('id'));
 
-            // Direct FIR (no enquiry): show to circle incharge / same-circle users.
+            // Direct FIR (no enquiry): strictly within user's circle
             $q->orWhere(function ($d) use ($user) {
-                $d->whereNull('enquiry_id')->whereNotNull('direct_info');
-                if ($user->circle_id && !$user->hasRole('circle_incharge')) {
-                    $d->where('direct_info->circle_id', $user->circle_id);
-                } elseif ($user->hasRole('circle_incharge') && $user->circle_id) {
+                $d->whereNull('enquiry_id');
+                if ($user->circle_id) {
                     $d->where(function ($c) use ($user) {
                         $c->where('direct_info->circle_id', $user->circle_id)
-                          ->orWhereNull('direct_info->circle_id');
+                          ->orWhere('direct_info->circle_id', (string) $user->circle_id);
                     });
                 }
             });
