@@ -135,4 +135,30 @@ class CircleIsolationTest extends TestCase
             $this->assertEquals($ciGrw->circle_id, $u['circle_id'], "User {$u['name']} must belong to Gujranwala");
         }
     }
+
+    public function test_ci_department_progress_is_strictly_locked_to_their_station(): void
+    {
+        $ciGrw = User::where('email', 'ci.grw@nccia.gov.pk')->first();
+        $circleGrw = Circle::where('code', 'GRW')->first();
+        $circleLhr = Circle::where('code', 'LHR')->first();
+
+        // 1. CI accesses progress without query params -> locked to their circle
+        $response = $this->actingAs($ciGrw, 'sanctum')->getJson('/api/department-progress');
+        $response->assertStatus(200);
+        $data = $response->json();
+
+        $this->assertTrue($data['is_station_locked']);
+        $this->assertEquals($circleGrw->id, $data['selected_circle']['id']);
+        $this->assertCount(1, $data['circles']);
+        $this->assertEquals($circleGrw->id, $data['circles'][0]['id']);
+
+        // 2. CI maliciously requests another circle's progress (e.g. Lahore) -> still forced to Gujranwala
+        $spoofedResponse = $this->actingAs($ciGrw, 'sanctum')->getJson("/api/department-progress?circle_id={$circleLhr->id}");
+        $spoofedResponse->assertStatus(200);
+        $spoofedData = $spoofedResponse->json();
+
+        $this->assertTrue($spoofedData['is_station_locked']);
+        $this->assertEquals($circleGrw->id, $spoofedData['selected_circle']['id']);
+        $this->assertNotEquals($circleLhr->id, $spoofedData['selected_circle']['id']);
+    }
 }

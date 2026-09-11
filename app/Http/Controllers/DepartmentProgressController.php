@@ -44,27 +44,47 @@ class DepartmentProgressController extends Controller
         $year = (int) $request->input('year', now()->year);
         $circleId = $request->input('circle_id') ? (int) $request->input('circle_id') : null;
 
-        // Regional circles are strictly locked to their own circle. Only Islamabad HQ / Admin / DG can see all circles.
-        if ($user->circle_id && !$user->isHeadquarters()) {
-            $circleId = (int) $user->circle_id;
+        $isCi = $user->hasRole('circle_incharge') || ($user->role ?? '') === 'circle_incharge';
+        $isStationOfficer = !$user->isHeadquarters() && !$user->isZonalHead();
+
+        // Regional circles/incharges are strictly locked to their own circle. Only Islamabad HQ / Admin / DG can see all circles.
+        if ($isCi || $isStationOfficer) {
+            $circleId = (int) ($user->circle_id ?: Circle::where('code', 'LHR')->value('id'));
+        } elseif ($user->isZonalHead()) {
+            $effectiveZoneId = $user->zone_id ?: $user->circle?->zone_id;
+            if ($circleId) {
+                $targetCircle = Circle::find($circleId);
+                if (!$targetCircle || (int) $targetCircle->zone_id !== (int) $effectiveZoneId) {
+                    $circleId = null;
+                }
+            }
         }
 
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
 
-        $cacheKey = "dept_prog:v4:{$user->id}:{$year}:" . ($circleId ?: 'all') . ":{$dateFrom}:{$dateTo}";
+        $cacheKey = "dept_prog:v5:{$user->id}:{$year}:" . ($circleId ?: 'all') . ":{$dateFrom}:{$dateTo}";
 
-        $payload = Cache::remember($cacheKey, 60, function () use ($year, $circleId, $dateFrom, $dateTo) {
-            return $this->buildProgressData($year, $circleId, $dateFrom, $dateTo);
+        $payload = Cache::remember($cacheKey, 60, function () use ($year, $circleId, $dateFrom, $dateTo, $user) {
+            return $this->buildProgressData($year, $circleId, $dateFrom, $dateTo, $user);
         });
 
         return response()->json($payload);
     }
 
-    private function buildProgressData(int $year, ?int $circleId, ?string $dateFrom, ?string $dateTo): array
+    private function buildProgressData(int $year, ?int $circleId, ?string $dateFrom, ?string $dateTo, ?User $user = null): array
     {
-        // 1. Fetch all Circles for dropdown & circle-by-circle comparative analysis
-        $circles = Circle::query()->select('id', 'name', 'code')->orderBy('name')->get();
+        $isStationLocked = $user && ($user->hasRole('circle_incharge') || ($user->role ?? '') === 'circle_incharge' || (!$user->isHeadquarters() && !$user->isZonalHead()));
+
+        // 1. Fetch authorized Circles only
+        if ($isStationLocked && $circleId) {
+            $circles = Circle::query()->select('id', 'name', 'code')->where('id', $circleId)->get();
+        } elseif ($user && $user->isZonalHead()) {
+            $effectiveZoneId = $user->zone_id ?: $user->circle?->zone_id;
+            $circles = Circle::query()->select('id', 'name', 'code')->where('zone_id', $effectiveZoneId)->orderBy('name')->get();
+        } else {
+            $circles = Circle::query()->select('id', 'name', 'code')->orderBy('name')->get();
+        }
 
         // 2. Base queries with optional date / year filtering
         $cmpQuery = Complaint::query();
@@ -394,8 +414,12 @@ class DepartmentProgressController extends Controller
 
         // 9. Monthly Trends (Inflow vs Disposal - Scoped)
         $monthlyTrends = [];
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        $monthExpr = $isSqlite ? "CAST(strftime('%m', created_at) AS INTEGER)" : "MONTH(created_at)";
+        $updatedMonthExpr = $isSqlite ? "CAST(strftime('%m', updated_at) AS INTEGER)" : "MONTH(updated_at)";
+
         $receivedMonths = (clone $cmpQuery)
-            ->selectRaw('MONTH(created_at) as m, COUNT(*) as c')
+            ->selectRaw("{$monthExpr} as m, COUNT(*) as c")
             ->groupBy('m')
             ->pluck('c', 'm');
 
@@ -404,7 +428,7 @@ class DepartmentProgressController extends Controller
                 $q->whereNotNull('final_status')
                   ->orWhereIn('status', ['complete', 'invalid', 'irrelevant']);
             })
-            ->selectRaw('MONTH(updated_at) as m, COUNT(*) as c')
+            ->selectRaw("{$updatedMonthExpr} as m, COUNT(*) as c")
             ->groupBy('m')
             ->pluck('c', 'm');
 
@@ -531,14 +555,18 @@ class DepartmentProgressController extends Controller
                 'overall_disposal_rate' => $overallDisposalRate,
             ],
             'hq_command' => [
-                'headquarters' => 'Islamabad Headquarters (HQ)',
-                'jurisdiction' => 'Nationwide / Federal Territory & Provincial Circles',
+                'headquarters' => $isStationLocked ? (($selectedCircleInfo['name'] ?? 'Circle') . ' Command Portal') : 'Islamabad Headquarters (HQ)',
+                'jurisdiction' => $isStationLocked ? (($selectedCircleInfo['name'] ?? 'Local Circle') . ' Operational Jurisdiction') : 'Nationwide / Federal Territory & Provincial Circles',
                 'total_circles' => count($circles),
                 'total_officers' => count($circleOfficers),
                 'pending_dsr' => $pendingDsrCount,
                 'pending_do' => $pendingDoCount,
                 'total_transfers' => $totalTransfersCount,
             ],
+            'is_station_locked' => (bool) $isStationLocked,
+            'user_station_name' => $user?->circle?->name,
+            'user_circle_code'  => $user?->circle?->code,
+            'is_zonal_head'     => $user?->isZonalHead() ?? false,
             'selected_circle' => $selectedCircleInfo,
             'circles' => $circles,
             'circle_breakdown' => $circleBreakdown,

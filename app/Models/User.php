@@ -92,6 +92,14 @@ class User extends Authenticatable
         return $this->where('email', $username)->first();
     }
 
+    protected $appends = [
+        'circle_code',
+        'circle_name',
+        'zone_code',
+        'zone_name',
+        'is_zonal_head',
+    ];
+
     public function zone()
     {
         return $this->belongsTo(Zone::class);
@@ -100,6 +108,87 @@ class User extends Authenticatable
     public function circle()
     {
         return $this->belongsTo(Circle::class);
+    }
+
+    public function getCircleIdAttribute($value): ?int
+    {
+        if ($value) {
+            return (int) $value;
+        }
+
+        // Auto-detect circle from name, email, or designation for unassigned legacy accounts
+        $haystack = strtolower(($this->attributes['email'] ?? '') . ' ' . ($this->attributes['name'] ?? '') . ' ' . ($this->attributes['designation'] ?? ''));
+        
+        $code = null;
+        if (str_contains($haystack, 'lhr') || str_contains($haystack, 'lahore')) {
+            $code = 'LHR';
+        } elseif (str_contains($haystack, 'grw') || str_contains($haystack, 'gujranwala')) {
+            $code = 'GRW';
+        } elseif (str_contains($haystack, 'rwp') || str_contains($haystack, 'rawalpindi')) {
+            $code = 'RWP';
+        } elseif (str_contains($haystack, 'mux') || str_contains($haystack, 'multan')) {
+            $code = 'MUX';
+        } elseif (str_contains($haystack, 'fsd') || str_contains($haystack, 'faisalabad')) {
+            $code = 'FSD';
+        } elseif (str_contains($haystack, 'pew') || str_contains($haystack, 'peshawar')) {
+            $code = 'PEW';
+        } elseif (str_contains($haystack, 'khi') || str_contains($haystack, 'karachi')) {
+            $code = 'KHI';
+        } elseif (str_contains($haystack, 'uet') || str_contains($haystack, 'quetta')) {
+            $code = 'UET';
+        } elseif (str_contains($haystack, 'gwd') || str_contains($haystack, 'gwadar')) {
+            $code = 'GWD';
+        } elseif (str_contains($haystack, 'glt') || str_contains($haystack, 'gilgit')) {
+            $code = 'GLT';
+        } elseif (str_contains($haystack, 'atd') || str_contains($haystack, 'abbottabad')) {
+            $code = 'ATD';
+        } elseif (str_contains($haystack, 'dik') || str_contains($haystack, 'ismail')) {
+            $code = 'DIK';
+        } elseif (str_contains($haystack, 'skr') || str_contains($haystack, 'sukkur')) {
+            $code = 'SKR';
+        }
+
+        if ($code) {
+            $circle = Circle::where('code', $code)->first();
+            if ($circle) {
+                return (int) $circle->id;
+            }
+        }
+
+        // Default Circle Incharge with null circle to Lahore Central Directorate
+        if (($this->attributes['role'] ?? '') === 'circle_incharge') {
+            $circle = Circle::where('code', 'LHR')->first() ?? Circle::first();
+            if ($circle) {
+                return (int) $circle->id;
+            }
+        }
+
+        return null;
+    }
+
+    public function getCircleCodeAttribute(): ?string
+    {
+        return $this->circle?->code;
+    }
+
+    public function getCircleNameAttribute(): ?string
+    {
+        return $this->circle?->name;
+    }
+
+    public function getZoneCodeAttribute(): ?string
+    {
+        return $this->zone?->code ?: $this->circle?->zone?->code;
+    }
+
+    public function getZoneNameAttribute(): ?string
+    {
+        return $this->zone?->name ?: $this->circle?->zone?->name;
+    }
+
+    public function getIsZonalHeadAttribute(): bool
+    {
+        return $this->isZonalHead();
     }
 
     public function getSignatureUrlAttribute(): ?string
@@ -112,6 +201,12 @@ class User extends Authenticatable
      */
     public function isHeadquarters(): bool
     {
+        // Station/Circle roles are strictly local station officers, NEVER Headquarters!
+        $role = strtolower(trim((string) ($this->role ?? '')));
+        if (in_array($role, ['circle_incharge', 'operator', 'front_desk_officer', 'verification_officer', 'enquiry_officer', 'investigation_officer', 'moharrar', 'reader_branch'], true)) {
+            return false;
+        }
+
         // 1. If user is explicitly assigned to a regional circle (e.g. Lahore, Gujranwala, Karachi, etc.)
         // then they are strictly a regional officer/executive, NEVER Headquarters!
         if ($this->circle_id) {

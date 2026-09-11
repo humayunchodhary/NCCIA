@@ -44,6 +44,10 @@ export default function Layout() {
     && !hasRole(user, 'admin')
     && !hasRole(user, 'circle_incharge')
     && !hasRole(user, 'director_general');
+  const circleCode = user?.circle?.code || user?.circle_code;
+  const circleName = user?.circle?.name || user?.circle_name;
+  const isZonalHead = user?.is_zonal_head || user?.role === 'director_punjab' || user?.role === 'zonal_director' || (user?.designation && user.designation.toLowerCase().includes('director punjab'));
+  const isHqUser = !circleCode && !isZonalHead && (user?.role === 'admin' || user?.role === 'director_general' || user?.role === 'additional_director' || user?.role === 'dd_legal' || user?.role === 'ad_legal');
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -453,7 +457,7 @@ export default function Layout() {
                     <path d="M8 17v-3"/>
                   </svg>
                 </span>
-                <span>Department Progress</span>
+                <span>{user?.role === 'circle_incharge' || user?.designation?.toLowerCase().includes('incharge') ? 'Station Command Portal' : 'Department Progress'}</span>
               </NavLink>
             </div>
           )}
@@ -765,9 +769,9 @@ export default function Layout() {
               whiteSpace: 'nowrap'
             }}>
               <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#48bb78', boxShadow: '0 0 6px #48bb78' }}></span>
-              {user?.circle_code
-                ? `Station: NCCIA ${user.circle?.name || user.circle_code}`
-                : (user?.role === 'admin' || user?.role === 'director_general' ? '🏛️ National HQ (Islamabad)' : '🏢 Regional Directorate')}
+              {circleName || circleCode
+                ? `Station: NCCIA ${circleName || circleCode}`
+                : (isZonalHead ? '🏢 Punjab Regional Directorate' : (isHqUser ? '🏛️ National HQ (Islamabad)' : '🏢 Station Command'))}
             </div>
           </div>
           <div className="header-search" role="search" ref={searchRef} style={{position:'relative', flex: '0 1 320px', minWidth: 180, maxWidth: 360}}>
@@ -944,7 +948,7 @@ export default function Layout() {
                 <div className="header-user-info">
                   <div className="header-user-name">{user?.name || 'User'}</div>
                   <div className="header-user-role">
-                    {user?.designation || (user?.role === 'operator' ? 'Front Desk Officer (FDO)' : user?.role?.replace(/_/g, ' ')) || 'Officer'} · {user?.circle_code ? `${user.circle_code} Circle` : 'National HQ'}
+                    {user?.designation || (user?.role === 'operator' ? 'Front Desk Officer (FDO)' : user?.role?.replace(/_/g, ' ')) || 'Officer'} · {circleCode ? `${circleCode} Circle` : (isZonalHead ? 'Punjab Directorate' : 'National HQ')}
                   </div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft:'2px',color:'rgba(255,255,255,0.7)',transition:'transform 0.25s',transform:userMenuOpen?'rotate(180deg)':''}}>

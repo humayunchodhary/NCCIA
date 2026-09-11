@@ -17,7 +17,7 @@ export default function DepartmentProgress() {
   // Filters
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
-  const [circleId, setCircleId] = useState('');
+  const [circleId, setCircleId] = useState(user?.circle_id ? String(user.circle_id) : '');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [tableSearch, setTableSearch] = useState('');
@@ -32,9 +32,16 @@ export default function DepartmentProgress() {
   const legalSectionRef = useRef(null);
 
   // Officers Directory Filters
-  const [officerCircleFilter, setOfficerCircleFilter] = useState('');
+  const [officerCircleFilter, setOfficerCircleFilter] = useState(user?.circle_id ? String(user.circle_id) : '');
   const [officerRoleFilter, setOfficerRoleFilter] = useState('');
   const [officerSearch, setOfficerSearch] = useState('');
+
+  const isStationLocked = Boolean(
+    data?.is_station_locked ||
+    user?.role === 'circle_incharge' ||
+    user?.designation?.toLowerCase().includes('incharge') ||
+    (user?.circle_id && !user?.is_zonal_head && user?.role !== 'admin' && user?.role !== 'director_general')
+  );
 
   const fetchMonitoringData = (silent = false) => {
     if (!silent) {
@@ -53,6 +60,11 @@ export default function DepartmentProgress() {
     api.get(`/department-progress?${params.toString()}`)
       .then(res => {
         setData(res.data);
+        if (res.data?.is_station_locked && res.data?.selected_circle?.id) {
+          const lockedId = String(res.data.selected_circle.id);
+          setCircleId(lockedId);
+          setOfficerCircleFilter(lockedId);
+        }
       })
       .catch(err => {
         if (!silent) {
@@ -76,10 +88,12 @@ export default function DepartmentProgress() {
 
   const handleResetFilters = () => {
     setYear(currentYear);
-    setCircleId('');
+    if (!isStationLocked) {
+      setCircleId('');
+      setOfficerCircleFilter('');
+    }
     setDateFrom('');
     setDateTo('');
-    setOfficerCircleFilter('');
   };
 
   const handleCircleOfficersClick = (cId) => {
@@ -459,52 +473,54 @@ export default function DepartmentProgress() {
         </div>
       </div>
 
-      {/* Circle Command Switcher Tabs Bar */}
-      <div className="circle-tabs-bar no-print" style={{
-        display: 'flex', gap: 8, alignItems: 'center', overflowX: 'auto', padding: '10px 14px',
-        background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 16,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-      }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
-          Select Command Portal:
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            setCircleId('');
-            setOfficerCircleFilter('');
-          }}
-          style={{
-            padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            border: 'none', whiteSpace: 'nowrap',
-            background: !circleId ? '#013658' : '#e2e8f0',
-            color: !circleId ? '#fff' : '#334155'
-          }}
-        >
-          🏛️ Islamabad HQ (Nationwide Command)
-        </button>
-        {circles.map(c => {
-          const isSelected = String(circleId) === String(c.id);
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => {
-                setCircleId(isSelected ? '' : String(c.id));
-                setOfficerCircleFilter(isSelected ? '' : String(c.id));
-              }}
-              style={{
-                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                border: 'none', whiteSpace: 'nowrap',
-                background: isSelected ? '#0284c7' : '#f1f5f9',
-                color: isSelected ? '#fff' : '#1e293b'
-              }}
-            >
-              🏛️ {c.name} {c.code ? `(${c.code})` : ''}
-            </button>
-          );
-        })}
-      </div>
+      {/* Circle Command Switcher Tabs Bar (Hidden for station locked officers) */}
+      {!isStationLocked && circles.length > 1 && (
+        <div className="circle-tabs-bar no-print" style={{
+          display: 'flex', gap: 8, alignItems: 'center', overflowX: 'auto', padding: '10px 14px',
+          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 16,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
+            Select Command Portal:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setCircleId('');
+              setOfficerCircleFilter('');
+            }}
+            style={{
+              padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              border: 'none', whiteSpace: 'nowrap',
+              background: !circleId ? '#013658' : '#e2e8f0',
+              color: !circleId ? '#fff' : '#334155'
+            }}
+          >
+            🏛️ Islamabad HQ (Nationwide Command)
+          </button>
+          {circles.map(c => {
+            const isSelected = String(circleId) === String(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  setCircleId(isSelected ? '' : String(c.id));
+                  setOfficerCircleFilter(isSelected ? '' : String(c.id));
+                }}
+                style={{
+                  padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  border: 'none', whiteSpace: 'nowrap',
+                  background: isSelected ? '#0284c7' : '#f1f5f9',
+                  color: isSelected ? '#fff' : '#1e293b'
+                }}
+              >
+                🏛️ {c.name} {c.code ? `(${c.code})` : ''}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Main Command Banner: Dedicated Circle Portal OR Islamabad HQ Portal */}
       {selected_circle ? (
@@ -571,19 +587,21 @@ export default function DepartmentProgress() {
               >
                 <span>🖨️ Print {selected_circle.name} Briefing</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCircleId('');
-                  setOfficerCircleFilter('');
-                }}
-                style={{
-                  background: 'rgba(255,255,255,0.18)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)',
-                  borderRadius: 6, padding: '5px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer'
-                }}
-              >
-                ← Back to Islamabad HQ (All Circles)
-              </button>
+              {!isStationLocked && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCircleId('');
+                    setOfficerCircleFilter('');
+                  }}
+                  style={{
+                    background: 'rgba(255,255,255,0.18)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)',
+                    borderRadius: 6, padding: '5px 12px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  ← Back to Islamabad HQ (All Circles)
+                </button>
+              )}
             </div>
           </div>
 
@@ -756,25 +774,39 @@ export default function DepartmentProgress() {
           </div>
 
           {/* Circle Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Selected Circle:</span>
-            <select
-              className="filter-select"
-              value={circleId}
-              onChange={e => {
-                setCircleId(e.target.value);
-                setOfficerCircleFilter(e.target.value);
-              }}
-              style={{ padding: '5px 10px', fontSize: 13, minWidth: 180 }}
-            >
-              <option value="">All Circles (Islamabad HQ)</option>
-              {circles.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.code ? `(${c.code})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isStationLocked ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: '#f1f5f9', padding: '5px 12px', borderRadius: 6,
+              border: '1px solid #cbd5e1'
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Assigned Station:</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: 5 }}>
+                🏢 {selected_circle?.name || data?.user_station_name || user?.circle?.name || 'Station Command'} {selected_circle?.code ? `(${selected_circle.code})` : ''}
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Selected Circle:</span>
+              <select
+                className="filter-select"
+                value={circleId}
+                onChange={e => {
+                  setCircleId(e.target.value);
+                  setOfficerCircleFilter(e.target.value);
+                }}
+                style={{ padding: '5px 10px', fontSize: 13, minWidth: 180 }}
+              >
+                {!data?.is_zonal_head && <option value="">All Circles (Islamabad HQ)</option>}
+                {data?.is_zonal_head && <option value="">All Punjab Circles (Zonal Directorate)</option>}
+                {circles.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.code ? `(${c.code})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Date Range Form */}
           <form onSubmit={handleApplyCustomDates} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
