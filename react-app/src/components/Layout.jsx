@@ -229,12 +229,14 @@ export default function Layout() {
   }, [collapsed]);
 
   useEffect(() => {
-    const p = location.pathname + location.search;
-    if (p.includes('direct=1') || p.includes('/verifications/create') || p.includes('/enquiries/create') || p.includes('/cases/create')) {
-      if (location.search.includes('direct=1')) setVipOpen(true);
-    }
-    if (location.pathname.startsWith('/cases') || location.pathname.startsWith('/court-cases')) {
+    const isDirect = location.search.includes('direct=1') ||
+      (location.pathname.includes('/create') && location.search.includes('direct=1'));
+    if (isDirect) {
+      setVipOpen(true);
+      setDacOpen(false);
+    } else if (location.pathname.startsWith('/cases') || location.pathname.startsWith('/court-cases')) {
       setDacOpen(true);
+      setVipOpen(false);
     }
   }, [location.pathname, location.search]);
 
@@ -564,7 +566,7 @@ export default function Layout() {
             <div className="nav-item">
               <a
                 href="#vip-direct"
-                className={`nav-link parent-link${vipOpen ? ' active' : ''}`}
+                className={`nav-link parent-link${vipOpen ? ' open' : ''}`}
                 onClick={(e) => { e.preventDefault(); setVipOpen(!vipOpen); }}
               >
                 <span className="nav-icon">
@@ -580,7 +582,11 @@ export default function Layout() {
               <div className={`nav-submenu${vipOpen ? ' open' : ''}`}>
                 {canSeeDirectVerification(user) && (
                   <div className="nav-item">
-                    <NavLink to="/verifications/create?direct=1" className="nav-link" data-page="direct-verification">
+                    <NavLink
+                      to="/verifications/create?direct=1"
+                      className={({ isActive }) => `nav-link${isActive && location.search.includes('direct=1') ? ' active' : ''}`}
+                      data-page="direct-verification"
+                    >
                       <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
                       <span>VIP Verification</span>
                     </NavLink>
@@ -588,7 +594,11 @@ export default function Layout() {
                 )}
                 {canSeeDirectEnquiry(user) && (
                   <div className="nav-item">
-                    <NavLink to="/enquiries/create?direct=1" className="nav-link" data-page="direct-enquiry">
+                    <NavLink
+                      to="/enquiries/create?direct=1"
+                      className={({ isActive }) => `nav-link${isActive && location.search.includes('direct=1') ? ' active' : ''}`}
+                      data-page="direct-enquiry"
+                    >
                       <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                       <span>VIP Enquiry</span>
                     </NavLink>
@@ -596,7 +606,11 @@ export default function Layout() {
                 )}
                 {canSeeDirectFir(user) && (
                   <div className="nav-item">
-                    <NavLink to="/cases/create?direct=1" className="nav-link" data-page="direct-fir">
+                    <NavLink
+                      to="/cases/create?direct=1"
+                      className={({ isActive }) => `nav-link${isActive && location.search.includes('direct=1') ? ' active' : ''}`}
+                      data-page="direct-fir"
+                    >
                       <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
                       <span>VIP FIR / DAC</span>
                     </NavLink>
@@ -612,7 +626,7 @@ export default function Layout() {
             </NavLink>
           </div>}
           {canView('dac_cases', user) && <div className="nav-item">
-            <a href="#dac" className={`nav-link parent-link${dacOpen ? ' active' : ''}`} onClick={(e) => { e.preventDefault(); setDacOpen(!dacOpen); }}>
+            <a href="#dac" className={`nav-link parent-link${dacOpen ? ' open' : ''}`} onClick={(e) => { e.preventDefault(); setDacOpen(!dacOpen); }}>
               <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
               <span>DAC Cases</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft:'auto',transition:'transform 0.25s',transform:dacOpen?'rotate(180deg)':''}}>
@@ -621,29 +635,27 @@ export default function Layout() {
             </a>
             <div className={`nav-submenu${dacOpen ? ' open' : ''}`}>
               <div className="nav-item">
-                <NavLink to="/cases" className="nav-link" data-page="dac-new">
+                <NavLink
+                  to="/cases"
+                  end
+                  className={({ isActive }) => `nav-link${isActive && !location.search.includes('direct=1') ? ' active' : ''}`}
+                  data-page="dac-new"
+                >
                   <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg></span>
                   <span>All Cases</span>
                 </NavLink>
               </div>
               <div className="nav-item">
-                <NavLink to="/court-cases" className="nav-link" data-page="court-cases">
+                <NavLink
+                  to="/court-cases"
+                  end
+                  className={({ isActive }) => `nav-link${isActive && !location.search.includes('direct=1') ? ' active' : ''}`}
+                  data-page="court-cases"
+                >
                   <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
                   <span>Court Cases</span>
                 </NavLink>
               </div>
-               <div className="nav-item">
-                 <NavLink to="/verifications" className="nav-link" data-page="dac-pending">
-                   <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-                   <span>Pending Cases</span>
-                 </NavLink>
-               </div>
-               <div className="nav-item">
-                 <NavLink to="/court-cases" className="nav-link" data-page="dac-closed">
-                   <span className="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg></span>
-                   <span>Closed Cases</span>
-                 </NavLink>
-               </div>
             </div>
           </div>}
           {canView('reference', user) && <div className="nav-section-label">Reference</div>}

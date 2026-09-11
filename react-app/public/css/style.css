@@ -282,6 +282,16 @@ body:not(.sidebar-collapsed) .main-content {
     box-shadow: 0 4px 15px rgba(39, 173, 255, 0.3);
 }
 
+.nav-link.parent-link {
+    cursor: pointer;
+    user-select: none;
+}
+
+.nav-link.parent-link.open {
+    color: white;
+    background: rgba(255, 255, 255, 0.08);
+}
+
 .nav-icon {
     width: 20px;
     height: 20px;
