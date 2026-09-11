@@ -263,6 +263,18 @@ class Enquiry extends Model
             return $query;
         }
 
+        // Zonal / Regional Head (e.g. Director Punjab / Lahore Central Directorate)
+        if ($user->isZonalHead()) {
+            $effectiveZoneId = $user->zone_id ?: $user->circle?->zone_id;
+            return $query->where(function ($q) use ($effectiveZoneId) {
+                $q->whereHas('complaint.circle', fn ($cq) => $cq->where('zone_id', $effectiveZoneId))
+                  ->orWhere(function ($dq) use ($effectiveZoneId) {
+                      $dq->whereNull('complaint_id')
+                         ->whereHas('officer.circle', fn ($oq) => $oq->where('zone_id', $effectiveZoneId));
+                  });
+            });
+        }
+
         $userRole = $user->role ?? '';
         $isCi = $user->hasRole('circle_incharge') || $userRole === 'circle_incharge';
         $isEo = $user->hasAnyRole(['enquiry_officer', 'investigation_officer', 'inspector', 'sub_inspector', 'officer'])
@@ -270,7 +282,7 @@ class Enquiry extends Model
 
         $isPureVo = ($user->hasRole('verification_officer') || $userRole === 'verification_officer')
             && !$isCi && !$isEo && !$user->hasAnyRole([
-                'admin', 'operator', 'moharrar', 'reader_branch', 'ad_legal', 'dd_legal',
+                'admin', 'operator', 'front_desk_officer', 'moharrar', 'reader_branch', 'ad_legal', 'dd_legal',
                 'additional_director', 'director_general',
             ]);
 
@@ -281,51 +293,40 @@ class Enquiry extends Model
         $isStaff = $isCi || $user->hasAnyRole(['director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin', 'moharrar', 'reader_branch', 'ad_administration']);
 
         if ($isStaff) {
-            if (!$user->circle_id) {
-                return $query;
-            }
-
-            return $query->where(function ($q) use ($user) {
-                $q->whereHas('complaint', function ($sub) use ($user) {
-                    $sub->where('circle_id', $user->circle_id);
-                })->orWhere(function ($dq) use ($user) {
+            $circleId = $user->circle_id ?: 0;
+            return $query->where(function ($q) use ($circleId) {
+                $q->whereHas('complaint', function ($sub) use ($circleId) {
+                    $sub->where('circle_id', $circleId);
+                })->orWhere(function ($dq) use ($circleId) {
                     $dq->whereNull('complaint_id')
-                       ->where(function ($jsonQ) use ($user) {
-                           $jsonQ->where('direct_info->circle_id', $user->circle_id)
-                                 ->orWhere('direct_info->circle_id', (string) $user->circle_id);
+                       ->where(function ($jsonQ) use ($circleId) {
+                           $jsonQ->where('direct_info->circle_id', $circleId)
+                                 ->orWhere('direct_info->circle_id', (string) $circleId);
                        });
                 });
             });
         }
 
         if ($isEo) {
+            $circleId = $user->circle_id ?: 0;
             return $query->where(function ($q) use ($user) {
                 $q->where('enquiry_officer_id', $user->id)
                   ->orWhereHas('caseFile', function ($c) use ($user) {
                       $c->where('investigation_officer_id', $user->id);
                   });
-            })->when($user->circle_id, function ($cq) use ($user) {
-                $cq->where(function ($sq) use ($user) {
-                    $sq->whereHas('complaint', fn ($sub) => $sub->where('circle_id', $user->circle_id))
-                       ->orWhere('direct_info->circle_id', $user->circle_id)
-                       ->orWhere('direct_info->circle_id', (string) $user->circle_id);
-                });
+            })->where(function ($cq) use ($circleId) {
+                $cq->whereHas('complaint', fn ($sub) => $sub->where('circle_id', $circleId))
+                   ->orWhere('direct_info->circle_id', $circleId)
+                   ->orWhere('direct_info->circle_id', (string) $circleId);
             });
         }
 
-        return $query->where(function ($q) use ($user) {
-            $q->where('enquiry_officer_id', $user->id);
-            if ($user->circle_id) {
-                $q->orWhereHas('complaint', function ($sub) use ($user) {
-                    $sub->where('circle_id', $user->circle_id);
-                });
-            }
-        })->when($user->circle_id, function ($cq) use ($user) {
-            $cq->where(function ($sq) use ($user) {
-                $sq->whereHas('complaint', fn ($sub) => $sub->where('circle_id', $user->circle_id))
-                   ->orWhere('direct_info->circle_id', $user->circle_id)
-                   ->orWhere('direct_info->circle_id', (string) $user->circle_id);
+        $circleId = $user->circle_id ?: 0;
+        return $query->where('enquiry_officer_id', $user->id)
+            ->where(function ($cq) use ($circleId) {
+                $cq->whereHas('complaint', fn ($sub) => $sub->where('circle_id', $circleId))
+                   ->orWhere('direct_info->circle_id', $circleId)
+                   ->orWhere('direct_info->circle_id', (string) $circleId);
             });
-        });
     }
 }

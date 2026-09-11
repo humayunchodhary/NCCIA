@@ -128,7 +128,8 @@ class Verification extends Model
         }
 
         if ($user->hasRole('verification_officer')) {
-            return $query->where('verification_officer_id', $user->id);
+            return $query->where('verification_officer_id', $user->id)
+                ->whereIn('complaint_id', Complaint::visibleTo($user)->select('id'));
         }
 
         // Subquery (not pluck) — keeps memory flat at multi-million scale

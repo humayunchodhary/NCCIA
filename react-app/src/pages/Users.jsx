@@ -196,7 +196,7 @@ export default function Users() {
                     <td>{u.email}</td>
                     <td>
                       {u.roles?.length > 0 ? (
-                        <span className="badge badge-active">{u.roles[0].name === 'operator' ? 'Front Desk Officer' : u.roles[0].name}</span>
+                        <span className="badge badge-active">{u.roles[0].name === 'operator' ? 'Front Desk Officer (FDO)' : u.roles[0].name.replace(/_/g, ' ')}</span>
                       ) : (
                         <span className="badge badge-pending">No Role</span>
                       )}

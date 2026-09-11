@@ -47,6 +47,9 @@ class User extends Authenticatable
         $checkSingle = function ($role) use ($userRole, $userDesig) {
             $r = strtolower(trim((string) $role));
             if ($userRole === $r) return true;
+            if ($r === 'operator' || $r === 'front_desk_officer') {
+                if ($userRole === 'operator' || $userRole === 'front_desk_officer' || str_contains($userRole, 'front_desk') || str_contains($userDesig, 'front desk')) return true;
+            }
             if ($r === 'enquiry_officer' && (str_contains($userRole, 'enquiry') || str_contains($userRole, 'inspector') || str_contains($userDesig, 'enquiry') || str_contains($userDesig, 'inspector'))) return true;
             if ($r === 'investigation_officer' && (str_contains($userRole, 'investigation') || str_contains($userDesig, 'investigation'))) return true;
             if ($r === 'verification_officer' && (str_contains($userRole, 'verification') || str_contains($userDesig, 'verification'))) return true;
@@ -124,6 +127,57 @@ class User extends Authenticatable
         // 2. Unassigned circle_id: Admin, DG, and Federal Directorate officers operate at Headquarters
         return $this->hasAnyRole(['admin', 'director_general', 'additional_director', 'ad_legal', 'dd_legal'])
             || in_array(strtolower($this->role ?? ''), ['admin', 'director_general', 'additional_director', 'ad_legal', 'dd_legal'], true);
+    }
+
+    /**
+     * Check if user is a Zonal / Regional Head (e.g. Director Punjab / Lahore Central Directorate overseeing Punjab Zone).
+     */
+    public function isZonalHead(): bool
+    {
+        if ($this->seesAllData()) {
+            return false;
+        }
+        $effectiveZoneId = $this->zone_id ?: $this->circle?->zone_id;
+        if (!$effectiveZoneId) {
+            return false;
+        }
+
+        $userRole = strtolower(trim((string) ($this->role ?? '')));
+        $userDesig = strtolower(trim((string) ($this->designation ?? '')));
+
+        // A Circle Incharge is strictly circle-level, not zonal head
+        if ($userRole === 'circle_incharge' || str_contains($userRole, 'circle_incharge')) {
+            return false;
+        }
+
+        return in_array($userRole, ['zonal_director', 'director', 'additional_director', 'director_punjab'], true)
+            || str_contains($userDesig, 'zonal')
+            || str_contains($userDesig, 'regional director')
+            || (str_contains($userDesig, 'director') && !str_contains($userDesig, 'incharge'));
+    }
+
+    /**
+     * Check whether this user has permission to access records/actions belonging to a specific circle.
+     */
+    public function canAccessCircle(?int $targetCircleId): bool
+    {
+        if (!$targetCircleId) {
+            return false;
+        }
+
+        if ($this->seesAllData()) {
+            return true;
+        }
+
+        if ($this->isZonalHead()) {
+            $effectiveZoneId = $this->zone_id ?: $this->circle?->zone_id;
+            if ($effectiveZoneId) {
+                $targetCircle = Circle::find($targetCircleId);
+                return $targetCircle && (int) $targetCircle->zone_id === (int) $effectiveZoneId;
+            }
+        }
+
+        return (int) $this->circle_id === (int) $targetCircleId;
     }
 
     /**

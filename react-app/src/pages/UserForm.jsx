@@ -14,7 +14,7 @@ const CI_ALLOWED_ROLES = [
   { value: 'investigation_officer', label: 'Investigation Officer (IO)' },
   { value: 'enquiry_officer', label: 'Enquiry Officer (EO)' },
   { value: 'moharrar', label: 'Moharrar' },
-  { value: 'operator', label: 'Front Desk Officer / Operator' },
+  { value: 'operator', label: 'Front Desk Officer (FDO)' },
   { value: 'ad_administration', label: 'AD Administration (AAD)' },
   { value: 'reader_branch', label: 'Reader Branch' },
   { value: 'verification_officer', label: 'Verification Officer (VO)' },

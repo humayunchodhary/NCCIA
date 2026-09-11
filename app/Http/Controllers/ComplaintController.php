@@ -327,9 +327,11 @@ public function create()
             $data['operator_designation'] = $data['operator_designation'] ?? Auth::user()?->designation ?? 'Operator';
             $data['diary_no'] = $data['diary_no'] ?? '';
             $data['source'] = $data['source'] ?? 'Walk-in';
-            // Bind complaint to operator's circle so same-circle CI (e.g. Lahore) receives work
-            if (empty($data['circle_id']) && Auth::user()?->circle_id) {
-                $data['circle_id'] = Auth::user()->circle_id;
+            $user = Auth::user();
+            if ($user && $user->circle_id && !$user->seesAllData()) {
+                $data['circle_id'] = $user->circle_id;
+            } elseif (empty($data['circle_id']) && $user?->circle_id) {
+                $data['circle_id'] = $user->circle_id;
             }
             $data['attachment'] = $this->uploadComplaintFile($request, 'attachment');
             $data['cnic_front'] = $this->uploadComplaintFile($request, 'cnic_front');
@@ -364,6 +366,12 @@ public function create()
             }
 
             if ($scrutinyResult === 'complete' && $officerId) {
+                $targetVo = User::find((int) $officerId);
+                if (!$targetVo || ((int) $targetVo->circle_id !== (int) $complaint->circle_id && !$user?->seesAllData())) {
+                    return response()->json([
+                        'message' => 'Verification Officer must belong to the same circle as the complaint (' . ($complaint->circle?->name ?? 'station') . ').',
+                    ], 422);
+                }
                 $this->assignVerificationOfficer($complaint, (int) $officerId, $assignPriority);
             }
 
@@ -398,6 +406,10 @@ public function create()
 
     public function show(Complaint $complaint)
     {
+        abort_unless(
+            Complaint::visibleTo(request()->user())->whereKey($complaint->id)->exists(),
+            404
+        );
         $this->authorize('view', $complaint);
 
         return new ComplaintResource($complaint->load(['enquiry', 'verification', 'caseFiles', 'circle']));
@@ -570,6 +582,12 @@ public function create()
 
     public function scrutiny(Request $request, Complaint $complaint, TrackingNumberGenerator $trackingGen)
     {
+        abort_unless(
+            Complaint::visibleTo($request->user())->whereKey($complaint->id)->exists(),
+            403,
+            'Unauthorized. You cannot perform scrutiny on complaints outside your circle.'
+        );
+
         $request->validate([
             'status' => 'required|string|in:complete,incomplete,invalid,irrelevant',
             'remarks' => 'nullable|string|max:2000',
@@ -599,17 +617,19 @@ public function create()
         if ($complaint->tracking_no) {
             $this->sendComplainantSms(
                 $complaint,
-                SmsTemplates::complaintStatusUpdate($complaint, $request->status, 'en'),
-                SmsTemplates::complaintStatusUpdate($complaint, $request->status, 'ur'),
-                'complaint_status_update'
+                SmsTemplates::complaintStatusUpdated($complaint, 'en'),
+                SmsTemplates::complaintStatusUpdated($complaint, 'ur'),
+                'complaint_scrutiny'
             );
         }
 
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => 'Complaint status updated to ' . $request->status,
-                'data' => new ComplaintResource($complaint->fresh()),
+                'message' => 'Scrutiny result updated',
+                'status' => $complaint->status,
+                'tracking_no' => $complaint->tracking_no,
                 'complainant_notify' => $notify,
+                'data' => new ComplaintResource($complaint->fresh()),
             ]);
         }
 
@@ -648,10 +668,24 @@ public function create()
      */
     public function directAssign(Request $request, Complaint $complaint)
     {
+        $actor = $request->user();
+        abort_unless(
+            $actor && ($actor->seesAllData() || $actor->canAccessCircle($complaint->circle_id)),
+            403,
+            'Unauthorized. You cannot assign complaints outside your circle jurisdiction.'
+        );
+
         $data = $request->validate([
             'verification_officer_id' => 'required|integer|exists:users,id',
             'priority_type'           => 'required|in:normal,high,critical',
         ]);
+
+        $officer = User::findOrFail((int) $data['verification_officer_id']);
+        if ($complaint->circle_id && (int) $officer->circle_id !== (int) $complaint->circle_id && !$actor->seesAllData()) {
+            return response()->json([
+                'message' => 'Verification Officer must belong to the same circle as the complaint (' . ($complaint->circle?->name ?? 'station') . ').',
+            ], 422);
+        }
 
         $verification = $this->assignVerificationOfficer(
             $complaint,

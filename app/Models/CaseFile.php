@@ -120,6 +120,17 @@ class CaseFile extends Model
             return $query;
         }
 
+        if ($user->isZonalHead()) {
+            $effectiveZoneId = $user->zone_id ?: $user->circle?->zone_id;
+            return $query->where(function ($q) use ($user, $effectiveZoneId) {
+                $q->whereIn('enquiry_id', Enquiry::visibleTo($user)->select('id'))
+                  ->orWhere(function ($d) use ($effectiveZoneId) {
+                      $d->whereNull('enquiry_id')
+                        ->whereHas('investigationOfficer.circle', fn ($oq) => $oq->where('zone_id', $effectiveZoneId));
+                  });
+            });
+        }
+
         if ($user->hasRole('investigation_officer')) {
             return $query->where('investigation_officer_id', $user->id);
         }
@@ -130,12 +141,11 @@ class CaseFile extends Model
             // Direct FIR (no enquiry): strictly within user's circle
             $q->orWhere(function ($d) use ($user) {
                 $d->whereNull('enquiry_id');
-                if ($user->circle_id) {
-                    $d->where(function ($c) use ($user) {
-                        $c->where('direct_info->circle_id', $user->circle_id)
-                          ->orWhere('direct_info->circle_id', (string) $user->circle_id);
-                    });
-                }
+                $circleId = $user->circle_id ?: 0;
+                $d->where(function ($c) use ($circleId) {
+                    $c->where('direct_info->circle_id', $circleId)
+                      ->orWhere('direct_info->circle_id', (string) $circleId);
+                });
             });
         });
     }

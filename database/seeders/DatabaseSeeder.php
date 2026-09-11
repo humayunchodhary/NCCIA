@@ -9,6 +9,8 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        require_once __DIR__ . '/CircleTenancySeeder.php';
+
         $this->call([
             ProfessionSeeder::class,
             ReceivedViaOptionSeeder::class,
@@ -18,6 +20,7 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             ReferenceDataSeeder::class,
             NcciaOfficesSeeder::class,
+            CircleTenancySeeder::class,
         ]);
 
         $roles = [

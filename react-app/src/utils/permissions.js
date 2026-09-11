@@ -2,6 +2,7 @@
 export const ROLE_FEATURES = {
   admin:                ['dashboard', 'analytics', 'department_progress', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'circles', 'offence_types', 'reference', 'sms_logs', 'profile', 'login_history', 'dsr_reports', 'do_letters'],
   circle_incharge:      ['dashboard', 'analytics', 'department_progress', 'complaints', 'verifications', 'reports', 'enquiries', 'io_records', 'dac_cases', 'court_cases', 'users', 'offence_types', 'reference', 'sms_logs', 'profile', 'dsr_reports', 'do_letters'],
+  front_desk_officer:   ['dashboard', 'complaints', 'reference', 'profile'],
   operator:             ['dashboard', 'complaints', 'reference', 'profile'],
   verification_officer: ['dashboard', 'verifications', 'reports', 'reference', 'profile'],
   enquiry_officer:      ['dashboard', 'enquiries', 'dac_cases', 'reference', 'profile'],
@@ -97,14 +98,18 @@ export const ROLE_DUTIES = {
 
 export function hasRole(user, roleName) {
   if (!user) return false;
-  const target = String(roleName).toLowerCase().replace(/[\s-]+/g, '_');
-  const userRole = String(user.role || '').toLowerCase().replace(/[\s-]+/g, '_');
+  let target = String(roleName).toLowerCase().replace(/[\s-]+/g, '_');
+  if (target === 'front_desk_officer' || target === 'front_desk') target = 'operator';
+  let userRole = String(user.role || '').toLowerCase().replace(/[\s-]+/g, '_');
+  if (userRole === 'front_desk_officer' || userRole === 'front_desk') userRole = 'operator';
   if (userRole === target) return true;
   const userDesig = String(user.designation || '').toLowerCase().replace(/[\s-]+/g, '_');
   if (userDesig === target || userDesig.includes(target)) return true;
+  if (target === 'operator' && (userDesig.includes('front_desk') || userDesig.includes('front desk'))) return true;
   if (Array.isArray(user.roles)) {
     return user.roles.some(r => {
-      const name = String(r?.name || r || '').toLowerCase().replace(/[\s-]+/g, '_');
+      let name = String(r?.name || r || '').toLowerCase().replace(/[\s-]+/g, '_');
+      if (name === 'front_desk_officer' || name === 'front_desk') name = 'operator';
       return name === target;
     });
   }

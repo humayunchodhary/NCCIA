@@ -16,6 +16,7 @@ class UserController extends Controller
         'enquiry_officer',
         'moharrar',
         'operator',
+        'front_desk_officer',
         'ad_administration',
         'reader_branch',
         'verification_officer',
@@ -26,8 +27,16 @@ class UserController extends Controller
         $actor = $request->user();
         $query = User::with('roles', 'permissions', 'circle:id,name,code', 'zone:id,name,code')->latest();
 
+        // Zonal / Regional Head: sees users in their zone
+        if ($actor && $actor->isZonalHead()) {
+            $effectiveZoneId = $actor->zone_id ?: $actor->circle?->zone_id;
+            $query->where(function ($q) use ($effectiveZoneId) {
+                $q->where('zone_id', $effectiveZoneId)
+                  ->orWhereHas('circle', fn ($cq) => $cq->where('zone_id', $effectiveZoneId));
+            });
+        }
         // Regional Circle Incharge: strictly limited to users in their circle
-        if ($actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general'])) {
+        elseif ($actor && $actor->hasRole('circle_incharge') && !$actor->seesAllData()) {
             $circleId = $actor->circle_id ?: 0;
             $query->where('circle_id', $circleId);
         }
@@ -60,8 +69,8 @@ class UserController extends Controller
     public function show(Request $request, User $user)
     {
         $actor = $request->user();
-        if ($actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general'])) {
-            if ((int) $user->circle_id !== (int) $actor->circle_id) {
+        if ($actor && !$actor->seesAllData()) {
+            if (!$actor->canAccessCircle($user->circle_id)) {
                 return response()->json(['message' => 'Unauthorized. User belongs to another circle.'], 403);
             }
         }
@@ -73,7 +82,7 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $actor = $request->user();
-        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general']);
+        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->seesAllData();
 
         $rules = [
             'name'        => 'required|string|max:255',
@@ -93,7 +102,7 @@ class UserController extends Controller
             // Circle Incharge can only create specific field/station roles
             if (!in_array($data['role'], self::CIRCLE_MANAGEABLE_ROLES, true)) {
                 return response()->json([
-                    'message' => 'Circle Incharge can only create station staff: IO, EO, Moharrar, Operator, Reader Branch, AD Admin, VO.',
+                    'message' => 'Circle Incharge can only create station staff: Front Desk Officer, VO, EO, IO, Moharrar, Reader Branch, AD Admin.',
                 ], 403);
             }
 
@@ -120,7 +129,7 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $actor = $request->user();
-        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general']);
+        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->seesAllData();
 
         if ($isCi) {
             if ((int) $user->circle_id !== (int) $actor->circle_id) {
@@ -144,7 +153,7 @@ class UserController extends Controller
         if ($isCi) {
             if (!in_array($data['role'], self::CIRCLE_MANAGEABLE_ROLES, true)) {
                 return response()->json([
-                    'message' => 'Circle Incharge can only assign station roles: IO, EO, Moharrar, Operator, Reader Branch, AD Admin, VO.',
+                    'message' => 'Circle Incharge can only assign station roles: Front Desk Officer, VO, EO, IO, Moharrar, Reader Branch, AD Admin.',
                 ], 403);
             }
             $data['circle_id'] = $actor->circle_id;
@@ -177,7 +186,7 @@ class UserController extends Controller
             return response()->json(['message' => 'Cannot delete your own account'], 422);
         }
 
-        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general']);
+        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->seesAllData();
         if ($isCi) {
             if ((int) $user->circle_id !== (int) $actor->circle_id) {
                 return response()->json(['message' => 'Unauthorized. You can only delete officers in your circle.'], 403);
@@ -235,7 +244,7 @@ class UserController extends Controller
     public function resetPassword(Request $request, User $user)
     {
         $actor = $request->user();
-        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->hasAnyRole(['admin', 'director_general']);
+        $isCi = $actor && $actor->hasRole('circle_incharge') && !$actor->seesAllData();
         if ($isCi) {
             if ((int) $user->circle_id !== (int) $actor->circle_id) {
                 return response()->json(['message' => 'Unauthorized. You can only reset password for officers in your circle.'], 403);

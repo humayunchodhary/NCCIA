@@ -178,22 +178,16 @@ class Complaint extends Model
             return $query;
         }
 
-        // Regional Supervisory & Station Staff: CI, Regional Executive, Legal, Moharrar, Reader Branch, AD Admin
-        if ($user->hasAnyRole(['circle_incharge', 'director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin', 'moharrar', 'reader_branch', 'ad_administration'])) {
-            return $user->circle_id
-                ? $query->where('circle_id', $user->circle_id)
-                : $query->whereNull('circle_id');
+        // Zonal / Regional Head (e.g. Director Punjab / Lahore Central Directorate overseeing Punjab Zone)
+        if ($user->isZonalHead()) {
+            $effectiveZoneId = $user->zone_id ?: $user->circle?->zone_id;
+            return $query->whereHas('circle', fn ($cq) => $cq->where('zone_id', $effectiveZoneId));
         }
 
-        // Front Desk Operator: scoped to their circle and their entered complaints
-        if ($user->hasRole('operator')) {
-            return $query->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                  ->orWhere('operator_id', $user->id);
-                if ($user->circle_id) {
-                    $q->orWhere('circle_id', $user->circle_id);
-                }
-            })->when($user->circle_id, fn($q) => $q->where('circle_id', $user->circle_id));
+        // Regional Circle Incharge, Front Desk Officer, and Station Staff: strictly limited to their own circle
+        if ($user->hasRole('circle_incharge') || $user->hasAnyRole(['operator', 'front_desk_officer', 'moharrar', 'reader_branch', 'ad_administration'])) {
+            $circleId = $user->circle_id ?: 0;
+            return $query->where('circle_id', $circleId);
         }
 
         // Scale-safe: EXISTS subqueries — recognize all officer roles and designations

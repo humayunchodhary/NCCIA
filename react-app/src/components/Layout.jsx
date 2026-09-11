@@ -750,6 +750,25 @@ export default function Layout() {
               <span style={{color:'#fff'}} className="separator">›</span>
               <span style={{color:'#fff'}} className="current">{breadcrumb}</span>
             </nav>
+            <div className="header-station-badge" style={{
+              marginLeft: '14px',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              whiteSpace: 'nowrap'
+            }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#48bb78', boxShadow: '0 0 6px #48bb78' }}></span>
+              {user?.circle_code
+                ? `Station: NCCIA ${user.circle?.name || user.circle_code}`
+                : (user?.role === 'admin' || user?.role === 'director_general' ? '🏛️ National HQ (Islamabad)' : '🏢 Regional Directorate')}
+            </div>
           </div>
           <div className="header-search" role="search" ref={searchRef} style={{position:'relative', flex: '0 1 320px', minWidth: 180, maxWidth: 360}}>
             <svg className="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -924,7 +943,9 @@ export default function Layout() {
                 <div className="header-avatar">{initials}</div>
                 <div className="header-user-info">
                   <div className="header-user-name">{user?.name || 'User'}</div>
-                  <div className="header-user-role">{user?.designation || user?.role || 'Officer'} · {user?.circle_code || 'NCCIA'}</div>
+                  <div className="header-user-role">
+                    {user?.designation || (user?.role === 'operator' ? 'Front Desk Officer (FDO)' : user?.role?.replace(/_/g, ' ')) || 'Officer'} · {user?.circle_code ? `${user.circle_code} Circle` : 'National HQ'}
+                  </div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft:'2px',color:'rgba(255,255,255,0.7)',transition:'transform 0.25s',transform:userMenuOpen?'rotate(180deg)':''}}>
                   <polyline points="6 9 12 15 18 9"/>
@@ -936,10 +957,10 @@ export default function Layout() {
                     <div className="user-dropdown-avatar">{initials}</div>
                     <div>
                       <div className="user-dropdown-name">{user?.name || 'User'}</div>
-                      <div className="user-dropdown-role">{user?.designation || user?.role || 'Officer'}</div>
+                      <div className="user-dropdown-role">{user?.designation || (user?.role === 'operator' ? 'Front Desk Officer (FDO)' : user?.role?.replace(/_/g, ' ')) || 'Officer'}</div>
                       <div className="user-dropdown-circle">
                         <span className="user-online-dot"></span>
-                        {user?.circle_code || 'NCCIA'} Circle
+                        {user?.circle?.name || (user?.circle_code ? `${user.circle_code} Circle Station` : 'National Headquarters (Islamabad)')}
                       </div>
                     </div>
                   </div>

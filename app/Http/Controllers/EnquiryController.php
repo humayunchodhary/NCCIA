@@ -734,11 +734,31 @@ class EnquiryController extends Controller
             $complaint = Complaint::find($data['complaint_id']);
         }
 
+        if ($complaint && !$request->user()->canAccessCircle($complaint->circle_id)) {
+            return response()->json(['message' => 'Unauthorized. Complaint belongs to another circle.'], 403);
+        }
+
         if (!$complaint && empty($data['direct_info']['reference_no'] ?? null)) {
             return response()->json([
                 'message' => 'Select a complaint or provide direct enquiry details (reference no).',
                 'errors'  => ['direct_info' => ['Reference No is required for direct enquiry.']],
             ], 422);
+        }
+
+        if (!$complaint && !empty($data['direct_info'])) {
+            if ($request->user()->circle_id && !$request->user()->seesAllData()) {
+                $data['direct_info']['circle_id'] = $request->user()->circle_id;
+            }
+        }
+
+        if ($officerId) {
+            $eo = User::find($officerId);
+            $targetCircleId = $complaint ? $complaint->circle_id : ($data['direct_info']['circle_id'] ?? $request->user()->circle_id);
+            if (!$eo || ($targetCircleId && (int) $eo->circle_id !== (int) $targetCircleId && !$request->user()->seesAllData())) {
+                return response()->json([
+                    'message' => 'Enquiry Officer must belong to the same circle as the enquiry.',
+                ], 422);
+            }
         }
 
         $enquiry = DB::transaction(function () use ($data, $complaint, $request, $officerId, $canFillLegal) {
@@ -1526,10 +1546,26 @@ class EnquiryController extends Controller
 
     public function assign(Request $request, Enquiry $enquiry)
     {
+        $actor = $request->user();
+        abort_unless(
+            Enquiry::visibleTo($actor)->whereKey($enquiry->id)->exists(),
+            403,
+            'Unauthorized. You cannot assign enquiries outside your circle jurisdiction.'
+        );
+
         $data = $request->validate([
             'enquiry_officer_id' => 'required|integer|exists:users,id',
             'change_reason'      => 'nullable|string|max:500',
         ]);
+
+        $enquiryCircleId = $enquiry->complaint?->circle_id ?? ($enquiry->direct_info['circle_id'] ?? null);
+        $eo = User::findOrFail((int) $data['enquiry_officer_id']);
+
+        if ($enquiryCircleId && (int) $eo->circle_id !== (int) $enquiryCircleId && !$actor->seesAllData()) {
+            return response()->json([
+                'message' => 'Enquiry Officer must belong to the same circle as the enquiry.',
+            ], 422);
+        }
 
         $enquiry->load('officer');
         app(OfficerAssignmentService::class)->reassign(
@@ -1570,10 +1606,26 @@ class EnquiryController extends Controller
 
     public function changeOfficer(Request $request, Enquiry $enquiry)
     {
+        $actor = $request->user();
+        abort_unless(
+            Enquiry::visibleTo($actor)->whereKey($enquiry->id)->exists(),
+            403,
+            'Unauthorized. You cannot reassign enquiries outside your circle jurisdiction.'
+        );
+
         $data = $request->validate([
             'enquiry_officer_id' => 'required|integer|exists:users,id',
             'change_reason'      => 'nullable|string|max:500',
         ]);
+
+        $enquiryCircleId = $enquiry->complaint?->circle_id ?? ($enquiry->direct_info['circle_id'] ?? null);
+        $eo = User::findOrFail((int) $data['enquiry_officer_id']);
+
+        if ($enquiryCircleId && (int) $eo->circle_id !== (int) $enquiryCircleId && !$actor->seesAllData()) {
+            return response()->json([
+                'message' => 'Enquiry Officer must belong to the same circle as the enquiry.',
+            ], 422);
+        }
 
         $enquiry->load('officer');
         app(OfficerAssignmentService::class)->reassign(

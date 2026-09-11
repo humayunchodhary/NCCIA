@@ -755,10 +755,26 @@ class CaseFileController extends Controller
 
     public function assignOfficer(Request $request, CaseFile $caseFile)
     {
+        abort_unless(
+            CaseFile::visibleTo($request->user())->whereKey($caseFile->id)->exists(),
+            403,
+            'Unauthorized. You cannot assign cases outside your circle jurisdiction.'
+        );
+
         $data = $request->validate([
             'investigation_officer_id' => 'required|integer|exists:users,id',
             'change_reason'            => 'nullable|string|max:500',
         ]);
+
+        $caseCircleId = $caseFile->enquiry?->complaint?->circle_id
+            ?? ($caseFile->enquiry?->direct_info['circle_id'] ?? ($caseFile->direct_info['circle_id'] ?? null));
+        $io = User::findOrFail((int) $data['investigation_officer_id']);
+
+        if ($caseCircleId && (int) $io->circle_id !== (int) $caseCircleId && !$request->user()->seesAllData()) {
+            return response()->json([
+                'message' => 'Investigation Officer must belong to the same circle as the case.',
+            ], 422);
+        }
 
         $caseFile->load('investigationOfficer');
         app(OfficerAssignmentService::class)->reassign(

@@ -40,7 +40,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'io_records','dac_cases','court_cases','offence_types','reference','sms_logs','profile',
                 'dsr_reports','do_letters',
             ],
-            // CMU: Complete Registration only (+ assign VO on that form)
+            // Front Desk Officer / CMU: Complete Registration only (+ assign VO on that form)
+            'front_desk_officer' => [
+                'dashboard','complaints','profile',
+            ],
             'operator' => [
                 'dashboard','complaints','profile',
             ],

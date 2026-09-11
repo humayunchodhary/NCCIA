@@ -166,7 +166,7 @@ export default function ComplaintForm() {
   const [existingAttachment, setExistingAttachment] = useState(null);
 
   const { user } = useAuth();
-  const isOperator = hasRole(user, 'operator') && !hasRole(user, 'admin') && !hasRole(user, 'circle_incharge');
+  const isOperator = (hasRole(user, 'operator') || hasRole(user, 'front_desk_officer')) && !hasRole(user, 'admin') && !hasRole(user, 'circle_incharge');
   const showAssignVo = canAssignVerification(user);
   const [voOfficers, setVoOfficers] = useState([]);
   const [hasVerification, setHasVerification] = useState(false);
@@ -559,7 +559,22 @@ export default function ComplaintForm() {
       <div className="page-header">
         <div className="page-title-group">
           <h1 className="page-title">{id ? 'Edit Registration' : 'Complete Registration'}</h1>
-          <p className="page-subtitle">{id ? 'Update complaint / registration details' : 'Complaint registration + assign verification officer'}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+            <p className="page-subtitle" style={{ margin: 0 }}>{id ? 'Update complaint / registration details' : 'Complaint registration + assign verification officer'}</p>
+            <span style={{
+              background: '#015C94',
+              color: '#fff',
+              fontSize: '12px',
+              fontWeight: 600,
+              padding: '3px 12px',
+              borderRadius: '999px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              🏢 Station: NCCIA {user?.circle?.name || user?.circle_name || user?.circle_code || 'Station Central'}
+            </span>
+          </div>
           <div className="title-underline"></div>
         </div>
       </div>

@@ -79,22 +79,6 @@ class VerificationReport extends Model
             return $query;
         }
 
-        // circle_incharge and regional station staff only see verification
-        // reports for complaints that belong to their own circle.
-        if ($user->hasAnyRole(['circle_incharge', 'director_general', 'additional_director', 'dd_legal', 'ad_legal', 'admin', 'moharrar', 'reader_branch', 'ad_administration'])) {
-            return $query->whereHas('complaint', function ($q) use ($user) {
-                if ($user->circle_id) {
-                    $q->where('circle_id', $user->circle_id);
-                } else {
-                    $q->whereNull('circle_id');
-                }
-            });
-        }
-
-        // Everyone else (verification/enquiry/investigation officers, operators):
-        // see reports whose complaint is visible to them (assigned/created in scope).
-        return $query->whereHas('complaint', function ($q) use ($user) {
-            (new Complaint())->scopeVisibleTo($q, $user);
-        });
+        return $query->whereIn('complaint_id', Complaint::visibleTo($user)->select('id'));
     }
 }
