@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
-use Laravel\Sanctum\Sanctum;
+use Laravel\Sanctum\TransientToken;
 
 class TestAllApis extends Command
 {
@@ -135,9 +135,13 @@ class TestAllApis extends Command
         $this->newLine();
 
         Auth::login($user);
-        if (class_exists(Sanctum::class)) {
-            Sanctum::actingAs($user, ['*']);
+        Auth::guard('web')->setUser($user);
+        Auth::setUser($user);
+        if (class_exists(\Laravel\Sanctum\TransientToken::class)) {
+            $user->withAccessToken(new \Laravel\Sanctum\TransientToken);
         }
+        app('auth')->guard('sanctum')->setUser($user);
+        app('auth')->shouldUse('sanctum');
 
         $kernel = app()->make(\Illuminate\Contracts\Http\Kernel::class);
 
@@ -148,6 +152,10 @@ class TestAllApis extends Command
         foreach ($this->endpoints as $ep) {
             $expected = $ep['expect'] ?? 200;
             $start = microtime(true);
+
+            Auth::guard('web')->setUser($user);
+            Auth::setUser($user);
+            app('auth')->guard('sanctum')->setUser($user);
 
             $req = Request::create($ep['uri'], $ep['method'], [], [], [], [
                 'HTTP_ACCEPT' => 'application/json',
