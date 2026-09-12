@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 
 # ==============================================================================
 # NCCIA API Automated Test Suite (cURL & Cookie-Auth)
