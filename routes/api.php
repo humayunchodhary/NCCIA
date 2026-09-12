@@ -275,9 +275,9 @@ Route::post('/verifications/bulk-action', [VerificationController::class, 'bulkA
     // Login History — admin + director general
     Route::get('/login-history', [LoginHistoryController::class, 'index'])
         ->middleware('role:admin,director_general');
-    Route::get('/login-history/{user}', [LoginHistoryController::class, 'userHistory'])
-        ->middleware('role:admin,director_general');
     Route::get('/login-history/stats', [LoginHistoryController::class, 'stats'])
+        ->middleware('role:admin,director_general');
+    Route::get('/login-history/{user}', [LoginHistoryController::class, 'userHistory'])
         ->middleware('role:admin,director_general');
 
     // Circle management — admin + director general

@@ -303,15 +303,24 @@ class ComplaintPdfImportController extends Controller
 
     private function findBinary(array $names): ?string
     {
-        foreach ($names as $name) {
-            $path = trim((string) shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null'));
-            if ($path !== '' && is_executable($path)) {
-                return $path;
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        $canExec = function_exists('shell_exec') && !in_array('shell_exec', $disabled, true);
+
+        if ($canExec) {
+            foreach ($names as $name) {
+                try {
+                    $path = trim((string) @shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null'));
+                    if ($path !== '' && @is_executable($path)) {
+                        return $path;
+                    }
+                } catch (\Throwable $e) {
+                    // Ignore and fallback
+                }
             }
         }
 
         foreach (['/usr/bin/gs', '/usr/local/bin/gs', '/usr/bin/pdftoppm', '/usr/bin/mutool'] as $path) {
-            if (is_executable($path)) {
+            if (@file_exists($path) && @is_executable($path)) {
                 return $path;
             }
         }
