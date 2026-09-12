@@ -137,11 +137,17 @@ class TestAllApis extends Command
         Auth::login($user);
         Auth::guard('web')->setUser($user);
         Auth::setUser($user);
-        if (class_exists(\Laravel\Sanctum\TransientToken::class)) {
+        if (method_exists($user, 'withAccessToken') && class_exists(\Laravel\Sanctum\TransientToken::class)) {
             $user->withAccessToken(new \Laravel\Sanctum\TransientToken);
         }
         app('auth')->guard('sanctum')->setUser($user);
         app('auth')->shouldUse('sanctum');
+
+        $session = app('session.store');
+        if (!$session->isStarted()) {
+            $session->start();
+        }
+        $session->put(Auth::guard('web')->getName(), $user->getAuthIdentifier());
 
         $kernel = app()->make(\Illuminate\Contracts\Http\Kernel::class);
 
@@ -161,6 +167,7 @@ class TestAllApis extends Command
                 'HTTP_ACCEPT' => 'application/json',
                 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest',
             ]);
+            $req->setLaravelSession($session);
             $req->setUserResolver(fn () => $user);
 
             try {
