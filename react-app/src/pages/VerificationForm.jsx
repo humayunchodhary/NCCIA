@@ -159,7 +159,7 @@ export default function VerificationForm() {
     window.open(`https://wa.me/${phoneRaw}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  const addAccused = () => setAccused(list => [...list, { ...EMPTY_VIP_ACCUSED }]);
+  const addAccused = () => setAccused(list => [{ ...EMPTY_VIP_ACCUSED }, ...list]);
   const removeAccused = (i) => setAccused(list => list.filter((_, idx) => idx !== i));
   const updateAccused = (i, field, value) => setAccused(list => list.map((a, idx) => idx === i ? { ...a, [field]: value } : a));
 

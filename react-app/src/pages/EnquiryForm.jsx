@@ -766,8 +766,8 @@ export default function EnquiryForm() {
   // Accused
   const addAccused = () => {
     setForm(f => {
-      setEditingAccusedIndex(f.accused.length);
-      return { ...f, accused: [...f.accused, { ...EMPTY_ACCUSED }] };
+      setEditingAccusedIndex(0);
+      return { ...f, accused: [{ ...EMPTY_ACCUSED, _uid: `acc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }, ...f.accused] };
     });
   };
   const removeAccused = (i) => {
@@ -816,7 +816,7 @@ export default function EnquiryForm() {
   const isAccusedEditing = (a, i) => editingAccusedIndex === i;
 
   // Attachments
-  const addAttachment = () => setForm(f => ({ ...f, attachments: [...f.attachments, { ...EMPTY_ATTACHMENT, attachment_date: new Date().toISOString().split('T')[0] }] }));
+  const addAttachment = () => setForm(f => ({ ...f, attachments: [{ ...EMPTY_ATTACHMENT, _uid: `att_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, attachment_date: new Date().toISOString().split('T')[0] }, ...f.attachments] }));
   const removeAttachment = (i) => {
     const rec = form.attachments[i];
     if (isSavedDiaryLocked(rec, user)) {
@@ -836,12 +836,12 @@ export default function EnquiryForm() {
   const updateAttachmentFile = (i, file) => setForm(f => ({ ...f, attachments: f.attachments.map((a, idx) => idx === i ? { ...a, file } : a) }));
 
   // Requisitions
-  const addRequisition = () => setForm(f => ({ ...f, requisitions: [...f.requisitions, { ...EMPTY_REQUISITION }] }));
+  const addRequisition = () => setForm(f => ({ ...f, requisitions: [{ ...EMPTY_REQUISITION, _uid: `req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }, ...f.requisitions] }));
   const removeRequisition = (i) => setForm(f => ({ ...f, requisitions: f.requisitions.filter((_, idx) => idx !== i) }));
   const updateRequisition = (i, field, value) => setForm(f => ({ ...f, requisitions: f.requisitions.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '', case_category: 'Financial Fraud', subject: '', kota: '', against_whom: '', scheduled_at: '' }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [{ _uid: `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, type: '', diary_no: '', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, seize_items: [], analysis_scope: '', case_category: 'Financial Fraud', subject: '', kota: '', against_whom: '', scheduled_at: '' }, ...f.activities] }));
   const removeActivity = (i) => {
     const act = form.activities[i];
     if (isSavedDiaryLocked(act, user)) {
@@ -865,7 +865,7 @@ export default function EnquiryForm() {
       }
       const next = { ...a, [field]: value };
       if (field === 'type' && value === 'seizures' && !(next.seize_items || []).length) {
-        next.seize_items = [{ ...EMPTY_SEIZE_ITEM }];
+        next.seize_items = [{ ...EMPTY_SEIZE_ITEM, _uid: `sz_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }];
       }
       if (field === 'type' && ['search_seize', 'raid', 'arrest_warrant'].includes(value) && !next.against_whom) {
         const firstAcc = (form.accused || []).find(x => (x.name || '').trim());
@@ -881,7 +881,7 @@ export default function EnquiryForm() {
     return {
     ...f,
     activities: f.activities.map((a, idx) => idx === activityIndex
-      ? { ...a, seize_items: [...(a.seize_items || []), { ...EMPTY_SEIZE_ITEM }] }
+      ? { ...a, seize_items: [{ ...EMPTY_SEIZE_ITEM, _uid: `sz_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }, ...(a.seize_items || [])] }
       : a),
     };
   });
@@ -915,20 +915,20 @@ export default function EnquiryForm() {
   }));
 
   // Legal Opinions
-  const addLegalOpinion = () => setForm(f => ({ ...f, legal_opinions: [...f.legal_opinions, { role: '', opinion_text: '', decision: '', created_by: user?.id }] }));
+  const addLegalOpinion = () => setForm(f => ({ ...f, legal_opinions: [{ _uid: `lo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, role: '', opinion_text: '', decision: '', created_by: user?.id }, ...f.legal_opinions] }));
   const removeLegalOpinion = (i) => setForm(f => ({ ...f, legal_opinions: f.legal_opinions.filter((_, idx) => idx !== i) }));
   const updateLegalOpinion = (i, field, value) => setForm(f => ({ ...f, legal_opinions: f.legal_opinions.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Approvals
-  const addApproval = () => setForm(f => ({ ...f, approvals: [...f.approvals, { circle_incharge_id: '', decision: '', remarks: '' }] }));
+  const addApproval = () => setForm(f => ({ ...f, approvals: [{ _uid: `app_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, circle_incharge_id: '', decision: '', remarks: '' }, ...f.approvals] }));
   const removeApproval = (i) => setForm(f => ({ ...f, approvals: f.approvals.filter((_, idx) => idx !== i) }));
   const updateApproval = (i, field, value) => setForm(f => ({ ...f, approvals: f.approvals.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
 
   // Witnesses
   const addWitness = () => {
     setForm(f => {
-      setEditingWitnessIndex(f.witnesses.length);
-      return { ...f, witnesses: [...f.witnesses, { ...EMPTY_WITNESS }] };
+      setEditingWitnessIndex(0);
+      return { ...f, witnesses: [{ ...EMPTY_WITNESS, _uid: `wit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }, ...f.witnesses] };
     });
   };
   const removeWitness = (i) => {
@@ -954,16 +954,16 @@ export default function EnquiryForm() {
   // Notices
   const addNotice = () => {
     setForm(f => {
-      setEditingNoticeIndex(f.notices.length);
-      return { ...f, notices: [...f.notices, { notice_number: '', notice_type: '', receiver_name: '', father_name: '', cnic: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }] };
+      setEditingNoticeIndex(0);
+      return { ...f, notices: [{ _uid: `not_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, notice_number: '', notice_type: '', receiver_name: '', father_name: '', cnic: '', person_type: '', person_ref: '', notice_via: '', notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', address: '', phone: '', description: '', status: 'issued' }, ...f.notices] };
     });
   };
   const duplicateNotice = (i) => {
     setForm(f => {
       const existing = f.notices[i];
-      const newNotice = { ...existing, id: undefined, notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', status: 'issued' };
-      setEditingNoticeIndex(f.notices.length);
-      return { ...f, notices: [...f.notices, newNotice] };
+      const newNotice = { ...existing, id: undefined, _uid: `not_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, notice_date: new Date().toISOString().split('T')[0], appearance_date: '', appearance_remarks: '', status: 'issued' };
+      setEditingNoticeIndex(0);
+      return { ...f, notices: [newNotice, ...f.notices] };
     });
   };
   const removeNotice = (i) => {
@@ -1430,10 +1430,18 @@ export default function EnquiryForm() {
     const fd = new FormData();
 
     const serializeArr = (items, fileFieldName) => {
-      const clean = items.map(it => {
+      const clean = items.map((it, i) => {
         const o = { ...it };
+        delete o._uid;
+        if (Array.isArray(o.seize_items)) {
+          o.seize_items = o.seize_items.map(si => {
+            const copy = { ...si };
+            delete copy._uid;
+            return copy;
+          });
+        }
         if (o.attachment instanceof File) {
-          fd.append(fileFieldName + '[]', o.attachment);
+          fd.append(`${fileFieldName}[${i}]`, o.attachment);
           delete o.attachment;
         } else if (o.attachment && typeof o.attachment === 'string') {
           o.attachment_path = o.attachment_path || o.attachment;
@@ -1447,6 +1455,7 @@ export default function EnquiryForm() {
     const serializeWitnesses = (items) => {
       const clean = items.map((it, i) => {
         const o = { ...it };
+        delete o._uid;
         if (o.attachment instanceof File) {
           fd.append(`witness_attachments[${i}]`, o.attachment);
           delete o.attachment;
@@ -1467,6 +1476,7 @@ export default function EnquiryForm() {
     const serializeAccused = (items) => {
       const clean = items.map((it, i) => {
         const o = { ...it };
+        delete o._uid;
         if (o.cnic_attachment instanceof File) {
           fd.append(`accused_cnic_attachments[${i}]`, o.cnic_attachment);
           delete o.cnic_attachment;
@@ -1487,6 +1497,7 @@ export default function EnquiryForm() {
     const serializeEnquiryAttachments = (items) => {
       const clean = items.map((it, i) => {
         const o = { ...it };
+        delete o._uid;
         if (o.file instanceof File) {
           fd.append(`enquiry_attachment_files[${i}]`, o.file);
           delete o.file;
@@ -1495,6 +1506,11 @@ export default function EnquiryForm() {
       });
       return JSON.stringify(clean);
     };
+
+    const stripUid = (items) => (items || []).map(it => {
+      const { _uid, ...rest } = it;
+      return rest;
+    });
 
     const scalarKeys = [
       'complaint_id', 'tracking_no', 'enquiry_number', 'reg_date', 'status', 'priority', 'enquiry_officer_id',
@@ -1518,11 +1534,11 @@ export default function EnquiryForm() {
     fd.append('activities', serializeArr(form.activities || [], 'activity_attachments'));
     fd.append('accused', serializeAccused(form.accused || []));
     fd.append('witnesses', serializeWitnesses(form.witnesses || []));
-    fd.append('notices', JSON.stringify(form.notices || []));
+    fd.append('notices', JSON.stringify(stripUid(form.notices || [])));
     fd.append('attachments', serializeEnquiryAttachments(form.attachments || []));
-    fd.append('requisitions', JSON.stringify(form.requisitions || []));
-    fd.append('legal_opinions', JSON.stringify(form.legal_opinions || []));
-    fd.append('approvals', JSON.stringify(form.approvals || []));
+    fd.append('requisitions', JSON.stringify(stripUid(form.requisitions || [])));
+    fd.append('legal_opinions', JSON.stringify(stripUid(form.legal_opinions || [])));
+    fd.append('approvals', JSON.stringify(stripUid(form.approvals || [])));
 
     if (technicalFile) fd.append('technical_report_attachment', technicalFile);
     if (forensicFile) fd.append('forensic_report_attachment', forensicFile);
@@ -2641,7 +2657,7 @@ export default function EnquiryForm() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Attachment
               </button>
               {form.attachments.map((at, i) => (
-                <div key={at.id || `att-${i}`} className={isSavedDiaryLocked(at, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={at.id || at._uid || `att-${i}`} className={isSavedDiaryLocked(at, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
                     <div className="cf-field"><label className="cf-label">Title</label><input type="text" className="cf-input" value={at.title} onChange={e => updateAttachment(i, 'title', e.target.value)} /></div>
                     <div className="cf-field"><label className="cf-label">Attachment Date</label><input type="date" className="cf-input" value={at.attachment_date} onChange={e => updateAttachment(i, 'attachment_date', e.target.value)} /></div>
@@ -2785,7 +2801,7 @@ export default function EnquiryForm() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Activity
               </button>
               {form.activities.map((a, i) => (
-                <div key={a.id || `new-act-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={a.id || a._uid || `new-act-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   {isSavedDiaryLocked(a, user) && (
                     <div style={{ padding: '8px 12px', marginBottom: 12, background: '#e2e8f0', color: '#334155', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
                       Saved diary entry — only Circle Incharge can edit or delete. New activities abhi bhi add ki ja sakti hain.
@@ -3337,7 +3353,7 @@ export default function EnquiryForm() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Requisition
               </button>
               {form.requisitions.map((rq, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={rq.id || rq._uid || `rq-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Type</label>
                       <select className="cf-input" value={rq.type} onChange={e => updateRequisition(i, 'type', e.target.value)}>
@@ -3394,7 +3410,7 @@ export default function EnquiryForm() {
                 </button>
               )}
               {form.legal_opinions.map((lo, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={lo.id || lo._uid || `lo-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Role</label>
                       <select className="cf-input" value={lo.role} onChange={e => updateLegalOpinion(i, 'role', e.target.value)} disabled={!canFillLegal}>
@@ -3452,7 +3468,7 @@ export default function EnquiryForm() {
                 </button>
               )}
               {form.approvals.map((ap, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={ap.id || ap._uid || `ap-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Reviewing Officer</label>
                       <select className="cf-input" value={ap.circle_incharge_id} onChange={e => updateApproval(i, 'circle_incharge_id', e.target.value)} disabled={!canFillLegal}>

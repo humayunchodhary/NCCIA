@@ -203,7 +203,7 @@ export default function ComplaintForm() {
   };
 
   const addInitialAccused = () => {
-    setForm(f => ({ ...f, initial_accused: [...(f.initial_accused || []), { ...EMPTY_ACCUSED }] }));
+    setForm(f => ({ ...f, initial_accused: [{ ...EMPTY_ACCUSED }, ...(f.initial_accused || [])] }));
   };
 
   const removeInitialAccused = (index) => {
@@ -815,6 +815,10 @@ export default function ComplaintForm() {
           <div className="cf-body">
             <p style={{ fontSize: 13, color: '#6c757d', marginTop: 0, marginBottom: 16 }}>Add accused details if known at this stage. You can add more during verification.</p>
             <div className="cf-repeater">
+              <button type="button" className="btn btn-outline btn-sm" onClick={addInitialAccused} style={{ marginBottom: 16 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Accused
+              </button>
               {(form.initial_accused || []).map((a, i) => (
                 <div key={i} style={{ padding: '12px', marginBottom: '12px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
@@ -896,10 +900,6 @@ export default function ComplaintForm() {
                   </div>
                 </div>
               ))}
-              <button type="button" className="btn btn-outline btn-sm" onClick={addInitialAccused}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Accused
-              </button>
             </div>
           </div>
         </div>

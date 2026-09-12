@@ -274,7 +274,7 @@ export default function CaseForm() {
   const setF = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
   // Activities
-  const addActivity = () => setForm(f => ({ ...f, activities: [...f.activities, { type: '', case_category: 'Financial Fraud', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, subject: '', kota: '', against_whom: '', scheduled_at: '', seize_items: [], analysis_scope: '' }] }));
+  const addActivity = () => setForm(f => ({ ...f, activities: [{ _uid: `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, type: '', case_category: 'Financial Fraud', description: '', activity_date: new Date().toISOString().split('T')[0], attachment: null, subject: '', kota: '', against_whom: '', scheduled_at: '', seize_items: [], analysis_scope: '' }, ...f.activities] }));
   const removeActivity = (i) => {
     const act = form.activities[i];
     if (isSavedDiaryLocked(act, user)) {
@@ -302,7 +302,7 @@ export default function CaseForm() {
         if (firstAcc) next.against_whom = firstAcc.name;
       }
       if (field === 'type' && value === 'seizure' && !(next.seize_items || []).length) {
-        next.seize_items = [{ ...EMPTY_SEIZE_ITEM }];
+        next.seize_items = [{ ...EMPTY_SEIZE_ITEM, _uid: `sz_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }];
       }
       return next;
     }),
@@ -314,7 +314,7 @@ export default function CaseForm() {
     return {
     ...f,
     activities: f.activities.map((a, idx) => idx === activityIndex
-      ? { ...a, seize_items: [...(a.seize_items || []), { ...EMPTY_SEIZE_ITEM }] }
+      ? { ...a, seize_items: [{ ...EMPTY_SEIZE_ITEM, _uid: `sz_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }, ...(a.seize_items || [])] }
       : a),
     };
   });
@@ -347,12 +347,13 @@ export default function CaseForm() {
   // Arrests
   const addArrest = (prefill = null) => setForm(f => ({
     ...f,
-    arrests: [...f.arrests, {
+    arrests: [{
+      _uid: `arr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       accused_name: prefill?.name || '',
       cnic: prefill?.cnic || '',
       arrest_date: new Date().toISOString().split('T')[0],
       remand_details: '',
-    }],
+    }, ...f.arrests],
   }));
   const removeArrest = (i) => {
     const row = form.arrests[i];
@@ -377,12 +378,13 @@ export default function CaseForm() {
       || (roleNames.includes('director_general') ? 'dg_legal' : '');
     setForm(f => ({
       ...f,
-      legal_opinions: [...f.legal_opinions, {
+      legal_opinions: [{
+        _uid: `lo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         role: defaultRole,
         opinion_text: '',
         decision: '',
         created_by: user?.id || '',
-      }],
+      }, ...f.legal_opinions],
     }));
   };
   const removeLegalOpinion = (i) => setForm(f => ({ ...f, legal_opinions: f.legal_opinions.filter((_, idx) => idx !== i) }));
@@ -391,7 +393,7 @@ export default function CaseForm() {
   // Approvals
   const addApproval = () => setForm(f => ({
     ...f,
-    approvals: [...f.approvals, { circle_incharge_id: user?.id || '', decision: '', remarks: '' }],
+    approvals: [{ _uid: `app_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, circle_incharge_id: user?.id || '', decision: '', remarks: '' }, ...f.approvals],
   }));
   const removeApproval = (i) => setForm(f => ({ ...f, approvals: f.approvals.filter((_, idx) => idx !== i) }));
   const updateApproval = (i, field, value) => setForm(f => ({ ...f, approvals: f.approvals.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
@@ -901,7 +903,7 @@ export default function CaseForm() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Activity
               </button>
               {form.activities.map((a, i) => (
-                <div key={a.id || `new-act-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={a.id || a._uid || `new-act-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   {isSavedDiaryLocked(a, user) && (
                     <div style={{ padding: '8px 12px', marginBottom: 12, background: '#e2e8f0', color: '#334155', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
                       Saved diary entry — only Circle Incharge can edit or delete. New activities abhi bhi add ki ja sakti hain.
@@ -1334,7 +1336,7 @@ export default function CaseForm() {
               </button>
               </div>
               {form.arrests.map((a, i) => (
-                <div key={a.id || `new-arr-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={a.id || a._uid || `new-arr-${i}`} className={isSavedDiaryLocked(a, user) ? 'diary-saved-locked' : undefined} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   {isSavedDiaryLocked(a, user) && (
                     <div style={{ padding: '8px 12px', marginBottom: 12, background: '#e2e8f0', color: '#334155', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
                       Saved arrest — only Circle Incharge can edit or delete.
@@ -1388,7 +1390,7 @@ export default function CaseForm() {
                 </button>
               )}
               {form.legal_opinions.map((lo, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={lo.id || lo._uid || `lo-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Role</label>
                       <select className="cf-input" value={lo.role} onChange={e => updateLegalOpinion(i, 'role', e.target.value)} disabled={!canFillLegal}>
@@ -1446,7 +1448,7 @@ export default function CaseForm() {
                 </button>
               )}
               {form.approvals.map((ap, i) => (
-                <div key={i} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                <div key={ap.id || ap._uid || `ap-${i}`} style={{ padding: '16px', marginBottom: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px' }}>
                     <div className="cf-field"><label className="cf-label">Reviewing Officer</label>
                       <select className="cf-input" value={ap.circle_incharge_id} onChange={e => updateApproval(i, 'circle_incharge_id', e.target.value)} disabled={!canFillLegal}>

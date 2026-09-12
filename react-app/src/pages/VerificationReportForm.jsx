@@ -601,13 +601,13 @@ export default function VerificationReportForm() {
     }
   };
 
-  const addAccused = () => setForm(f => ({ ...f, accused: [...f.accused, { name: '', father_name: '', phone: '', email: '', country_code: '+92', cnic: '', address: '', post_address: '', nationality: 'Pakistani', passport_no: '', photo: null, cnic_front: '', cnic_back: '', passport_attachment: '', picture: '', other_attachment: '' }] }));
+  const addAccused = () => setForm(f => ({ ...f, accused: [{ name: '', father_name: '', phone: '', email: '', country_code: '+92', cnic: '', address: '', post_address: '', nationality: 'Pakistani', passport_no: '', photo: null, cnic_front: '', cnic_back: '', passport_attachment: '', picture: '', other_attachment: '' }, ...f.accused] }));
   const removeAccused = (i) => setForm(f => ({ ...f, accused: f.accused.filter((_, idx) => idx !== i) }));
   const updateAccused = (i, field, value) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: value } : a) }));
   const updateAccusedFile = (i, field, file) => setForm(f => ({ ...f, accused: f.accused.map((a, idx) => idx === i ? { ...a, [field]: file } : a) }));
 
-  const addEvidence = () => setForm(f => ({ ...f, evidence: [...f.evidence, { file: null, desc: '' }] }));
-  const addTransaction = () => setForm(f => ({ ...f, transactions: [...(f.transactions || []), { bank: '', account: '', amount: '', date: '', file: null }] }));
+  const addEvidence = () => setForm(f => ({ ...f, evidence: [{ file: null, desc: '' }, ...f.evidence] }));
+  const addTransaction = () => setForm(f => ({ ...f, transactions: [{ bank: '', account: '', amount: '', date: '', file: null }, ...(f.transactions || [])] }));
   const removeTransaction = (i) => setForm(f => ({ ...f, transactions: (f.transactions || []).filter((_, idx) => idx !== i) }));
   const updateTransaction = (i, field, value) => setForm(f => ({ ...f, transactions: (f.transactions || []).map((t, idx) => idx === i ? { ...t, [field]: value } : t) }));
   const updateTransactionFile = (i, file) => setForm(f => ({ ...f, transactions: (f.transactions || []).map((t, idx) => idx === i ? { ...t, file } : t) }));
@@ -918,6 +918,7 @@ export default function VerificationReportForm() {
           <div className="cf-body">
             <p style={{fontSize:13,color:'#6c757d',marginTop:0,marginBottom:16}}>If no accused details are entered, it will be treated as unknown. You can add accused info later.</p>
             <div className="cf-repeater">
+                <button type="button" className="btn btn-outline btn-sm" onClick={addAccused} style={{marginBottom:'16px'}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Accused</button>
                 <div id="accusedList">
                   {form.accused.map((a, i) => (
                     <div key={i} style={{padding:'12px',marginBottom:'12px',background:'#f8f8f8',borderRadius:'8px',border:'1px solid #e0e0e0'}}>
@@ -985,7 +986,6 @@ export default function VerificationReportForm() {
                     </div>
                   ))}
                 </div>
-                <button type="button" className="btn btn-outline btn-sm" onClick={addAccused}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Accused</button>
               </div>
           </div>
         </div>
@@ -1081,6 +1081,7 @@ export default function VerificationReportForm() {
           </div>
           <div className="cf-body">
             <div className="cf-repeater">
+              <button type="button" className="btn btn-outline btn-sm" onClick={addEvidence} style={{ marginBottom: 16 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Evidence</button>
               <div id="evidenceList">
                 {form.evidence.map((e, i) => (
                   <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:'12px',marginBottom:'12px',padding:'12px',background:'#f8f8f8',borderRadius:'8px',border:'1px solid #e0e0e0'}}>
@@ -1092,7 +1093,6 @@ export default function VerificationReportForm() {
                   </div>
                 ))}
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={addEvidence}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Evidence</button>
             </div>
           </div>
         </div>
@@ -1110,6 +1110,7 @@ export default function VerificationReportForm() {
           </div>
           <div className="cf-body">
             <div className="cf-repeater">
+              <button type="button" className="btn btn-outline btn-sm" onClick={addTransaction} style={{ marginBottom: 16 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Transaction</button>
               <div id="transactionList">
                 {(form.transactions || []).map((t, i) => (
                   <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr auto',gap:'12px',marginBottom:'12px',padding:'12px',background:'#f8f8f8',borderRadius:'8px',border:'1px solid #e0e0e0'}}>
@@ -1124,7 +1125,6 @@ export default function VerificationReportForm() {
                   </div>
                 ))}
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={addTransaction}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Transaction</button>
             </div>
           </div>
         </div>

@@ -115,7 +115,6 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
 
   const handleAddItem = () => {
     setItems([
-      ...items,
       {
         item_type: 'phone',
         make_model: '',
@@ -128,6 +127,7 @@ export default function ExternalForensicRequestModal({ isOpen, onClose, onSucces
         quantity: 1,
         description: '',
       },
+      ...items,
     ]);
   };
 
