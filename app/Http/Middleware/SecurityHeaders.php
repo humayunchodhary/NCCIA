@@ -10,7 +10,11 @@ class SecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        @header_remove('X-Powered-By');
+
         $response = $next($request);
+
+        $response->headers->remove('X-Powered-By');
 
         // Anti-Clickjacking
         $response->headers->set('X-Frame-Options', 'DENY');
